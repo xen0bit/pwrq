@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // FindOptions represents options for the find function
@@ -127,9 +128,12 @@ func parseFindArgs(args []any) (FindOptions, error) {
 	if len(args) == 0 {
 		return opts, fmt.Errorf("find: expected at least 1 argument (path)")
 	}
-
+	
+	// Extract _val from UDF result objects (standard behavior for all UDFs)
+	pathArg := common.ExtractUDFValue(args[0])
+	
 	// First argument is always the path
-	path, ok := args[0].(string)
+	path, ok := pathArg.(string)
 	if !ok {
 		return opts, fmt.Errorf("find: first argument must be a string (path)")
 	}
@@ -153,8 +157,9 @@ func parseFindArgs(args []any) (FindOptions, error) {
 
 	// Parse additional arguments
 	for i := 1; i < len(args); i++ {
-		arg := args[i]
-
+		// Extract _val from UDF result objects (standard behavior for all UDFs)
+		arg := common.ExtractUDFValue(args[i])
+		
 		switch v := arg.(type) {
 		case string:
 			// String argument could be type specification

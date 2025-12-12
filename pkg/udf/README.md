@@ -33,26 +33,39 @@ To add a new UDF:
 1. Create a new package under `pkg/udf/` (e.g., `pkg/udf/myfunction/`)
 2. Implement your function following the gojq function signature
 3. **Return objects with `_val` and `_meta` keys** (see UDF Return Format above)
-4. Create a `Register*()` function that returns a `gojq.CompilerOption`
-5. Register it in `pkg/udf/registry.go` in the `DefaultRegistry()` function
+4. **Use `common.ExtractUDFValue()` to automatically extract `_val` from UDF result inputs** (see Automatic `_val` Extraction below)
+5. Create a `Register*()` function that returns a `gojq.CompilerOption`
+6. Register it in `pkg/udf/registry.go` in the `DefaultRegistry()` function
 
 Example:
 
 ```go
 package myfunction
 
-import "github.com/itchyny/gojq"
+import (
+    "github.com/itchyny/gojq"
+    "github.com/xen0bit/pwrq/pkg/udf/common"
+)
 
 func RegisterMyFunction() gojq.CompilerOption {
-    return gojq.WithIterFunction("myfunc", 1, 1, func(v any, args []any) gojq.Iter {
-        // Implementation that returns objects with _val and _meta
-        result := map[string]any{
-            "_val": actualValue,
+    return gojq.WithFunction("myfunc", 0, 1, func(v any, args []any) any {
+        // Extract _val from UDF result objects (standard behavior)
+        var inputVal any
+        if len(args) > 0 {
+            inputVal = common.ExtractUDFValue(args[0])
+        } else {
+            inputVal = common.ExtractUDFValue(v)
+        }
+        
+        // Process inputVal...
+        
+        // Return object with _val and _meta
+        return map[string]any{
+            "_val": resultValue,
             "_meta": map[string]any{
                 "metadata_key": "metadata_value",
             },
         }
-        return gojq.NewIter(result)
     })
 }
 ```
@@ -63,13 +76,35 @@ Then in `registry.go`:
 reg.Register(myfunction.RegisterMyFunction())
 ```
 
-## UDF Return Format
+### Automatic `_val` Extraction
 
-All UDFs return objects with the following structure:
-- `_val`: The actual value returned by the function
-- `_meta`: Metadata associated with the value (function-specific)
+**This is standard behavior for ALL UDFs.** When chaining UDFs together, if a UDF receives a UDF result object (an object with `_val` and `_meta` keys) as input, it will automatically extract the `_val` field. This allows for cleaner chaining:
 
-This standardized format allows for consistent handling of UDF results and enables rich metadata to be attached to values.
+```bash
+# Instead of this:
+pwrq '"hello" | base64_encode | ._val | base64_decode | ._val'
+
+# You can do this:
+pwrq '"hello" | base64_encode | base64_decode | ._val'
+```
+
+This works for all UDFs:
+- `base64_encode | base64_decode`
+- `find("path") | map(._val) | base64_encode`
+- Any future UDFs you create
+
+However, if you need to access `_meta` in between UDF calls, you can still do so:
+
+```bash
+# Access metadata
+pwrq '"hello" | base64_encode | ._meta.encoding'
+# Output: "base64"
+
+# Then continue with the value
+pwrq '"hello" | base64_encode | ._meta.encoding | base64_encode'
+```
+
+**Implementation Note:** All UDFs should use `common.ExtractUDFValue()` from `pkg/udf/common` to extract `_val` from UDF result objects. This ensures consistent behavior across all UDFs.
 
 ## Available UDFs
 
@@ -105,6 +140,10 @@ pwrq '"hello" | base64_encode'
 # Extract just the encoded value
 pwrq '"hello" | base64_encode | ._val'
 # Output: "aGVsbG8="
+
+# Chain UDFs - _val is automatically extracted when chaining
+pwrq '"hello" | base64_encode | base64_decode'
+# Output: {"_val": "hello", "_meta": {...}}
 ```
 
 ### base64_decode
@@ -140,8 +179,12 @@ pwrq '"aGVsbG8=" | base64_decode'
 pwrq '"aGVsbG8=" | base64_decode | ._val'
 # Output: "hello"
 
-# Round-trip encoding/decoding
-pwrq '"hello world" | base64_encode | ._val | base64_decode | ._val'
+# Round-trip encoding/decoding (automatic _val extraction)
+pwrq '"hello world" | base64_encode | base64_decode'
+# Output: {"_val": "hello world", "_meta": {...}}
+
+# Or extract the final value
+pwrq '"hello world" | base64_encode | base64_decode | ._val'
 # Output: "hello world"
 ```
 

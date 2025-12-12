@@ -65,7 +65,7 @@ pwrq '[find("pkg/udf")] | map(select(._meta.type == "file"))'
 
 ### base64_encode / base64_decode
 
-Base64 encoding and decoding functions:
+Base64 encoding and decoding functions with automatic `_val` extraction when chaining:
 
 ```bash
 # Encode a string
@@ -74,8 +74,8 @@ pwrq '"hello" | base64_encode | ._val'
 # Decode a base64 string
 pwrq '"aGVsbG8=" | base64_decode | ._val'
 
-# Round-trip
-pwrq '"hello world" | base64_encode | ._val | base64_decode | ._val'
+# Round-trip (automatic _val extraction)
+pwrq '"hello world" | base64_encode | base64_decode | ._val'
 ```
 
 See [pkg/udf/README.md](pkg/udf/README.md) for more details.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // RegisterBase64Encode registers the base64_encode function with gojq
@@ -17,6 +18,10 @@ func RegisterBase64Encode() gojq.CompilerOption {
 		} else {
 			inputVal = v
 		}
+
+		// Automatically extract _val if input is a UDF result object
+		// This is standard behavior for all UDFs
+		inputVal = common.ExtractUDFValue(inputVal)
 
 		// Convert input to string
 		var input string
@@ -41,9 +46,9 @@ func RegisterBase64Encode() gojq.CompilerOption {
 		return map[string]any{
 			"_val": encoded,
 			"_meta": map[string]any{
-				"encoding": "base64",
+				"encoding":        "base64",
 				"original_length": len(input),
-				"encoded_length": len(encoded),
+				"encoded_length":  len(encoded),
 			},
 		}
 	})
@@ -59,6 +64,10 @@ func RegisterBase64Decode() gojq.CompilerOption {
 		} else {
 			inputVal = v
 		}
+
+		// Automatically extract _val if input is a UDF result object
+		// This is standard behavior for all UDFs
+		inputVal = common.ExtractUDFValue(inputVal)
 
 		// Convert input to string
 		var input string
@@ -86,11 +95,10 @@ func RegisterBase64Decode() gojq.CompilerOption {
 		return map[string]any{
 			"_val": string(decoded),
 			"_meta": map[string]any{
-				"encoding": "base64",
+				"encoding":        "base64",
 				"original_length": len(input),
-				"decoded_length": len(decoded),
+				"decoded_length":  len(decoded),
 			},
 		}
 	})
 }
-
