@@ -73,6 +73,78 @@ This standardized format allows for consistent handling of UDF results and enabl
 
 ## Available UDFs
 
+### base64_encode
+
+Encodes a string to base64 format.
+
+**Usage:**
+```jq
+# Encode current value
+. | base64_encode
+
+# Encode a specific string
+base64_encode("hello")
+```
+
+**Arguments:**
+- `input` (string, optional) - The string to encode. If not provided, uses the current value (`.`)
+
+**Returns:** An object with:
+- `_val`: The base64-encoded string
+- `_meta`: Object containing:
+  - `encoding`: "base64"
+  - `original_length`: Length of the original string
+  - `encoded_length`: Length of the encoded string
+
+**Example:**
+```bash
+# Encode a string
+pwrq '"hello" | base64_encode'
+# Output: {"_val": "aGVsbG8=", "_meta": {...}}
+
+# Extract just the encoded value
+pwrq '"hello" | base64_encode | ._val'
+# Output: "aGVsbG8="
+```
+
+### base64_decode
+
+Decodes a base64-encoded string.
+
+**Usage:**
+```jq
+# Decode current value
+. | base64_decode
+
+# Decode a specific base64 string
+base64_decode("aGVsbG8=")
+```
+
+**Arguments:**
+- `input` (string, optional) - The base64-encoded string to decode. If not provided, uses the current value (`.`)
+
+**Returns:** An object with:
+- `_val`: The decoded string
+- `_meta`: Object containing:
+  - `encoding`: "base64"
+  - `original_length`: Length of the encoded string
+  - `decoded_length`: Length of the decoded string
+
+**Example:**
+```bash
+# Decode a base64 string
+pwrq '"aGVsbG8=" | base64_decode'
+# Output: {"_val": "hello", "_meta": {...}}
+
+# Extract just the decoded value
+pwrq '"aGVsbG8=" | base64_decode | ._val'
+# Output: "hello"
+
+# Round-trip encoding/decoding
+pwrq '"hello world" | base64_encode | ._val | base64_decode | ._val'
+# Output: "hello world"
+```
+
 ### find
 
 The `find` function works like the Unix `find` command, returning a list of files and directories.

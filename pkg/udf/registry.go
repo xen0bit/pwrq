@@ -2,6 +2,7 @@ package udf
 
 import (
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
 )
 
@@ -30,9 +31,11 @@ func (r *Registry) Options() []gojq.CompilerOption {
 // DefaultRegistry returns the default registry with all built-in UDFs
 func DefaultRegistry() *Registry {
 	reg := NewRegistry()
-
+	
 	// Register all built-in UDFs
 	reg.Register(find.RegisterFind())
-
+	reg.Register(base64.RegisterBase64Encode())
+	reg.Register(base64.RegisterBase64Decode())
+	
 	return reg
 }
