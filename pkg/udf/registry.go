@@ -24,6 +24,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/hmac"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
+	"github.com/xen0bit/pwrq/pkg/udf/tee"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
 	"github.com/xen0bit/pwrq/pkg/udf/xml"
@@ -115,6 +116,9 @@ func DefaultRegistry() *Registry {
 	// SSDeep (fuzzy hashing)
 	reg.Register(ssdeep.RegisterSSDeep())
 	reg.Register(ssdeep.RegisterSSDeepCompare())
+	
+	// Tee (write to stderr or file)
+	reg.Register(tee.RegisterTee())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())
