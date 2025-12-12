@@ -1,0 +1,67 @@
+- name: empty input
+  args:
+    - '.'
+  input: ''
+  expected: ''
+
+- name: empty args
+  input: 'null'
+  expected: |
+    null
+
+- name: simple query
+  args:
+    - '.foo'
+  input: '{"foo": 128}'
+  expected: |
+    128
+
+- name: array query
+  args:
+    - '.[]'
+  input: '[1, 2, 3]'
+  expected: |
+    1
+    2
+    3
+
+- name: object keys
+  args:
+    - 'keys'
+  input: '{"a": 1, "b": 2}'
+  expected: |
+    [
+      "a",
+      "b"
+    ]
+
+- name: raw output
+  args:
+    - '-r'
+    - '.foo'
+  input: '{"foo": "bar"}'
+  expected: |
+    bar
+
+- name: compact output
+  args:
+    - '-c'
+    - '.'
+  input: '{"foo": 128}'
+  expected: |
+    {"foo":128}
+
+- name: version flag
+  args:
+    - '-v'
+  input: ''
+  expected: |
+    pwrq 0.1.0 (rev: HEAD/go1.24.2)
+
+- name: help flag
+  args:
+    - '-h'
+  input: ''
+  expected: |
+    pwrq - Enhanced Go implementation of jq
+
