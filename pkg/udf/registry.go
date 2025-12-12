@@ -23,6 +23,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/entropy"
 	"github.com/xen0bit/pwrq/pkg/udf/hmac"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
+	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
 	"github.com/xen0bit/pwrq/pkg/udf/xml"
@@ -110,6 +111,10 @@ func DefaultRegistry() *Registry {
 	
 	// Entropy
 	reg.Register(entropy.RegisterEntropy())
+	
+	// SSDeep (fuzzy hashing)
+	reg.Register(ssdeep.RegisterSSDeep())
+	reg.Register(ssdeep.RegisterSSDeepCompare())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())
