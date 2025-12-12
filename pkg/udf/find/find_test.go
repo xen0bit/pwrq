@@ -53,6 +53,26 @@ func TestFindFiles(t *testing.T) {
 			wantErr: false,
 			check: func(results []any) bool {
 				// Should find files and directories
+				// Check that results have the correct structure
+				for _, r := range results {
+					result, ok := r.(map[string]any)
+					if !ok {
+						return false
+					}
+					if _, ok := result["_val"]; !ok {
+						return false
+					}
+					if _, ok := result["_meta"]; !ok {
+						return false
+					}
+					meta, ok := result["_meta"].(map[string]any)
+					if !ok {
+						return false
+					}
+					if _, ok := meta["type"]; !ok {
+						return false
+					}
+				}
 				return len(results) > 0
 			},
 		},
@@ -63,12 +83,15 @@ func TestFindFiles(t *testing.T) {
 			check: func(results []any) bool {
 				// Should only find files
 				for _, r := range results {
-					path := r.(string)
-					info, err := os.Stat(path)
-					if err != nil {
+					result, ok := r.(map[string]any)
+					if !ok {
 						return false
 					}
-					if info.IsDir() {
+					meta, ok := result["_meta"].(map[string]any)
+					if !ok {
+						return false
+					}
+					if meta["type"] != "file" {
 						return false
 					}
 				}
@@ -82,12 +105,15 @@ func TestFindFiles(t *testing.T) {
 			check: func(results []any) bool {
 				// Should only find directories
 				for _, r := range results {
-					path := r.(string)
-					info, err := os.Stat(path)
-					if err != nil {
+					result, ok := r.(map[string]any)
+					if !ok {
 						return false
 					}
-					if !info.IsDir() {
+					meta, ok := result["_meta"].(map[string]any)
+					if !ok {
+						return false
+					}
+					if meta["type"] != "dir" {
 						return false
 					}
 				}

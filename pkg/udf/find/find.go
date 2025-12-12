@@ -86,12 +86,26 @@ func findFiles(opts FindOptions) ([]any, error) {
 		if opts.Type == "dir" && !info.IsDir() {
 			return nil
 		}
-
+		
 		// Path from Walk is already absolute (since startPath is absolute)
 		// But ensure it's normalized
 		absPath := filepath.Clean(path)
-
-		results = append(results, absPath)
+		
+		// Determine type for metadata
+		pathType := "file"
+		if info.IsDir() {
+			pathType = "dir"
+		}
+		
+		// Return object with _val and _meta keys
+		result := map[string]any{
+			"_val": absPath,
+			"_meta": map[string]any{
+				"type": pathType,
+			},
+		}
+		
+		results = append(results, result)
 		return nil
 	})
 

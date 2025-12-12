@@ -49,17 +49,17 @@ echo '{"foo": 128}' | pwrq -c '.'
 
 ### find
 
-The `find` function provides Unix find-like functionality:
+The `find` function provides Unix find-like functionality. It returns objects with `_val` (the path) and `_meta` (metadata including type):
 
 ```bash
 # Find all files and directories
-pwrq '[find(".")]'
+pwrq '[find("pkg/udf")]'
 
-# Find only files
-pwrq '[find("pkg"; "file")]'
+# Extract just the paths
+pwrq '[find("pkg/udf")] | map(._val)'
 
-# Find with options
-pwrq '[find("pkg"; {"type": "dir", "maxdepth": 2})]'
+# Filter by type using metadata
+pwrq '[find("pkg/udf")] | map(select(._meta.type == "file"))'
 ```
 
 See [pkg/udf/README.md](pkg/udf/README.md) for more details.
