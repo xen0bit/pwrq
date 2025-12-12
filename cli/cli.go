@@ -80,6 +80,7 @@ type flagopts struct {
 	ExitStatus    bool              `short:"e" long:"exit-status" description:"exit 1 when the last value is false or null"`
 	Version       bool              `short:"v" long:"version" description:"display version information"`
 	Help          bool              `short:"h" long:"help" description:"display this help information"`
+	UDFList       bool              `short:"u" long:"udf-list" description:"list all available user-defined functions"`
 }
 
 var addDefaultModulePaths = true
@@ -121,6 +122,10 @@ Usage:
 	}
 	if opts.Version {
 		fmt.Fprintf(cli.outStream, "%s %s (rev: %s/%s)\n", name, version, revision, runtime.Version())
+		return nil
+	}
+	if opts.UDFList {
+		cli.printUDFList()
 		return nil
 	}
 	cli.outputRaw, cli.outputRaw0, cli.outputJoin,
