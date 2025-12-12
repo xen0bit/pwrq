@@ -19,9 +19,12 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
 	"github.com/xen0bit/pwrq/pkg/udf/string"
+	"github.com/xen0bit/pwrq/pkg/udf/csv"
 	"github.com/xen0bit/pwrq/pkg/udf/hmac"
+	"github.com/xen0bit/pwrq/pkg/udf/json"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
+	"github.com/xen0bit/pwrq/pkg/udf/xml"
 )
 
 // Registry holds all user-defined functions
@@ -91,6 +94,18 @@ func DefaultRegistry() *Registry {
 	// Timestamp operations
 	reg.Register(timestamp.RegisterTimestampToDate())
 	reg.Register(timestamp.RegisterDateToTimestamp())
+	
+	// JSON operations
+	reg.Register(json.RegisterJSONParse())
+	reg.Register(json.RegisterJSONStringify())
+	
+	// CSV operations
+	reg.Register(csv.RegisterCSVParse())
+	reg.Register(csv.RegisterCSVStringify())
+	
+	// XML operations
+	reg.Register(xml.RegisterXMLParse())
+	reg.Register(xml.RegisterXMLStringify())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())
