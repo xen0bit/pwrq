@@ -3,8 +3,10 @@ package udf
 import (
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
+	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
+	"github.com/xen0bit/pwrq/pkg/udf/html"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
@@ -13,6 +15,8 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
+	"github.com/xen0bit/pwrq/pkg/udf/string"
+	"github.com/xen0bit/pwrq/pkg/udf/url"
 )
 
 // Registry holds all user-defined functions
@@ -43,10 +47,30 @@ func DefaultRegistry() *Registry {
 	
 	// Register all built-in UDFs
 	reg.Register(find.RegisterFind())
+	
+	// Encoding/Decoding
 	reg.Register(base64.RegisterBase64Encode())
 	reg.Register(base64.RegisterBase64Decode())
 	reg.Register(hex.RegisterHexEncode())
 	reg.Register(hex.RegisterHexDecode())
+	reg.Register(url.RegisterURLEncode())
+	reg.Register(url.RegisterURLDecode())
+	reg.Register(html.RegisterHTMLEncode())
+	reg.Register(html.RegisterHTMLDecode())
+	
+	// Compression
+	reg.Register(compress.RegisterGzipCompress())
+	reg.Register(compress.RegisterGzipDecompress())
+	reg.Register(compress.RegisterZlibCompress())
+	reg.Register(compress.RegisterZlibDecompress())
+	reg.Register(compress.RegisterDeflateCompress())
+	reg.Register(compress.RegisterDeflateDecompress())
+	
+	// String operations
+	reg.Register(string.RegisterUpper())
+	reg.Register(string.RegisterLower())
+	reg.Register(string.RegisterReverse())
+	reg.Register(string.RegisterReplace())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())
