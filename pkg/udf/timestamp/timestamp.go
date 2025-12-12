@@ -15,7 +15,7 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 	return gojq.WithFunction("timestamp_to_date", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("timestamp_to_date: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -27,19 +27,19 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("timestamp_to_date: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("timestamp_to_date: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: %v", err), nil)
 			}
 
 			// Parse timestamp from file
 			tsStr := strings.TrimSpace(string(fileData))
 			ts, parseErr := strconv.ParseInt(tsStr, 10, 64)
 			if parseErr != nil {
-				return fmt.Errorf("timestamp_to_date: invalid timestamp in file: %v", parseErr)
+				return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: invalid timestamp in file: %v", parseErr), nil)
 			}
 			timestamp = ts
 			filePath = absPath
@@ -56,7 +56,7 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 			case string:
 				ts, parseErr := strconv.ParseInt(val, 10, 64)
 				if parseErr != nil {
-					return fmt.Errorf("timestamp_to_date: invalid timestamp: %v", parseErr)
+					return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: invalid timestamp: %v", parseErr), nil)
 				}
 				timestamp = ts
 			default:
@@ -64,7 +64,7 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 				valStr := fmt.Sprintf("%v", val)
 				ts, parseErr := strconv.ParseInt(valStr, 10, 64)
 				if parseErr != nil {
-					return fmt.Errorf("timestamp_to_date: invalid timestamp %q: %v", valStr, parseErr)
+					return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: invalid timestamp %q: %v", valStr, parseErr), nil)
 				}
 				timestamp = ts
 			}
@@ -94,10 +94,7 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 			meta["file_size"] = int(fileSize)
 		}
 
-		return map[string]any{
-			"_val":  dateStr,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(dateStr, meta)
 	})
 }
 
@@ -106,7 +103,7 @@ func RegisterDateToTimestamp() gojq.CompilerOption {
 	return gojq.WithFunction("date_to_timestamp", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("date_to_timestamp: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("date_to_timestamp: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -118,12 +115,15 @@ func RegisterDateToTimestamp() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("date_to_timestamp: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("date_to_timestamp: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("date_to_timestamp: %v", err)
+				meta := map[string]any{
+					"operation": "date_to_timestamp",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("date_to_timestamp: %v", err), meta)
 			}
 
 			dateStr = strings.TrimSpace(string(fileData))
@@ -139,7 +139,7 @@ func RegisterDateToTimestamp() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					dateStr = str.String()
 				} else {
-					return fmt.Errorf("date_to_timestamp: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("date_to_timestamp: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -165,7 +165,14 @@ func RegisterDateToTimestamp() gojq.CompilerOption {
 		}
 
 		if parseErr != nil {
-			return fmt.Errorf("date_to_timestamp: unable to parse date %q: %v", dateStr, parseErr)
+			meta := map[string]any{
+				"operation": "date_to_timestamp",
+			}
+			if isFile {
+				meta["file_path"] = filePath
+				meta["file_size"] = int(fileSize)
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("date_to_timestamp: unable to parse date %q: %v", dateStr, parseErr), meta)
 		}
 
 		timestamp := t.Unix()
@@ -181,10 +188,7 @@ func RegisterDateToTimestamp() gojq.CompilerOption {
 			meta["file_size"] = int(fileSize)
 		}
 
-		return map[string]any{
-			"_val":  float64(timestamp),
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(float64(timestamp), meta)
 	})
 }
 

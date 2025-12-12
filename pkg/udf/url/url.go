@@ -13,7 +13,7 @@ func RegisterURLEncode() gojq.CompilerOption {
 	return gojq.WithFunction("url_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("url_encode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("url_encode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,12 +25,15 @@ func RegisterURLEncode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("url_encode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("url_encode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("url_encode: %v", err)
+				meta := map[string]any{
+					"operation": "url_encode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("url_encode: %v", err), meta)
 			}
 
 			input = string(fileData)
@@ -46,31 +49,25 @@ func RegisterURLEncode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("url_encode: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("url_encode: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
 
-		// URL encode
 		encoded := url.QueryEscape(input)
 
 		meta := map[string]any{
-			"encoding": "url",
+			"encoding":        "url",
+			"original_length": len(input),
+			"encoded_length":  len(encoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["encoded_length"] = len(encoded)
-		} else {
-			meta["original_length"] = len(input)
-			meta["encoded_length"] = len(encoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  encoded,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(encoded, meta)
 	})
 }
 
@@ -79,7 +76,7 @@ func RegisterURLDecode() gojq.CompilerOption {
 	return gojq.WithFunction("url_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("url_decode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("url_decode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -91,12 +88,15 @@ func RegisterURLDecode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("url_decode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("url_decode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("url_decode: %v", err)
+				meta := map[string]any{
+					"operation": "url_decode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("url_decode: %v", err), meta)
 			}
 
 			input = string(fileData)
@@ -112,34 +112,36 @@ func RegisterURLDecode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("url_decode: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("url_decode: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
 
-		// URL decode
 		decoded, err := url.QueryUnescape(input)
 		if err != nil {
-			return fmt.Errorf("url_decode: invalid URL-encoded string: %v", err)
+			meta := map[string]any{
+				"encoding": "url",
+			}
+			if isFile {
+				meta["file_path"] = filePath
+				meta["file_size"] = int(fileSize)
+			} else {
+				meta["original_length"] = len(input)
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("url_decode: invalid URL-encoded string: %v", err), meta)
 		}
 
 		meta := map[string]any{
-			"encoding": "url",
+			"encoding":        "url",
+			"original_length": len(input),
+			"decoded_length":  len(decoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["decoded_length"] = len(decoded)
-		} else {
-			meta["original_length"] = len(input)
-			meta["decoded_length"] = len(decoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  decoded,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(decoded, meta)
 	})
 }
-

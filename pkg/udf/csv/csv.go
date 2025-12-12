@@ -56,12 +56,12 @@ func RegisterCSVParse() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("csv_parse: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("csv_parse: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("csv_parse: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("csv_parse: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -77,7 +77,7 @@ func RegisterCSVParse() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("csv_parse: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("csv_parse: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -87,7 +87,7 @@ func RegisterCSVParse() gojq.CompilerOption {
 		reader.Comma = delimiter
 		records, err := reader.ReadAll()
 		if err != nil {
-			return fmt.Errorf("csv_parse: failed to parse CSV: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("csv_parse: failed to parse CSV: %v", err), nil)
 		}
 
 		// Convert to array of arrays
@@ -171,11 +171,11 @@ func RegisterCSVStringify() gojq.CompilerOption {
 						records[i][j] = fmt.Sprintf("%v", field)
 					}
 				default:
-					return fmt.Errorf("csv_stringify: each row must be an array, got %T at index %d", rowVal, i)
+					return common.MakeUDFErrorResult(fmt.Errorf("csv_stringify: each row must be an array, got %T at index %d", rowVal, i), nil)
 				}
 			}
 		default:
-			return fmt.Errorf("csv_stringify: input must be an array of arrays, got %T", val)
+			return common.MakeUDFErrorResult(fmt.Errorf("csv_stringify: input must be an array of arrays, got %T", val), nil)
 		}
 
 		// Convert to CSV
@@ -183,7 +183,7 @@ func RegisterCSVStringify() gojq.CompilerOption {
 		writer := csv.NewWriter(&buf)
 		writer.Comma = delimiter
 		if err := writer.WriteAll(records); err != nil {
-			return fmt.Errorf("csv_stringify: failed to write CSV: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("csv_stringify: failed to write CSV: %v", err), nil)
 		}
 		writer.Flush()
 
@@ -207,10 +207,7 @@ func RegisterCSVStringify() gojq.CompilerOption {
 			}
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 

@@ -13,7 +13,7 @@ func RegisterUpper() gojq.CompilerOption {
 	return gojq.WithFunction("upper", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("upper: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("upper: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,12 +25,12 @@ func RegisterUpper() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("upper: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("upper: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("upper: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("upper: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -46,7 +46,7 @@ func RegisterUpper() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("upper: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("upper: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -64,10 +64,7 @@ func RegisterUpper() gojq.CompilerOption {
 			meta["original_length"] = len(input)
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 
@@ -76,7 +73,7 @@ func RegisterLower() gojq.CompilerOption {
 	return gojq.WithFunction("lower", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("lower: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("lower: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -88,12 +85,12 @@ func RegisterLower() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("lower: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("lower: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("lower: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("lower: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -109,7 +106,7 @@ func RegisterLower() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("lower: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("lower: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -127,10 +124,7 @@ func RegisterLower() gojq.CompilerOption {
 			meta["original_length"] = len(input)
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 
@@ -139,7 +133,7 @@ func RegisterReverse() gojq.CompilerOption {
 	return gojq.WithFunction("reverse_string", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("reverse: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("reverse: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -151,12 +145,12 @@ func RegisterReverse() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("reverse: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("reverse: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("reverse: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("reverse: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -172,7 +166,7 @@ func RegisterReverse() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("reverse: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("reverse: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -195,10 +189,7 @@ func RegisterReverse() gojq.CompilerOption {
 			meta["original_length"] = len(input)
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 
@@ -207,17 +198,17 @@ func RegisterReplace() gojq.CompilerOption {
 	return gojq.WithFunction("replace", 2, 4, func(v any, args []any) any {
 		// Parse arguments: old, new, optional input, optional file flag
 		if len(args) < 2 {
-			return fmt.Errorf("replace: expected at least 2 arguments (old, new)")
+			return common.MakeUDFErrorResult(fmt.Errorf("replace: expected at least 2 arguments (old, new)"), nil)
 		}
 
 		oldStr, ok := args[0].(string)
 		if !ok {
-			return fmt.Errorf("replace: first argument (old) must be a string, got %T", args[0])
+			return common.MakeUDFErrorResult(fmt.Errorf("replace: first argument (old) must be a string, got %T", args[0]), nil)
 		}
 
 		newStr, ok := args[1].(string)
 		if !ok {
-			return fmt.Errorf("replace: second argument (new) must be a string, got %T", args[1])
+			return common.MakeUDFErrorResult(fmt.Errorf("replace: second argument (new) must be a string, got %T", args[1]), nil)
 		}
 
 		var inputVal any
@@ -250,12 +241,12 @@ func RegisterReplace() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("replace: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("replace: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("replace: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("replace: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -271,7 +262,7 @@ func RegisterReplace() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("replace: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("replace: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -291,10 +282,7 @@ func RegisterReplace() gojq.CompilerOption {
 			meta["original_length"] = len(input)
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 

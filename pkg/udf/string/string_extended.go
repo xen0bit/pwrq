@@ -13,7 +13,7 @@ func RegisterTrim() gojq.CompilerOption {
 	return gojq.WithFunction("trim", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("trim: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("trim: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,12 +25,12 @@ func RegisterTrim() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("trim: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("trim: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("trim: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("trim: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -46,7 +46,7 @@ func RegisterTrim() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("trim: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("trim: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -65,10 +65,7 @@ func RegisterTrim() gojq.CompilerOption {
 			meta["trimmed_length"] = len(result)
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 
@@ -76,12 +73,12 @@ func RegisterTrim() gojq.CompilerOption {
 func RegisterSplit() gojq.CompilerOption {
 	return gojq.WithFunction("split", 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
-			return fmt.Errorf("split: expected at least 1 argument (separator)")
+			return common.MakeUDFErrorResult(fmt.Errorf("split: expected at least 1 argument (separator)"), nil)
 		}
 
 		separator, ok := args[0].(string)
 		if !ok {
-			return fmt.Errorf("split: first argument (separator) must be a string, got %T", args[0])
+			return common.MakeUDFErrorResult(fmt.Errorf("split: first argument (separator) must be a string, got %T", args[0]), nil)
 		}
 
 		var inputVal any
@@ -112,12 +109,12 @@ func RegisterSplit() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("split: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("split: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("split: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("split: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -133,7 +130,7 @@ func RegisterSplit() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("split: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("split: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -166,12 +163,12 @@ func RegisterSplit() gojq.CompilerOption {
 func RegisterJoin() gojq.CompilerOption {
 	return gojq.WithFunction("join_string", 1, 1, func(v any, args []any) any {
 		if len(args) < 1 {
-			return fmt.Errorf("join_string: expected at least 1 argument (separator)")
+			return common.MakeUDFErrorResult(fmt.Errorf("join_string: expected at least 1 argument (separator)"), nil)
 		}
 
 		separator, ok := args[0].(string)
 		if !ok {
-			return fmt.Errorf("join_string: first argument (separator) must be a string, got %T", args[0])
+			return common.MakeUDFErrorResult(fmt.Errorf("join_string: first argument (separator) must be a string, got %T", args[0]), nil)
 		}
 
 		// Extract _val if it's a UDF result
@@ -183,7 +180,7 @@ func RegisterJoin() gojq.CompilerOption {
 		case []any:
 			arr = val
 		default:
-			return fmt.Errorf("join_string: input must be an array, got %T", val)
+			return common.MakeUDFErrorResult(fmt.Errorf("join_string: input must be an array, got %T", val), nil)
 		}
 
 		// Convert array elements to strings
@@ -208,10 +205,7 @@ func RegisterJoin() gojq.CompilerOption {
 			"count":     len(parts),
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 

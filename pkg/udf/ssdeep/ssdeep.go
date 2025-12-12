@@ -13,7 +13,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 	return gojq.WithFunction("ssdeep", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("ssdeep: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,12 +25,16 @@ func RegisterSSDeep() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("ssdeep: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("ssdeep: %v", err)
+				meta := map[string]any{
+					"operation": "ssdeep",
+					"file_path": absPath,
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: %v", err), meta)
 			}
 
 			inputBytes = fileData
@@ -46,7 +50,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("ssdeep: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
@@ -55,11 +59,21 @@ func RegisterSSDeep() gojq.CompilerOption {
 		// Note: ssdeep requires at least 4096 bytes for meaningful results
 		hash, err := ssdeep.FuzzyBytes(inputBytes)
 		if err != nil {
+			meta := map[string]any{
+				"algorithm": "ssdeep",
+			}
+			if isFile {
+				meta["file_path"] = filePath
+				meta["file_size"] = int(fileSize)
+			} else {
+				meta["input_length"] = len(inputBytes)
+			}
+			
 			// Check if it's the "file too small" error
 			if err.Error() == "did not process files large enough to produce meaningful results" {
-				return fmt.Errorf("ssdeep: input too small (minimum 4096 bytes required, got %d bytes)", len(inputBytes))
+				return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: input too small (minimum 4096 bytes required, got %d bytes)", len(inputBytes)), meta)
 			}
-			return fmt.Errorf("ssdeep: failed to calculate hash: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: failed to calculate hash: %v", err), meta)
 		}
 
 		meta := map[string]any{
@@ -74,10 +88,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 			meta["input_length"] = len(inputBytes)
 		}
 
-		return map[string]any{
-			"_val":  hash,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(hash, meta)
 	})
 }
 
@@ -85,7 +96,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 func RegisterSSDeepCompare() gojq.CompilerOption {
 	return gojq.WithFunction("ssdeep_compare", 2, 2, func(v any, args []any) any {
 		if len(args) < 2 {
-			return fmt.Errorf("ssdeep_compare: expected 2 arguments (hash1, hash2)")
+			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep_compare: expected 2 arguments (hash1, hash2)"), nil)
 		}
 
 		hash1Val := common.ExtractUDFValue(args[0])
@@ -102,7 +113,7 @@ func RegisterSSDeepCompare() gojq.CompilerOption {
 			if str, ok := val.(fmt.Stringer); ok {
 				hash1 = str.String()
 			} else {
-				return fmt.Errorf("ssdeep_compare: first argument must be a string, got %T", val)
+				return common.MakeUDFErrorResult(fmt.Errorf("ssdeep_compare: first argument must be a string, got %T", val), nil)
 			}
 		}
 
@@ -115,14 +126,19 @@ func RegisterSSDeepCompare() gojq.CompilerOption {
 			if str, ok := val.(fmt.Stringer); ok {
 				hash2 = str.String()
 			} else {
-				return fmt.Errorf("ssdeep_compare: second argument must be a string, got %T", val)
+				return common.MakeUDFErrorResult(fmt.Errorf("ssdeep_compare: second argument must be a string, got %T", val), nil)
 			}
 		}
 
 		// Compare ssdeep hashes
 		score, err := ssdeep.Distance(hash1, hash2)
 		if err != nil {
-			return fmt.Errorf("ssdeep_compare: failed to compare hashes: %v", err)
+			meta := map[string]any{
+				"operation": "ssdeep_compare",
+				"hash1":     hash1,
+				"hash2":     hash2,
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep_compare: failed to compare hashes: %v", err), meta)
 		}
 
 		meta := map[string]any{
@@ -132,10 +148,7 @@ func RegisterSSDeepCompare() gojq.CompilerOption {
 			"score":     score,
 		}
 
-		return map[string]any{
-			"_val":  score,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(score, meta)
 	})
 }
 

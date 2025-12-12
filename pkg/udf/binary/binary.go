@@ -14,7 +14,7 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 	return gojq.WithFunction("binary_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("binary_encode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("binary_encode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -26,12 +26,15 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("binary_encode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("binary_encode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("binary_encode: %v", err)
+				meta := map[string]any{
+					"operation": "binary_encode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("binary_encode: %v", err), meta)
 			}
 
 			inputBytes = fileData
@@ -47,12 +50,11 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("binary_encode: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("binary_encode: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
 
-		// Encode to binary (space-separated bytes)
 		var parts []string
 		for _, b := range inputBytes {
 			parts = append(parts, fmt.Sprintf("%08b", b))
@@ -60,22 +62,17 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 		encoded := strings.Join(parts, " ")
 
 		meta := map[string]any{
-			"encoding": "binary",
+			"encoding":        "binary",
+			"original_length": len(inputBytes),
+			"encoded_length":  len(encoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["encoded_length"] = len(encoded)
-		} else {
-			meta["original_length"] = len(inputBytes)
-			meta["encoded_length"] = len(encoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  encoded,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(encoded, meta)
 	})
 }
 
@@ -84,7 +81,7 @@ func RegisterBinaryDecode() gojq.CompilerOption {
 	return gojq.WithFunction("binary_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("binary_decode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -96,12 +93,15 @@ func RegisterBinaryDecode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("binary_decode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("binary_decode: %v", err)
+				meta := map[string]any{
+					"operation": "binary_decode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: %v", err), meta)
 			}
 
 			input = string(fileData)
@@ -117,62 +117,88 @@ func RegisterBinaryDecode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("binary_decode: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
 
-		// Decode from binary (space-separated bytes or continuous string)
-		// First try space-separated, then try continuous
 		parts := strings.Fields(input)
 		var decoded []byte
 		
 		if len(parts) > 1 {
-			// Space-separated format
 			for _, part := range parts {
 				part = strings.TrimSpace(part)
 				if len(part) != 8 {
-					return fmt.Errorf("binary_decode: each binary byte must be 8 bits, got %d bits in %q", len(part), part)
+					meta := map[string]any{
+						"encoding": "binary",
+					}
+					if isFile {
+						meta["file_path"] = filePath
+						meta["file_size"] = int(fileSize)
+					} else {
+						meta["original_length"] = len(input)
+					}
+					return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: each binary byte must be 8 bits, got %d bits in %q", len(part), part), meta)
 				}
 				val, err := strconv.ParseUint(part, 2, 8)
 				if err != nil {
-					return fmt.Errorf("binary_decode: invalid binary string %q: %v", part, err)
+					meta := map[string]any{
+						"encoding": "binary",
+					}
+					if isFile {
+						meta["file_path"] = filePath
+						meta["file_size"] = int(fileSize)
+					} else {
+						meta["original_length"] = len(input)
+					}
+					return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: invalid binary string %q: %v", part, err), meta)
 				}
 				decoded = append(decoded, byte(val))
 			}
 		} else {
-			// Continuous format - split into 8-bit chunks
 			binaryStr := strings.ReplaceAll(input, " ", "")
 			if len(binaryStr)%8 != 0 {
-				return fmt.Errorf("binary_decode: binary string length must be multiple of 8, got %d", len(binaryStr))
+				meta := map[string]any{
+					"encoding": "binary",
+				}
+				if isFile {
+					meta["file_path"] = filePath
+					meta["file_size"] = int(fileSize)
+				} else {
+					meta["original_length"] = len(input)
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: binary string length must be multiple of 8, got %d", len(binaryStr)), meta)
 			}
 			for i := 0; i < len(binaryStr); i += 8 {
 				part := binaryStr[i : i+8]
 				val, err := strconv.ParseUint(part, 2, 8)
 				if err != nil {
-					return fmt.Errorf("binary_decode: invalid binary string %q: %v", part, err)
+					meta := map[string]any{
+						"encoding": "binary",
+					}
+					if isFile {
+						meta["file_path"] = filePath
+						meta["file_size"] = int(fileSize)
+					} else {
+						meta["original_length"] = len(input)
+					}
+					return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: invalid binary string %q: %v", part, err), meta)
 				}
 				decoded = append(decoded, byte(val))
 			}
 		}
 
 		meta := map[string]any{
-			"encoding": "binary",
+			"encoding":        "binary",
+			"original_length": len(input),
+			"decoded_length":  len(decoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["decoded_length"] = len(decoded)
-		} else {
-			meta["original_length"] = len(input)
-			meta["decoded_length"] = len(decoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  string(decoded),
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(string(decoded), meta)
 	})
 }
-

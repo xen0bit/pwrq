@@ -14,7 +14,7 @@ func RegisterXMLParse() gojq.CompilerOption {
 	return gojq.WithFunction("xml_parse", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("xml_parse: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -26,12 +26,12 @@ func RegisterXMLParse() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("xml_parse: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("xml_parse: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: %v", err), nil)
 			}
 
 			input = string(fileData)
@@ -47,7 +47,7 @@ func RegisterXMLParse() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("xml_parse: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
@@ -66,7 +66,7 @@ func RegisterXMLParse() gojq.CompilerOption {
 		}
 		
 		if err := decoder.Decode(&xmlData); err != nil {
-			return fmt.Errorf("xml_parse: failed to parse XML: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: failed to parse XML: %v", err), nil)
 		}
 
 		// Build result object
@@ -104,7 +104,7 @@ func RegisterXMLStringify() gojq.CompilerOption {
 	return gojq.WithFunction("xml_stringify", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("xml_stringify: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("xml_stringify: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -153,7 +153,7 @@ func RegisterXMLStringify() gojq.CompilerOption {
 			// For non-map types, try to marshal directly
 			xmlBytes, err := xml.MarshalIndent(val, "", "  ")
 			if err != nil {
-				return fmt.Errorf("xml_stringify: failed to marshal: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("xml_stringify: failed to marshal: %v", err), nil)
 			}
 			result = string(xmlBytes)
 		}
@@ -174,10 +174,7 @@ func RegisterXMLStringify() gojq.CompilerOption {
 			}
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 

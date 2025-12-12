@@ -14,10 +14,9 @@ func RegisterSHA256() gojq.CompilerOption {
 	return gojq.WithFunction("sha256", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("sha256: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("sha256: %v", err), nil)
 		}
 
-		// Automatically extract _val if input is a UDF result object
 		inputVal = common.ExtractUDFValue(inputVal)
 
 		var inputBytes []byte
@@ -27,12 +26,15 @@ func RegisterSHA256() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("sha256: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("sha256: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("sha256: %v", err)
+				meta := map[string]any{
+					"operation": "sha256",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("sha256: %v", err), meta)
 			}
 
 			inputBytes = fileData
@@ -47,23 +49,21 @@ func RegisterSHA256() gojq.CompilerOption {
 			case io.Reader:
 				readBytes, err := io.ReadAll(val)
 				if err != nil {
-					return fmt.Errorf("sha256: failed to read input: %v", err)
+					return common.MakeUDFErrorResult(fmt.Errorf("sha256: failed to read input: %v", err), nil)
 				}
 				inputBytes = readBytes
 			default:
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("sha256: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("sha256: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
 
-		// Compute SHA256 hash
 		hash := sha256.Sum256(inputBytes)
 		hashHex := fmt.Sprintf("%x", hash)
 
-		// Build metadata
 		meta := map[string]any{
 			"algorithm":   "sha256",
 			"hash_length": len(hashHex),
@@ -76,9 +76,6 @@ func RegisterSHA256() gojq.CompilerOption {
 			meta["input_length"] = len(inputBytes)
 		}
 
-		return map[string]any{
-			"_val":  hashHex,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(hashHex, meta)
 	})
 }

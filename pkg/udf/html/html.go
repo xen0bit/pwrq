@@ -13,7 +13,7 @@ func RegisterHTMLEncode() gojq.CompilerOption {
 	return gojq.WithFunction("html_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("html_encode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("html_encode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,12 +25,15 @@ func RegisterHTMLEncode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("html_encode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("html_encode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("html_encode: %v", err)
+				meta := map[string]any{
+					"operation": "html_encode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("html_encode: %v", err), meta)
 			}
 
 			input = string(fileData)
@@ -46,31 +49,25 @@ func RegisterHTMLEncode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("html_encode: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("html_encode: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
 
-		// HTML encode
 		encoded := html.EscapeString(input)
 
 		meta := map[string]any{
-			"encoding": "html",
+			"encoding":        "html",
+			"original_length": len(input),
+			"encoded_length":  len(encoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["encoded_length"] = len(encoded)
-		} else {
-			meta["original_length"] = len(input)
-			meta["encoded_length"] = len(encoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  encoded,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(encoded, meta)
 	})
 }
 
@@ -79,7 +76,7 @@ func RegisterHTMLDecode() gojq.CompilerOption {
 	return gojq.WithFunction("html_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("html_decode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("html_decode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -91,12 +88,15 @@ func RegisterHTMLDecode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("html_decode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("html_decode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("html_decode: %v", err)
+				meta := map[string]any{
+					"operation": "html_decode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("html_decode: %v", err), meta)
 			}
 
 			input = string(fileData)
@@ -112,31 +112,24 @@ func RegisterHTMLDecode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("html_decode: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("html_decode: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
 
-		// HTML decode
 		decoded := html.UnescapeString(input)
 
 		meta := map[string]any{
-			"encoding": "html",
+			"encoding":        "html",
+			"original_length": len(input),
+			"decoded_length":  len(decoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["decoded_length"] = len(decoded)
-		} else {
-			meta["original_length"] = len(input)
-			meta["decoded_length"] = len(decoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  decoded,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(decoded, meta)
 	})
 }
-

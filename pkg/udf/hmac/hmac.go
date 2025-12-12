@@ -44,7 +44,7 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 
 	return gojq.WithFunction(funcName, 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
-			return fmt.Errorf("%s: expected at least 1 argument (key)", funcName)
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: expected at least 1 argument (key)", funcName), nil)
 		}
 
 		// First argument is the key
@@ -56,7 +56,7 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 		case []byte:
 			key = val
 		default:
-			return fmt.Errorf("%s: key must be a string or bytes, got %T", funcName, val)
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: key must be a string or bytes, got %T", funcName, val), nil)
 		}
 
 		// Parse remaining arguments for message and file flag
@@ -88,12 +88,12 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("%s: file argument requires string path, got %T", funcName, inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("%s: file argument requires string path, got %T", funcName, inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("%s: %v", funcName, err)
+				return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", funcName, err), nil)
 			}
 
 			inputBytes = fileData
@@ -109,7 +109,7 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("%s: message must be a string or bytes, got %T", funcName, val)
+					return common.MakeUDFErrorResult(fmt.Errorf("%s: message must be a string or bytes, got %T", funcName, val), nil)
 				}
 			}
 		}
@@ -132,10 +132,7 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 			meta["input_length"] = len(inputBytes)
 		}
 
-		return map[string]any{
-			"_val":  hashHex,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(hashHex, meta)
 	})
 }
 

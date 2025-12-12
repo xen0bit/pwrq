@@ -13,7 +13,7 @@ func RegisterBase85Encode() gojq.CompilerOption {
 	return gojq.WithFunction("base85_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("base85_encode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("base85_encode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,12 +25,15 @@ func RegisterBase85Encode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("base85_encode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("base85_encode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("base85_encode: %v", err)
+				meta := map[string]any{
+					"operation": "base85_encode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("base85_encode: %v", err), meta)
 			}
 
 			inputBytes = fileData
@@ -46,7 +49,7 @@ func RegisterBase85Encode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("base85_encode: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("base85_encode: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
@@ -69,10 +72,7 @@ func RegisterBase85Encode() gojq.CompilerOption {
 			meta["encoded_length"] = len(encoded)
 		}
 
-		return map[string]any{
-			"_val":  string(encoded),
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(string(encoded), meta)
 	})
 }
 
@@ -81,7 +81,7 @@ func RegisterBase85Decode() gojq.CompilerOption {
 	return gojq.WithFunction("base85_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("base85_decode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -93,12 +93,15 @@ func RegisterBase85Decode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("base85_decode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("base85_decode: %v", err)
+				meta := map[string]any{
+					"operation": "base85_decode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: %v", err), meta)
 			}
 
 			inputBytes = fileData
@@ -114,7 +117,7 @@ func RegisterBase85Decode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("base85_decode: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
@@ -124,27 +127,31 @@ func RegisterBase85Decode() gojq.CompilerOption {
 		decoded := make([]byte, ascii85.MaxEncodedLen(len(inputBytes)))
 		n, _, err := ascii85.Decode(decoded, inputBytes, true)
 		if err != nil {
-			return fmt.Errorf("base85_decode: invalid base85 string: %v", err)
+			meta := map[string]any{
+				"encoding": "base85",
+			}
+			if isFile {
+				meta["file_path"] = filePath
+				meta["file_size"] = int(fileSize)
+			} else {
+				meta["original_length"] = len(inputBytes)
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: invalid base85 string: %v", err), meta)
 		}
 		decoded = decoded[:n]
 
 		meta := map[string]any{
-			"encoding": "base85",
+			"encoding":        "base85",
+			"original_length": len(inputBytes),
+			"decoded_length":  len(decoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["decoded_length"] = len(decoded)
-		} else {
-			meta["original_length"] = len(inputBytes)
-			meta["decoded_length"] = len(decoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  string(decoded),
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(string(decoded), meta)
 	})
 }
 

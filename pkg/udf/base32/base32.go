@@ -13,64 +13,61 @@ func RegisterBase32Encode() gojq.CompilerOption {
 	return gojq.WithFunction("base32_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("base32_encode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("base32_encode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
 
-		var input string
+		var inputBytes []byte
 		var filePath string
 		var fileSize int64
 
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("base32_encode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("base32_encode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("base32_encode: %v", err)
+				meta := map[string]any{
+					"operation": "base32_encode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("base32_encode: %v", err), meta)
 			}
 
-			input = string(fileData)
+			inputBytes = fileData
 			filePath = absPath
 			fileSize = size
 		} else {
 			switch val := inputVal.(type) {
 			case string:
-				input = val
+				inputBytes = []byte(val)
 			case []byte:
-				input = string(val)
+				inputBytes = val
 			default:
 				if str, ok := val.(fmt.Stringer); ok {
-					input = str.String()
+					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("base32_encode: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("base32_encode: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
 
-		// Encode to base32
-		encoded := base32.StdEncoding.EncodeToString([]byte(input))
+		encoded := base32.StdEncoding.EncodeToString(inputBytes)
 
 		meta := map[string]any{
-			"encoding": "base32",
+			"encoding":        "base32",
+			"original_length": len(inputBytes),
+			"encoded_length":  len(encoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["encoded_length"] = len(encoded)
-		} else {
-			meta["original_length"] = len(input)
-			meta["encoded_length"] = len(encoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  encoded,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(encoded, meta)
 	})
 }
 
@@ -79,7 +76,7 @@ func RegisterBase32Decode() gojq.CompilerOption {
 	return gojq.WithFunction("base32_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("base32_decode: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -91,12 +88,15 @@ func RegisterBase32Decode() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("base32_decode: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("base32_decode: %v", err)
+				meta := map[string]any{
+					"operation": "base32_decode",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: %v", err), meta)
 			}
 
 			input = string(fileData)
@@ -112,34 +112,36 @@ func RegisterBase32Decode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					input = str.String()
 				} else {
-					return fmt.Errorf("base32_decode: argument must be a string, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: argument must be a string, got %T", val), nil)
 				}
 			}
 		}
 
-		// Decode from base32
 		decoded, err := base32.StdEncoding.DecodeString(input)
 		if err != nil {
-			return fmt.Errorf("base32_decode: invalid base32 string: %v", err)
+			meta := map[string]any{
+				"encoding": "base32",
+			}
+			if isFile {
+				meta["file_path"] = filePath
+				meta["file_size"] = int(fileSize)
+			} else {
+				meta["original_length"] = len(input)
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: invalid base32 string: %v", err), meta)
 		}
 
 		meta := map[string]any{
-			"encoding": "base32",
+			"encoding":        "base32",
+			"original_length": len(input),
+			"decoded_length":  len(decoded),
 		}
-
 		if isFile {
 			meta["file_path"] = filePath
 			meta["file_size"] = int(fileSize)
-			meta["decoded_length"] = len(decoded)
-		} else {
-			meta["original_length"] = len(input)
-			meta["decoded_length"] = len(decoded)
+			delete(meta, "original_length")
 		}
 
-		return map[string]any{
-			"_val":  string(decoded),
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(string(decoded), meta)
 	})
 }
-

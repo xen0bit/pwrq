@@ -13,7 +13,7 @@ func RegisterEntropy() gojq.CompilerOption {
 	return gojq.WithFunction("entropy", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("entropy: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("entropy: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,12 +25,15 @@ func RegisterEntropy() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("entropy: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("entropy: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("entropy: %v", err)
+				meta := map[string]any{
+					"operation": "entropy",
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("entropy: %v", err), meta)
 			}
 
 			inputBytes = fileData
@@ -46,30 +49,31 @@ func RegisterEntropy() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("entropy: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("entropy: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
 
-		// Calculate Shannon entropy
 		if len(inputBytes) == 0 {
-			return map[string]any{
-				"_val":  0.0,
-				"_meta": map[string]any{
-					"operation": "entropy",
-					"entropy":   0.0,
-					"bits":      0.0,
-				},
+			meta := map[string]any{
+				"operation":    "entropy",
+				"entropy":      0.0,
+				"bits":         0.0,
+				"length":       0,
+				"unique_bytes": 0,
 			}
+			if isFile {
+				meta["file_path"] = filePath
+				meta["file_size"] = int(fileSize)
+			}
+			return common.MakeUDFSuccessResult(0.0, meta)
 		}
 
-		// Count byte frequencies
 		freq := make(map[byte]int)
 		for _, b := range inputBytes {
 			freq[b]++
 		}
 
-		// Calculate entropy
 		entropy := 0.0
 		dataLength := float64(len(inputBytes))
 		for _, count := range freq {
@@ -79,14 +83,13 @@ func RegisterEntropy() gojq.CompilerOption {
 			}
 		}
 
-		// Calculate bits (entropy * length)
 		bits := entropy * dataLength
 
 		meta := map[string]any{
-			"operation": "entropy",
-			"entropy":   entropy,
-			"bits":      bits,
-			"length":    len(inputBytes),
+			"operation":    "entropy",
+			"entropy":      entropy,
+			"bits":         bits,
+			"length":       len(inputBytes),
 			"unique_bytes": len(freq),
 		}
 
@@ -95,10 +98,6 @@ func RegisterEntropy() gojq.CompilerOption {
 			meta["file_size"] = int(fileSize)
 		}
 
-		return map[string]any{
-			"_val":  entropy,
-			"_meta": meta,
-		}
+		return common.MakeUDFSuccessResult(entropy, meta)
 	})
 }
-

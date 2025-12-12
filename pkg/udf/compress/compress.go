@@ -18,7 +18,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 	return gojq.WithFunction("gzip_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("gzip_compress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -30,12 +30,12 @@ func RegisterGzipCompress() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("gzip_compress: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("gzip_compress: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: %v", err), nil)
 			}
 
 			inputBytes = fileData
@@ -51,7 +51,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("gzip_compress: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
@@ -60,10 +60,10 @@ func RegisterGzipCompress() gojq.CompilerOption {
 		var buf bytes.Buffer
 		writer := gzip.NewWriter(&buf)
 		if _, err := writer.Write(inputBytes); err != nil {
-			return fmt.Errorf("gzip_compress: failed to write: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: failed to write: %v", err), nil)
 		}
 		if err := writer.Close(); err != nil {
-			return fmt.Errorf("gzip_compress: failed to close writer: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: failed to close writer: %v", err), nil)
 		}
 		compressed := buf.Bytes()
 
@@ -80,10 +80,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 			meta["compressed_length"] = len(compressed)
 		}
 
-		return map[string]any{
-			"_val":  fmt.Sprintf("%x", compressed),
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
 	})
 }
 
@@ -92,7 +89,7 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 	return gojq.WithFunction("gzip_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("gzip_decompress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -104,12 +101,12 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("gzip_decompress: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("gzip_decompress: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: %v", err), nil)
 			}
 
 			inputBytes = fileData
@@ -128,20 +125,20 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 			case []byte:
 				inputBytes = val
 			default:
-				return fmt.Errorf("gzip_decompress: argument must be a string or bytes, got %T", val)
+				return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: argument must be a string or bytes, got %T", val), nil)
 			}
 		}
 
 		// Decompress with gzip
 		reader, err := gzip.NewReader(bytes.NewReader(inputBytes))
 		if err != nil {
-			return fmt.Errorf("gzip_decompress: failed to create reader: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to create reader: %v", err), nil)
 		}
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return fmt.Errorf("gzip_decompress: failed to decompress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to decompress: %v", err), nil)
 		}
 
 		meta := map[string]any{
@@ -157,10 +154,7 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 			meta["decompressed_length"] = len(decompressed)
 		}
 
-		return map[string]any{
-			"_val":  string(decompressed),
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(string(decompressed), meta)
 	})
 }
 
@@ -169,7 +163,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 	return gojq.WithFunction("zlib_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("zlib_compress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -181,12 +175,12 @@ func RegisterZlibCompress() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("zlib_compress: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("zlib_compress: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: %v", err), nil)
 			}
 
 			inputBytes = fileData
@@ -202,7 +196,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("zlib_compress: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
@@ -211,10 +205,10 @@ func RegisterZlibCompress() gojq.CompilerOption {
 		var buf bytes.Buffer
 		writer := zlib.NewWriter(&buf)
 		if _, err := writer.Write(inputBytes); err != nil {
-			return fmt.Errorf("zlib_compress: failed to write: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: failed to write: %v", err), nil)
 		}
 		if err := writer.Close(); err != nil {
-			return fmt.Errorf("zlib_compress: failed to close writer: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: failed to close writer: %v", err), nil)
 		}
 		compressed := buf.Bytes()
 
@@ -231,10 +225,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 			meta["compressed_length"] = len(compressed)
 		}
 
-		return map[string]any{
-			"_val":  fmt.Sprintf("%x", compressed),
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
 	})
 }
 
@@ -243,7 +234,7 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 	return gojq.WithFunction("zlib_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("zlib_decompress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -255,12 +246,12 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("zlib_decompress: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("zlib_decompress: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: %v", err), nil)
 			}
 
 			inputBytes = fileData
@@ -279,20 +270,20 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 			case []byte:
 				inputBytes = val
 			default:
-				return fmt.Errorf("zlib_decompress: argument must be a string or bytes, got %T", val)
+				return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: argument must be a string or bytes, got %T", val), nil)
 			}
 		}
 
 		// Decompress with zlib
 		reader, err := zlib.NewReader(bytes.NewReader(inputBytes))
 		if err != nil {
-			return fmt.Errorf("zlib_decompress: failed to create reader: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to create reader: %v", err), nil)
 		}
 		defer reader.Close()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return fmt.Errorf("zlib_decompress: failed to decompress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to decompress: %v", err), nil)
 		}
 
 		meta := map[string]any{
@@ -308,10 +299,7 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 			meta["decompressed_length"] = len(decompressed)
 		}
 
-		return map[string]any{
-			"_val":  string(decompressed),
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(string(decompressed), meta)
 	})
 }
 
@@ -320,7 +308,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 	return gojq.WithFunction("deflate_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("deflate_compress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -332,12 +320,12 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("deflate_compress: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("deflate_compress: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: %v", err), nil)
 			}
 
 			inputBytes = fileData
@@ -353,7 +341,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return fmt.Errorf("deflate_compress: argument must be a string or bytes, got %T", val)
+					return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: argument must be a string or bytes, got %T", val), nil)
 				}
 			}
 		}
@@ -362,13 +350,13 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 		var buf bytes.Buffer
 		writer, err := flate.NewWriter(&buf, flate.DefaultCompression)
 		if err != nil {
-			return fmt.Errorf("deflate_compress: failed to create writer: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: failed to create writer: %v", err), nil)
 		}
 		if _, err := writer.Write(inputBytes); err != nil {
-			return fmt.Errorf("deflate_compress: failed to write: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: failed to write: %v", err), nil)
 		}
 		if err := writer.Close(); err != nil {
-			return fmt.Errorf("deflate_compress: failed to close writer: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: failed to close writer: %v", err), nil)
 		}
 		compressed := buf.Bytes()
 
@@ -385,10 +373,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 			meta["compressed_length"] = len(compressed)
 		}
 
-		return map[string]any{
-			"_val":  fmt.Sprintf("%x", compressed),
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
 	})
 }
 
@@ -397,7 +382,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 	return gojq.WithFunction("deflate_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("deflate_decompress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -409,12 +394,12 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("deflate_decompress: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("deflate_decompress: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: %v", err), nil)
 			}
 
 			inputBytes = fileData
@@ -433,7 +418,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 			case []byte:
 				inputBytes = val
 			default:
-				return fmt.Errorf("deflate_decompress: argument must be a string or bytes, got %T", val)
+				return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: argument must be a string or bytes, got %T", val), nil)
 			}
 		}
 
@@ -443,7 +428,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return fmt.Errorf("deflate_decompress: failed to decompress: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: failed to decompress: %v", err), nil)
 		}
 
 		meta := map[string]any{
@@ -459,10 +444,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 			meta["decompressed_length"] = len(decompressed)
 		}
 
-		return map[string]any{
-			"_val":  string(decompressed),
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(string(decompressed), meta)
 	})
 }
 

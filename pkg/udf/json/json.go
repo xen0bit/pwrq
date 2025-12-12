@@ -13,7 +13,7 @@ func RegisterJSONParse() gojq.CompilerOption {
 	return gojq.WithFunction("json_parse", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("json_parse: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("json_parse: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -25,17 +25,17 @@ func RegisterJSONParse() gojq.CompilerOption {
 		if isFile {
 			filePathStr, ok := inputVal.(string)
 			if !ok {
-				return fmt.Errorf("json_parse: file argument requires string path, got %T", inputVal)
+				return common.MakeUDFErrorResult(fmt.Errorf("json_parse: file argument requires string path, got %T", inputVal), nil)
 			}
 
 			fileData, absPath, size, err := common.ReadFileFromPath(filePathStr)
 			if err != nil {
-				return fmt.Errorf("json_parse: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("json_parse: %v", err), nil)
 			}
 
 			// Parse JSON from file
 			if err := json.Unmarshal(fileData, &result); err != nil {
-				return fmt.Errorf("json_parse: invalid JSON in file: %v", err)
+				return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON in file: %v", err), nil)
 			}
 			filePath = absPath
 			fileSize = size
@@ -48,18 +48,18 @@ func RegisterJSONParse() gojq.CompilerOption {
 			case string:
 				// Parse JSON string
 				if err := json.Unmarshal([]byte(val), &result); err != nil {
-					return fmt.Errorf("json_parse: invalid JSON: %v", err)
+					return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v", err), nil)
 				}
 			case []byte:
 				// Parse JSON bytes
 				if err := json.Unmarshal(val, &result); err != nil {
-					return fmt.Errorf("json_parse: invalid JSON: %v", err)
+					return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v", err), nil)
 				}
 			default:
 				// Try to convert to string and parse
 				if str, ok := val.(fmt.Stringer); ok {
 					if err := json.Unmarshal([]byte(str.String()), &result); err != nil {
-						return fmt.Errorf("json_parse: invalid JSON: %v", err)
+						return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v", err), nil)
 					}
 				} else {
 					// If it's a simple type (number, bool, null), return as-is
@@ -88,7 +88,7 @@ func RegisterJSONStringify() gojq.CompilerOption {
 	return gojq.WithFunction("json_stringify", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
-			return fmt.Errorf("json_stringify: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("json_stringify: %v", err), nil)
 		}
 
 		inputVal = common.ExtractUDFValue(inputVal)
@@ -96,7 +96,7 @@ func RegisterJSONStringify() gojq.CompilerOption {
 		// Stringify the input value
 		jsonBytes, err := json.Marshal(inputVal)
 		if err != nil {
-			return fmt.Errorf("json_stringify: failed to marshal: %v", err)
+			return common.MakeUDFErrorResult(fmt.Errorf("json_stringify: failed to marshal: %v", err), nil)
 		}
 
 		result := string(jsonBytes)
@@ -117,10 +117,7 @@ func RegisterJSONStringify() gojq.CompilerOption {
 			}
 		}
 
-		return map[string]any{
-			"_val":  result,
-			"_meta": meta,
-		}
+  return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 
