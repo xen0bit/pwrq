@@ -2,7 +2,10 @@ package udf
 
 import (
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/base32"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
+	"github.com/xen0bit/pwrq/pkg/udf/base85"
+	"github.com/xen0bit/pwrq/pkg/udf/binary"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
@@ -16,6 +19,8 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
 	"github.com/xen0bit/pwrq/pkg/udf/string"
+	"github.com/xen0bit/pwrq/pkg/udf/hmac"
+	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
 )
 
@@ -58,6 +63,14 @@ func DefaultRegistry() *Registry {
 	reg.Register(html.RegisterHTMLEncode())
 	reg.Register(html.RegisterHTMLDecode())
 	
+	// Additional encodings
+	reg.Register(base32.RegisterBase32Encode())
+	reg.Register(base32.RegisterBase32Decode())
+	reg.Register(base85.RegisterBase85Encode())
+	reg.Register(base85.RegisterBase85Decode())
+	reg.Register(binary.RegisterBinaryEncode())
+	reg.Register(binary.RegisterBinaryDecode())
+	
 	// Compression
 	reg.Register(compress.RegisterGzipCompress())
 	reg.Register(compress.RegisterGzipDecompress())
@@ -71,6 +84,13 @@ func DefaultRegistry() *Registry {
 	reg.Register(string.RegisterLower())
 	reg.Register(string.RegisterReverse())
 	reg.Register(string.RegisterReplace())
+	reg.Register(string.RegisterTrim())
+	reg.Register(string.RegisterSplit())
+	reg.Register(string.RegisterJoin())
+	
+	// Timestamp operations
+	reg.Register(timestamp.RegisterTimestampToDate())
+	reg.Register(timestamp.RegisterDateToTimestamp())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())
@@ -81,6 +101,16 @@ func DefaultRegistry() *Registry {
 	reg.Register(sha512.RegisterSHA512())
 	reg.Register(sha512_224.RegisterSHA512_224())
 	reg.Register(sha512_256.RegisterSHA512_256())
+	
+	// HMAC functions (key, message, optional file flag)
+	reg.Register(hmac.RegisterHMACMD5())
+	reg.Register(hmac.RegisterHMACSHA1())
+	reg.Register(hmac.RegisterHMACSHA224())
+	reg.Register(hmac.RegisterHMACSHA256())
+	reg.Register(hmac.RegisterHMACSHA384())
+	reg.Register(hmac.RegisterHMACSHA512())
+	reg.Register(hmac.RegisterHMACSHA512_224())
+	reg.Register(hmac.RegisterHMACSHA512_256())
 
 	return reg
 }
