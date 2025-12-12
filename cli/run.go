@@ -10,4 +10,3 @@ func Run() int {
 		errStream: os.Stderr,
 	}).run(os.Args[1:])
 }
-

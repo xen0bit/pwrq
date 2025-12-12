@@ -415,4 +415,3 @@ func (i *slurpRawInputIter) Close() error {
 func (i *slurpRawInputIter) Name() string {
 	return i.iter.Name()
 }
-

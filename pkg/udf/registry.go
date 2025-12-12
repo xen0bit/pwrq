@@ -30,10 +30,9 @@ func (r *Registry) Options() []gojq.CompilerOption {
 // DefaultRegistry returns the default registry with all built-in UDFs
 func DefaultRegistry() *Registry {
 	reg := NewRegistry()
-	
+
 	// Register all built-in UDFs
 	reg.Register(find.RegisterFind())
-	
+
 	return reg
 }
-

@@ -1,1 +1,13 @@
+# Binary
 pwrq
+
+# Coverage files
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

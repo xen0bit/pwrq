@@ -11,28 +11,28 @@ import (
 
 // FindOptions represents options for the find function
 type FindOptions struct {
-	Path      string
-	Type      string // "file", "dir", or "" for both
-	MaxDepth  int    // -1 for unlimited
-	MinDepth  int    // minimum depth (default 0)
+	Path     string
+	Type     string // "file", "dir", or "" for both
+	MaxDepth int    // -1 for unlimited
+	MinDepth int    // minimum depth (default 0)
 }
 
 // findFiles performs the actual file finding
 func findFiles(opts FindOptions) ([]any, error) {
 	var results []any
-	
+
 	// Convert starting path to absolute
 	startPath, err := filepath.Abs(opts.Path)
 	if err != nil {
 		return nil, fmt.Errorf("find: cannot resolve path %q: %v", opts.Path, err)
 	}
-	
+
 	// Check if path exists
 	_, err = os.Stat(startPath)
 	if err != nil {
 		return nil, fmt.Errorf("find: path %q does not exist: %v", startPath, err)
 	}
-	
+
 	err = filepath.Walk(startPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// Skip permission errors and continue
@@ -41,13 +41,13 @@ func findFiles(opts FindOptions) ([]any, error) {
 			}
 			return err
 		}
-		
+
 		// Calculate depth relative to the starting path
 		relPath, err := filepath.Rel(startPath, path)
 		if err != nil {
 			return nil
 		}
-		
+
 		// Skip the root path itself if it's a file and we're looking for files
 		if relPath == "." {
 			if opts.Type == "file" && info.IsDir() {
@@ -57,12 +57,12 @@ func findFiles(opts FindOptions) ([]any, error) {
 				return nil
 			}
 		}
-		
+
 		depth := 0
 		if relPath != "." {
 			depth = len(strings.Split(relPath, string(filepath.Separator)))
 		}
-		
+
 		// Check min depth
 		if depth < opts.MinDepth {
 			if info.IsDir() {
@@ -70,7 +70,7 @@ func findFiles(opts FindOptions) ([]any, error) {
 			}
 			return nil
 		}
-		
+
 		// Check max depth
 		if opts.MaxDepth >= 0 && depth > opts.MaxDepth {
 			if info.IsDir() {
@@ -78,7 +78,7 @@ func findFiles(opts FindOptions) ([]any, error) {
 			}
 			return nil
 		}
-		
+
 		// Check type filter
 		if opts.Type == "file" && info.IsDir() {
 			return nil
@@ -86,19 +86,19 @@ func findFiles(opts FindOptions) ([]any, error) {
 		if opts.Type == "dir" && !info.IsDir() {
 			return nil
 		}
-		
+
 		// Path from Walk is already absolute (since startPath is absolute)
 		// But ensure it's normalized
 		absPath := filepath.Clean(path)
-		
+
 		results = append(results, absPath)
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return results, nil
 }
 
@@ -109,17 +109,17 @@ func parseFindArgs(args []any) (FindOptions, error) {
 		MaxDepth: -1,
 		MinDepth: 0,
 	}
-	
+
 	if len(args) == 0 {
 		return opts, fmt.Errorf("find: expected at least 1 argument (path)")
 	}
-	
+
 	// First argument is always the path
 	path, ok := args[0].(string)
 	if !ok {
 		return opts, fmt.Errorf("find: first argument must be a string (path)")
 	}
-	
+
 	// Expand ~ to home directory
 	if path == "~" {
 		home, err := os.UserHomeDir()
@@ -134,13 +134,13 @@ func parseFindArgs(args []any) (FindOptions, error) {
 		}
 		path = filepath.Join(home, path[2:])
 	}
-	
+
 	opts.Path = path
-	
+
 	// Parse additional arguments
 	for i := 1; i < len(args); i++ {
 		arg := args[i]
-		
+
 		switch v := arg.(type) {
 		case string:
 			// String argument could be type specification
@@ -179,7 +179,7 @@ func parseFindArgs(args []any) (FindOptions, error) {
 			return opts, fmt.Errorf("find: unsupported argument type %T", arg)
 		}
 	}
-	
+
 	return opts, nil
 }
 
@@ -190,17 +190,17 @@ func RegisterFind() gojq.CompilerOption {
 		if err != nil {
 			return gojq.NewIter(err)
 		}
-		
+
 		results, err := findFiles(opts)
 		if err != nil {
 			return gojq.NewIter(fmt.Errorf("find: %v", err))
 		}
-		
+
 		// Convert []any to variadic arguments for NewIter
 		if len(results) == 0 {
 			return gojq.NewIter[string]()
 		}
-		
+
 		// Create a slice iterator manually since NewIter needs type parameter
 		iter := &stringSliceIter{values: results, index: 0}
 		return iter
@@ -221,4 +221,3 @@ func (iter *stringSliceIter) Next() (any, bool) {
 	iter.index++
 	return value, true
 }
-

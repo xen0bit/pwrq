@@ -69,14 +69,37 @@ See [pkg/udf/README.md](pkg/udf/README.md) for more details.
 ### Building
 
 ```bash
+# Using Makefile (recommended)
+make build
+
+# Or directly with go
 go build ./cmd/pwrq
 ```
 
 ### Testing
 
 ```bash
-go test ./cli -v
+# Using Makefile
+make test          # Run all tests with race detector
+make test-short    # Run tests without race detector
+make test-coverage # Generate coverage report
+
+# Or directly with go
+go test ./...
 ```
+
+### Other Makefile Targets
+
+```bash
+make install   # Install to $GOPATH/bin
+make clean     # Remove build artifacts
+make fmt       # Format code
+make lint      # Run linters (requires golangci-lint)
+make example   # Run example queries
+make help      # Show all available targets
+```
+
+See `make help` for all available targets.
 
 ## License
 

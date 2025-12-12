@@ -48,4 +48,3 @@ func (m *yamlMarshaler) marshal(v any, w io.Writer) error {
 	}
 	return enc.Close()
 }
-

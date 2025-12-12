@@ -145,4 +145,3 @@ func TestCliRun(t *testing.T) {
 		})
 	}
 }
-

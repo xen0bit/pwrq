@@ -197,4 +197,3 @@ func formatFlags(opts any) string {
 	}
 	return sb.String()
 }
-

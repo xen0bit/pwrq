@@ -109,4 +109,3 @@ func (s *jsonStream) copyPath() []any {
 	copy(path, s.path)
 	return path
 }
-

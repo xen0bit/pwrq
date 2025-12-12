@@ -62,4 +62,3 @@ func setColors(colors string) error {
 	}
 	return nil
 }
-

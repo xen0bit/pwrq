@@ -232,4 +232,3 @@ func indexNewline(str string) (i int) {
 	}
 	return
 }
-

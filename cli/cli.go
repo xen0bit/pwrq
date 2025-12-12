@@ -244,11 +244,11 @@ Usage:
 	}
 	iter := cli.createInputIter(args)
 	defer iter.Close()
-	
+
 	// Get UDF registry and apply all registered functions
 	udfRegistry := udf.DefaultRegistry()
 	udfOptions := udfRegistry.Options()
-	
+
 	// Build compiler options
 	options := []gojq.CompilerOption{
 		gojq.WithModuleLoader(gojq.NewModuleLoader(modulePaths)),
@@ -268,10 +268,10 @@ Usage:
 		),
 		gojq.WithInputIter(iter),
 	}
-	
+
 	// Add all UDF options
 	options = append(options, udfOptions...)
-	
+
 	code, err := gojq.Compile(query, options...)
 	if err != nil {
 		if err, ok := err.(interface {
@@ -446,4 +446,3 @@ func (cli *cli) funcStderr(v any, _ []any) any {
 	}
 	return v
 }
-

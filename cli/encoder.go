@@ -265,4 +265,3 @@ func (e *encoder) write(bs, color []byte) {
 		setColor(e.w, resetColor)
 	}
 }
-
