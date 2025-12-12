@@ -12,6 +12,7 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf"
 )
 
 const name = "pwrq"
@@ -243,7 +244,13 @@ Usage:
 	}
 	iter := cli.createInputIter(args)
 	defer iter.Close()
-	code, err := gojq.Compile(query,
+	
+	// Get UDF registry and apply all registered functions
+	udfRegistry := udf.DefaultRegistry()
+	udfOptions := udfRegistry.Options()
+	
+	// Build compiler options
+	options := []gojq.CompilerOption{
 		gojq.WithModuleLoader(gojq.NewModuleLoader(modulePaths)),
 		gojq.WithEnvironLoader(os.Environ),
 		gojq.WithVariables(cli.argnames),
@@ -260,7 +267,12 @@ Usage:
 			}(iter),
 		),
 		gojq.WithInputIter(iter),
-	)
+	}
+	
+	// Add all UDF options
+	options = append(options, udfOptions...)
+	
+	code, err := gojq.Compile(query, options...)
 	if err != nil {
 		if err, ok := err.(interface {
 			QueryParseError() (string, string, error)

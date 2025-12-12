@@ -41,6 +41,29 @@ echo '{"foo": 128}' | pwrq -c '.'
   - Color output
   - And more...
 
+- **User-Defined Functions (UDF)**: Extensible function system
+  - `find` - Unix find-like file/directory search function
+  - Easy to add custom functions via the `pkg/udf` package
+
+## User-Defined Functions
+
+### find
+
+The `find` function provides Unix find-like functionality:
+
+```bash
+# Find all files and directories
+pwrq '[find(".")]'
+
+# Find only files
+pwrq '[find("pkg"; "file")]'
+
+# Find with options
+pwrq '[find("pkg"; {"type": "dir", "maxdepth": 2})]'
+```
+
+See [pkg/udf/README.md](pkg/udf/README.md) for more details.
+
 ## Development
 
 ### Building
