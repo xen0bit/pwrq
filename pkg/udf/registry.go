@@ -48,23 +48,15 @@ func DefaultRegistry() *Registry {
 	reg.Register(hex.RegisterHexEncode())
 	reg.Register(hex.RegisterHexDecode())
 	
-	// Hash functions
+	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())
-	reg.Register(md5udf.RegisterMD5File())
 	reg.Register(sha1.RegisterSHA1())
-	reg.Register(sha1.RegisterSHA1File())
 	reg.Register(sha224.RegisterSHA224())
-	reg.Register(sha224.RegisterSHA224File())
 	reg.Register(sha256.RegisterSHA256())
-	reg.Register(sha256.RegisterSHA256File())
 	reg.Register(sha384.RegisterSHA384())
-	reg.Register(sha384.RegisterSHA384File())
 	reg.Register(sha512.RegisterSHA512())
-	reg.Register(sha512.RegisterSHA512File())
 	reg.Register(sha512_224.RegisterSHA512_224())
-	reg.Register(sha512_224.RegisterSHA512_224File())
 	reg.Register(sha512_256.RegisterSHA512_256())
-	reg.Register(sha512_256.RegisterSHA512_256File())
 
 	return reg
 }

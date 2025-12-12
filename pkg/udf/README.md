@@ -161,6 +161,7 @@ base64_decode("aGVsbG8=")
 
 **Arguments:**
 - `input` (string, optional) - The base64-encoded string to decode. If not provided, uses the current value (`.`)
+- `file` (boolean, optional) - If `true`, treats the input as a file path and reads the file from disk. Default: `false`
 
 **Returns:** An object with:
 - `_val`: The decoded string
@@ -209,6 +210,7 @@ hex_decode("68656c6c6f")
 
 **Arguments:**
 - `input` (string or bytes, optional) - The string/bytes to encode or hex string to decode. If not provided, uses the current value (`.`)
+- `file` (boolean, optional) - If `true`, treats the input as a file path and reads the file from disk. Default: `false`
 
 **Returns:** An object with:
 - `_val`: The hex-encoded string (for encode) or decoded string (for decode)
@@ -238,6 +240,12 @@ pwrq '"hello world" | hex_encode | hex_decode'
 # Or extract the final value
 pwrq '"hello world" | hex_encode | hex_decode | ._val'
 # Output: "hello world"
+
+# Encode a file
+pwrq '"README.md" | hex_encode(true) | ._val'
+
+# Decode from a file
+pwrq '"hexfile.txt" | hex_decode(true) | ._val'
 ```
 
 ### md5
@@ -255,6 +263,7 @@ md5("hello")
 
 **Arguments:**
 - `input` (string or bytes, optional) - The string or bytes to hash. If not provided, uses the current value (`.`)
+- `file` (boolean, optional) - If `true`, treats the input as a file path and reads the file from disk. Default: `false`
 
 **Returns:** An object with:
 - `_val`: The MD5 hash as a hexadecimal string (32 characters)
@@ -276,25 +285,36 @@ pwrq '"hello" | md5 | ._val'
 # Chain UDFs - _val is automatically extracted when chaining
 pwrq '"hello" | base64_encode | md5 | ._val'
 # Output: "0733351879b2fa9bd05c7ca3061529c0"
+
+# Hash a file
+pwrq '"README.md" | md5(true) | ._val'
+
+# Hash a file with explicit path
+pwrq 'md5("README.md"; true) | ._val'
 ```
 
 ### Hash Functions
 
 pwrq supports all hash algorithms available in Go's crypto package:
 
-- **md5** / **md5_file** - MD5 hash (128 bits, 32 hex chars)
-- **sha1** / **sha1_file** - SHA-1 hash (160 bits, 40 hex chars)
-- **sha224** / **sha224_file** - SHA-224 hash (224 bits, 56 hex chars)
-- **sha256** / **sha256_file** - SHA-256 hash (256 bits, 64 hex chars)
-- **sha384** / **sha384_file** - SHA-384 hash (384 bits, 96 hex chars)
-- **sha512** / **sha512_file** - SHA-512 hash (512 bits, 128 hex chars)
-- **sha512_224** / **sha512_224_file** - SHA-512/224 hash (224 bits, 56 hex chars)
-- **sha512_256** / **sha512_256_file** - SHA-512/256 hash (256 bits, 64 hex chars)
+- **md5** - MD5 hash (128 bits, 32 hex chars)
+- **sha1** - SHA-1 hash (160 bits, 40 hex chars)
+- **sha224** - SHA-224 hash (224 bits, 56 hex chars)
+- **sha256** - SHA-256 hash (256 bits, 64 hex chars)
+- **sha384** - SHA-384 hash (384 bits, 96 hex chars)
+- **sha512** - SHA-512 hash (512 bits, 128 hex chars)
+- **sha512_224** - SHA-512/224 hash (224 bits, 56 hex chars)
+- **sha512_256** - SHA-512/256 hash (256 bits, 64 hex chars)
 
 All hash functions follow the same pattern:
-- Accept 0 or 1 arguments (use current value if no argument)
+- Accept 0-2 arguments: `hash(input, file)` where `input` is optional and `file` is an optional boolean
+- If `file` is `true`, treats input as a file path and reads from disk
 - Automatically extract `_val` from UDF result objects
-- Return object with `_val` (hex hash) and `_meta` (algorithm, input_length/file_size, hash_length, file_path for file versions)
+- Return object with `_val` (hex hash) and `_meta` (algorithm, input_length/file_size, hash_length, file_path when file mode)
+
+**Arguments:**
+- `input` (string or bytes, optional) - The string or bytes to hash. If not provided, uses the current value (`.`)
+- `file` (boolean, optional) - If `true`, treats the input as a file path and reads the file from disk. Default: `false`
 
 **Example:**
 ```bash
@@ -302,54 +322,14 @@ All hash functions follow the same pattern:
 pwrq '"hello" | sha256 | ._val'
 # Output: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
 
-# Hash a file
-pwrq '"README.md" | sha256_file | ._val'
+# Hash a file (using pipeline value)
+pwrq '"README.md" | sha256(true) | ._val'
+
+# Hash a file (explicit path)
+pwrq 'sha256("README.md"; true) | ._val'
 
 # Chain with find
-pwrq '[find("pkg/udf"; "file")] | .[0] | sha256_file | ._val'
-```
-
-### md5_file
-
-Computes the MD5 hash of a file on disk.
-
-**Usage:**
-```jq
-# Hash a file
-md5_file("path/to/file")
-
-# Hash current value (file path)
-. | md5_file
-```
-
-**Arguments:**
-- `file_path` (string, optional) - The path to the file to hash. If not provided, uses the current value (`.`). Supports `~` for home directory.
-
-**Returns:** An object with:
-- `_val`: The MD5 hash as a hexadecimal string (32 characters)
-- `_meta`: Object containing:
-  - `algorithm`: "md5"
-  - `file_path`: The absolute path of the file that was hashed
-  - `file_size`: Size of the file in bytes
-  - `hash_length`: Length of the hash string (always 32 for MD5)
-
-**Example:**
-```bash
-# Hash a file
-pwrq '"README.md" | md5_file'
-# Output: {"_val": "ca6ecf3dfb0e5ddb43f2ab7e3d08fdac", "_meta": {...}}
-
-# Extract just the hash
-pwrq '"README.md" | md5_file | ._val'
-# Output: "ca6ecf3dfb0e5ddb43f2ab7e3d08fdac"
-
-# Chain with find - _val is automatically extracted when chaining
-pwrq '[find("pkg/udf/md5"; "file")] | .[0] | md5_file | ._val'
-# Output: "b7b02e202e9965d5cfdd685f912fea0f"
-
-# Get file metadata
-pwrq '"README.md" | md5_file | ._meta'
-# Output: {"algorithm": "md5", "file_path": "/path/to/README.md", "file_size": 2964, "hash_length": 32}
+pwrq '[find("pkg/udf"; "file")] | .[0] | sha256(true) | ._val'
 ```
 
 ### find
