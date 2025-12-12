@@ -20,6 +20,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
 	"github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/csv"
+	"github.com/xen0bit/pwrq/pkg/udf/entropy"
 	"github.com/xen0bit/pwrq/pkg/udf/hmac"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
@@ -106,6 +107,9 @@ func DefaultRegistry() *Registry {
 	// XML operations
 	reg.Register(xml.RegisterXMLParse())
 	reg.Register(xml.RegisterXMLStringify())
+	
+	// Entropy
+	reg.Register(entropy.RegisterEntropy())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())

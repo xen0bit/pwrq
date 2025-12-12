@@ -29,6 +29,7 @@ func (cli *cli) printUDFList() {
 		"JSON",
 		"CSV",
 		"XML",
+		"Entropy",
 	}
 	
 	// Collect all categories
