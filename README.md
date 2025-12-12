@@ -78,6 +78,47 @@ pwrq '"aGVsbG8=" | base64_decode | ._val'
 pwrq '"hello world" | base64_encode | base64_decode | ._val'
 ```
 
+### md5
+
+Computes the MD5 hash of piped content:
+
+```bash
+# Hash a string
+pwrq '"hello" | md5 | ._val'
+
+# Chain with other UDFs (automatic _val extraction)
+pwrq '"hello" | base64_encode | md5 | ._val'
+```
+
+### md5_file
+
+Computes the MD5 hash of a file on disk:
+
+```bash
+# Hash a file
+pwrq '"README.md" | md5_file | ._val'
+
+# Chain with find (automatic _val extraction)
+pwrq '[find("pkg/udf/md5"; "file")] | .[0] | md5_file | ._val'
+```
+
+### Hash Functions
+
+pwrq supports all hash algorithms available in Go's crypto package:
+- **md5**, **sha1**, **sha224**, **sha256**, **sha384**, **sha512**, **sha512_224**, **sha512_256**
+- Each has a corresponding `*_file` version for hashing files on disk
+
+```bash
+# Hash a string
+pwrq '"hello" | sha256 | ._val'
+
+# Hash a file
+pwrq '"README.md" | sha256_file | ._val'
+
+# Chain with find
+pwrq '[find("pkg/udf"; "file")] | .[0] | sha256_file | ._val'
+```
+
 See [pkg/udf/README.md](pkg/udf/README.md) for more details.
 
 ## Development
