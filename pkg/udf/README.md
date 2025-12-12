@@ -188,6 +188,58 @@ pwrq '"hello world" | base64_encode | base64_decode | ._val'
 # Output: "hello world"
 ```
 
+### hex_encode / hex_decode
+
+Hexadecimal encoding and decoding functions with automatic `_val` extraction when chaining.
+
+**Usage:**
+```jq
+# Encode current value
+. | hex_encode
+
+# Encode a specific string
+hex_encode("hello")
+
+# Decode current value
+. | hex_decode
+
+# Decode a specific hex string
+hex_decode("68656c6c6f")
+```
+
+**Arguments:**
+- `input` (string or bytes, optional) - The string/bytes to encode or hex string to decode. If not provided, uses the current value (`.`)
+
+**Returns:** An object with:
+- `_val`: The hex-encoded string (for encode) or decoded string (for decode)
+- `_meta`: Object containing:
+  - `encoding`: "hex"
+  - `original_length`: Length of the original string/bytes
+  - `encoded_length` / `decoded_length`: Length of the encoded/decoded string
+
+**Example:**
+```bash
+# Encode a string
+pwrq '"hello" | hex_encode'
+# Output: {"_val": "68656c6c6f", "_meta": {...}}
+
+# Extract just the encoded value
+pwrq '"hello" | hex_encode | ._val'
+# Output: "68656c6c6f"
+
+# Decode a hex string
+pwrq '"68656c6c6f" | hex_decode'
+# Output: {"_val": "hello", "_meta": {...}}
+
+# Round-trip encoding/decoding (automatic _val extraction)
+pwrq '"hello world" | hex_encode | hex_decode'
+# Output: {"_val": "hello world", "_meta": {...}}
+
+# Or extract the final value
+pwrq '"hello world" | hex_encode | hex_decode | ._val'
+# Output: "hello world"
+```
+
 ### md5
 
 Computes the MD5 hash of a string or bytes.

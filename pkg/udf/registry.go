@@ -4,6 +4,7 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
+	"github.com/xen0bit/pwrq/pkg/udf/hex"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
@@ -44,6 +45,8 @@ func DefaultRegistry() *Registry {
 	reg.Register(find.RegisterFind())
 	reg.Register(base64.RegisterBase64Encode())
 	reg.Register(base64.RegisterBase64Decode())
+	reg.Register(hex.RegisterHexEncode())
+	reg.Register(hex.RegisterHexDecode())
 	
 	// Hash functions
 	reg.Register(md5udf.RegisterMD5())

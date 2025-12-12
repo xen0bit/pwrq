@@ -78,6 +78,21 @@ pwrq '"aGVsbG8=" | base64_decode | ._val'
 pwrq '"hello world" | base64_encode | base64_decode | ._val'
 ```
 
+### hex_encode / hex_decode
+
+Hexadecimal encoding and decoding functions with automatic `_val` extraction when chaining:
+
+```bash
+# Encode a string
+pwrq '"hello" | hex_encode | ._val'
+
+# Decode a hex string
+pwrq '"68656c6c6f" | hex_decode | ._val'
+
+# Round-trip (automatic _val extraction)
+pwrq '"hello world" | hex_encode | hex_decode | ._val'
+```
+
 ### md5
 
 Computes the MD5 hash of piped content:
