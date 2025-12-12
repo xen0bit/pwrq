@@ -15,6 +15,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 	return []FunctionMetadata{
 		// File operations
 		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("path"; "file")`, `find("path"; "dir")`}},
+		{"cat", 0, 1, "Read and return contents of a file (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`}},
 		
 		// Encoding/Decoding
 		{"base64_encode", 0, 2, "Encode to base64 (optional file arg)", "Encoding", []string{`base64_encode`, `base64_encode(true)`}},

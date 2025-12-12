@@ -6,6 +6,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
 	"github.com/xen0bit/pwrq/pkg/udf/binary"
+	"github.com/xen0bit/pwrq/pkg/udf/cat"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
@@ -58,6 +59,7 @@ func DefaultRegistry() *Registry {
 	
 	// Register all built-in UDFs
 	reg.Register(find.RegisterFind())
+	reg.Register(cat.RegisterCat())
 	
 	// Encoding/Decoding
 	reg.Register(base64.RegisterBase64Encode())
