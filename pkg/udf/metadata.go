@@ -95,6 +95,9 @@ func GetFunctionMetadata() []FunctionMetadata {
 		
 		// Tee (write to stderr or file)
 		{"tee", 0, 1, "Write JSON to stderr (default) or file (optional filepath arg)", "File Operations", []string{`tee`, `tee("/tmp/output.json")`, `{"key":"value"} | tee`}},
+		
+		// HTTP requests
+		{"http", 0, 2, "Make HTTP request (method default POST, url required)", "HTTP", []string{`http("https://example.com")`, `"https://example.com" | http`, `http("GET"; "https://example.com")`, `{"key":"value"} | http("POST"; "https://api.example.com")`}},
 	}
 }
 

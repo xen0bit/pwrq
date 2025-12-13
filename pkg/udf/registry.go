@@ -11,6 +11,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/find"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
 	"github.com/xen0bit/pwrq/pkg/udf/html"
+	"github.com/xen0bit/pwrq/pkg/udf/http"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
@@ -121,6 +122,9 @@ func DefaultRegistry() *Registry {
 	
 	// Tee (write to stderr or file)
 	reg.Register(tee.RegisterTee())
+	
+	// HTTP requests
+	reg.Register(http.RegisterHTTP())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())
