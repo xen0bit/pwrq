@@ -125,6 +125,7 @@ func DefaultRegistry() *Registry {
 	
 	// HTTP requests
 	reg.Register(http.RegisterHTTP())
+	reg.Register(http.RegisterHTTPServe())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())

@@ -2,11 +2,14 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/itchyny/gojq"
@@ -229,3 +232,191 @@ func RegisterHTTP() gojq.CompilerOption {
 	})
 }
 
+// RegisterHTTPServe registers the http_serve function with gojq
+func RegisterHTTPServe() gojq.CompilerOption {
+	return gojq.WithFunction("http_serve", 2, 2, func(v any, args []any) any {
+		// Parse arguments: host, port
+		if len(args) < 2 {
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: expected 2 arguments (host, port), got %d", len(args)), nil)
+		}
+
+		hostVal := common.ExtractUDFValue(args[0])
+		portVal := common.ExtractUDFValue(args[1])
+
+		var host string
+		var port int
+
+		// Parse host
+		if hostStr, ok := hostVal.(string); ok {
+			host = hostStr
+		} else {
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: host argument must be a string, got %T", hostVal), nil)
+		}
+
+		// Parse port
+		switch p := portVal.(type) {
+		case int:
+			port = p
+		case float64:
+			port = int(p)
+		case string:
+			// Try to parse as integer string
+			var err error
+			_, err = fmt.Sscanf(p, "%d", &port)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("http_serve: port argument must be an integer or integer string, got %q", p), nil)
+			}
+		default:
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: port argument must be an integer, got %T", portVal), nil)
+		}
+
+		// Validate port range (0 is allowed - OS will assign)
+		if port < 0 || port > 65535 {
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: port must be between 0 and 65535, got %d", port), nil)
+		}
+
+		// Get the input value from the pipeline
+		inputVal := common.ExtractUDFValue(v)
+
+		// Create a channel to receive the result (either from GET or POST)
+		resultChan := make(chan any, 1)
+		errorChan := make(chan error, 1)
+
+		// Create listener with SO_REUSEADDR
+		lc := net.ListenConfig{
+			Control: func(network, address string, c syscall.RawConn) error {
+				var err error
+				c.Control(func(fd uintptr) {
+					err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+				})
+				return err
+			},
+		}
+
+		// Listen on the address
+		listener, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf("%s:%d", host, port))
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: failed to listen on %s:%d: %v", host, port, err), nil)
+		}
+
+		// Get the actual address (in case port was 0)
+		actualAddr := listener.Addr().(*net.TCPAddr)
+		actualPort := actualAddr.Port
+		serverURL := fmt.Sprintf("http://%s:%d", host, actualPort)
+
+		// Create HTTP server with handlers for GET and POST
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "GET" {
+				// GET: Return the current pipeline item
+				w.Header().Set("Content-Type", "application/json")
+
+				if inputVal != nil {
+					// Return the item as JSON
+					json.NewEncoder(w).Encode(inputVal)
+					// Signal that we're done with this item
+					resultChan <- inputVal
+				} else {
+					w.WriteHeader(http.StatusNoContent)
+					json.NewEncoder(w).Encode(map[string]any{
+						"error": "no item available",
+					})
+					errorChan <- fmt.Errorf("no item available")
+				}
+			} else if r.Method == "POST" {
+				// POST: Insert an object into the pipeline
+				bodyBytes, err := io.ReadAll(r.Body)
+				r.Body.Close()
+
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(map[string]any{
+						"error": fmt.Sprintf("failed to read body: %v", err),
+					})
+					errorChan <- err
+					return
+				}
+
+				// Parse JSON body
+				var postData any
+				if err := json.Unmarshal(bodyBytes, &postData); err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(map[string]any{
+						"error": fmt.Sprintf("invalid JSON: %v", err),
+					})
+					errorChan <- err
+					return
+				}
+
+				// Return success and send POST data to result channel
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]any{
+					"status": "accepted",
+				})
+				resultChan <- postData
+			} else {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				json.NewEncoder(w).Encode(map[string]any{
+					"error": "method not allowed, use GET or POST",
+				})
+				errorChan <- fmt.Errorf("method not allowed")
+			}
+		})
+
+		server := &http.Server{
+			Handler: mux,
+		}
+
+		// Start server in a goroutine
+		serverErr := make(chan error, 1)
+		go func() {
+			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+				serverErr <- err
+			}
+		}()
+
+		// Give the server a moment to start
+		time.Sleep(100 * time.Millisecond)
+
+		// Block waiting for either GET or POST request
+		select {
+		case result := <-resultChan:
+			// Close the server
+			server.Close()
+			listener.Close()
+
+			// Return the result (either the input item from GET, or POST data)
+			meta := map[string]any{
+				"operation": "http_serve",
+				"host":      host,
+				"port":      actualPort,
+				"url":       serverURL,
+				"status":    "completed",
+			}
+			return common.MakeUDFSuccessResult(result, meta)
+		case err := <-errorChan:
+			// Close the server on error
+			server.Close()
+			listener.Close()
+
+			meta := map[string]any{
+				"operation": "http_serve",
+				"host":      host,
+				"port":      actualPort,
+				"url":       serverURL,
+			}
+			return common.MakeUDFErrorResult(err, meta)
+		case err := <-serverErr:
+			// Server error
+			listener.Close()
+			meta := map[string]any{
+				"operation": "http_serve",
+				"host":      host,
+				"port":      actualPort,
+				"url":       serverURL,
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: server error: %v", err), meta)
+		}
+	})
+}
