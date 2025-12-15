@@ -14,6 +14,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/http"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
 	"github.com/xen0bit/pwrq/pkg/udf/mkdir"
+	"github.com/xen0bit/pwrq/pkg/udf/rm"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha256"
@@ -64,6 +65,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(find.RegisterFind())
 	reg.Register(cat.RegisterCat())
 	reg.Register(mkdir.RegisterMkdir())
+	reg.Register(rm.RegisterRm())
 	
 	// Encoding/Decoding
 	reg.Register(base64.RegisterBase64Encode())

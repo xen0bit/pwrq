@@ -17,6 +17,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("path"; "file")`, `find("path"; "dir")`}},
 		{"cat", 0, 1, "Read and return contents of a file (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`}},
 		{"mkdir", 1, 1, "Create a directory (creates parent directories if needed)", "File Operations", []string{`mkdir("/tmp/mydir")`, `mkdir("nested/path/to/dir")`}},
+		{"rm", 2, 2, "Remove a file or folder (path, type: 'file' or 'folder')", "File Operations", []string{`rm("/tmp/file.txt"; "file")`, `rm("/tmp/mydir"; "folder")`}},
 		
 		// Encoding/Decoding
 		{"base64_encode", 0, 2, "Encode to base64 (optional file arg)", "Encoding", []string{`base64_encode`, `base64_encode(true)`}},
