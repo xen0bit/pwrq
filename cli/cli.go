@@ -12,6 +12,7 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/graph"
 	"github.com/xen0bit/pwrq/pkg/udf"
 )
 
@@ -81,6 +82,7 @@ type flagopts struct {
 	Version       bool              `short:"v" long:"version" description:"display version information"`
 	Help          bool              `short:"h" long:"help" description:"display this help information"`
 	UDFList       bool              `short:"u" long:"udf-list" description:"list all available user-defined functions"`
+	Graph         string            `short:"g" long:"graph" args:"output.png" description:"generate a D2 diagram of the query flow and save to PNG file"`
 }
 
 var addDefaultModulePaths = true
@@ -243,6 +245,17 @@ Usage:
 	if err != nil {
 		return &queryParseError{fname, arg, err}
 	}
+
+	// Handle graph generation flag
+	if opts.Graph != "" {
+		err := graph.GenerateGraph(query, opts.Graph)
+		if err != nil {
+			return fmt.Errorf("failed to generate graph: %w", err)
+		}
+		fmt.Fprintf(cli.outStream, "Graph generated: %s\n", opts.Graph)
+		return nil
+	}
+
 	modulePaths := opts.ModulePaths
 	if len(modulePaths) == 0 && addDefaultModulePaths {
 		modulePaths = []string{"~/.jq", "$ORIGIN/../lib/pwrq", "$ORIGIN/../lib"}
