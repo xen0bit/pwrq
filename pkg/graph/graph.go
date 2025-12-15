@@ -3,15 +3,11 @@ package graph
 import (
 	"context"
 	"fmt"
-	"image"
-	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/srwiley/oksvg"
-	"github.com/srwiley/rasterx"
 	"oss.terrastruct.com/d2/d2format"
 	"oss.terrastruct.com/d2/d2graph"
 	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
@@ -101,76 +97,63 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 	// Format the graph AST to D2 script
 	d2Script := d2format.Format(graph.AST)
 
-	// Check if output path ends with .d2 - if so, just write the plain text
-	if strings.HasSuffix(strings.ToLower(outputPath), ".d2") {
+	// Check output file extension
+	ext := strings.ToLower(filepath.Ext(outputPath))
+
+	switch ext {
+	case ".d2":
+		// Write plain D2 script text
 		return os.WriteFile(outputPath, []byte(d2Script), 0644)
-	}
 
-	// Otherwise, render to PNG using the D2 library
-	// Set up text measurement ruler for D2 compilation
-	ruler, err := textmeasure.NewRuler()
-	if err != nil {
-		// Save D2 script for debugging
-		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
-		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
-		return fmt.Errorf("failed to create text ruler: %w\nD2 script saved to: %s", err, d2OutputPath)
-	}
+	case ".svg":
+		// Render to SVG using the D2 library
+		// Set up text measurement ruler for D2 compilation
+		ruler, err := textmeasure.NewRuler()
+		if err != nil {
+			// Save D2 script for debugging
+			d2OutputPath := outputPath[:len(outputPath)-len(ext)] + ".d2"
+			os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+			return fmt.Errorf("failed to create text ruler: %w\nD2 script saved to: %s", err, d2OutputPath)
+		}
 
-	// Compile the D2 script with layout and ruler (following blog post pattern)
-	layoutStr := "dagre"
-	compileOpts := &d2lib.CompileOptions{
-		Layout: &layoutStr,
-		Ruler:  ruler,
-		LayoutResolver: func(engine string) (d2graph.LayoutGraph, error) {
-			if engine == "dagre" {
-				return d2dagrelayout.DefaultLayout, nil
-			}
-			return nil, fmt.Errorf("unknown layout engine: %s", engine)
-		},
-	}
-	diagram, _, err := d2lib.Compile(ctx, d2Script, compileOpts, nil)
-	if err != nil {
-		// Save D2 script for debugging
-		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
-		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
-		return fmt.Errorf("failed to compile D2 diagram: %w\nD2 script saved to: %s", err, d2OutputPath)
-	}
+		// Compile the D2 script with layout and ruler (following blog post pattern)
+		layoutStr := "dagre"
+		compileOpts := &d2lib.CompileOptions{
+			Layout: &layoutStr,
+			Ruler:  ruler,
+			LayoutResolver: func(engine string) (d2graph.LayoutGraph, error) {
+				if engine == "dagre" {
+					return d2dagrelayout.DefaultLayout, nil
+				}
+				return nil, fmt.Errorf("unknown layout engine: %s", engine)
+			},
+		}
+		diagram, _, err := d2lib.Compile(ctx, d2Script, compileOpts, nil)
+		if err != nil {
+			// Save D2 script for debugging
+			d2OutputPath := outputPath[:len(outputPath)-len(ext)] + ".d2"
+			os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+			return fmt.Errorf("failed to compile D2 diagram: %w\nD2 script saved to: %s", err, d2OutputPath)
+		}
 
-	// Render to SVG (following blog post pattern)
-	pad := int64(d2svg.DEFAULT_PADDING)
-	svgBytes, err := d2svg.Render(diagram, &d2svg.RenderOpts{
-		Pad: &pad,
-	})
-	if err != nil {
-		// Save D2 script for debugging
-		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
-		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
-		return fmt.Errorf("failed to render D2 diagram to SVG: %w\nD2 script saved to: %s", err, d2OutputPath)
-	}
+		// Render to SVG (following blog post pattern)
+		pad := int64(d2svg.DEFAULT_PADDING)
+		svgBytes, err := d2svg.Render(diagram, &d2svg.RenderOpts{
+			Pad: &pad,
+		})
+		if err != nil {
+			// Save D2 script for debugging
+			d2OutputPath := outputPath[:len(outputPath)-len(ext)] + ".d2"
+			os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+			return fmt.Errorf("failed to render D2 diagram to SVG: %w\nD2 script saved to: %s", err, d2OutputPath)
+		}
 
-	// Convert SVG to PNG
-	pngImg, err := svgToPNG(svgBytes)
-	if err != nil {
-		// Save D2 script and SVG for debugging
-		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
-		svgOutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".svg"
-		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
-		os.WriteFile(svgOutputPath, svgBytes, 0644)
-		return fmt.Errorf("failed to convert SVG to PNG: %w\nD2 script saved to: %s\nSVG saved to: %s", err, d2OutputPath, svgOutputPath)
-	}
+		// Write SVG to file
+		return os.WriteFile(outputPath, svgBytes, 0644)
 
-	// Write PNG to file
-	pngFile, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("failed to create PNG file: %w", err)
+	default:
+		return fmt.Errorf("unsupported output format: %s (supported formats: .d2, .svg)", ext)
 	}
-	defer pngFile.Close()
-
-	if err := png.Encode(pngFile, pngImg); err != nil {
-		return fmt.Errorf("failed to encode PNG: %w", err)
-	}
-
-	return nil
 }
 
 // traverseQueryWithOracle recursively traverses the jq query AST and builds D2 nodes using d2oracle
@@ -818,56 +801,6 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 	default:
 		return fmt.Sprintf("Term(%d)", term.Type)
 	}
-}
-
-// svgToPNG converts SVG bytes to a PNG image
-func svgToPNG(svgBytes []byte) (*image.RGBA, error) {
-	// Parse SVG - oksvg may have issues with embedded fonts, so we'll try to handle that
-	icon, err := oksvg.ReadIconStream(strings.NewReader(string(svgBytes)))
-	if err != nil {
-		// If parsing fails, try to extract dimensions from SVG and create a placeholder
-		// or use a simpler approach
-		// For now, return a default-sized image as fallback
-		w, h := 800, 600
-		// Try to extract viewBox from SVG string
-		svgStr := string(svgBytes)
-		if strings.Contains(svgStr, "viewBox") {
-			// Simple extraction - look for viewBox="0 0 width height"
-			// This is a basic fallback
-		}
-		img := image.NewRGBA(image.Rect(0, 0, w, h))
-		// Fill with white background
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
-				img.Set(x, y, image.White)
-			}
-		}
-		return img, fmt.Errorf("failed to parse SVG (may contain unsupported embedded fonts): %w", err)
-	}
-
-	// Get SVG dimensions
-	w := int(icon.ViewBox.W)
-	h := int(icon.ViewBox.H)
-	if w == 0 || h == 0 {
-		// Default dimensions if not specified
-		w = 800
-		h = 600
-	}
-
-	// Create image with white background
-	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			img.Set(x, y, image.White)
-		}
-	}
-
-	// Set up rasterizer
-	scannerGV := rasterx.NewScannerGV(w, h, img, img.Bounds())
-	raster := rasterx.NewDasher(w, h, scannerGV)
-	icon.Draw(raster, 1.0)
-
-	return img, nil
 }
 
 // formatFuncArgs formats function arguments as a string
