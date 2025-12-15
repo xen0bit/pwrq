@@ -1,97 +1,310 @@
 package graph
 
 import (
+	"context"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/srwiley/oksvg"
+	"github.com/srwiley/rasterx"
+	"oss.terrastruct.com/d2/d2format"
+	"oss.terrastruct.com/d2/d2graph"
+	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
+	"oss.terrastruct.com/d2/d2lib"
+	"oss.terrastruct.com/d2/d2oracle"
+	"oss.terrastruct.com/d2/d2renderers/d2svg"
+	"oss.terrastruct.com/d2/lib/textmeasure"
 )
 
 // GenerateGraph creates a D2 diagram representing the flow of a jq query
 func GenerateGraph(query *gojq.Query, outputPath string) error {
-	// Build D2 script by traversing the query AST
-	var builder strings.Builder
-	builder.WriteString("title: Query Flow\n\n")
+	// Resolve absolute output path
+	outputPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve output path: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Start with an empty graph (following d2oracle pattern from blog post)
+	_, graph, err := d2lib.Compile(ctx, "", nil, nil)
+	if err != nil {
+		return fmt.Errorf("failed to initialize graph: %w", err)
+	}
 
 	nodeCounter := 0
 	lastNodeID := "start"
 	var lastOutputType string
+	boardPath := []string{} // Empty board path for root level
 
-	// Create start node
-	builder.WriteString("start: {\n  label: \"Start\"\n  shape: circle\n}\n\n")
+	// Create start node using d2oracle
+	graph, startKey, err := d2oracle.Create(graph, boardPath, "start")
+	if err != nil {
+		return fmt.Errorf("failed to create start node: %w", err)
+	}
+	shapeCircle := "circle"
+	labelStart := "Start"
+	graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.shape", startKey), nil, &shapeCircle)
+	graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", startKey), nil, &labelStart)
 
-	// Traverse the query AST
-	lastOutputType, err := traverseQuery(query, &builder, &nodeCounter, &lastNodeID, "")
+	// Traverse the query AST and build graph programmatically
+	lastOutputType, graph, err = traverseQueryWithOracle(query, graph, boardPath, &nodeCounter, &lastNodeID, "")
 	if err != nil {
 		return fmt.Errorf("failed to traverse query: %w", err)
 	}
 
 	// Add end node
 	endNodeID := fmt.Sprintf("end_%d", nodeCounter)
-	builder.WriteString(fmt.Sprintf("%s: {\n  label: \"End\"\n  shape: circle\n}\n\n", endNodeID))
+	graph, endKey, err := d2oracle.Create(graph, boardPath, endNodeID)
+	if err != nil {
+		return fmt.Errorf("failed to create end node: %w", err)
+	}
+	labelEnd := "End"
+	graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.shape", endKey), nil, &shapeCircle)
+	graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", endKey), nil, &labelEnd)
 
 	// Connect last node to end with type
 	if lastNodeID != "start" {
+		edgeKey := fmt.Sprintf("%s -> %s", lastNodeID, endNodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return fmt.Errorf("failed to create end edge: %w", err)
+		}
 		if lastOutputType != "" {
-			builder.WriteString(fmt.Sprintf("%s -> %s: {\n  label: %q\n}\n", lastNodeID, endNodeID, lastOutputType))
-		} else {
-			builder.WriteString(fmt.Sprintf("%s -> %s\n", lastNodeID, endNodeID))
+			graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &lastOutputType)
 		}
 	}
 
-	// Write D2 script to temporary file
-	tmpFile, err := os.CreateTemp("", "pwrq_graph_*.d2")
-	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
-	}
-	d2ScriptPath := tmpFile.Name()
-	defer func() {
-		// Only remove temp file if rendering succeeded
-		if _, err := os.Stat(d2ScriptPath); err == nil {
-			os.Remove(d2ScriptPath)
-		}
-	}()
+	// Format the graph AST to D2 script
+	d2Script := d2format.Format(graph.AST)
 
-	_, err = tmpFile.WriteString(builder.String())
-	if err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("failed to write D2 script: %w", err)
-	}
-	tmpFile.Close()
-
-	// Use d2 CLI to render to PNG
-	outputPath, err = filepath.Abs(outputPath)
-	if err != nil {
-		return fmt.Errorf("failed to resolve output path: %w", err)
+	// Check if output path ends with .d2 - if so, just write the plain text
+	if strings.HasSuffix(strings.ToLower(outputPath), ".d2") {
+		return os.WriteFile(outputPath, []byte(d2Script), 0644)
 	}
 
-	// Check if d2 is available
-	_, err = exec.LookPath("d2")
-	if err != nil {
-		// Save D2 script next to output file for manual rendering
-		d2OutputPath := outputPath[:len(outputPath)-4] + ".d2"
-		if err := os.WriteFile(d2OutputPath, []byte(builder.String()), 0644); err == nil {
-			return fmt.Errorf("d2 CLI not found in PATH. Install d2 from https://d2lang.com/tour/install/\nD2 script saved to: %s\nYou can render it manually with: d2 %s %s", d2OutputPath, d2OutputPath, outputPath)
-		}
-		return fmt.Errorf("d2 CLI not found in PATH. Install d2 from https://d2lang.com/tour/install/")
-	}
-
-	cmd := exec.Command("d2", d2ScriptPath, outputPath)
-	output, err := cmd.CombinedOutput()
+	// Otherwise, render to PNG using the D2 library
+	// Set up text measurement ruler for D2 compilation
+	ruler, err := textmeasure.NewRuler()
 	if err != nil {
 		// Save D2 script for debugging
-		d2OutputPath := outputPath[:len(outputPath)-4] + ".d2"
-		os.WriteFile(d2OutputPath, []byte(builder.String()), 0644)
-		return fmt.Errorf("failed to render D2 diagram: %w\nOutput: %s\nD2 script saved to: %s", err, string(output), d2OutputPath)
+		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
+		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+		return fmt.Errorf("failed to create text ruler: %w\nD2 script saved to: %s", err, d2OutputPath)
+	}
+
+	// Compile the D2 script with layout and ruler (following blog post pattern)
+	layoutStr := "dagre"
+	compileOpts := &d2lib.CompileOptions{
+		Layout: &layoutStr,
+		Ruler:  ruler,
+		LayoutResolver: func(engine string) (d2graph.LayoutGraph, error) {
+			if engine == "dagre" {
+				return d2dagrelayout.DefaultLayout, nil
+			}
+			return nil, fmt.Errorf("unknown layout engine: %s", engine)
+		},
+	}
+	diagram, _, err := d2lib.Compile(ctx, d2Script, compileOpts, nil)
+	if err != nil {
+		// Save D2 script for debugging
+		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
+		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+		return fmt.Errorf("failed to compile D2 diagram: %w\nD2 script saved to: %s", err, d2OutputPath)
+	}
+
+	// Render to SVG (following blog post pattern)
+	pad := int64(d2svg.DEFAULT_PADDING)
+	svgBytes, err := d2svg.Render(diagram, &d2svg.RenderOpts{
+		Pad: &pad,
+	})
+	if err != nil {
+		// Save D2 script for debugging
+		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
+		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+		return fmt.Errorf("failed to render D2 diagram to SVG: %w\nD2 script saved to: %s", err, d2OutputPath)
+	}
+
+	// Convert SVG to PNG
+	pngImg, err := svgToPNG(svgBytes)
+	if err != nil {
+		// Save D2 script and SVG for debugging
+		d2OutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".d2"
+		svgOutputPath := outputPath[:len(outputPath)-len(filepath.Ext(outputPath))] + ".svg"
+		os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+		os.WriteFile(svgOutputPath, svgBytes, 0644)
+		return fmt.Errorf("failed to convert SVG to PNG: %w\nD2 script saved to: %s\nSVG saved to: %s", err, d2OutputPath, svgOutputPath)
+	}
+
+	// Write PNG to file
+	pngFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create PNG file: %w", err)
+	}
+	defer pngFile.Close()
+
+	if err := png.Encode(pngFile, pngImg); err != nil {
+		return fmt.Errorf("failed to encode PNG: %w", err)
 	}
 
 	return nil
 }
 
-// traverseQuery recursively traverses the jq query AST and builds D2 nodes
+// traverseQueryWithOracle recursively traverses the jq query AST and builds D2 nodes using d2oracle
+// Returns the output type, updated graph, and error
+func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath []string, nodeCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+	if query == nil {
+		return "", graph, nil
+	}
+	if graph == nil {
+		return "", nil, fmt.Errorf("graph is nil")
+	}
+
+	// Get the query operator
+	op := query.Op
+
+	// Create a node for this operation
+	nodeID := fmt.Sprintf("node_%d", *nodeCounter)
+	*nodeCounter++
+
+	// Determine node label based on operation type and term
+	label := getNodeLabel(query, op)
+
+	// Infer output type for this node
+	outputType := inferOutputType(query, op)
+
+	// Create the node using d2oracle
+	var err error
+	graph, _, err = d2oracle.Create(graph, boardPath, nodeID)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to create node %s: %w", nodeID, err)
+	}
+
+	// Set node properties
+	shapeRect := "rectangle"
+	graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.shape", nodeID), nil, &shapeRect)
+	// Format label to avoid D2 syntax issues with special characters
+	formattedLabel := formatD2LabelForOracle(label)
+	graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", nodeID), nil, &formattedLabel)
+
+	// Connect from previous node with type information
+	if *lastNodeID != "start" {
+		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create edge: %w", err)
+		}
+		// Use the previous node's output type as the edge label
+		if prevOutputType != "" {
+			graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &prevOutputType)
+		}
+	}
+
+	*lastNodeID = nodeID
+
+	// Recursively process query arguments
+	// For pipe operations, process left then right sequentially
+	if query.Op == gojq.OpPipe {
+		// Left side feeds into right side
+		var leftType string
+		if query.Left != nil {
+			leftType, graph, err = traverseQueryWithOracle(query.Left, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+			if err != nil {
+				return "", graph, err
+			}
+			// Connect left result to current node with type
+			if *lastNodeID != nodeID {
+				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nodeID)
+				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to create left edge: %w", err)
+				}
+				if leftType != "" {
+					graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &leftType)
+				}
+				*lastNodeID = nodeID
+			}
+		}
+		if query.Right != nil {
+			// Right side receives output from left (or current node if no left)
+			inputType := leftType
+			if inputType == "" {
+				inputType = outputType
+			}
+			rightType, graph, err := traverseQueryWithOracle(query.Right, graph, boardPath, nodeCounter, lastNodeID, inputType)
+			if err != nil {
+				return "", graph, err
+			}
+			// Connect current node to right result with type
+			if *lastNodeID != nodeID && graph != nil {
+				edgeKey := fmt.Sprintf("%s -> %s", nodeID, *lastNodeID)
+				var edgeErr error
+				graph, _, edgeErr = d2oracle.Create(graph, boardPath, edgeKey)
+				if edgeErr != nil {
+					return "", graph, fmt.Errorf("failed to create right edge: %w", edgeErr)
+				}
+				if outputType != "" && graph != nil {
+					graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &outputType)
+				}
+			}
+			return rightType, graph, nil
+		}
+	} else {
+		// For other operations, process left and right as separate branches
+		if query.Left != nil {
+			leftType, graph, err := traverseQueryWithOracle(query.Left, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+			if err != nil {
+				return "", graph, err
+			}
+			// Connect back to current node
+			if *lastNodeID != nodeID {
+				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nodeID)
+				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to create left branch edge: %w", err)
+				}
+				if leftType != "" {
+					graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &leftType)
+				}
+			}
+		}
+		if query.Right != nil {
+			rightType, graph, err := traverseQueryWithOracle(query.Right, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+			if err != nil {
+				return "", graph, err
+			}
+			// Connect back to current node
+			if *lastNodeID != nodeID {
+				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nodeID)
+				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to create right branch edge: %w", err)
+				}
+				if rightType != "" {
+					graph, _ = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &rightType)
+				}
+			}
+		}
+	}
+
+	return outputType, graph, nil
+}
+
+// formatD2LabelForOracle formats a label for use with d2oracle.Set (removes quotes)
+func formatD2LabelForOracle(label string) string {
+	// Replace $ with _VAR_ to avoid D2 variable substitution
+	safeLabel := strings.ReplaceAll(label, "$", "_VAR_")
+	// Remove quotes if present (d2oracle.Set handles string values directly)
+	safeLabel = strings.Trim(safeLabel, "\"")
+	return safeLabel
+}
+
+// traverseQuery recursively traverses the jq query AST and builds D2 nodes (legacy, kept for reference)
 // Returns the output type of this query node
 func traverseQuery(query *gojq.Query, builder *strings.Builder, nodeCounter *int, lastNodeID *string, prevOutputType string) (string, error) {
 	if query == nil {
@@ -626,6 +839,56 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 	default:
 		return fmt.Sprintf("Term(%d)", term.Type)
 	}
+}
+
+// svgToPNG converts SVG bytes to a PNG image
+func svgToPNG(svgBytes []byte) (*image.RGBA, error) {
+	// Parse SVG - oksvg may have issues with embedded fonts, so we'll try to handle that
+	icon, err := oksvg.ReadIconStream(strings.NewReader(string(svgBytes)))
+	if err != nil {
+		// If parsing fails, try to extract dimensions from SVG and create a placeholder
+		// or use a simpler approach
+		// For now, return a default-sized image as fallback
+		w, h := 800, 600
+		// Try to extract viewBox from SVG string
+		svgStr := string(svgBytes)
+		if strings.Contains(svgStr, "viewBox") {
+			// Simple extraction - look for viewBox="0 0 width height"
+			// This is a basic fallback
+		}
+		img := image.NewRGBA(image.Rect(0, 0, w, h))
+		// Fill with white background
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				img.Set(x, y, image.White)
+			}
+		}
+		return img, fmt.Errorf("failed to parse SVG (may contain unsupported embedded fonts): %w", err)
+	}
+
+	// Get SVG dimensions
+	w := int(icon.ViewBox.W)
+	h := int(icon.ViewBox.H)
+	if w == 0 || h == 0 {
+		// Default dimensions if not specified
+		w = 800
+		h = 600
+	}
+
+	// Create image with white background
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, image.White)
+		}
+	}
+
+	// Set up rasterizer
+	scannerGV := rasterx.NewScannerGV(w, h, img, img.Bounds())
+	raster := rasterx.NewDasher(w, h, scannerGV)
+	icon.Draw(raster, 1.0)
+
+	return img, nil
 }
 
 // formatFuncArgs formats function arguments as a string
