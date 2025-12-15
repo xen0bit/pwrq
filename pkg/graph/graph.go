@@ -10,7 +10,7 @@ import (
 	"github.com/itchyny/gojq"
 	"oss.terrastruct.com/d2/d2format"
 	"oss.terrastruct.com/d2/d2graph"
-	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
+	"oss.terrastruct.com/d2/d2layouts/d2elklayout"
 	"oss.terrastruct.com/d2/d2lib"
 	"oss.terrastruct.com/d2/d2oracle"
 	"oss.terrastruct.com/d2/d2renderers/d2svg"
@@ -97,6 +97,10 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 	// Format the graph AST to D2 script
 	d2Script := d2format.Format(graph.AST)
 
+	// Prepend layout directive to use ELK layout (supports container->descendant edges)
+	// The layout directive must be at the top of the file
+	d2Script = "layout: elk\n" + d2Script
+
 	// Check output file extension
 	ext := strings.ToLower(filepath.Ext(outputPath))
 
@@ -117,13 +121,14 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 		}
 
 		// Compile the D2 script with layout and ruler (following blog post pattern)
-		layoutStr := "dagre"
+		// Use ELK layout which supports container-to-descendant edges
+		layoutStr := "elk"
 		compileOpts := &d2lib.CompileOptions{
 			Layout: &layoutStr,
 			Ruler:  ruler,
 			LayoutResolver: func(engine string) (d2graph.LayoutGraph, error) {
-				if engine == "dagre" {
-					return d2dagrelayout.DefaultLayout, nil
+				if engine == "elk" {
+					return d2elklayout.DefaultLayout, nil
 				}
 				return nil, fmt.Errorf("unknown layout engine: %s", engine)
 			},
@@ -405,27 +410,190 @@ func traverseMapFunction(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 	}
 
 	// Traverse the map's argument (the query inside map())
-	// Use the same board path (not nested) to avoid board path issues
-	// Start from the map container node
-	mapLastNodeID := mapNodeID
+	// Create child nodes inside the container using D2's dot notation (container.child)
+	childCounter := 0
+	childLastNodeID := mapNodeID
+
 	if len(query.Term.Func.Args) > 0 && query.Term.Func.Args[0] != nil {
 		// The first argument is the query to apply to each element
-		// Traverse it starting from the map container
-		_, graph, err = traverseQueryWithOracle(query.Term.Func.Args[0], graph, boardPath, nodeCounter, &mapLastNodeID, prevOutputType)
+		// Traverse it with a custom function that creates nodes with prefixed IDs
+		_, graph, err = traverseMapArgument(query.Term.Func.Args[0], graph, boardPath, mapNodeID, &childCounter, &childLastNodeID, prevOutputType)
 		if err != nil {
 			return "", graph, fmt.Errorf("failed to traverse map argument: %w", err)
 		}
-		// The last node from the map's argument becomes the map's output
-		// Don't create a cycle - the map container is just a label, the actual flow
-		// goes through the nodes inside
 	}
 
-	// The last node from the map's argument becomes the map's output
-	// Update lastNodeID to point to the last node in the map's argument
-	*lastNodeID = mapLastNodeID
+	// The map container itself represents the output node
+	*lastNodeID = mapNodeID
 
 	// Map functions return arrays
 	return "array", graph, nil
+}
+
+// traverseMapArgument traverses a query and creates nodes inside a map container using dot notation
+// It creates nodes with IDs like "containerID.child_0", "containerID.child_1", etc.
+func traverseMapArgument(query *gojq.Query, graph *d2graph.Graph, boardPath []string, containerID string, childCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+	if query == nil {
+		return "", graph, nil
+	}
+
+	op := query.Op
+
+	// Handle pipe operations
+	if op == gojq.OpPipe {
+		// Process left side first
+		var leftType string
+		var leftLastNodeID string
+		var err error
+
+		if query.Left != nil {
+			leftLastNodeID = *lastNodeID
+			leftType, graph, err = traverseMapArgument(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+			if err != nil {
+				return "", graph, err
+			}
+		}
+
+		// Create the current node with container prefix
+		childNodeID := fmt.Sprintf("%s.child_%d", containerID, *childCounter)
+		*childCounter++
+
+		// Determine node label and output type
+		label := getNodeLabel(query, op)
+		outputType := inferOutputType(query, op)
+
+		// Create the node using d2oracle
+		graph, _, err = d2oracle.Create(graph, boardPath, childNodeID)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create child node %s: %w", childNodeID, err)
+		}
+
+		// Set node properties
+		shapeRect := "rectangle"
+		graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.shape", childNodeID), nil, &shapeRect)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to set child node shape: %w", err)
+		}
+		formattedLabel := formatD2LabelForOracle(label)
+		graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", childNodeID), nil, &formattedLabel)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to set child node label: %w", err)
+		}
+
+		// Connect left result to current node
+		if query.Left != nil && *lastNodeID != containerID && *lastNodeID != leftLastNodeID {
+			edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, childNodeID)
+			graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to create child edge: %w", err)
+			}
+			if leftType != "" {
+				formattedType := formatEdgeLabel(leftType)
+				if formattedType != "" {
+					graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+					if err != nil {
+						return "", graph, fmt.Errorf("failed to set child edge label: %w", err)
+					}
+				}
+			}
+		}
+		// ELK layout supports container->descendant edges, so we can create this edge
+		if *lastNodeID == containerID {
+			// Connect container to first child node
+			edgeKey := fmt.Sprintf("%s -> %s", containerID, childNodeID)
+			graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to create container edge: %w", err)
+			}
+		}
+
+		*lastNodeID = childNodeID
+
+		// Process right side
+		if query.Right != nil {
+			inputType := leftType
+			if inputType == "" {
+				inputType = outputType
+			}
+			rightType, graph, err := traverseMapArgument(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
+			if err != nil {
+				return "", graph, err
+			}
+			return rightType, graph, nil
+		}
+
+		return outputType, graph, nil
+	}
+
+	// For non-pipe operations, create the node with container prefix
+	childNodeID := fmt.Sprintf("%s.child_%d", containerID, *childCounter)
+	*childCounter++
+
+	// Determine node label based on operation type and term
+	label := getNodeLabel(query, op)
+	outputType := inferOutputType(query, op)
+
+	// Create the node using d2oracle
+	var err error
+	graph, _, err = d2oracle.Create(graph, boardPath, childNodeID)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to create child node %s: %w", childNodeID, err)
+	}
+
+	// Set node properties
+	shapeRect := "rectangle"
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.shape", childNodeID), nil, &shapeRect)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to set child node shape: %w", err)
+	}
+	formattedLabel := formatD2LabelForOracle(label)
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", childNodeID), nil, &formattedLabel)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to set child node label: %w", err)
+	}
+
+	// Connect from previous node or container (ELK supports container->descendant edges)
+	if *lastNodeID != "start" {
+		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, childNodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create child edge: %w", err)
+		}
+		if prevOutputType != "" && *lastNodeID != containerID {
+			// Only add type labels to edges that aren't from the container
+			formattedType := formatEdgeLabel(prevOutputType)
+			if formattedType != "" {
+				graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to set child edge label: %w", err)
+				}
+			}
+		}
+	}
+
+	*lastNodeID = childNodeID
+
+	// Process children recursively
+	if query.Left != nil {
+		leftType, graph, err := traverseMapArgument(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+		if err != nil {
+			return "", graph, err
+		}
+		if leftType != "" {
+			outputType = leftType
+		}
+	}
+	if query.Right != nil {
+		rightType, graph, err := traverseMapArgument(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+		if err != nil {
+			return "", graph, err
+		}
+		if rightType != "" {
+			outputType = rightType
+		}
+	}
+
+	return outputType, graph, nil
 }
 
 // formatD2LabelForOracle formats a label for use with d2oracle.Set (removes quotes)
