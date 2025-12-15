@@ -44,6 +44,12 @@ echo '{"foo": 128}' | pwrq -c '.'
 - **User-Defined Functions (UDF)**: Extensible function system
   - `find` - Unix find-like file/directory search function
   - `base64_encode` / `base64_decode` - Base64 encoding/decoding
+  - `sh` - Execute shell commands
+  - File operations: `cat`, `mkdir`, `rm`, `tempdir`, `tee`
+  - Encryption/Decryption: AES, DES, 3DES, Blowfish, RC4, ChaCha20, XOR
+  - Hash functions: MD5, SHA1, SHA256, SHA512, and more
+  - HTTP client and server functions
+  - And many more...
   - Easy to add custom functions via the `pkg/udf` package
 
 ## User-Defined Functions
@@ -99,6 +105,32 @@ pwrq '"hello world" | hex_encode | hex_decode | ._val'
 pwrq '"README.md" | hex_encode(true) | ._val'
 ```
 
+### sh - Shell Command Execution
+
+Execute shell commands and capture their output:
+
+```bash
+# Execute a simple command
+pwrq 'sh("echo hello world") | ._val'
+# Output: "hello world"
+
+# Command from pipeline
+pwrq '"echo test" | sh(.) | ._val'
+# Output: "test"
+
+# Commands with non-zero exit codes return stderr in _err
+pwrq 'sh("false")'
+# Returns: {"_val": "", "_meta": {...}, "_err": "command exited with code 1"}
+
+# Commands with stderr output
+pwrq 'sh("echo stdout && echo stderr >&2 && exit 1")'
+# Returns: {"_val": "stdout", "_meta": {...}, "_err": "stderr"}
+```
+
+**Behavior:**
+- **Success (exit code 0)**: Returns `{"_val": stdout, "_meta": {...}}`
+- **Failure (non-zero exit)**: Returns `{"_val": stdout, "_meta": {...}, "_err": stderr}`
+
 ### Hash Functions
 
 pwrq supports all hash algorithms available in Go's crypto package:
@@ -119,7 +151,41 @@ pwrq 'sha256("README.md"; true) | ._val'
 pwrq '[find("pkg/udf"; "file")] | .[0] | sha256(true) | ._val'
 ```
 
-See [pkg/udf/README.md](pkg/udf/README.md) for more details.
+### File Operations
+
+pwrq provides several file operation UDFs:
+
+```bash
+# Read file contents
+pwrq 'cat("README.md") | ._val'
+
+# Create directory
+pwrq 'mkdir("/tmp/mydir") | ._val'
+
+# Remove file or folder
+pwrq 'rm("/tmp/file.txt"; "file") | ._val'
+pwrq 'rm("/tmp/dir"; "folder") | ._val'
+
+# Create temporary directory
+pwrq 'tempdir("prefix_") | ._val'
+
+# Write to file or stderr
+pwrq '{"key": "value"} | tee("/tmp/output.json")'
+```
+
+### Encryption/Decryption
+
+pwrq supports multiple encryption algorithms (AES, DES, 3DES, Blowfish, RC4, ChaCha20, XOR):
+
+```bash
+# AES encryption/decryption
+pwrq 'aes_encrypt("data"; "12345678901234567890123456789012") | ._val | aes_decrypt(.; "12345678901234567890123456789012") | ._val'
+
+# XOR encryption
+pwrq '"secret" | xor("key") | ._val'
+```
+
+See [pkg/udf/README.md](pkg/udf/README.md) for complete documentation of all UDFs.
 
 ## Development
 

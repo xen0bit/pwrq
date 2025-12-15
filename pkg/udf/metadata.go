@@ -98,6 +98,9 @@ func GetFunctionMetadata() []FunctionMetadata {
 		// Tee (write to stderr or file)
 		{"tee", 0, 1, "Write JSON to stderr (default) or file (optional filepath arg)", "File Operations", []string{`tee`, `tee("/tmp/output.json")`, `{"key":"value"} | tee`}},
 		
+		// Shell command execution
+		{"sh", 0, 1, "Execute a shell command (command from pipe or argument)", "System", []string{`sh("echo hello")`, `"echo test" | sh(.)`, `sh("ls -la")`}},
+		
 		// Temporary directory
 		{"tempdir", 0, 2, "Create a temporary directory (optional prefix, optional dir)", "File Operations", []string{`tempdir`, `tempdir("prefix_")`, `tempdir("prefix_"; "/tmp")`, `tempdir(""; "/tmp")`}},
 		

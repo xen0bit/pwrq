@@ -28,6 +28,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/entropy"
 	"github.com/xen0bit/pwrq/pkg/udf/hmac"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
+	"github.com/xen0bit/pwrq/pkg/udf/sh"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	"github.com/xen0bit/pwrq/pkg/udf/tempdir"
 	"github.com/xen0bit/pwrq/pkg/udf/tee"
@@ -128,6 +129,9 @@ func DefaultRegistry() *Registry {
 	
 	// Tee (write to stderr or file)
 	reg.Register(tee.RegisterTee())
+	
+	// Shell command execution
+	reg.Register(sh.RegisterSh())
 	
 	// Temporary directory
 	reg.Register(tempdir.RegisterTempDir())
