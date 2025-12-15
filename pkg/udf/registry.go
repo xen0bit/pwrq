@@ -8,6 +8,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/binary"
 	"github.com/xen0bit/pwrq/pkg/udf/cat"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
+	"github.com/xen0bit/pwrq/pkg/udf/crypto"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
 	"github.com/xen0bit/pwrq/pkg/udf/html"
@@ -134,6 +135,19 @@ func DefaultRegistry() *Registry {
 	// HTTP requests
 	reg.Register(http.RegisterHTTP())
 	reg.Register(http.RegisterHTTPServe())
+	
+	// Encryption/Decryption functions
+	reg.Register(crypto.RegisterAESEncrypt())
+	reg.Register(crypto.RegisterAESDecrypt())
+	reg.Register(crypto.RegisterDESEncrypt())
+	reg.Register(crypto.RegisterDESDecrypt())
+	reg.Register(crypto.Register3DESEncrypt())
+	reg.Register(crypto.Register3DESDecrypt())
+	reg.Register(crypto.RegisterBlowfishEncrypt())
+	reg.Register(crypto.RegisterBlowfishDecrypt())
+	reg.Register(crypto.RegisterRC4())
+	reg.Register(crypto.RegisterChaCha20())
+	reg.Register(crypto.RegisterXOR())
 	
 	// Hash functions (all support optional file argument)
 	reg.Register(md5udf.RegisterMD5())

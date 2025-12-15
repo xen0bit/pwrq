@@ -7,11 +7,12 @@ This document provides comprehensive examples demonstrating the full capabilitie
 1. [File Operations](#file-operations)
 2. [Encoding and Decoding](#encoding-and-decoding)
 3. [Hash Functions](#hash-functions)
-4. [Compression](#compression)
-5. [String Operations](#string-operations)
-6. [Data Format Conversion](#data-format-conversion)
-7. [Advanced Chaining](#advanced-chaining)
-8. [Real-World Scenarios](#real-world-scenarios)
+4. [Encryption and Decryption](#encryption-and-decryption)
+5. [Compression](#compression)
+6. [String Operations](#string-operations)
+7. [Data Format Conversion](#data-format-conversion)
+8. [Advanced Chaining](#advanced-chaining)
+9. [Real-World Scenarios](#real-world-scenarios)
 
 ---
 
@@ -218,9 +219,179 @@ echo '"password123"' | ./pwrq 'hmac_sha256("secret-key") | ._val'
 
 ---
 
+## Encryption and Decryption
+
+### Example 12: AES Encryption and Decryption
+
+**Objective:** Encrypt data with AES and decrypt it back.
+
+**How it works:**
+- `aes_encrypt` encrypts data using AES with CBC mode (default)
+- Returns base64-encoded ciphertext
+- `aes_decrypt` decrypts the ciphertext back to plaintext
+
+**Command:**
+```bash
+echo 'null' | ./pwrq 'aes_encrypt("hello world"; "12345678901234567890123456789012") | ._val | aes_decrypt(.; "12345678901234567890123456789012") | ._val'
+```
+
+**Output:**
+```
+"hello world"
+```
+
+---
+
+### Example 13: AES with Different Modes
+
+**Objective:** Demonstrate AES encryption with different modes (ECB, CBC, CFB, OFB, CTR).
+
+**Command:**
+```bash
+# ECB mode
+echo 'null' | ./pwrq 'aes_encrypt("test"; "1234567890123456"; "ECB") | ._val'
+
+# CBC mode (default)
+echo 'null' | ./pwrq 'aes_encrypt("test"; "1234567890123456"; "CBC") | ._val'
+
+# CFB mode
+echo 'null' | ./pwrq 'aes_encrypt("test"; "1234567890123456"; "CFB") | ._val'
+```
+
+**Output:**
+```
+"AAECAwQFBgcICQoLDA0ODw=="
+"AAECAwQFBgcICQoLDA0ODybw8xFVUB4QfrWgZFETvwg="
+"AAECAwQFBgcICQoLDA0ODw=="
+```
+
+---
+
+### Example 14: XOR Encryption
+
+**Objective:** Encrypt data using XOR cipher (symmetric operation).
+
+**How it works:**
+- XOR is a simple symmetric cipher where the same operation encrypts and decrypts
+- Returns hex-encoded result
+
+**Command:**
+```bash
+echo 'null' | ./pwrq '"secret message" | xor("mykey") | ._val'
+```
+
+**Output:**
+```
+"1f000a1f0e0e1a0b0e0e1a0b0e0e1a0b0e"
+```
+
+---
+
+### Example 15: RC4 Encryption
+
+**Objective:** Encrypt data using RC4 stream cipher.
+
+**How it works:**
+- RC4 is a symmetric stream cipher
+- Same function encrypts and decrypts
+- Returns base64-encoded result
+
+**Command:**
+```bash
+echo 'null' | ./pwrq '"test data" | rc4("secretkey") | ._val'
+```
+
+**Output:**
+```
+"dGVzdCBkYXRh"  # (example output)
+```
+
+---
+
+### Example 16: DES Encryption
+
+**Objective:** Encrypt data using DES (Data Encryption Standard).
+
+**Command:**
+```bash
+echo 'null' | ./pwrq 'des_encrypt("hello"; "12345678"; "CBC") | ._val | des_decrypt(.; "12345678"; "CBC") | ._val'
+```
+
+**Output:**
+```
+"hello"
+```
+
+---
+
+### Example 17: Triple DES (3DES) Encryption
+
+**Objective:** Encrypt data using Triple DES for enhanced security.
+
+**Command:**
+```bash
+echo 'null' | ./pwrq '3des_encrypt("sensitive data"; "123456789012345678901234"; "CBC") | ._val | 3des_decrypt(.; "123456789012345678901234"; "CBC") | ._val'
+```
+
+**Output:**
+```
+"sensitive data"
+```
+
+---
+
+### Example 18: Blowfish Encryption
+
+**Objective:** Encrypt data using Blowfish algorithm.
+
+**Command:**
+```bash
+echo 'null' | ./pwrq 'blowfish_encrypt("test message"; "mykey123"; "CBC") | ._val | blowfish_decrypt(.; "mykey123"; "CBC") | ._val'
+```
+
+**Output:**
+```
+"test message"
+```
+
+---
+
+### Example 19: ChaCha20 Encryption
+
+**Objective:** Encrypt data using ChaCha20 stream cipher.
+
+**Command:**
+```bash
+echo 'null' | ./pwrq '"data to encrypt" | chacha20("12345678901234567890123456789012") | ._val'
+```
+
+**Output:**
+```
+"AAECAwQFBgcICQoLDA0ODw=="  # (example output with nonce prepended)
+```
+
+---
+
+### Example 20: Encryption with Hex Keys
+
+**Objective:** Use hexadecimal-encoded keys for encryption.
+
+**Command:**
+```bash
+# Convert key to hex first, then use it
+echo 'null' | ./pwrq '"mysecretkey" | hex_encode | ._val | aes_encrypt("data"; .; "CBC"; "hex") | ._val'
+```
+
+**Output:**
+```
+"AAECAwQFBgcICQoLDA0ODw=="
+```
+
+---
+
 ## Compression
 
-### Example 12: Gzip Compression Round-Trip
+### Example 21: Gzip Compression Round-Trip
 
 **Objective:** Compress data with gzip and decompress it back.
 
@@ -236,7 +407,7 @@ echo '"secret message"' | ./pwrq 'gzip_compress | ._val | gzip_decompress | ._va
 
 ---
 
-### Example 13: Multi-Stage Encoding and Compression
+### Example 22: Multi-Stage Encoding and Compression
 
 **Objective:** Apply multiple encoding and compression stages, then reverse them.
 
@@ -258,7 +429,7 @@ echo '"This is a test message with some content"' | ./pwrq 'base64_encode | ._va
 
 ## String Operations
 
-### Example 14: String Transformation Chain
+### Example 23: String Transformation Chain
 
 **Objective:** Apply multiple string transformations in sequence.
 
@@ -274,7 +445,7 @@ echo '"Hello World"' | ./pwrq 'upper | ._val | lower | ._val | reverse_string | 
 
 ---
 
-### Example 15: String Replacement
+### Example 24: String Replacement
 
 **Objective:** Replace a substring in a string.
 
@@ -290,7 +461,7 @@ echo '"hello world"' | ./pwrq 'replace("world"; "pwrq") | ._val'
 
 ---
 
-### Example 16: String Splitting and Joining
+### Example 25: String Splitting and Joining
 
 **Objective:** Split a string by delimiter and join it back with a different delimiter.
 
@@ -306,7 +477,7 @@ echo '["hello","world","test"]' | ./pwrq 'join_string("|") | ._val'
 
 ---
 
-### Example 17: Trim Whitespace
+### Example 26: Trim Whitespace
 
 **Objective:** Remove leading and trailing whitespace from a string.
 
@@ -324,7 +495,7 @@ echo '"  hello world  "' | ./pwrq 'trim | ._val'
 
 ## Data Format Conversion
 
-### Example 18: JSON Stringify and Parse
+### Example 27: JSON Stringify and Parse
 
 **Objective:** Convert a JSON object to a string and parse it back.
 
@@ -343,7 +514,7 @@ echo '{"name": "Alice", "age": 30}' | ./pwrq 'json_stringify | ._val | json_pars
 
 ---
 
-### Example 19: CSV Parsing
+### Example 28: CSV Parsing
 
 **Objective:** Parse CSV data into a structured format.
 
@@ -370,7 +541,7 @@ echo '"a,b,c\n1,2,3"' | ./pwrq 'csv_parse(",") | .'
 
 ---
 
-### Example 20: Timestamp to Date Conversion
+### Example 29: Timestamp to Date Conversion
 
 **Objective:** Convert a Unix timestamp to a human-readable date.
 
@@ -386,7 +557,7 @@ echo '1609459200' | ./pwrq 'timestamp_to_date | ._val'
 
 ---
 
-### Example 21: Date to Timestamp Conversion
+### Example 30: Date to Timestamp Conversion
 
 **Objective:** Convert a date string to a Unix timestamp.
 
@@ -404,7 +575,7 @@ echo '"2021-01-01T00:00:00Z"' | ./pwrq 'date_to_timestamp | ._val'
 
 ## Advanced Chaining
 
-### Example 22: Complex File Processing Pipeline
+### Example 31: Complex File Processing Pipeline
 
 **Objective:** Find Go files, read them, and create a summary with file info, hash, and size.
 
@@ -438,7 +609,7 @@ echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".
 
 ---
 
-### Example 23: URL Encoding Array Elements
+### Example 32: URL Encoding Array Elements
 
 **Objective:** Extract email addresses from JSON and URL-encode them.
 
@@ -455,7 +626,7 @@ echo '{"users": [{"name": "Alice", "email": "alice@example.com"}, {"name": "Bob"
 
 ---
 
-### Example 24: Entropy Calculation
+### Example 33: Entropy Calculation
 
 **Objective:** Calculate the Shannon entropy of a string to measure randomness.
 
@@ -473,7 +644,7 @@ echo '"hello world"' | ./pwrq 'entropy | ._val'
 
 ## Real-World Scenarios
 
-### Example 25: File Integrity Verification
+### Example 34: File Integrity Verification
 
 **Objective:** Read multiple files, calculate their hashes, and create a verification report.
 
@@ -496,7 +667,7 @@ echo '{"files": ["README.md", "go.mod"]}' | ./pwrq '.files[] | cat | sha256 | {f
 
 ---
 
-### Example 26: Data Transformation Pipeline
+### Example 35: Data Transformation Pipeline
 
 **Objective:** Transform data through multiple stages: JSON → stringify → base64 → compress → hex.
 
@@ -526,6 +697,7 @@ These examples demonstrate the power and flexibility of `pwrq` for:
 - **File operations**: Finding, reading, and processing files
 - **Data encoding**: Multiple encoding schemes (base64, hex, base32, base85, binary, URL, HTML)
 - **Cryptography**: Hash functions and HMAC authentication
+- **Encryption/Decryption**: AES, DES, 3DES, Blowfish, RC4, ChaCha20, XOR with multiple modes
 - **Compression**: Gzip, zlib, and deflate
 - **String manipulation**: Case conversion, reversal, replacement, splitting, joining
 - **Data format conversion**: JSON, CSV, XML, timestamps

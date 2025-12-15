@@ -293,6 +293,155 @@ pwrq '"README.md" | md5(true) | ._val'
 pwrq 'md5("README.md"; true) | ._val'
 ```
 
+### Encryption and Decryption Functions
+
+pwrq provides comprehensive encryption and decryption capabilities supporting multiple algorithms commonly found in CyberChef:
+
+#### AES (Advanced Encryption Standard)
+
+**Functions:** `aes_encrypt`, `aes_decrypt`
+
+**Usage:**
+```jq
+# Encrypt with default CBC mode
+aes_encrypt("data"; "key")
+
+# Encrypt with specific mode
+aes_encrypt("data"; "key"; "ECB")
+aes_encrypt("data"; "key"; "CBC")
+aes_encrypt("data"; "key"; "CFB")
+aes_encrypt("data"; "key"; "OFB")
+aes_encrypt("data"; "key"; "CTR")
+
+# Decrypt
+aes_decrypt("encrypted_data"; "key"; "CBC")
+```
+
+**Arguments:**
+- `data` (string, required) - The data to encrypt/decrypt
+- `key` (string, required) - The encryption key (must be 16, 24, or 32 bytes for 128, 192, or 256-bit AES)
+- `mode` (string, optional) - Encryption mode: "ECB", "CBC", "CFB", "OFB", or "CTR". Default: "CBC"
+- `keyFormat` (string, optional) - Key format: "raw", "hex", or "base64". Default: "raw"
+- `dataFormat` (string, optional) - Data format: "raw", "hex", or "base64". Default: "raw" for encrypt, "base64" for decrypt
+
+**Returns:** An object with:
+- `_val`: The encrypted (base64) or decrypted (string) data
+- `_meta`: Object containing operation, mode, key_size, and iv_length (if applicable)
+
+**Example:**
+```bash
+# Encrypt and decrypt
+pwrq 'aes_encrypt("hello world"; "12345678901234567890123456789012") | ._val | aes_decrypt(.; "12345678901234567890123456789012") | ._val'
+# Output: "hello world"
+```
+
+#### DES (Data Encryption Standard)
+
+**Functions:** `des_encrypt`, `des_decrypt`
+
+**Usage:**
+```jq
+des_encrypt("data"; "key"; "CBC")
+des_decrypt("encrypted_data"; "key"; "CBC")
+```
+
+**Arguments:**
+- `data` (string, required) - The data to encrypt/decrypt
+- `key` (string, required) - The encryption key (must be 8 bytes)
+- `mode` (string, optional) - Encryption mode: "ECB" or "CBC". Default: "CBC"
+- `keyFormat` (string, optional) - Key format: "raw", "hex", or "base64". Default: "raw"
+
+#### Triple DES (3DES)
+
+**Functions:** `3des_encrypt`, `3des_decrypt`
+
+**Usage:**
+```jq
+3des_encrypt("data"; "key"; "CBC")
+3des_decrypt("encrypted_data"; "key"; "CBC")
+```
+
+**Arguments:**
+- `data` (string, required) - The data to encrypt/decrypt
+- `key` (string, required) - The encryption key (must be 16 or 24 bytes)
+- `mode` (string, optional) - Encryption mode: "ECB" or "CBC". Default: "CBC"
+- `keyFormat` (string, optional) - Key format: "raw", "hex", or "base64". Default: "raw"
+
+#### Blowfish
+
+**Functions:** `blowfish_encrypt`, `blowfish_decrypt`
+
+**Usage:**
+```jq
+blowfish_encrypt("data"; "key"; "CBC")
+blowfish_decrypt("encrypted_data"; "key"; "CBC")
+```
+
+**Arguments:**
+- `data` (string, required) - The data to encrypt/decrypt
+- `key` (string, required) - The encryption key (4-56 bytes)
+- `mode` (string, optional) - Encryption mode: "ECB" or "CBC". Default: "CBC"
+- `keyFormat` (string, optional) - Key format: "raw", "hex", or "base64". Default: "raw"
+
+#### RC4
+
+**Function:** `rc4` (symmetric - same function for encrypt/decrypt)
+
+**Usage:**
+```jq
+"data" | rc4("key")
+rc4("key"; "raw"; "base64")
+```
+
+**Arguments:**
+- `key` (string, required) - The encryption key
+- `keyFormat` (string, optional) - Key format: "raw", "hex", or "base64". Default: "raw"
+- `dataFormat` (string, optional) - Data format: "raw", "hex", or "base64". Default: "raw"
+
+**Returns:** Base64-encoded encrypted/decrypted data
+
+#### ChaCha20
+
+**Function:** `chacha20` (symmetric - same function for encrypt/decrypt)
+
+**Usage:**
+```jq
+"data" | chacha20("key")
+chacha20("key"; "nonce"; "raw"; "raw")
+```
+
+**Arguments:**
+- `key` (string, required) - The encryption key (must be 32 bytes)
+- `nonce` (string, optional) - 12-byte nonce in hex format. If not provided, a nonce is auto-generated
+- `keyFormat` (string, optional) - Key format: "raw", "hex", or "base64". Default: "raw"
+- `dataFormat` (string, optional) - Data format: "raw", "hex", or "base64". Default: "raw"
+
+**Returns:** Base64-encoded data with nonce prepended
+
+#### XOR
+
+**Function:** `xor` (symmetric - same function for encrypt/decrypt)
+
+**Usage:**
+```jq
+"data" | xor("key")
+xor("key"; "raw"; "hex")
+```
+
+**Arguments:**
+- `key` (string, required) - The XOR key
+- `keyFormat` (string, optional) - Key format: "raw", "hex", or "base64". Default: "raw"
+- `dataFormat` (string, optional) - Data format: "raw", "hex", or "base64". Default: "raw"
+
+**Returns:** Hex-encoded XOR result
+
+**Example:**
+```bash
+# XOR encryption
+pwrq '"test" | xor("key") | ._val'
+# Output: "1f000a1f"
+```
+
 ### Hash Functions
 
 pwrq supports all hash algorithms available in Go's crypto package:

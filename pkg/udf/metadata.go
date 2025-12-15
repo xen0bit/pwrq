@@ -104,6 +104,19 @@ func GetFunctionMetadata() []FunctionMetadata {
 		// HTTP requests
 		{"http", 0, 2, "Make HTTP request (method default POST, url required)", "HTTP", []string{`http("https://example.com")`, `"https://example.com" | http`, `http("GET"; "https://example.com")`, `{"key":"value"} | http("POST"; "https://api.example.com")`}},
 		{"http_serve", 2, 2, "Start HTTP server (host, port) - returns server URL", "HTTP", []string{`http_serve("127.0.0.1"; 8080)`, `http_serve("0.0.0.0"; 0)`}},
+		
+		// Encryption/Decryption
+		{"aes_encrypt", 2, 5, "AES encryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`aes_encrypt("data"; "key")`, `aes_encrypt("data"; "key"; "CBC")`, `aes_encrypt("data"; "key"; "ECB")`}},
+		{"aes_decrypt", 2, 5, "AES decryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=base64])", "Encryption", []string{`aes_decrypt("encrypted"; "key")`, `aes_decrypt("encrypted"; "key"; "CBC")`}},
+		{"des_encrypt", 2, 4, "DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_encrypt("data"; "key")`, `des_encrypt("data"; "key"; "CBC")`}},
+		{"des_decrypt", 2, 4, "DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_decrypt("encrypted"; "key")`, `des_decrypt("encrypted"; "key"; "CBC")`}},
+		{"3des_encrypt", 2, 4, "Triple DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`3des_encrypt("data"; "key")`, `3des_encrypt("data"; "key"; "CBC")`}},
+		{"3des_decrypt", 2, 4, "Triple DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`3des_decrypt("encrypted"; "key")`, `3des_decrypt("encrypted"; "key"; "CBC")`}},
+		{"blowfish_encrypt", 2, 4, "Blowfish encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_encrypt("data"; "key")`, `blowfish_encrypt("data"; "key"; "CBC")`}},
+		{"blowfish_decrypt", 2, 4, "Blowfish decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_decrypt("encrypted"; "key")`, `blowfish_decrypt("encrypted"; "key"; "CBC")`}},
+		{"rc4", 1, 3, "RC4 encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`rc4("key")`, `"data" | rc4("key")`}},
+		{"chacha20", 1, 4, "ChaCha20 encryption/decryption (key, [nonce], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`chacha20("key")`, `"data" | chacha20("key")`}},
+		{"xor", 1, 3, "XOR encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`xor("key")`, `"data" | xor("key")`}},
 	}
 }
 
