@@ -13,6 +13,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/html"
 	"github.com/xen0bit/pwrq/pkg/udf/http"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
+	"github.com/xen0bit/pwrq/pkg/udf/mkdir"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha256"
@@ -26,6 +27,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/hmac"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
+	"github.com/xen0bit/pwrq/pkg/udf/tempdir"
 	"github.com/xen0bit/pwrq/pkg/udf/tee"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
@@ -61,6 +63,7 @@ func DefaultRegistry() *Registry {
 	// Register all built-in UDFs
 	reg.Register(find.RegisterFind())
 	reg.Register(cat.RegisterCat())
+	reg.Register(mkdir.RegisterMkdir())
 	
 	// Encoding/Decoding
 	reg.Register(base64.RegisterBase64Encode())
@@ -122,6 +125,9 @@ func DefaultRegistry() *Registry {
 	
 	// Tee (write to stderr or file)
 	reg.Register(tee.RegisterTee())
+	
+	// Temporary directory
+	reg.Register(tempdir.RegisterTempDir())
 	
 	// HTTP requests
 	reg.Register(http.RegisterHTTP())
