@@ -253,6 +253,11 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 		return outputType, graph, nil
 	}
 
+	// Check if this is a map() function - if so, explode it into a container
+	if query.Term != nil && query.Term.Type == gojq.TermTypeFunc && query.Term.Func != nil && query.Term.Func.Name == "map" {
+		return traverseMapFunction(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+	}
+
 	// For non-pipe operations, create the node first, then process children
 	nodeID := fmt.Sprintf("node_%d", *nodeCounter)
 	*nodeCounter++
@@ -356,6 +361,71 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 	}
 
 	return outputType, graph, nil
+}
+
+// traverseMapFunction handles map() functions by creating a container and exploding the map's argument
+func traverseMapFunction(query *gojq.Query, graph *d2graph.Graph, boardPath []string, nodeCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+	if query == nil || query.Term == nil || query.Term.Func == nil || query.Term.Func.Name != "map" {
+		return "", graph, fmt.Errorf("traverseMapFunction called on non-map function")
+	}
+
+	// Create a container node for the map
+	mapNodeID := fmt.Sprintf("node_%d", *nodeCounter)
+	*nodeCounter++
+
+	var err error
+	graph, _, err = d2oracle.Create(graph, boardPath, mapNodeID)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to create map container node: %w", err)
+	}
+
+	// Set container properties
+	labelMap := "map()"
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", mapNodeID), nil, &labelMap)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to set map container label: %w", err)
+	}
+
+	// Connect from previous node
+	if *lastNodeID != "start" {
+		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, mapNodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create edge to map container: %w", err)
+		}
+		if prevOutputType != "" {
+			formattedType := formatEdgeLabel(prevOutputType)
+			if formattedType != "" {
+				graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to set edge label: %w", err)
+				}
+			}
+		}
+	}
+
+	// Traverse the map's argument (the query inside map())
+	// Use the same board path (not nested) to avoid board path issues
+	// Start from the map container node
+	mapLastNodeID := mapNodeID
+	if len(query.Term.Func.Args) > 0 && query.Term.Func.Args[0] != nil {
+		// The first argument is the query to apply to each element
+		// Traverse it starting from the map container
+		_, graph, err = traverseQueryWithOracle(query.Term.Func.Args[0], graph, boardPath, nodeCounter, &mapLastNodeID, prevOutputType)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to traverse map argument: %w", err)
+		}
+		// The last node from the map's argument becomes the map's output
+		// Don't create a cycle - the map container is just a label, the actual flow
+		// goes through the nodes inside
+	}
+
+	// The last node from the map's argument becomes the map's output
+	// Update lastNodeID to point to the last node in the map's argument
+	*lastNodeID = mapLastNodeID
+
+	// Map functions return arrays
+	return "array", graph, nil
 }
 
 // formatD2LabelForOracle formats a label for use with d2oracle.Set (removes quotes)
@@ -602,37 +672,21 @@ func getNodeLabel(query *gojq.Query, op gojq.Operator) string {
 		}
 	}
 
-	// If we still don't have a label, try to get more info from the query structure
-	// This helps catch cases like .[0:3] that might be represented differently
-	// Try the query's own string representation first
-	queryStr := query.String()
-	if slicePattern := extractSlicePattern(queryStr); slicePattern != "" {
-		return "Slice " + slicePattern
-	}
-
-	// Also check Left and Right sides
-	if query.Left != nil {
-		leftStr := query.Left.String()
-		if slicePattern := extractSlicePattern(leftStr); slicePattern != "" {
-			return "Slice " + slicePattern
-		}
-	}
-	if query.Right != nil {
-		rightStr := query.Right.String()
-		if slicePattern := extractSlicePattern(rightStr); slicePattern != "" {
-			return "Slice " + slicePattern
-		}
-	}
+	// Don't use string representation fallback for slices - it causes duplicates
+	// Only detect slices from the actual AST structure above
 
 	// Otherwise use the operator label (or empty if op is 0)
 	opLabel := getOperationLabel(op)
-	if opLabel == "" && queryStr != "" {
-		// If no operator label and we have a query string, use a simplified version
-		// Limit length to avoid overly long labels
-		if len(queryStr) > 50 {
-			return queryStr[:47] + "..."
+	if opLabel == "" {
+		// If no operator label, try query string as last resort (but avoid slices)
+		queryStr := query.String()
+		if queryStr != "" && !strings.Contains(queryStr, "[") {
+			// Only use query string if it doesn't contain brackets (to avoid slice detection)
+			if len(queryStr) > 50 {
+				return queryStr[:47] + "..."
+			}
+			return queryStr
 		}
-		return queryStr
 	}
 	return opLabel
 }
@@ -664,7 +718,8 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 	}
 
 	// Check for suffixes first (like .[0:3] where . is identity and [0:3] is a suffix)
-	if len(term.SuffixList) > 0 {
+	// But skip if the term itself is already an Index type (to avoid duplicate slice detection)
+	if len(term.SuffixList) > 0 && term.Type != gojq.TermTypeIndex {
 		suffixLabel := formatSuffixList(term.SuffixList)
 		if suffixLabel != "" {
 			// Combine term label with suffix
@@ -712,10 +767,8 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 				} else {
 					sliceLabel = fmt.Sprintf("[%s:%s]", start, end)
 				}
-				// Check for additional suffixes
-				if len(term.SuffixList) > 0 {
-					return "Slice " + sliceLabel + formatSuffixList(term.SuffixList)
-				}
+				// Don't add additional suffixes to slice labels - they're already part of the slice
+				// This prevents duplicate slice detection
 				return "Slice " + sliceLabel
 			}
 			// Handle object indexing
@@ -742,13 +795,6 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 			suffixLabel := formatSuffixList(term.SuffixList)
 			if suffixLabel != "" {
 				return suffixLabel
-			}
-		}
-		// Fallback: try to extract from query string representation
-		if query != nil {
-			queryStr := query.String()
-			if slicePattern := extractSlicePattern(queryStr); slicePattern != "" {
-				return "Slice " + slicePattern
 			}
 		}
 		return "Index"
