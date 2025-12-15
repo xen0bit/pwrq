@@ -206,6 +206,82 @@ func traverseQuery(query *gojq.Query, builder *strings.Builder, nodeCounter *int
 	return outputType, nil
 }
 
+// formatIndexBound formats an index bound (start or end) for display
+func formatIndexBound(query *gojq.Query) string {
+	if query == nil {
+		return ""
+	}
+	// Try to extract a simple numeric value
+	if query.Term != nil && query.Term.Type == gojq.TermTypeNumber {
+		if query.Term.Number != "" {
+			return query.Term.Number
+		}
+	}
+	// Fallback to string representation
+	return query.String()
+}
+
+// getTermBaseLabel gets the base label for a term without suffixes
+func getTermBaseLabel(term *gojq.Term) string {
+	if term == nil {
+		return ""
+	}
+	switch term.Type {
+	case gojq.TermTypeIdentity:
+		return "."
+	case gojq.TermTypeRecurse:
+		return ".."
+	case gojq.TermTypeNull:
+		return "null"
+	case gojq.TermTypeTrue:
+		return "true"
+	case gojq.TermTypeFalse:
+		return "false"
+	case gojq.TermTypeNumber:
+		if term.Number != "" {
+			return term.Number
+		}
+		return "number"
+	case gojq.TermTypeString:
+		if term.Str != nil {
+			return fmt.Sprintf("%q", term.Str.Str)
+		}
+		return "string"
+	default:
+		return ""
+	}
+}
+
+// formatSuffixList formats a list of suffixes (like multiple index operations)
+func formatSuffixList(suffixes []*gojq.Suffix) string {
+	var parts []string
+	for _, suffix := range suffixes {
+		if suffix.Index != nil {
+			if suffix.Index.IsSlice {
+				start := formatIndexBound(suffix.Index.Start)
+				end := formatIndexBound(suffix.Index.End)
+				if start == "" && end == "" {
+					parts = append(parts, "[:]")
+				} else if start == "" {
+					parts = append(parts, fmt.Sprintf("[:%s]", end))
+				} else if end == "" {
+					parts = append(parts, fmt.Sprintf("[%s:]", start))
+				} else {
+					parts = append(parts, fmt.Sprintf("[%s:%s]", start, end))
+				}
+			} else if suffix.Index.Name != "" {
+				parts = append(parts, fmt.Sprintf(".%s", suffix.Index.Name))
+			} else if suffix.Index.Str != nil {
+				parts = append(parts, fmt.Sprintf("[%q]", suffix.Index.Str.Str))
+			}
+		}
+	}
+	if len(parts) > 0 {
+		return strings.Join(parts, "")
+	}
+	return ""
+}
+
 // formatD2Label formats a label for D2, escaping special characters
 func formatD2Label(label string) string {
 	// Replace $ with a safe representation to avoid D2 variable substitution
@@ -269,7 +345,10 @@ func getOperationLabel(op gojq.Operator) string {
 		return "Update Alternative (//=)"
 	default:
 		if op == 0 {
-			return "Query"
+			// Op 0 means no operator - this is often a query wrapper
+			// The actual operation is in the term, so return empty
+			// to let getNodeLabel handle it via the term
+			return ""
 		}
 		return fmt.Sprintf("Op(%d)", op)
 	}
@@ -285,14 +364,150 @@ func getNodeLabel(query *gojq.Query, op gojq.Operator) string {
 		}
 	}
 
-	// Otherwise use the operator label
-	return getOperationLabel(op)
+	// Check if this is an index operation on the query itself (like .[0:3])
+	// This happens when the query has no term but has index operations in Left
+	if query.Left != nil {
+		if query.Left.Term != nil {
+			// Check for suffixes on the left term
+			if len(query.Left.Term.SuffixList) > 0 {
+				suffixLabel := formatSuffixList(query.Left.Term.SuffixList)
+				if suffixLabel != "" {
+					// Combine with base term label
+					baseLabel := getTermBaseLabel(query.Left.Term)
+					if baseLabel != "" {
+						return baseLabel + suffixLabel
+					}
+					return suffixLabel
+				}
+			}
+			// Also check if the left term itself is an index with slice
+			if query.Left.Term.Type == gojq.TermTypeIndex && query.Left.Term.Index != nil {
+				if query.Left.Term.Index.IsSlice {
+					start := formatIndexBound(query.Left.Term.Index.Start)
+					end := formatIndexBound(query.Left.Term.Index.End)
+					if start == "" && end == "" {
+						return "Slice [:]"
+					} else if start == "" {
+						return fmt.Sprintf("Slice [:%s]", end)
+					} else if end == "" {
+						return fmt.Sprintf("Slice [%s:]", start)
+					} else {
+						return fmt.Sprintf("Slice [%s:%s]", start, end)
+					}
+				}
+			}
+		}
+		// Also check Right side for index operations
+		if query.Right != nil && query.Right.Term != nil {
+			if query.Right.Term.Type == gojq.TermTypeIndex && query.Right.Term.Index != nil {
+				if query.Right.Term.Index.IsSlice {
+					start := formatIndexBound(query.Right.Term.Index.Start)
+					end := formatIndexBound(query.Right.Term.Index.End)
+					if start == "" && end == "" {
+						return "Slice [:]"
+					} else if start == "" {
+						return fmt.Sprintf("Slice [:%s]", end)
+					} else if end == "" {
+						return fmt.Sprintf("Slice [%s:]", start)
+					} else {
+						return fmt.Sprintf("Slice [%s:%s]", start, end)
+					}
+				}
+			}
+			if len(query.Right.Term.SuffixList) > 0 {
+				suffixLabel := formatSuffixList(query.Right.Term.SuffixList)
+				if suffixLabel != "" {
+					baseLabel := getTermBaseLabel(query.Right.Term)
+					if baseLabel != "" {
+						return baseLabel + suffixLabel
+					}
+					return suffixLabel
+				}
+			}
+		}
+	}
+
+	// If we still don't have a label, try to get more info from the query structure
+	// This helps catch cases like .[0:3] that might be represented differently
+	// Try the query's own string representation first
+	queryStr := query.String()
+	if slicePattern := extractSlicePattern(queryStr); slicePattern != "" {
+		return "Slice " + slicePattern
+	}
+
+	// Also check Left and Right sides
+	if query.Left != nil {
+		leftStr := query.Left.String()
+		if slicePattern := extractSlicePattern(leftStr); slicePattern != "" {
+			return "Slice " + slicePattern
+		}
+	}
+	if query.Right != nil {
+		rightStr := query.Right.String()
+		if slicePattern := extractSlicePattern(rightStr); slicePattern != "" {
+			return "Slice " + slicePattern
+		}
+	}
+
+	// Otherwise use the operator label (or empty if op is 0)
+	opLabel := getOperationLabel(op)
+	if opLabel == "" && queryStr != "" {
+		// If no operator label and we have a query string, use a simplified version
+		// Limit length to avoid overly long labels
+		if len(queryStr) > 50 {
+			return queryStr[:47] + "..."
+		}
+		return queryStr
+	}
+	return opLabel
+}
+
+// extractSlicePattern tries to extract slice notation from a string
+func extractSlicePattern(s string) string {
+	// Look for patterns like [0:3], [:3], [0:], [:]
+	start := strings.Index(s, "[")
+	if start == -1 {
+		return ""
+	}
+	end := strings.Index(s[start:], "]")
+	if end == -1 {
+		return ""
+	}
+	end += start
+	slicePart := s[start : end+1]
+	// Check if it contains a colon (indicating a slice)
+	if strings.Contains(slicePart, ":") {
+		return slicePart
+	}
+	return ""
 }
 
 // getTermLabel extracts a label from a Term, including function arguments
 func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 	if term == nil {
 		return ""
+	}
+
+	// Check for suffixes first (like .[0:3] where . is identity and [0:3] is a suffix)
+	if len(term.SuffixList) > 0 {
+		suffixLabel := formatSuffixList(term.SuffixList)
+		if suffixLabel != "" {
+			// Combine term label with suffix
+			termBase := ""
+			switch term.Type {
+			case gojq.TermTypeIdentity:
+				termBase = "."
+			case gojq.TermTypeRecurse:
+				termBase = ".."
+			default:
+				// For other types, get the base label
+				termBase = getTermBaseLabel(term)
+			}
+			if termBase != "" {
+				return termBase + suffixLabel
+			}
+			return suffixLabel
+		}
 	}
 
 	switch term.Type {
@@ -308,11 +523,57 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 		return "False"
 	case gojq.TermTypeIndex:
 		if term.Index != nil {
-			if term.Index.Name != "" {
-				return fmt.Sprintf("Index: %s", term.Index.Name)
+			// Handle slice operations like [0:3]
+			if term.Index.IsSlice {
+				start := formatIndexBound(term.Index.Start)
+				end := formatIndexBound(term.Index.End)
+				sliceLabel := ""
+				if start == "" && end == "" {
+					sliceLabel = "[:]"
+				} else if start == "" {
+					sliceLabel = fmt.Sprintf("[:%s]", end)
+				} else if end == "" {
+					sliceLabel = fmt.Sprintf("[%s:]", start)
+				} else {
+					sliceLabel = fmt.Sprintf("[%s:%s]", start, end)
+				}
+				// Check for additional suffixes
+				if len(term.SuffixList) > 0 {
+					return "Slice " + sliceLabel + formatSuffixList(term.SuffixList)
+				}
+				return "Slice " + sliceLabel
 			}
+			// Handle object indexing
+			if term.Index.Name != "" {
+				indexLabel := fmt.Sprintf(".%s", term.Index.Name)
+				// Check for additional suffixes
+				if len(term.SuffixList) > 0 {
+					return indexLabel + formatSuffixList(term.SuffixList)
+				}
+				return indexLabel
+			}
+			// Handle string indexing
 			if term.Index.Str != nil {
-				return fmt.Sprintf("Index: %q", term.Index.Str.Str)
+				indexLabel := fmt.Sprintf("[%q]", term.Index.Str.Str)
+				// Check for additional suffixes
+				if len(term.SuffixList) > 0 {
+					return indexLabel + formatSuffixList(term.SuffixList)
+				}
+				return indexLabel
+			}
+		}
+		// Even if Index is nil, check for suffixes (slices can be in suffixes)
+		if len(term.SuffixList) > 0 {
+			suffixLabel := formatSuffixList(term.SuffixList)
+			if suffixLabel != "" {
+				return suffixLabel
+			}
+		}
+		// Fallback: try to extract from query string representation
+		if query != nil {
+			queryStr := query.String()
+			if slicePattern := extractSlicePattern(queryStr); slicePattern != "" {
+				return "Slice " + slicePattern
 			}
 		}
 		return "Index"
