@@ -339,7 +339,9 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 	*lastNodeID = nodeID
 
 	// For other operations, process left and right as separate branches
-	if query.Op != gojq.OpPipe {
+	// BUT: If the current node label already represents a slice (detected from Left/Right),
+	// don't process Left/Right separately to avoid creating duplicate nodes
+	if query.Op != gojq.OpPipe && !strings.HasPrefix(label, "Slice ") {
 		if query.Left != nil {
 			leftType, graph, err := traverseQueryWithOracle(query.Left, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
 			if err != nil {
@@ -442,7 +444,8 @@ func traverseFunction(query *gojq.Query, graph *d2graph.Graph, boardPath []strin
 	// Traverse the function's arguments
 	// Create child nodes inside the container using D2's dot notation (container.child)
 	childCounter := 0
-	childLastNodeID := funcNodeID
+	// Start with "start" so we don't create an edge from container to first child
+	childLastNodeID := "start"
 
 	// Traverse all function arguments
 	for i, arg := range query.Term.Func.Args {
@@ -532,15 +535,7 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 				}
 			}
 		}
-		// ELK layout supports container->descendant edges, so we can create this edge
-		if *lastNodeID == containerID {
-			// Connect container to first child node
-			edgeKey := fmt.Sprintf("%s -> %s", containerID, childNodeID)
-			graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
-			if err != nil {
-				return "", graph, fmt.Errorf("failed to create container edge: %w", err)
-			}
-		}
+		// Don't create edges from container to children - containment is sufficient
 
 		*lastNodeID = childNodeID
 
@@ -582,15 +577,14 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 				return "", graph, fmt.Errorf("failed to set nested function container label: %w", err)
 			}
 
-			// Connect from previous node or parent container
-			if *lastNodeID != "start" {
+			// Connect from previous node (but not from container - containment is sufficient)
+			if *lastNodeID != "start" && *lastNodeID != containerID {
 				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nestedFuncNodeID)
 				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
 				if err != nil {
 					return "", graph, fmt.Errorf("failed to create edge to nested function container: %w", err)
 				}
-				if prevOutputType != "" && *lastNodeID != containerID {
-					// Only add type labels to edges that aren't from the parent container
+				if prevOutputType != "" {
 					formattedType := formatEdgeLabel(prevOutputType)
 					if formattedType != "" {
 						graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
@@ -603,7 +597,8 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 
 			// Traverse the function's arguments inside the nested container
 			nestedChildCounter := 0
-			nestedLastNodeID := nestedFuncNodeID
+			// Start with "start" so we don't create an edge from container to first child
+			nestedLastNodeID := "start"
 
 			// Traverse all function arguments
 			for i, arg := range query.Term.Func.Args {
@@ -870,23 +865,46 @@ func getOperationLabel(op gojq.Operator) string {
 
 // getNodeLabel returns a label for a query node, combining operator and term info
 func getNodeLabel(query *gojq.Query, op gojq.Operator) string {
+	// For pipe operations, always return "Pipe (|)" - don't check terms or Left/Right
+	// The slice will be detected when we process the right side of the pipe
+	if op == gojq.OpPipe {
+		return "Pipe (|)"
+	}
+
 	// If there's a term, use it for the label
 	if query.Term != nil {
 		termLabel := getTermLabel(query.Term, query)
 		if termLabel != "" {
+			// If we got a label from the term (including slices), return it immediately
+			// Don't check Left/Right to avoid duplicates
 			return termLabel
 		}
 	}
 
 	// Check if this is an index operation on the query itself (like .[0:3])
 	// This happens when the query has no term but has index operations in Left
-	if query.Left != nil {
+	// Only check Left/Right if we didn't already get a label from the term
+	// NOTE: This should rarely be needed since slices are usually in SuffixList or Term.Index
+	// We only check this as a fallback when query.Term is nil
+	if query.Term == nil && query.Left != nil {
 		if query.Left.Term != nil {
 			// Check for suffixes on the left term
 			if len(query.Left.Term.SuffixList) > 0 {
+				// Check if any suffix is a slice
+				hasSlice := false
+				for _, suffix := range query.Left.Term.SuffixList {
+					if suffix.Index != nil && suffix.Index.IsSlice {
+						hasSlice = true
+						break
+					}
+				}
 				suffixLabel := formatSuffixList(query.Left.Term.SuffixList)
 				if suffixLabel != "" {
-					// Combine with base term label
+					if hasSlice {
+						// For slices, return "Slice [0:3]" format
+						return "Slice " + suffixLabel
+					}
+					// Combine with base term label for non-slice suffixes
 					baseLabel := getTermBaseLabel(query.Left.Term)
 					if baseLabel != "" {
 						return baseLabel + suffixLabel
@@ -929,8 +947,20 @@ func getNodeLabel(query *gojq.Query, op gojq.Operator) string {
 				}
 			}
 			if len(query.Right.Term.SuffixList) > 0 {
+				// Check if any suffix is a slice
+				hasSlice := false
+				for _, suffix := range query.Right.Term.SuffixList {
+					if suffix.Index != nil && suffix.Index.IsSlice {
+						hasSlice = true
+						break
+					}
+				}
 				suffixLabel := formatSuffixList(query.Right.Term.SuffixList)
 				if suffixLabel != "" {
+					if hasSlice {
+						// For slices, return "Slice [0:3]" format
+						return "Slice " + suffixLabel
+					}
 					baseLabel := getTermBaseLabel(query.Right.Term)
 					if baseLabel != "" {
 						return baseLabel + suffixLabel
@@ -991,7 +1021,19 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 	if len(term.SuffixList) > 0 && term.Type != gojq.TermTypeIndex {
 		suffixLabel := formatSuffixList(term.SuffixList)
 		if suffixLabel != "" {
-			// Combine term label with suffix
+			// Check if the suffix contains a slice - if so, format it with "Slice " prefix
+			hasSlice := false
+			for _, suffix := range term.SuffixList {
+				if suffix.Index != nil && suffix.Index.IsSlice {
+					hasSlice = true
+					break
+				}
+			}
+			if hasSlice {
+				// For slices, return "Slice [0:3]" format (without the "." prefix)
+				return "Slice " + suffixLabel
+			}
+			// Combine term label with suffix for non-slice suffixes
 			termBase := ""
 			switch term.Type {
 			case gojq.TermTypeIdentity:
@@ -1079,8 +1121,82 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 		}
 		return "Function"
 	case gojq.TermTypeArray:
+		if term.Array != nil && term.Array.Query != nil {
+			// Check if array contains function calls
+			q := term.Array.Query
+			if q.Term != nil && q.Term.Type == gojq.TermTypeFunc {
+				if q.Term.Func != nil {
+					funcName := q.Term.Func.Name
+					if len(q.Term.Func.Args) > 0 {
+						args := formatFuncArgs(q.Term.Func.Args)
+						return fmt.Sprintf("[%s(%s)]", funcName, args)
+					}
+					return fmt.Sprintf("[%s()]", funcName)
+				}
+			}
+			// Also check if the query itself is a pipe or other operation containing a function
+			// This handles cases like [find(...) | something]
+			if q.Term == nil && (q.Left != nil || q.Right != nil) {
+				// Try to find a function in the query structure
+				if q.Left != nil && q.Left.Term != nil && q.Left.Term.Type == gojq.TermTypeFunc {
+					if q.Left.Term.Func != nil {
+						funcName := q.Left.Term.Func.Name
+						if len(q.Left.Term.Func.Args) > 0 {
+							args := formatFuncArgs(q.Left.Term.Func.Args)
+							return fmt.Sprintf("[%s(%s)]", funcName, args)
+						}
+						return fmt.Sprintf("[%s()]", funcName)
+					}
+				}
+			}
+		}
 		return "Array"
 	case gojq.TermTypeObject:
+		if term.Object != nil && len(term.Object.KeyVals) > 0 {
+			// Check if object contains function calls in values
+			var keyValLabels []string
+			for _, kv := range term.Object.KeyVals {
+				if kv.Val != nil {
+					// Use helper function to find function in query (handles pipes, parentheses, etc.)
+					funcName, funcArgs := findFuncInQuery(kv.Val)
+
+					if funcName != "" {
+						keyName := ""
+						// Key can be a string or a query
+						if kv.KeyQuery != nil {
+							// Key might be a query
+							keyName = kv.KeyQuery.String()
+							if len(keyName) > 20 {
+								keyName = keyName[:17] + "..."
+							}
+						} else if kv.Key != "" {
+							keyName = kv.Key
+						}
+						if len(funcArgs) > 0 {
+							args := formatFuncArgs(funcArgs)
+							if keyName != "" {
+								keyValLabels = append(keyValLabels, fmt.Sprintf("%s: %s(%s)", keyName, funcName, args))
+							} else {
+								keyValLabels = append(keyValLabels, fmt.Sprintf("%s(%s)", funcName, args))
+							}
+						} else {
+							if keyName != "" {
+								keyValLabels = append(keyValLabels, fmt.Sprintf("%s: %s()", keyName, funcName))
+							} else {
+								keyValLabels = append(keyValLabels, fmt.Sprintf("%s()", funcName))
+							}
+						}
+					}
+				}
+			}
+			if len(keyValLabels) > 0 {
+				// If we have function labels, show them
+				if len(keyValLabels) == 1 {
+					return fmt.Sprintf("{%s}", keyValLabels[0])
+				}
+				return fmt.Sprintf("{%s, ...}", keyValLabels[0])
+			}
+		}
 		return "Object"
 	case gojq.TermTypeNumber:
 		if term.Number != "" {
@@ -1116,6 +1232,39 @@ func getTermLabel(term *gojq.Term, query *gojq.Query) string {
 	default:
 		return fmt.Sprintf("Term(%d)", term.Type)
 	}
+}
+
+// findFuncInQuery recursively searches a query for a function call
+// Returns the function name and args if found, empty string and nil otherwise
+func findFuncInQuery(q *gojq.Query) (string, []*gojq.Query) {
+	if q == nil {
+		return "", nil
+	}
+	// Check direct function call
+	if q.Term != nil && q.Term.Type == gojq.TermTypeFunc {
+		if q.Term.Func != nil {
+			return q.Term.Func.Name, q.Term.Func.Args
+		}
+	}
+	// Check pipe operations - function is usually on the left
+	if q.Op == gojq.OpPipe && q.Left != nil {
+		if name, args := findFuncInQuery(q.Left); name != "" {
+			return name, args
+		}
+	}
+	// Check Left side (for parentheses or other wrappers)
+	if q.Left != nil {
+		if name, args := findFuncInQuery(q.Left); name != "" {
+			return name, args
+		}
+	}
+	// Check Right side (less common but possible)
+	if q.Right != nil {
+		if name, args := findFuncInQuery(q.Right); name != "" {
+			return name, args
+		}
+	}
+	return "", nil
 }
 
 // formatFuncArgs formats function arguments as a string
