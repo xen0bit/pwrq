@@ -83,6 +83,7 @@ type flagopts struct {
 	Help          bool              `short:"h" long:"help" description:"display this help information"`
 	UDFList       bool              `short:"u" long:"udf-list" description:"list all available user-defined functions"`
 	Graph         string            `short:"g" long:"graph" args:"output.png" description:"generate a D2 diagram of the query flow and save to PNG file"`
+	IDE           bool              `short:"i" long:"ide" description:"launch IDE web interface"`
 }
 
 var addDefaultModulePaths = true
@@ -129,6 +130,9 @@ Usage:
 	if opts.UDFList {
 		cli.printUDFList()
 		return nil
+	}
+	if opts.IDE {
+		return cli.launchIDE()
 	}
 	cli.outputRaw, cli.outputRaw0, cli.outputJoin,
 		cli.outputCompact, cli.outputIndent, cli.outputTab, cli.outputYAML =
