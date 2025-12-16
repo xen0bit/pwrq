@@ -5,6 +5,10 @@ pwrq
 coverage.out
 coverage.html
 
+# Web build artifacts
+pkg/web/dist/
+pkg/web/src/wasm/
+
 # IDE
 .idea/
 .vscode/
