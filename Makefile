@@ -50,10 +50,16 @@ fmt:
 	@echo "Formatting code..."
 	go fmt ./...
 
+.PHONY: web.wasm
+web.wasm:
+	@echo "Building web.wasm..."
+	GOOS=js GOARCH=wasm go build -ldflags="$(BUILD_LDFLAGS)" -o web.wasm ./cmd/web
+
 .PHONY: clean
 clean:
 	@echo "Cleaning..."
 	rm -f $(BIN)
+	rm -f web.wasm
 	rm -f coverage.out coverage.html
 	go clean ./...
 
@@ -91,6 +97,8 @@ help:
 	@echo "  make run ARGS=...   - Build and run with arguments"
 	@echo "  make example        - Run a simple example"
 	@echo "  make examples       - Run multiple examples"
+	@echo "  make web.wasm       - Build web.wasm for browser use"
+	@echo "                       Note: You'll need wasm_exec.js from Go's misc/wasm directory"
 	@echo "  make help           - Show this help message"
 
 .PHONY: version

@@ -21,6 +21,137 @@ import (
 	"oss.terrastruct.com/d2/lib/textmeasure"
 )
 
+// GenerateSVG generates an SVG string from a jq query
+func GenerateSVG(query *gojq.Query) (string, error) {
+	// Create context with a logger
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	ctx = d2log.With(ctx, logger)
+
+	// Start with an empty graph
+	_, graph, err := d2lib.Compile(ctx, "", nil, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to initialize graph: %w", err)
+	}
+
+	nodeCounter := 0
+	lastNodeID := "start"
+	var lastOutputType string
+	boardPath := []string{}
+
+	// Create start node
+	graph, startKey, err := d2oracle.Create(graph, boardPath, "start")
+	if err != nil {
+		return "", fmt.Errorf("failed to create start node: %w", err)
+	}
+	shapeCircle := "circle"
+	labelStart := "Start"
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.shape", startKey), nil, &shapeCircle)
+	if err != nil {
+		return "", fmt.Errorf("failed to set start node shape: %w", err)
+	}
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", startKey), nil, &labelStart)
+	if err != nil {
+		return "", fmt.Errorf("failed to set start node label: %w", err)
+	}
+
+	// Traverse the query AST and build graph programmatically
+	lastOutputType, graph, err = traverseQueryWithOracle(query, graph, boardPath, &nodeCounter, &lastNodeID, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to traverse query: %w", err)
+	}
+
+	// Add end node
+	endNodeID := fmt.Sprintf("end_%d", nodeCounter)
+	graph, endKey, err := d2oracle.Create(graph, boardPath, endNodeID)
+	if err != nil {
+		return "", fmt.Errorf("failed to create end node: %w", err)
+	}
+	labelEnd := "End"
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.shape", endKey), nil, &shapeCircle)
+	if err != nil {
+		return "", fmt.Errorf("failed to set end node shape: %w", err)
+	}
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", endKey), nil, &labelEnd)
+	if err != nil {
+		return "", fmt.Errorf("failed to set end node label: %w", err)
+	}
+
+	// Connect last node to end
+	if lastNodeID != "start" {
+		edgeKey := fmt.Sprintf("%s -> %s", lastNodeID, endNodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", fmt.Errorf("failed to create end edge: %w", err)
+		}
+		if lastOutputType != "" {
+			formattedType := formatEdgeLabel(lastOutputType)
+			if formattedType != "" {
+				graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+				if err != nil {
+					return "", fmt.Errorf("failed to set end edge label: %w", err)
+				}
+			}
+		}
+	}
+
+	// Format the graph AST to D2 script
+	d2Script := d2format.Format(graph.AST)
+
+	// For SVG, prepend directives
+	svgD2Script := "direction: right\nlayout: dagre\n" + d2Script
+
+	// Set up text measurement ruler
+	ruler, err := textmeasure.NewRuler()
+	if err != nil {
+		return "", fmt.Errorf("failed to create text ruler: %w", err)
+	}
+
+	// Compile the D2 script
+	layoutStr := "dagre"
+	compileOpts := &d2lib.CompileOptions{
+		Layout: &layoutStr,
+		Ruler:  ruler,
+		LayoutResolver: func(engine string) (d2graph.LayoutGraph, error) {
+			if engine == "elk" {
+				return d2elklayout.DefaultLayout, nil
+			}
+			if engine == "dagre" {
+				return d2dagrelayout.DefaultLayout, nil
+			}
+			return nil, fmt.Errorf("unknown layout engine: %s", engine)
+		},
+	}
+	diagram, _, err := d2lib.Compile(ctx, svgD2Script, compileOpts, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to compile D2 diagram: %w", err)
+	}
+
+	// Remove directive nodes
+	if diagram != nil {
+		var filteredShapes []d2target.Shape
+		for _, shape := range diagram.Shapes {
+			if shape.ID != "theme" && shape.ID != "layout" && shape.ID != "layout.dir" && shape.ID != "direction" {
+				filteredShapes = append(filteredShapes, shape)
+			}
+		}
+		diagram.Shapes = filteredShapes
+	}
+
+	// Render to SVG
+	pad := int64(d2svg.DEFAULT_PADDING)
+	themeID := int64(200) // dark-mauve theme
+	svgBytes, err := d2svg.Render(diagram, &d2svg.RenderOpts{
+		Pad:     &pad,
+		ThemeID: &themeID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to render D2 diagram to SVG: %w", err)
+	}
+
+	return string(svgBytes), nil
+}
+
 // GenerateGraph creates a D2 diagram representing the flow of a jq query
 func GenerateGraph(query *gojq.Query, outputPath string) error {
 	// Resolve absolute output path
