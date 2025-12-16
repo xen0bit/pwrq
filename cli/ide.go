@@ -17,9 +17,9 @@ func (cli *cli) launchIDE() error {
 	if _, err := os.Stat(distPath); os.IsNotExist(err) {
 		return fmt.Errorf("pkg/web/dist directory not found. Please run 'make web.build' first, or build with 'make build-with-ide' to embed files")
 	}
-	
+
 	fileSystem := http.Dir(distPath)
-	http.Handle("/", http.FileServer(fileSystem))
+	http.Handle("/tools/pwrq/", http.FileServer(fileSystem))
 
 	port := os.Getenv("PWRQ_PORT")
 	if port == "" {

@@ -56,7 +56,7 @@
                     rows="5"
                     aria-invalid="false"
                 ></textarea>
-                <small>Type your jq query above. Validation happens automatically as you type.</small>
+                <small id="query-error"></small>
             </form>
         </section>
 
@@ -111,68 +111,52 @@
 
         // Validate query and update UI
         function doValidateQuery() {
-            console.log("doValidateQuery called");
             const query = document.getElementById("query").value;
             const textarea = document.getElementById("query");
             const svgContainer = document.getElementById("svg-container");
-            
-            console.log("validateQuery called with query:", query);
+            const errorSmall = document.getElementById("query-error");
             
             if (!query) {
                 // Empty query - remove validation state
-                console.log("Query is empty, returning");
                 textarea.removeAttribute("aria-invalid");
+                errorSmall.textContent = "";
                 svgContainer.innerHTML = "<p><em>Enter a valid query above to generate a flow diagram.</em></p>";
                 return;
             }
 
             // Check if WASM functions are available
             if (typeof window.validateQuery !== 'function') {
-                console.warn("validateQuery function not available yet");
                 return;
             }
 
             try {
-                console.log("Calling window.validateQuery with:", query);
                 const result = window.validateQuery(query);
-                console.log("validateQuery result:", result);
-                console.log("result type:", typeof result);
-                if (result) {
-                    console.log("result keys:", Object.keys(result));
-                    console.log("result.ok:", result.ok, "type:", typeof result.ok);
-                    console.log("result.err:", result.err, "type:", typeof result.err);
-                }
                 
                 // Go WASM returns a plain JavaScript object from map[string]interface{}
                 const ok = result && result.ok === true;
                 const err = result && result.err ? result.err : "";
                 
-                console.log("Final check - ok:", ok, "err:", err);
-                
                 if (ok) {
-                    console.log("Query is valid, setting aria-invalid=false");
                     textarea.setAttribute("aria-invalid", "false");
+                    errorSmall.textContent = "";
                     // Automatically generate SVG for valid queries
                     generateSVG();
                 } else {
-                    console.log("Query is invalid, setting aria-invalid=true, err:", err);
                     textarea.setAttribute("aria-invalid", "true");
+                    errorSmall.textContent = err || "Query is invalid. Please check your syntax.";
                     svgContainer.innerHTML = "<p><em>Query is invalid. Please check your syntax.</em></p>";
                 }
             } catch (error) {
-                console.error("Error validating query:", error, error.stack);
                 textarea.setAttribute("aria-invalid", "true");
+                errorSmall.textContent = "Error validating query: " + error.message;
                 svgContainer.innerHTML = "<p><em>Error validating query.</em></p>";
             }
         }
 
         // Generate SVG
         function generateSVG() {
-            console.log("generateSVG called");
             const query = document.getElementById("query").value;
             const svgContainer = document.getElementById("svg-container");
-            
-            console.log("generateSVG called with query:", query);
             
             if (!query) {
                 svgContainer.innerHTML = "<p><em>Enter a valid query above to generate a flow diagram.</em></p>";
@@ -181,39 +165,24 @@
 
             // Check if WASM functions are available
             if (typeof window.createSVG !== 'function') {
-                console.warn("createSVG function not available yet");
                 return;
             }
 
             try {
-                console.log("Calling window.createSVG with:", query);
                 const result = window.createSVG(query);
-                console.log("createSVG result:", result);
-                console.log("result type:", typeof result);
-                if (result) {
-                    console.log("result keys:", Object.keys(result));
-                    console.log("result.svg type:", typeof result.svg, "length:", result.svg ? result.svg.length : 0);
-                    console.log("result.err:", result.err);
-                }
                 
                 // Go WASM returns a plain JavaScript object from map[string]interface{}
                 const svg = result && result.svg ? result.svg : "";
                 const err = result && result.err ? result.err : "";
                 
-                console.log("Final check - err:", err, "svg length:", svg ? svg.length : 0);
-                
                 if (err) {
-                    console.error("SVG generation error:", err);
                     svgContainer.innerHTML = "<p><em>Error generating SVG: " + err + "</em></p>";
                 } else if (svg) {
-                    console.log("SVG generated successfully, length:", svg.length);
                     svgContainer.innerHTML = svg;
                 } else {
-                    console.warn("No SVG returned");
                     svgContainer.innerHTML = "<p><em>No SVG generated.</em></p>";
                 }
             } catch (error) {
-                console.error("Error generating SVG:", error, error.stack);
                 svgContainer.innerHTML = "<p><em>Error generating SVG.</em></p>";
             }
         }
@@ -223,16 +192,12 @@
         let validationTimeout;
         
         queryInput.addEventListener("input", () => {
-            console.log("Input event triggered");
             // Debounce validation to avoid too many calls
             clearTimeout(validationTimeout);
             validationTimeout = setTimeout(() => {
-                console.log("Calling doValidateQuery");
                 doValidateQuery();
             }, 300); // Wait 300ms after user stops typing
         });
-        
-        console.log("Event listener attached");
 
         // Initialize WASM on page load
         (async () => {
@@ -245,8 +210,6 @@
                     const textarea = document.getElementById("query");
                     textarea.setAttribute("aria-invalid", "true");
                     textarea.placeholder = "Error: WASM functions not loaded. Please refresh the page.";
-                } else {
-                    console.log("WASM functions are ready");
                 }
             } catch (err) {
                 console.error("Failed to load WASM:", err);

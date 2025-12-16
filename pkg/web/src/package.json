@@ -2,7 +2,7 @@
   "name": "pwrq-web",
   "version": "0.1.0",
   "scripts": {
-    "build": "bun build web_example.html wasm_exec.js --outdir ../dist --target browser --minify"
+    "build": "bun build index.html wasm_exec.js --outdir ../dist --target browser --minify"
   }
 }
 
