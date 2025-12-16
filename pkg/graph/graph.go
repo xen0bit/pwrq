@@ -200,62 +200,83 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 		return "", nil, fmt.Errorf("graph is nil at start of traversal")
 	}
 
-	// Get the query operator
 	op := query.Op
 
-	// For pipe operations, process left side first, then directly connect to right side (no pipe node)
-	if query.Op == gojq.OpPipe {
-		// Process left side first
-		var leftType string
-		var err error
+	// Handle operators using switch
+	switch op {
+	case gojq.OpPipe:
+		// Pipe operations: process left, then right (no pipe node created)
+		return handlePipeOperation(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+	}
 
-		if query.Left != nil {
-			leftType, graph, err = traverseQueryWithOracle(query.Left, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
-			if err != nil {
-				return "", graph, err
+	// Handle term types using switch
+	if query.Term != nil {
+		switch query.Term.Type {
+		case gojq.TermTypeQuery:
+			// Unwrap query term and recurse
+			if query.Term.Query != nil {
+				return traverseQueryWithOracle(query.Term.Query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+			}
+		case gojq.TermTypeFunc:
+			// Function calls create containers
+			if query.Term.Func != nil {
+				return traverseFunction(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+			}
+		case gojq.TermTypeObject:
+			// Object literals create containers with key containers
+			if query.Term.Object != nil {
+				return traverseObjectLiteral(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+			}
+		case gojq.TermTypeArray:
+			// Array literals - traverse the array query
+			if query.Term.Array != nil && query.Term.Array.Query != nil {
+				return traverseQueryWithOracle(query.Term.Array.Query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
 			}
 		}
+	}
 
-		// Process right side directly, connecting it to the left side's output
-		// The edge will be created automatically when processing the right side
-		if query.Right != nil {
-			inputType := leftType
-			if inputType == "" {
-				// If no left type, infer from left side's output
-				inputType = inferOutputType(query.Left, query.Left.Op)
-			}
-			rightType, graph, err := traverseQueryWithOracle(query.Right, graph, boardPath, nodeCounter, lastNodeID, inputType)
-			if err != nil {
-				return "", graph, err
-			}
-			return rightType, graph, nil
+	// For other operations, create a regular node
+	return handleRegularNode(query, op, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+}
+
+// handlePipeOperation processes pipe operations (no pipe node, just edges)
+func handlePipeOperation(query *gojq.Query, graph *d2graph.Graph, boardPath []string, nodeCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+	var leftType string
+	var err error
+
+	// Process left side
+	if query.Left != nil {
+		leftType, graph, err = traverseQueryWithOracle(query.Left, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+		if err != nil {
+			return "", graph, err
 		}
-
-		// If no right side, return left type
-		return leftType, graph, nil
 	}
 
-	// Check if this is a function call - if so, create a container for it
-	if query.Term != nil && query.Term.Type == gojq.TermTypeFunc && query.Term.Func != nil {
-		return traverseFunction(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+	// Process right side with left's output as input
+	if query.Right != nil {
+		inputType := leftType
+		if inputType == "" && query.Left != nil {
+			inputType = inferOutputType(query.Left, query.Left.Op)
+		}
+		rightType, graph, err := traverseQueryWithOracle(query.Right, graph, boardPath, nodeCounter, lastNodeID, inputType)
+		if err != nil {
+			return "", graph, err
+		}
+		return rightType, graph, nil
 	}
 
-	// Check if this is an object literal - if so, create a container and traverse its values
-	if query.Term != nil && query.Term.Type == gojq.TermTypeObject && query.Term.Object != nil {
-		return traverseObjectLiteral(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
-	}
+	return leftType, graph, nil
+}
 
-	// For non-pipe operations, create the node first, then process children
+// handleRegularNode creates a regular node (non-container, non-pipe)
+func handleRegularNode(query *gojq.Query, op gojq.Operator, graph *d2graph.Graph, boardPath []string, nodeCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
 	nodeID := fmt.Sprintf("node_%d", *nodeCounter)
 	*nodeCounter++
 
-	// Determine node label based on operation type and term
 	label := getNodeLabel(query, op)
-
-	// Infer output type for this node
 	outputType := inferOutputType(query, op)
 
-	// Create the node using d2oracle
+	// Create node
 	var err error
 	graph, _, err = d2oracle.Create(graph, boardPath, nodeID)
 	if err != nil {
@@ -274,59 +295,24 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 		return "", graph, fmt.Errorf("failed to set node label: %w", err)
 	}
 
-	// Connect from previous node with type information
-	if *lastNodeID != "start" {
-		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nodeID)
-		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
-		if err != nil {
-			return "", graph, fmt.Errorf("failed to create edge: %w", err)
-		}
-		// Use the previous node's output type as the edge label
-		if prevOutputType != "" {
-			formattedType := formatEdgeLabel(prevOutputType)
-			if formattedType != "" {
-				graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
-				if err != nil {
-					return "", graph, fmt.Errorf("failed to set edge label: %w", err)
-				}
-			}
-		}
-	} else {
-		// Connect from start node to the first node
-		edgeKey := fmt.Sprintf("start -> %s", nodeID)
-		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
-		if err != nil {
-			return "", graph, fmt.Errorf("failed to create start edge: %w", err)
-		}
+	// Connect from previous node
+	if err := connectNodeFromPrevious(graph, boardPath, *lastNodeID, nodeID, prevOutputType); err != nil {
+		return "", graph, err
 	}
 
 	*lastNodeID = nodeID
 
-	// For other operations, process left and right as separate branches
-	// BUT: If the current node label already represents a slice (detected from Left/Right),
-	// don't process Left/Right separately to avoid creating duplicate nodes
-	if query.Op != gojq.OpPipe && !strings.HasPrefix(label, "Slice ") {
+	// Process children recursively (if not a slice to avoid duplicates)
+	if !strings.HasPrefix(label, "Slice ") {
 		if query.Left != nil {
 			leftType, graph, err := traverseQueryWithOracle(query.Left, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
 			if err != nil {
 				return "", graph, err
 			}
-			// Connect back to current node
+			// Connect back if needed
 			if *lastNodeID != nodeID {
-				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nodeID)
-				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
-				if err != nil {
-					return "", graph, fmt.Errorf("failed to create left branch edge: %w", err)
-				}
-				if leftType != "" {
-					formattedType := formatEdgeLabel(leftType)
-					if formattedType != "" {
-						var setErr error
-						graph, setErr = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
-						if setErr != nil {
-							return "", graph, fmt.Errorf("failed to set left branch edge label: %w", setErr)
-						}
-					}
+				if err := connectNodeFromPrevious(graph, boardPath, *lastNodeID, nodeID, leftType); err != nil {
+					return "", graph, err
 				}
 			}
 		}
@@ -335,28 +321,44 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 			if err != nil {
 				return "", graph, err
 			}
-			// Connect back to current node
+			// Connect back if needed
 			if *lastNodeID != nodeID {
-				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nodeID)
-				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
-				if err != nil {
-					return "", graph, fmt.Errorf("failed to create right branch edge: %w", err)
-				}
-				if rightType != "" {
-					formattedType := formatEdgeLabel(rightType)
-					if formattedType != "" {
-						var setErr error
-						graph, setErr = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
-						if setErr != nil {
-							return "", graph, fmt.Errorf("failed to set right branch edge label: %w", setErr)
-						}
-					}
+				if err := connectNodeFromPrevious(graph, boardPath, *lastNodeID, nodeID, rightType); err != nil {
+					return "", graph, err
 				}
 			}
 		}
 	}
 
 	return outputType, graph, nil
+}
+
+// connectNodeFromPrevious creates an edge from previous node (or start) to current node
+func connectNodeFromPrevious(graph *d2graph.Graph, boardPath []string, lastNodeID, nodeID, edgeType string) error {
+	var fromID string
+	if lastNodeID == "start" {
+		fromID = "start"
+	} else {
+		fromID = lastNodeID
+	}
+
+	edgeKey := fmt.Sprintf("%s -> %s", fromID, nodeID)
+	var err error
+	graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+	if err != nil {
+		return fmt.Errorf("failed to create edge: %w", err)
+	}
+
+	if edgeType != "" && fromID != "start" {
+		formattedType := formatEdgeLabel(edgeType)
+		if formattedType != "" {
+			graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+			if err != nil {
+				return fmt.Errorf("failed to set edge label: %w", err)
+			}
+		}
+	}
+	return nil
 }
 
 // traverseFunction handles ALL function calls by creating a container and exploding the function's arguments
@@ -643,231 +645,151 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 
 	op := query.Op
 
-	// Handle pipe operations - just connect left to right directly (no pipe node)
-	// Also check if query or its children contain a pipe (parenthesized expressions like (md5 | ._val))
-	pipeQuery := query
-	if op != gojq.OpPipe {
-		// Check if Left has a pipe
-		if query.Left != nil && query.Left.Op == gojq.OpPipe {
-			pipeQuery = query.Left
-			op = gojq.OpPipe
-		} else if query.Right != nil && query.Right.Op == gojq.OpPipe {
-			pipeQuery = query.Right
-			op = gojq.OpPipe
+	// Handle pipe operations using switch
+	pipeQuery := findPipeQuery(query, op)
+	if pipeQuery != nil {
+		return handlePipeInContainer(pipeQuery, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+	}
+
+	// Handle term types using switch
+	if query.Term != nil {
+		switch query.Term.Type {
+		case gojq.TermTypeQuery:
+			// Unwrap query term and recurse
+			if query.Term.Query != nil {
+				return traverseInContainer(query.Term.Query, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+			}
+		case gojq.TermTypeObject:
+			// Object literals create containers with key containers
+			if query.Term.Object != nil {
+				return traverseObjectLiteralInContainer(query, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+			}
+		case gojq.TermTypeFunc:
+			// Function calls create nested containers
+			if query.Term.Func != nil {
+				return handleFunctionInContainer(query, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+			}
 		}
 	}
 
+	// For other operations, create a regular child node
+	return handleRegularNodeInContainer(query, op, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+}
+
+// Helper functions for container traversal
+
+// findPipeQuery finds a pipe query in the query tree
+func findPipeQuery(query *gojq.Query, op gojq.Operator) *gojq.Query {
 	if op == gojq.OpPipe {
-		// Process left side first
-		var leftType string
-		var err error
+		return query
+	}
+	if query.Left != nil && query.Left.Op == gojq.OpPipe {
+		return query.Left
+	}
+	if query.Right != nil && query.Right.Op == gojq.OpPipe {
+		return query.Right
+	}
+	return nil
+}
 
-		if pipeQuery.Left != nil {
-			leftType, graph, err = traverseInContainer(pipeQuery.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+// handlePipeInContainer processes pipe operations inside containers
+func handlePipeInContainer(pipeQuery *gojq.Query, graph *d2graph.Graph, boardPath []string, containerID string, childCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+	var leftType string
+	var err error
+
+	if pipeQuery.Left != nil {
+		leftType, graph, err = traverseInContainer(pipeQuery.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+		if err != nil {
+			return "", graph, err
+		}
+	}
+
+	if pipeQuery.Right != nil {
+		inputType := leftType
+		if inputType == "" && pipeQuery.Left != nil {
+			inputType = inferOutputType(pipeQuery.Left, pipeQuery.Left.Op)
+		}
+		rightType, graph, err := traverseInContainer(pipeQuery.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
+		if err != nil {
+			return "", graph, err
+		}
+		return rightType, graph, nil
+	}
+
+	return leftType, graph, nil
+}
+
+// handleFunctionInContainer processes function calls inside containers
+func handleFunctionInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []string, containerID string, childCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+	funcName := query.Term.Func.Name
+	if funcName == "" {
+		return "", graph, fmt.Errorf("function has no name")
+	}
+
+	// Create nested function container
+	nestedFuncNodeID := fmt.Sprintf("%s.child_%d", containerID, *childCounter)
+	*childCounter++
+
+	var err error
+	graph, _, err = d2oracle.Create(graph, boardPath, nestedFuncNodeID)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to create nested function container: %w", err)
+	}
+
+	labelFunc := fmt.Sprintf("%s()", funcName)
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", nestedFuncNodeID), nil, &labelFunc)
+	if err != nil {
+		return "", graph, fmt.Errorf("failed to set nested function container label: %w", err)
+	}
+
+	// Connect from previous (but not from container itself)
+	if *lastNodeID != "start" && *lastNodeID != containerID {
+		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nestedFuncNodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create edge to nested function: %w", err)
+		}
+		if prevOutputType != "" {
+			formattedType := formatEdgeLabel(prevOutputType)
+			if formattedType != "" {
+				graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to set edge label: %w", err)
+				}
+			}
+		}
+	}
+
+	// Traverse function arguments
+	nestedChildCounter := 0
+	nestedLastNodeID := "start"
+	for i, arg := range query.Term.Func.Args {
+		if arg != nil {
+			_, graph, err = traverseInContainer(arg, graph, boardPath, nestedFuncNodeID, &nestedChildCounter, &nestedLastNodeID, prevOutputType)
 			if err != nil {
-				return "", graph, err
+				return "", graph, fmt.Errorf("failed to traverse nested function argument %d: %w", i, err)
 			}
-		}
-
-		// Process right side directly, connecting it to the left side's output
-		// The edge will be created automatically when processing the right side
-		if pipeQuery.Right != nil {
-			inputType := leftType
-			if inputType == "" && pipeQuery.Left != nil {
-				// If no left type, infer from left side's output
-				inputType = inferOutputType(pipeQuery.Left, pipeQuery.Left.Op)
-			}
-			rightType, graph, err := traverseInContainer(pipeQuery.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
-			if err != nil {
-				return "", graph, err
-			}
-			return rightType, graph, nil
-		}
-
-		// If no right side, return left type
-		return leftType, graph, nil
-	}
-
-	// Check if this is a query wrapped in a Term (TermTypeQuery) - unwrap it
-	if query.Term != nil && query.Term.Type == gojq.TermTypeQuery && query.Term.Query != nil {
-		// Unwrap the query and traverse it
-		return traverseInContainer(query.Term.Query, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
-	}
-
-	// Check if this is an object literal - if so, create a container and traverse its values
-	if query.Term != nil && query.Term.Type == gojq.TermTypeObject && query.Term.Object != nil {
-		return traverseObjectLiteralInContainer(query, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
-	}
-
-	// Check if this is a function call - if so, create a nested container
-	if query.Term != nil && query.Term.Type == gojq.TermTypeFunc && query.Term.Func != nil {
-		// This is a nested function - create a container inside the parent container
-		funcName := query.Term.Func.Name
-		if funcName != "" {
-			// Create a nested container node for the function inside the parent container
-			nestedFuncNodeID := fmt.Sprintf("%s.child_%d", containerID, *childCounter)
-			*childCounter++
-
-			var err error
-			graph, _, err = d2oracle.Create(graph, boardPath, nestedFuncNodeID)
-			if err != nil {
-				return "", graph, fmt.Errorf("failed to create nested function container node: %w", err)
-			}
-
-			// Set container properties
-			labelFunc := fmt.Sprintf("%s()", funcName)
-			graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", nestedFuncNodeID), nil, &labelFunc)
-			if err != nil {
-				return "", graph, fmt.Errorf("failed to set nested function container label: %w", err)
-			}
-
-			// Connect from previous node (but not from container - containment is sufficient)
-			if *lastNodeID != "start" && *lastNodeID != containerID {
-				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nestedFuncNodeID)
-				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
-				if err != nil {
-					return "", graph, fmt.Errorf("failed to create edge to nested function container: %w", err)
-				}
-				if prevOutputType != "" {
-					formattedType := formatEdgeLabel(prevOutputType)
-					if formattedType != "" {
-						graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
-						if err != nil {
-							return "", graph, fmt.Errorf("failed to set edge label: %w", err)
-						}
-					}
-				}
-			}
-
-			// Traverse the function's arguments inside the nested container
-			nestedChildCounter := 0
-			// Start with "start" so we don't create an edge from container to first child
-			nestedLastNodeID := "start"
-
-			// Traverse all function arguments
-			for i, arg := range query.Term.Func.Args {
-				if arg != nil {
-					// Traverse the argument, creating nodes inside the nested function container
-					// This will recursively handle further nested functions
-					_, graph, err = traverseInContainer(arg, graph, boardPath, nestedFuncNodeID, &nestedChildCounter, &nestedLastNodeID, prevOutputType)
-					if err != nil {
-						return "", graph, fmt.Errorf("failed to traverse nested function argument %d: %w", i, err)
-					}
-				}
-			}
-
-			// Update lastNodeID to point to the nested function container
-			*lastNodeID = nestedFuncNodeID
-
-			// Infer output type for the function
-			outputType := inferOutputType(query, query.Op)
-			return outputType, graph, nil
 		}
 	}
 
-	// Check if this is a query with no Term but has Left/Right that might be a pipe
-	// This can happen with parenthesized expressions like (md5 | ._val)
-	// Also check if the query itself is a pipe (op might be 0 but Left/Right indicate pipe)
-	if query.Term == nil && (op == 0 || op == gojq.OpPipe) {
-		// If op is OpPipe, use the query directly
-		if op == gojq.OpPipe {
-			// This is a pipe - handle it
-			var leftType string
-			var err error
+	*lastNodeID = nestedFuncNodeID
+	outputType := inferOutputType(query, query.Op)
+	return outputType, graph, nil
+}
 
-			if query.Left != nil {
-				leftType, graph, err = traverseInContainer(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
-				if err != nil {
-					return "", graph, err
-				}
-			}
-
-			// Process right side directly
-			if query.Right != nil {
-				inputType := leftType
-				if inputType == "" && query.Left != nil {
-					inputType = inferOutputType(query.Left, query.Left.Op)
-				}
-				rightType, graph, err := traverseInContainer(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
-				if err != nil {
-					return "", graph, err
-				}
-				return rightType, graph, nil
-			}
-
-			return leftType, graph, nil
-		}
-		// Check if Left has a pipe operation
-		if query.Left != nil && query.Left.Op == gojq.OpPipe {
-			// This is a parenthesized pipe - handle it as a pipe
-			var leftType string
-			var err error
-
-			if query.Left.Left != nil {
-				leftType, graph, err = traverseInContainer(query.Left.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
-				if err != nil {
-					return "", graph, err
-				}
-			}
-
-			// Process right side directly
-			if query.Left.Right != nil {
-				inputType := leftType
-				if inputType == "" && query.Left.Left != nil {
-					inputType = inferOutputType(query.Left.Left, query.Left.Left.Op)
-				}
-				rightType, graph, err := traverseInContainer(query.Left.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
-				if err != nil {
-					return "", graph, err
-				}
-				return rightType, graph, nil
-			}
-
-			return leftType, graph, nil
-		}
-		// Check if Right has a pipe operation
-		if query.Right != nil && query.Right.Op == gojq.OpPipe {
-			// This is a parenthesized pipe - handle it as a pipe
-			var leftType string
-			var err error
-
-			if query.Right.Left != nil {
-				leftType, graph, err = traverseInContainer(query.Right.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
-				if err != nil {
-					return "", graph, err
-				}
-			}
-
-			// Process right side directly
-			if query.Right.Right != nil {
-				inputType := leftType
-				if inputType == "" && query.Right.Left != nil {
-					inputType = inferOutputType(query.Right.Left, query.Right.Left.Op)
-				}
-				rightType, graph, err := traverseInContainer(query.Right.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
-				if err != nil {
-					return "", graph, err
-				}
-				return rightType, graph, nil
-			}
-
-			return leftType, graph, nil
-		}
-	}
-
-	// For non-pipe, non-function operations, create the node with container prefix
+// handleRegularNodeInContainer creates a regular node inside a container
+func handleRegularNodeInContainer(query *gojq.Query, op gojq.Operator, graph *d2graph.Graph, boardPath []string, containerID string, childCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
 	childNodeID := fmt.Sprintf("%s.child_%d", containerID, *childCounter)
 	*childCounter++
 
-	// Determine node label based on operation type and term
 	label := getNodeLabel(query, op)
 	outputType := inferOutputType(query, op)
 
-	// Create the node using d2oracle
+	// Create node
 	var err error
 	graph, _, err = d2oracle.Create(graph, boardPath, childNodeID)
 	if err != nil {
-		return "", graph, fmt.Errorf("failed to create child node %s: %w", childNodeID, err)
+		return "", graph, fmt.Errorf("failed to create child node: %w", err)
 	}
 
 	// Set node properties
@@ -882,15 +804,14 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 		return "", graph, fmt.Errorf("failed to set child node label: %w", err)
 	}
 
-	// Connect from previous node or container (ELK supports container->descendant edges)
-	if *lastNodeID != "start" {
+	// Connect from previous (but not from container itself)
+	if *lastNodeID != "start" && *lastNodeID != containerID {
 		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, childNodeID)
 		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
 		if err != nil {
 			return "", graph, fmt.Errorf("failed to create child edge: %w", err)
 		}
-		if prevOutputType != "" && *lastNodeID != containerID {
-			// Only add type labels to edges that aren't from the container
+		if prevOutputType != "" {
 			formattedType := formatEdgeLabel(prevOutputType)
 			if formattedType != "" {
 				graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
@@ -903,23 +824,51 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 
 	*lastNodeID = childNodeID
 
-	// Process children recursively
-	if query.Left != nil {
-		leftType, graph, err := traverseInContainer(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
-		if err != nil {
-			return "", graph, err
+	// Process children recursively (if not a slice)
+	if !strings.HasPrefix(label, "Slice ") {
+		if query.Left != nil {
+			leftType, graph, err := traverseInContainer(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+			if err != nil {
+				return "", graph, err
+			}
+			if *lastNodeID != childNodeID {
+				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, childNodeID)
+				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to create left branch edge: %w", err)
+				}
+				if leftType != "" {
+					formattedType := formatEdgeLabel(leftType)
+					if formattedType != "" {
+						graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+						if err != nil {
+							return "", graph, fmt.Errorf("failed to set left branch edge label: %w", err)
+						}
+					}
+				}
+			}
 		}
-		if leftType != "" {
-			outputType = leftType
-		}
-	}
-	if query.Right != nil {
-		rightType, graph, err := traverseInContainer(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
-		if err != nil {
-			return "", graph, err
-		}
-		if rightType != "" {
-			outputType = rightType
+		if query.Right != nil {
+			rightType, graph, err := traverseInContainer(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+			if err != nil {
+				return "", graph, err
+			}
+			if *lastNodeID != childNodeID {
+				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, childNodeID)
+				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to create right branch edge: %w", err)
+				}
+				if rightType != "" {
+					formattedType := formatEdgeLabel(rightType)
+					if formattedType != "" {
+						graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+						if err != nil {
+							return "", graph, fmt.Errorf("failed to set right branch edge label: %w", err)
+						}
+					}
+				}
+			}
 		}
 	}
 
