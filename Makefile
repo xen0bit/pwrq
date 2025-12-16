@@ -59,18 +59,25 @@ fmt:
 web.wasm:
 	@echo "Building web.wasm..."
 	@mkdir -p pkg/web/src/wasm
+	@mkdir -p pkg/web/src
 	GOOS=js GOARCH=wasm go build -ldflags="$(BUILD_LDFLAGS)" -o pkg/web/src/wasm/web.wasm ./cmd/web
 	@echo "Copying wasm_exec.js..."
-	@cp $$(go env GOROOT)/lib/wasm/wasm_exec.js pkg/web/src/wasm/ 2>/dev/null || cp $$(go env GOROOT)/misc/wasm/wasm_exec.js pkg/web/src/wasm/ 2>/dev/null || echo "Warning: wasm_exec.js not found, you may need to copy it manually"
+	@cp $$(go env GOROOT)/lib/wasm/wasm_exec.js pkg/web/src/wasm_exec.js 2>/dev/null || cp $$(go env GOROOT)/misc/wasm/wasm_exec.js pkg/web/src/wasm_exec.js 2>/dev/null || echo "Warning: wasm_exec.js not found, you may need to copy it manually"
 
 .PHONY: web.build
 web.build: web.wasm
-	@echo "Copying web files to dist..."
+	@echo "Building web assets with bun..."
+	@if ! command -v bun >/dev/null 2>&1; then \
+		echo "Error: bun is not installed. Please install it from https://bun.sh"; \
+		exit 1; \
+	fi
 	@mkdir -p pkg/web/dist
-	@cp pkg/web/src/web_example.html pkg/web/dist/web_example.html
-	@echo "Copying WASM files to dist..."
+	@cd pkg/web/src && bun install --no-save 2>/dev/null || true
+	@cd pkg/web/src && bun run build
+	@echo "Copying CSS and WASM files to dist..."
+	@mkdir -p pkg/web/dist/css
+	@cp pkg/web/src/css/pico.violet.css pkg/web/dist/css/ 2>/dev/null || echo "Warning: pico.violet.css not found"
 	@cp pkg/web/src/wasm/web.wasm pkg/web/dist/web.wasm 2>/dev/null || echo "Warning: web.wasm not found"
-	@cp pkg/web/src/wasm/wasm_exec.js pkg/web/dist/wasm_exec.js 2>/dev/null || echo "Warning: wasm_exec.js not found"
 
 .PHONY: clean
 clean:

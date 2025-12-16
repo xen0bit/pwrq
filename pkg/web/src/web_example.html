@@ -1,53 +1,104 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>pwrq WASM Example</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>pwrq Query Validator and SVG Generator</title>
+    <meta name="description" content="Validate jq queries and generate SVG flow diagrams in real-time.">
+    
+    <!-- Pico CSS Violet Theme -->
+    <link rel="stylesheet" href="css/pico.violet.css">
+    
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+        textarea[aria-invalid="true"] {
+            --pico-border-color: var(--pico-form-element-invalid-border-color);
         }
-        textarea {
-            width: 100%;
-            height: 100px;
-            font-family: monospace;
-            border: 2px solid #ccc;
-            border-radius: 4px;
-            padding: 8px;
-            transition: border-color 0.3s;
-        }
-        textarea.valid {
-            border-color: green;
-        }
-        textarea.invalid {
-            border-color: red;
+        textarea[aria-invalid="false"] {
+            --pico-border-color: var(--pico-form-element-valid-border-color);
         }
         #svg-container {
-            margin-top: 20px;
-            border: 1px solid #ccc;
-            padding: 10px;
-            background: white;
+            margin-top: var(--pico-spacing);
+            padding: var(--pico-spacing);
+            border: var(--pico-border-width) solid var(--pico-muted-border-color);
+            border-radius: var(--pico-border-radius);
+            background: var(--pico-background-color);
+            overflow-x: auto;
+        }
+        #svg-container svg {
+            max-width: 100%;
+            height: auto;
         }
     </style>
 </head>
 <body>
-    <h1>pwrq Query Validator and SVG Generator</h1>
-    
-    <div>
-        <label for="query">Enter jq query:</label>
-        <textarea id="query" placeholder='e.g., md5 | ._val'></textarea>
-    </div>
-    
-    <div id="svg-container"></div>
+    <!-- Header -->
+    <header>
+        <hgroup>
+            <h1>pwrq</h1>
+            <p>Query Validator and SVG Generator</p>
+        </hgroup>
+    </header>
+    <!-- ./ Header -->
+
+    <!-- Main -->
+    <main>
+        <section>
+            <h2>Query Editor</h2>
+            <p>Enter a jq query below. The query will be validated in real-time, and a flow diagram will be generated automatically for valid queries.</p>
+            
+            <form>
+                <label for="query">jq Query</label>
+                <textarea 
+                    id="query" 
+                    name="query"
+                    placeholder='e.g., md5 | ._val'
+                    rows="5"
+                    aria-invalid="false"
+                ></textarea>
+                <small>Type your jq query above. Validation happens automatically as you type.</small>
+            </form>
+        </section>
+
+        <section>
+            <h2>Flow Diagram</h2>
+            <div id="svg-container">
+                <p><em>Enter a valid query above to generate a flow diagram.</em></p>
+            </div>
+        </section>
+    </main>
+    <!-- ./ Main -->
 
     <script src="wasm_exec.js"></script>
-    <script>
+    <script type="module">
         let wasmModule = null;
+
+        // Polyfill for WebAssembly.instantiateStreaming if not available
+        if (!WebAssembly.instantiateStreaming) {
+            WebAssembly.instantiateStreaming = async (resp, importObject) => {
+                const source = await (await resp).arrayBuffer();
+                return await WebAssembly.instantiate(source, importObject);
+            };
+        }
 
         // Initialize WASM
         async function initWASM() {
+            console.log("Initializing WASM...");
+            
+            // Wait a bit for wasm_exec.js to load and define Go
+            let attempts = 0;
+            while (typeof Go === 'undefined' && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+                attempts++;
+            }
+            
+            // Check if Go is available
+            if (typeof Go === 'undefined') {
+                console.error("Go is not defined. Make sure wasm_exec.js is loaded.");
+                throw new Error("Go is not defined");
+            }
+            
+            console.log("Go is available, creating new Go()");
             const go = new Go();
             const result = await WebAssembly.instantiateStreaming(fetch("web.wasm"), go.importObject);
             wasmModule = result.instance;
@@ -55,79 +106,115 @@
             go.run(result.instance);
             // Wait a bit for Go to initialize and expose functions
             await new Promise(resolve => setTimeout(resolve, 100));
+            console.log("WASM module loaded");
         }
 
         // Validate query and update UI
         function doValidateQuery() {
+            console.log("doValidateQuery called");
             const query = document.getElementById("query").value;
             const textarea = document.getElementById("query");
             const svgContainer = document.getElementById("svg-container");
             
-            // Remove previous validation classes
-            textarea.classList.remove("valid", "invalid");
+            console.log("validateQuery called with query:", query);
             
             if (!query) {
-                // Empty query - default grey border
+                // Empty query - remove validation state
+                console.log("Query is empty, returning");
+                textarea.removeAttribute("aria-invalid");
+                svgContainer.innerHTML = "<p><em>Enter a valid query above to generate a flow diagram.</em></p>";
                 return;
             }
 
             // Check if WASM functions are available
             if (typeof window.validateQuery !== 'function') {
+                console.warn("validateQuery function not available yet");
                 return;
             }
 
             try {
+                console.log("Calling window.validateQuery with:", query);
                 const result = window.validateQuery(query);
+                console.log("validateQuery result:", result);
+                console.log("result type:", typeof result);
+                if (result) {
+                    console.log("result keys:", Object.keys(result));
+                    console.log("result.ok:", result.ok, "type:", typeof result.ok);
+                    console.log("result.err:", result.err, "type:", typeof result.err);
+                }
                 
                 // Go WASM returns a plain JavaScript object from map[string]interface{}
                 const ok = result && result.ok === true;
                 const err = result && result.err ? result.err : "";
                 
+                console.log("Final check - ok:", ok, "err:", err);
+                
                 if (ok) {
-                    textarea.classList.add("valid");
+                    console.log("Query is valid, setting aria-invalid=false");
+                    textarea.setAttribute("aria-invalid", "false");
                     // Automatically generate SVG for valid queries
                     generateSVG();
                 } else {
-                    textarea.classList.add("invalid");
-                    svgContainer.innerHTML = "";
+                    console.log("Query is invalid, setting aria-invalid=true, err:", err);
+                    textarea.setAttribute("aria-invalid", "true");
+                    svgContainer.innerHTML = "<p><em>Query is invalid. Please check your syntax.</em></p>";
                 }
             } catch (error) {
-                textarea.classList.add("invalid");
-                svgContainer.innerHTML = "";
+                console.error("Error validating query:", error, error.stack);
+                textarea.setAttribute("aria-invalid", "true");
+                svgContainer.innerHTML = "<p><em>Error validating query.</em></p>";
             }
         }
 
         // Generate SVG
         function generateSVG() {
+            console.log("generateSVG called");
             const query = document.getElementById("query").value;
             const svgContainer = document.getElementById("svg-container");
             
+            console.log("generateSVG called with query:", query);
+            
             if (!query) {
-                svgContainer.innerHTML = "";
+                svgContainer.innerHTML = "<p><em>Enter a valid query above to generate a flow diagram.</em></p>";
                 return;
             }
 
             // Check if WASM functions are available
             if (typeof window.createSVG !== 'function') {
+                console.warn("createSVG function not available yet");
                 return;
             }
 
             try {
+                console.log("Calling window.createSVG with:", query);
                 const result = window.createSVG(query);
+                console.log("createSVG result:", result);
+                console.log("result type:", typeof result);
+                if (result) {
+                    console.log("result keys:", Object.keys(result));
+                    console.log("result.svg type:", typeof result.svg, "length:", result.svg ? result.svg.length : 0);
+                    console.log("result.err:", result.err);
+                }
                 
                 // Go WASM returns a plain JavaScript object from map[string]interface{}
                 const svg = result && result.svg ? result.svg : "";
                 const err = result && result.err ? result.err : "";
                 
+                console.log("Final check - err:", err, "svg length:", svg ? svg.length : 0);
+                
                 if (err) {
-                    svgContainer.innerHTML = "";
+                    console.error("SVG generation error:", err);
+                    svgContainer.innerHTML = "<p><em>Error generating SVG: " + err + "</em></p>";
                 } else if (svg) {
+                    console.log("SVG generated successfully, length:", svg.length);
                     svgContainer.innerHTML = svg;
                 } else {
-                    svgContainer.innerHTML = "";
+                    console.warn("No SVG returned");
+                    svgContainer.innerHTML = "<p><em>No SVG generated.</em></p>";
                 }
             } catch (error) {
-                svgContainer.innerHTML = "";
+                console.error("Error generating SVG:", error, error.stack);
+                svgContainer.innerHTML = "<p><em>Error generating SVG.</em></p>";
             }
         }
 
@@ -136,12 +223,16 @@
         let validationTimeout;
         
         queryInput.addEventListener("input", () => {
+            console.log("Input event triggered");
             // Debounce validation to avoid too many calls
             clearTimeout(validationTimeout);
             validationTimeout = setTimeout(() => {
+                console.log("Calling doValidateQuery");
                 doValidateQuery();
             }, 300); // Wait 300ms after user stops typing
         });
+        
+        console.log("Event listener attached");
 
         // Initialize WASM on page load
         (async () => {
@@ -150,13 +241,17 @@
                 
                 // Verify WASM functions are available
                 if (typeof window.validateQuery !== 'function' || typeof window.createSVG !== 'function') {
+                    console.error("WASM functions not available");
                     const textarea = document.getElementById("query");
-                    textarea.classList.add("invalid");
+                    textarea.setAttribute("aria-invalid", "true");
                     textarea.placeholder = "Error: WASM functions not loaded. Please refresh the page.";
+                } else {
+                    console.log("WASM functions are ready");
                 }
             } catch (err) {
+                console.error("Failed to load WASM:", err);
                 const textarea = document.getElementById("query");
-                textarea.classList.add("invalid");
+                textarea.setAttribute("aria-invalid", "true");
                 textarea.placeholder = "Error: Failed to load WASM module. Please refresh the page.";
             }
         })();
