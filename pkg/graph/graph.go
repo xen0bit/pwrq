@@ -11,6 +11,7 @@ import (
 	"github.com/itchyny/gojq"
 	"oss.terrastruct.com/d2/d2format"
 	"oss.terrastruct.com/d2/d2graph"
+	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
 	"oss.terrastruct.com/d2/d2layouts/d2elklayout"
 	"oss.terrastruct.com/d2/d2lib"
 	"oss.terrastruct.com/d2/d2oracle"
@@ -117,7 +118,7 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 		// For SVG, prepend directives for layout direction
 		// Theme will be set via RenderOpts to avoid creating a node
 		// Layout is needed for compilation
-		svgD2Script := "direction: right\nlayout: elk\n" + d2Script
+		svgD2Script := "direction: right\nlayout: dagre\n" + d2Script
 
 		// Render to SVG using the D2 library
 		// Set up text measurement ruler for D2 compilation
@@ -131,13 +132,16 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 
 		// Compile the D2 script with layout and ruler (following blog post pattern)
 		// Use ELK layout which supports container-to-descendant edges
-		layoutStr := "elk"
+		layoutStr := "dagre"
 		compileOpts := &d2lib.CompileOptions{
 			Layout: &layoutStr,
 			Ruler:  ruler,
 			LayoutResolver: func(engine string) (d2graph.LayoutGraph, error) {
 				if engine == "elk" {
 					return d2elklayout.DefaultLayout, nil
+				}
+				if engine == "dagre" {
+					return d2dagrelayout.DefaultLayout, nil
 				}
 				return nil, fmt.Errorf("unknown layout engine: %s", engine)
 			},
@@ -287,6 +291,13 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 				}
 			}
 		}
+	} else {
+		// Connect from start node to the first node
+		edgeKey := fmt.Sprintf("start -> %s", nodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create start edge: %w", err)
+		}
 	}
 
 	*lastNodeID = nodeID
@@ -392,6 +403,13 @@ func traverseFunction(query *gojq.Query, graph *d2graph.Graph, boardPath []strin
 				}
 			}
 		}
+	} else {
+		// Connect from start node to the first function
+		edgeKey := fmt.Sprintf("start -> %s", funcNodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create start edge: %w", err)
+		}
 	}
 
 	// Traverse the function's arguments
@@ -459,16 +477,54 @@ func traverseObjectLiteral(query *gojq.Query, graph *d2graph.Graph, boardPath []
 				}
 			}
 		}
+	} else {
+		// Connect from start node to the first object
+		edgeKey := fmt.Sprintf("start -> %s", objNodeID)
+		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+		if err != nil {
+			return "", graph, fmt.Errorf("failed to create start edge: %w", err)
+		}
 	}
 
 	// Traverse the object's key-value pairs
+	// Each key-value pair gets its own container to show independence
 	childCounter := 0
-	childLastNodeID := "start"
 
 	for _, kv := range query.Term.Object.KeyVals {
 		if kv.Val != nil {
-			// Traverse the value query, creating nodes inside the object container
-			_, graph, err = traverseInContainer(kv.Val, graph, boardPath, objNodeID, &childCounter, &childLastNodeID, prevOutputType)
+			// Get the key name for the container label
+			keyName := ""
+			if kv.KeyQuery != nil {
+				keyName = kv.KeyQuery.String()
+				if len(keyName) > 20 {
+					keyName = keyName[:17] + "..."
+				}
+			} else if kv.Key != "" {
+				keyName = kv.Key
+			}
+			if keyName == "" {
+				keyName = fmt.Sprintf("key_%d", childCounter)
+			}
+
+			// Create a container for this key-value pair
+			keyContainerID := fmt.Sprintf("%s.child_%d", objNodeID, childCounter)
+			childCounter++
+
+			graph, _, err = d2oracle.Create(graph, boardPath, keyContainerID)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to create key container node: %w", err)
+			}
+
+			// Set container label to the key name
+			graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", keyContainerID), nil, &keyName)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to set key container label: %w", err)
+			}
+
+			// Traverse the value query inside this key's container (independent of other keys)
+			keyChildCounter := 0
+			keyLastNodeID := "start"
+			_, graph, err = traverseInContainer(kv.Val, graph, boardPath, keyContainerID, &keyChildCounter, &keyLastNodeID, prevOutputType)
 			if err != nil {
 				return "", graph, fmt.Errorf("failed to traverse object value: %w", err)
 			}
@@ -525,13 +581,44 @@ func traverseObjectLiteralInContainer(query *gojq.Query, graph *d2graph.Graph, b
 	}
 
 	// Traverse the object's key-value pairs
+	// Each key-value pair gets its own container to show independence
 	nestedChildCounter := 0
-	nestedLastNodeID := "start"
 
 	for _, kv := range query.Term.Object.KeyVals {
 		if kv.Val != nil {
-			// Traverse the value query, creating nodes inside the nested object container
-			_, graph, err = traverseInContainer(kv.Val, graph, boardPath, objNodeID, &nestedChildCounter, &nestedLastNodeID, prevOutputType)
+			// Get the key name for the container label
+			keyName := ""
+			if kv.KeyQuery != nil {
+				keyName = kv.KeyQuery.String()
+				if len(keyName) > 20 {
+					keyName = keyName[:17] + "..."
+				}
+			} else if kv.Key != "" {
+				keyName = kv.Key
+			}
+			if keyName == "" {
+				keyName = fmt.Sprintf("key_%d", nestedChildCounter)
+			}
+
+			// Create a container for this key-value pair
+			keyContainerID := fmt.Sprintf("%s.child_%d", objNodeID, nestedChildCounter)
+			nestedChildCounter++
+
+			graph, _, err = d2oracle.Create(graph, boardPath, keyContainerID)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to create nested key container node: %w", err)
+			}
+
+			// Set container label to the key name
+			graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", keyContainerID), nil, &keyName)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to set nested key container label: %w", err)
+			}
+
+			// Traverse the value query inside this key's container (independent of other keys)
+			keyChildCounter := 0
+			keyLastNodeID := "start"
+			_, graph, err = traverseInContainer(kv.Val, graph, boardPath, keyContainerID, &keyChildCounter, &keyLastNodeID, prevOutputType)
 			if err != nil {
 				return "", graph, fmt.Errorf("failed to traverse nested object value: %w", err)
 			}
@@ -569,7 +656,7 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 			op = gojq.OpPipe
 		}
 	}
-	
+
 	if op == gojq.OpPipe {
 		// Process left side first
 		var leftType string
