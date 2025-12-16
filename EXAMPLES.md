@@ -682,11 +682,11 @@ echo '{"data": "sensitive information"}' | ./pwrq 'json_stringify | ._val | base
 ```
 
 ```bash
-echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(._val) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)})'
+echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)})'
 ```
 
 ```bash
-echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(._val) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)}) | .[0:3] | http("POST"; "https://httpbin.konghq.com/post") | ._val | fromjson'
+echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)}) | .[0:3] | http("POST"; "https://httpbin.konghq.com/post") | ._val | fromjson'
 ```
 
 ---
