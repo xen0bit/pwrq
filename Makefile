@@ -65,8 +65,12 @@ web.wasm:
 
 .PHONY: web.build
 web.build: web.wasm
-	@echo "Building web with bun..."
-	@cd pkg/web && bun build src/web_example.html --outdir dist --target browser
+	@echo "Copying web files to dist..."
+	@mkdir -p pkg/web/dist
+	@cp pkg/web/src/web_example.html pkg/web/dist/web_example.html
+	@echo "Copying WASM files to dist..."
+	@cp pkg/web/src/wasm/web.wasm pkg/web/dist/web.wasm 2>/dev/null || echo "Warning: web.wasm not found"
+	@cp pkg/web/src/wasm/wasm_exec.js pkg/web/dist/wasm_exec.js 2>/dev/null || echo "Warning: wasm_exec.js not found"
 
 .PHONY: clean
 clean:
@@ -115,7 +119,7 @@ help:
 	@echo "  make example        - Run a simple example"
 	@echo "  make examples       - Run multiple examples"
 	@echo "  make web.wasm       - Build web.wasm into pkg/web/src/wasm/"
-	@echo "  make web.build      - Build web.wasm and compile pkg/web/ with bun"
+	@echo "  make web.build      - Copy web files and WASM to pkg/web/dist/"
 	@echo "  make build-with-ide - Build $(BIN) with embedded web assets for IDE"
 	@echo "  make help           - Show this help message"
 

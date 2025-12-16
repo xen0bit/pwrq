@@ -1,8 +1,0 @@
-{
-  "name": "pwrq-web",
-  "version": "0.1.0",
-  "scripts": {
-    "build": "bun build src/web_example.html --outdir dist --target browser"
-  }
-}
-

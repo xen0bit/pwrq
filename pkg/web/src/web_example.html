@@ -55,14 +55,14 @@
     <div id="result"></div>
     <div id="svg-container"></div>
 
-    <script src="wasm/wasm_exec.js"></script>
+    <script src="wasm_exec.js"></script>
     <script>
         let wasmModule = null;
 
         // Initialize WASM
         async function initWASM() {
             const go = new Go();
-            const result = await WebAssembly.instantiateStreaming(fetch("wasm/web.wasm"), go.importObject);
+            const result = await WebAssembly.instantiateStreaming(fetch("web.wasm"), go.importObject);
             go.run(result.instance);
             wasmModule = result.instance;
             console.log("WASM module loaded");
