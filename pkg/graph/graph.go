@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"oss.terrastruct.com/d2/d2lib"
 	"oss.terrastruct.com/d2/d2oracle"
 	"oss.terrastruct.com/d2/d2renderers/d2svg"
+	"oss.terrastruct.com/d2/d2target"
+	d2log "oss.terrastruct.com/d2/lib/log"
 	"oss.terrastruct.com/d2/lib/textmeasure"
 )
 
@@ -25,7 +28,11 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 		return fmt.Errorf("failed to resolve output path: %w", err)
 	}
 
+	// Create context with a logger to suppress D2 library warnings
+	// Use a no-op logger to silence the warnings while still allowing D2 to function
 	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	ctx = d2log.With(ctx, logger)
 
 	// Start with an empty graph (following d2oracle pattern from blog post)
 	_, graph, err := d2lib.Compile(ctx, "", nil, nil)
@@ -97,26 +104,28 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 	// Format the graph AST to D2 script
 	d2Script := d2format.Format(graph.AST)
 
-	// Prepend layout directive to use ELK layout (supports container->descendant edges)
-	// The layout directive must be at the top of the file
-	d2Script = "layout: elk\n" + d2Script
-
 	// Check output file extension
 	ext := strings.ToLower(filepath.Ext(outputPath))
 
 	switch ext {
 	case ".d2":
-		// Write plain D2 script text
+		// Write plain D2 script text without directives to avoid creating nodes
+		// Users can add directives manually if needed
 		return os.WriteFile(outputPath, []byte(d2Script), 0644)
 
 	case ".svg":
+		// For SVG, prepend directives for layout direction
+		// Theme will be set via RenderOpts to avoid creating a node
+		// Layout is needed for compilation
+		svgD2Script := "direction: right\nlayout: elk\n" + d2Script
+
 		// Render to SVG using the D2 library
 		// Set up text measurement ruler for D2 compilation
 		ruler, err := textmeasure.NewRuler()
 		if err != nil {
 			// Save D2 script for debugging
 			d2OutputPath := outputPath[:len(outputPath)-len(ext)] + ".d2"
-			os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+			os.WriteFile(d2OutputPath, []byte(svgD2Script), 0644)
 			return fmt.Errorf("failed to create text ruler: %w\nD2 script saved to: %s", err, d2OutputPath)
 		}
 
@@ -133,18 +142,34 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 				return nil, fmt.Errorf("unknown layout engine: %s", engine)
 			},
 		}
-		diagram, _, err := d2lib.Compile(ctx, d2Script, compileOpts, nil)
+		diagram, _, err := d2lib.Compile(ctx, svgD2Script, compileOpts, nil)
 		if err != nil {
 			// Save D2 script for debugging
 			d2OutputPath := outputPath[:len(outputPath)-len(ext)] + ".d2"
-			os.WriteFile(d2OutputPath, []byte(d2Script), 0644)
+			os.WriteFile(d2OutputPath, []byte(svgD2Script), 0644)
 			return fmt.Errorf("failed to compile D2 diagram: %w\nD2 script saved to: %s", err, d2OutputPath)
 		}
 
+		// Remove directive nodes (theme, layout, layout.dir, direction) from the diagram
+		// These are created when we add directives to the script, but we don't want them rendered
+		if diagram != nil {
+			// Filter out nodes named "theme", "layout", "layout.dir", and "direction" from top-level shapes
+			var filteredShapes []d2target.Shape
+			for _, shape := range diagram.Shapes {
+				if shape.ID != "theme" && shape.ID != "layout" && shape.ID != "layout.dir" && shape.ID != "direction" {
+					filteredShapes = append(filteredShapes, shape)
+				}
+			}
+			diagram.Shapes = filteredShapes
+		}
+
 		// Render to SVG (following blog post pattern)
+		// Use ThemeID for dark-mauve theme (theme ID 200 according to D2 docs)
 		pad := int64(d2svg.DEFAULT_PADDING)
+		themeID := int64(200) // dark-mauve theme
 		svgBytes, err := d2svg.Render(diagram, &d2svg.RenderOpts{
-			Pad: &pad,
+			Pad:     &pad,
+			ThemeID: &themeID,
 		})
 		if err != nil {
 			// Save D2 script for debugging
