@@ -258,9 +258,9 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 		return outputType, graph, nil
 	}
 
-	// Check if this is a map() function - if so, explode it into a container
-	if query.Term != nil && query.Term.Type == gojq.TermTypeFunc && query.Term.Func != nil && query.Term.Func.Name == "map" {
-		return traverseMapFunction(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
+	// Check if this is a function call - if so, create a container for it
+	if query.Term != nil && query.Term.Type == gojq.TermTypeFunc && query.Term.Func != nil {
+		return traverseFunction(query, graph, boardPath, nodeCounter, lastNodeID, prevOutputType)
 	}
 
 	// For non-pipe operations, create the node first, then process children
@@ -368,35 +368,40 @@ func traverseQueryWithOracle(query *gojq.Query, graph *d2graph.Graph, boardPath 
 	return outputType, graph, nil
 }
 
-// traverseMapFunction handles map() functions by creating a container and exploding the map's argument
-func traverseMapFunction(query *gojq.Query, graph *d2graph.Graph, boardPath []string, nodeCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
-	if query == nil || query.Term == nil || query.Term.Func == nil || query.Term.Func.Name != "map" {
-		return "", graph, fmt.Errorf("traverseMapFunction called on non-map function")
+// traverseFunction handles ALL function calls by creating a container and exploding the function's arguments
+func traverseFunction(query *gojq.Query, graph *d2graph.Graph, boardPath []string, nodeCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+	if query == nil || query.Term == nil || query.Term.Func == nil {
+		return "", graph, fmt.Errorf("traverseFunction called on non-function")
 	}
 
-	// Create a container node for the map
-	mapNodeID := fmt.Sprintf("node_%d", *nodeCounter)
+	funcName := query.Term.Func.Name
+	if funcName == "" {
+		return "", graph, fmt.Errorf("traverseFunction called on function with no name")
+	}
+
+	// Create a container node for the function
+	funcNodeID := fmt.Sprintf("node_%d", *nodeCounter)
 	*nodeCounter++
 
 	var err error
-	graph, _, err = d2oracle.Create(graph, boardPath, mapNodeID)
+	graph, _, err = d2oracle.Create(graph, boardPath, funcNodeID)
 	if err != nil {
-		return "", graph, fmt.Errorf("failed to create map container node: %w", err)
+		return "", graph, fmt.Errorf("failed to create function container node %s: %w", funcNodeID, err)
 	}
 
-	// Set container properties
-	labelMap := "map()"
-	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", mapNodeID), nil, &labelMap)
+	// Set container properties - format function name with parentheses
+	labelFunc := fmt.Sprintf("%s()", funcName)
+	graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", funcNodeID), nil, &labelFunc)
 	if err != nil {
-		return "", graph, fmt.Errorf("failed to set map container label: %w", err)
+		return "", graph, fmt.Errorf("failed to set function container label: %w", err)
 	}
 
 	// Connect from previous node
 	if *lastNodeID != "start" {
-		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, mapNodeID)
+		edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, funcNodeID)
 		graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
 		if err != nil {
-			return "", graph, fmt.Errorf("failed to create edge to map container: %w", err)
+			return "", graph, fmt.Errorf("failed to create edge to function container: %w", err)
 		}
 		if prevOutputType != "" {
 			formattedType := formatEdgeLabel(prevOutputType)
@@ -409,30 +414,35 @@ func traverseMapFunction(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 		}
 	}
 
-	// Traverse the map's argument (the query inside map())
+	// Traverse the function's arguments
 	// Create child nodes inside the container using D2's dot notation (container.child)
 	childCounter := 0
-	childLastNodeID := mapNodeID
+	childLastNodeID := funcNodeID
 
-	if len(query.Term.Func.Args) > 0 && query.Term.Func.Args[0] != nil {
-		// The first argument is the query to apply to each element
-		// Traverse it with a custom function that creates nodes with prefixed IDs
-		_, graph, err = traverseMapArgument(query.Term.Func.Args[0], graph, boardPath, mapNodeID, &childCounter, &childLastNodeID, prevOutputType)
-		if err != nil {
-			return "", graph, fmt.Errorf("failed to traverse map argument: %w", err)
+	// Traverse all function arguments
+	for i, arg := range query.Term.Func.Args {
+		if arg != nil {
+			// Traverse the argument, creating nodes inside the function container
+			// This will recursively handle nested functions
+			_, graph, err = traverseInContainer(arg, graph, boardPath, funcNodeID, &childCounter, &childLastNodeID, prevOutputType)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to traverse function argument %d: %w", i, err)
+			}
 		}
 	}
 
-	// The map container itself represents the output node
-	*lastNodeID = mapNodeID
+	// The function container itself represents the output node
+	*lastNodeID = funcNodeID
 
-	// Map functions return arrays
-	return "array", graph, nil
+	// Infer output type for the function
+	outputType := inferOutputType(query, query.Op)
+	return outputType, graph, nil
 }
 
-// traverseMapArgument traverses a query and creates nodes inside a map container using dot notation
+// traverseInContainer traverses a query and creates nodes inside a container using dot notation
 // It creates nodes with IDs like "containerID.child_0", "containerID.child_1", etc.
-func traverseMapArgument(query *gojq.Query, graph *d2graph.Graph, boardPath []string, containerID string, childCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
+// This handles nested functions recursively - if a child is a function, it creates a nested container
+func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []string, containerID string, childCounter *int, lastNodeID *string, prevOutputType string) (string, *d2graph.Graph, error) {
 	if query == nil {
 		return "", graph, nil
 	}
@@ -448,7 +458,7 @@ func traverseMapArgument(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 
 		if query.Left != nil {
 			leftLastNodeID = *lastNodeID
-			leftType, graph, err = traverseMapArgument(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+			leftType, graph, err = traverseInContainer(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
 			if err != nil {
 				return "", graph, err
 			}
@@ -515,7 +525,7 @@ func traverseMapArgument(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 			if inputType == "" {
 				inputType = outputType
 			}
-			rightType, graph, err := traverseMapArgument(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
+			rightType, graph, err := traverseInContainer(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, inputType)
 			if err != nil {
 				return "", graph, err
 			}
@@ -525,7 +535,73 @@ func traverseMapArgument(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 		return outputType, graph, nil
 	}
 
-	// For non-pipe operations, create the node with container prefix
+	// Check if this is a function call - if so, create a nested container
+	if query.Term != nil && query.Term.Type == gojq.TermTypeFunc && query.Term.Func != nil {
+		// This is a nested function - create a container inside the parent container
+		funcName := query.Term.Func.Name
+		if funcName != "" {
+			// Create a nested container node for the function inside the parent container
+			nestedFuncNodeID := fmt.Sprintf("%s.child_%d", containerID, *childCounter)
+			*childCounter++
+
+			var err error
+			graph, _, err = d2oracle.Create(graph, boardPath, nestedFuncNodeID)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to create nested function container node: %w", err)
+			}
+
+			// Set container properties
+			labelFunc := fmt.Sprintf("%s()", funcName)
+			graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", nestedFuncNodeID), nil, &labelFunc)
+			if err != nil {
+				return "", graph, fmt.Errorf("failed to set nested function container label: %w", err)
+			}
+
+			// Connect from previous node or parent container
+			if *lastNodeID != "start" {
+				edgeKey := fmt.Sprintf("%s -> %s", *lastNodeID, nestedFuncNodeID)
+				graph, _, err = d2oracle.Create(graph, boardPath, edgeKey)
+				if err != nil {
+					return "", graph, fmt.Errorf("failed to create edge to nested function container: %w", err)
+				}
+				if prevOutputType != "" && *lastNodeID != containerID {
+					// Only add type labels to edges that aren't from the parent container
+					formattedType := formatEdgeLabel(prevOutputType)
+					if formattedType != "" {
+						graph, err = d2oracle.Set(graph, boardPath, fmt.Sprintf("%s.label", edgeKey), nil, &formattedType)
+						if err != nil {
+							return "", graph, fmt.Errorf("failed to set edge label: %w", err)
+						}
+					}
+				}
+			}
+
+			// Traverse the function's arguments inside the nested container
+			nestedChildCounter := 0
+			nestedLastNodeID := nestedFuncNodeID
+
+			// Traverse all function arguments
+			for i, arg := range query.Term.Func.Args {
+				if arg != nil {
+					// Traverse the argument, creating nodes inside the nested function container
+					// This will recursively handle further nested functions
+					_, graph, err = traverseInContainer(arg, graph, boardPath, nestedFuncNodeID, &nestedChildCounter, &nestedLastNodeID, prevOutputType)
+					if err != nil {
+						return "", graph, fmt.Errorf("failed to traverse nested function argument %d: %w", i, err)
+					}
+				}
+			}
+
+			// Update lastNodeID to point to the nested function container
+			*lastNodeID = nestedFuncNodeID
+
+			// Infer output type for the function
+			outputType := inferOutputType(query, query.Op)
+			return outputType, graph, nil
+		}
+	}
+
+	// For non-pipe, non-function operations, create the node with container prefix
 	childNodeID := fmt.Sprintf("%s.child_%d", containerID, *childCounter)
 	*childCounter++
 
@@ -575,7 +651,7 @@ func traverseMapArgument(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 
 	// Process children recursively
 	if query.Left != nil {
-		leftType, graph, err := traverseMapArgument(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+		leftType, graph, err := traverseInContainer(query.Left, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
 		if err != nil {
 			return "", graph, err
 		}
@@ -584,7 +660,7 @@ func traverseMapArgument(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 		}
 	}
 	if query.Right != nil {
-		rightType, graph, err := traverseMapArgument(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
+		rightType, graph, err := traverseInContainer(query.Right, graph, boardPath, containerID, childCounter, lastNodeID, prevOutputType)
 		if err != nil {
 			return "", graph, err
 		}
