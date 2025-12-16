@@ -19,7 +19,8 @@ func (cli *cli) launchIDE() error {
 	}
 
 	fileSystem := http.Dir(distPath)
-	http.Handle("/tools/pwrq/", http.FileServer(fileSystem))
+	// Strip the /tools/pwrq prefix before serving files
+	http.Handle("/tools/pwrq/", http.StripPrefix("/tools/pwrq", http.FileServer(fileSystem)))
 
 	port := os.Getenv("PWRQ_PORT")
 	if port == "" {

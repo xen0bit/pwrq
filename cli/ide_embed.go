@@ -21,9 +21,10 @@ func (cli *cli) launchIDE() error {
 		// Try without the prefix
 		distFS = web.Dist
 	}
-	
+
 	fileSystem := http.FS(distFS)
-	http.Handle("/", http.FileServer(fileSystem))
+	// Strip the /tools/pwrq prefix before serving files
+	http.Handle("/tools/pwrq/", http.StripPrefix("/tools/pwrq", http.FileServer(fileSystem)))
 
 	port := os.Getenv("PWRQ_PORT")
 	if port == "" {
@@ -40,4 +41,3 @@ func (cli *cli) launchIDE() error {
 
 	return nil
 }
-
