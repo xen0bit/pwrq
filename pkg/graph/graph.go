@@ -672,12 +672,12 @@ func traverseInContainer(query *gojq.Query, graph *d2graph.Graph, boardPath []st
 	return outputType, graph, nil
 }
 
-// formatD2LabelForOracle formats a label for use with d2oracle.Set (removes quotes)
+// formatD2LabelForOracle formats a label for use with d2oracle.Set
 func formatD2LabelForOracle(label string) string {
 	// Replace $ with _VAR_ to avoid D2 variable substitution
 	safeLabel := strings.ReplaceAll(label, "$", "_VAR_")
-	// Remove quotes if present (d2oracle.Set handles string values directly)
-	safeLabel = strings.Trim(safeLabel, "\"")
+	// Don't remove quotes - they're part of the string representation
+	// The quotes are needed for proper display of string literals
 	return safeLabel
 }
 
