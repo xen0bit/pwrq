@@ -3,303 +3,332 @@ package cat
 import (
 	"os"
 	"path/filepath"
-	"reflect"
+	"strings"
 	"testing"
-
-	"github.com/itchyny/gojq"
 )
 
-// Helper to compile and run a gojq query
-func runGojqQuery(t *testing.T, query string, input any, options ...gojq.CompilerOption) any {
-	q, err := gojq.Parse(query)
+func setupTestFile(t *testing.T, content string) (string, func()) {
+	t.Helper()
+	tmpDir, err := os.MkdirTemp("", "cat_test_*")
 	if err != nil {
-		t.Fatalf("Failed to parse query %q: %v", query, err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	code, err := gojq.Compile(q, options...)
+	tmpFile := filepath.Join(tmpDir, "test.txt")
+	err = os.WriteFile(tmpFile, []byte(content), 0644)
 	if err != nil {
-		t.Fatalf("Failed to compile query %q: %v", query, err)
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to create temp file: %v", err)
 	}
 
-	var result any
-	iter := code.Run(input)
-	for {
-		v, ok := iter.Next()
-		if !ok {
-			break
-		}
-		if err, ok := v.(error); ok {
-			t.Fatalf("Query execution failed: %v", err)
-		}
-		result = v
+	cleanup := func() {
+		os.RemoveAll(tmpDir)
 	}
-	return result
+
+	return tmpFile, cleanup
 }
 
-func TestCatFromPipe(t *testing.T) {
-	// Create a temporary file with test content
-	tmpFile, err := os.CreateTemp("", "pwrq_cat_test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
+func TestCat_BasicRead(t *testing.T) {
+	content := "line1\nline2\nline3\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
 
-	testContent := "Hello, World!\nThis is a test file."
-	_, err = tmpFile.WriteString(testContent)
-	if err != nil {
-		t.Fatalf("failed to write to temp file: %v", err)
-	}
-	tmpFile.Close()
-
-	// Test cat with file path from pipe
-	result := runGojqQuery(t, "cat", tmpFile.Name(), RegisterCat())
-	if err, ok := result.(error); ok {
-		t.Fatalf("cat function returned an error: %v", err)
-	}
-
-	// Check that result is a UDF result object
-	resMap, ok := result.(map[string]any)
+	result := cat(tmpFile, []any{})
+	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("expected map[string]any, got %T", result)
+		t.Fatalf("Expected map result, got %T", result)
 	}
 
-	// Check _val matches file content
-	val, ok := resMap["_val"].(string)
-	if !ok {
-		t.Fatalf("expected _val to be string, got %T", resMap["_val"])
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
 	}
 
-	if val != testContent {
-		t.Errorf("expected _val to be %q, got %q", testContent, val)
-	}
-
-	// Check _meta
-	meta, ok := resMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected _meta to be map[string]any, got %T", resMap["_meta"])
-	}
-
-	if meta["operation"] != "cat" {
-		t.Errorf("expected operation 'cat', got %v", meta["operation"])
-	}
-
-	absPath, err := filepath.Abs(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("failed to get absolute path: %v", err)
-	}
-
-	if meta["file_path"] != absPath {
-		t.Errorf("expected file_path %q, got %q", absPath, meta["file_path"])
+	value, _ := resultMap["_val"].(string)
+	if value != content {
+		t.Errorf("Expected content %q, got %q", content, value)
 	}
 }
 
-func TestCatFromArgument(t *testing.T) {
-	// Create a temporary file with test content
-	tmpFile, err := os.CreateTemp("", "pwrq_cat_test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	testContent := "Test content from argument"
-	_, err = tmpFile.WriteString(testContent)
-	if err != nil {
-		t.Fatalf("failed to write to temp file: %v", err)
-	}
-	tmpFile.Close()
-
-	// Test cat with file path as argument
-	result := runGojqQuery(t, "cat(\""+tmpFile.Name()+"\")", nil, RegisterCat())
-	if err, ok := result.(error); ok {
-		t.Fatalf("cat function returned an error: %v", err)
-	}
-
-	// Check that result is a UDF result object
-	resMap, ok := result.(map[string]any)
+func TestCat_FileNotFound(t *testing.T) {
+	result := cat("/nonexistent/path/file.txt", []any{})
+	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("expected map[string]any, got %T", result)
+		t.Fatalf("Expected map result, got %T", result)
 	}
 
-	// Check _val matches file content
-	val, ok := resMap["_val"].(string)
-	if !ok {
-		t.Fatalf("expected _val to be string, got %T", resMap["_val"])
+	errMsg, hasErr := resultMap["_err"].(string)
+	if !hasErr {
+		t.Fatalf("Expected error for nonexistent file, got success")
 	}
 
-	if val != testContent {
-		t.Errorf("expected _val to be %q, got %q", testContent, val)
+	if !strings.Contains(errMsg, "does not exist") {
+		t.Errorf("Expected 'does not exist' error, got: %v", errMsg)
 	}
 }
 
-func TestCatFileNotFound(t *testing.T) {
-	// Test cat with non-existent file
-	result := runGojqQuery(t, "cat(\"/nonexistent/file.txt\")", nil, RegisterCat())
-
-	// Should return error result
-	resMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("expected map[string]any error result, got %T", result)
-	}
-
-	if errStr, hasErr := resMap["_err"].(string); !hasErr {
-		t.Errorf("expected _err field in result, got %v", result)
-	} else if errStr == "" {
-		t.Errorf("expected non-empty error message, got empty string")
-	}
-
-	// _val should be null on error
-	if resMap["_val"] != nil {
-		t.Errorf("expected _val to be null on error, got %v", resMap["_val"])
-	}
-}
-
-func TestCatDirectoryError(t *testing.T) {
-	// Create a temporary directory
-	tmpDir, err := os.MkdirTemp("", "pwrq_cat_test_*")
+func TestCat_DirectoryError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cat_test_*")
 	if err != nil {
-		t.Fatalf("failed to create temp directory: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Test cat with directory path
-	result := runGojqQuery(t, "cat(\""+tmpDir+"\")", nil, RegisterCat())
-
-	// Should return error result
-	resMap, ok := result.(map[string]any)
+	result := cat(tmpDir, []any{})
+	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("expected map[string]any error result, got %T", result)
+		t.Fatalf("Expected map result, got %T", result)
 	}
 
-	if errStr, hasErr := resMap["_err"].(string); !hasErr {
-		t.Errorf("expected _err field in result, got %v", result)
-	} else if errStr == "" {
-		t.Errorf("expected non-empty error message, got empty string")
+	errMsg, hasErr := resultMap["_err"].(string)
+	if !hasErr {
+		t.Fatalf("Expected error for directory, got success")
+	}
+
+	if !strings.Contains(errMsg, "is a directory") {
+		t.Errorf("Expected 'is a directory' error, got: %v", errMsg)
 	}
 }
 
-func TestCatWithUDFResult(t *testing.T) {
-	// Create a temporary file
-	tmpFile, err := os.CreateTemp("", "pwrq_cat_test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
+func TestCat_WithTail(t *testing.T) {
+	content := "line1\nline2\nline3\nline4\nline5\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
 
-	testContent := "UDF result test"
-	_, err = tmpFile.WriteString(testContent)
-	if err != nil {
-		t.Fatalf("failed to write to temp file: %v", err)
-	}
-	tmpFile.Close()
-
-	// Test cat with UDF result as input
-	udfResult := map[string]any{
-		"_val":  tmpFile.Name(),
-		"_meta": map[string]any{"source": "previous_udf"},
-	}
-
-	// Test without ._val to get the full UDF result object
-	result := runGojqQuery(t, "cat", udfResult, RegisterCat())
-	if err, ok := result.(error); ok {
-		t.Fatalf("cat function returned an error: %v", err)
-	}
-
-	// Check that result is a UDF result object
-	resMap, ok := result.(map[string]any)
+	// cat function: inputPath from pipe (simulated), args[0] is options
+	result := cat(tmpFile, []any{map[string]any{"tail": float64(2)}})
+	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("expected map[string]any, got %T", result)
+		t.Fatalf("Expected map result, got %T", result)
 	}
 
-	// Check _val matches file content
-	val, ok := resMap["_val"].(string)
-	if !ok {
-		t.Fatalf("expected _val to be string, got %T", resMap["_val"])
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
 	}
 
-	if val != testContent {
-		t.Errorf("expected _val to be %q, got %q", testContent, val)
+	value, _ := resultMap["_val"].(string)
+	expected := "line4\nline5\n"
+	if value != expected {
+		t.Errorf("Expected tail output %q, got %q", expected, value)
 	}
 }
 
-func TestCatChaining(t *testing.T) {
-	// Create a temporary file
-	tmpFile, err := os.CreateTemp("", "pwrq_cat_test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
+func TestCat_WithTotalCount(t *testing.T) {
+	content := "line1\nline2\nline3\nline4\nline5\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
 
-	testContent := "hello world"
-	_, err = tmpFile.WriteString(testContent)
-	if err != nil {
-		t.Fatalf("failed to write to temp file: %v", err)
-	}
-	tmpFile.Close()
-
-	// Test that cat can be chained
-	result := runGojqQuery(t, "cat", tmpFile.Name(), RegisterCat())
-	if err, ok := result.(error); ok {
-		t.Fatalf("cat function returned an error: %v", err)
-	}
-
-	// Extract value
-	resMap, ok := result.(map[string]any)
+	result := cat(tmpFile, []any{map[string]any{"totalcount": float64(3)}})
+	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("expected map[string]any, got %T", result)
+		t.Fatalf("Expected map result, got %T", result)
 	}
 
-	val := resMap["_val"]
-	if val != testContent {
-		t.Errorf("expected _val to be %q, got %q", testContent, val)
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
+	}
+
+	value, _ := resultMap["_val"].(string)
+	expected := "line1\nline2\nline3\n"
+	if value != expected {
+		t.Errorf("Expected totalcount output %q, got %q", expected, value)
 	}
 }
 
-func TestCatGojqIntegration(t *testing.T) {
-	// Create a temporary file
-	tmpFile, err := os.CreateTemp("", "pwrq_cat_test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
+func TestCat_WithTailAndTotalCount(t *testing.T) {
+	content := "line1\nline2\nline3\nline4\nline5\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
 
-	testContent := "integration test"
-	_, err = tmpFile.WriteString(testContent)
-	if err != nil {
-		t.Fatalf("failed to write to temp file: %v", err)
+	result := cat(tmpFile, []any{map[string]any{"totalcount": float64(4), "tail": float64(2)}})
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected map result, got %T", result)
 	}
-	tmpFile.Close()
 
-	tests := []struct {
-		name     string
-		input    any
-		query    string
-		expected string
-		options  []gojq.CompilerOption
-	}{
-		{
-			name:     "cat from pipe",
-			input:    tmpFile.Name(),
-			query:    `cat | ._val`,
-			expected: testContent,
-			options:  []gojq.CompilerOption{RegisterCat()},
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
+	}
+
+	value, _ := resultMap["_val"].(string)
+	expected := "line3\nline4\n"
+	if value != expected {
+		t.Errorf("Expected combined output %q, got %q", expected, value)
+	}
+}
+
+func TestCat_WithEncoding(t *testing.T) {
+	content := "Hello, 世界\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
+
+	result := cat(tmpFile, []any{map[string]any{"encoding": "utf8"}})
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected map result, got %T", result)
+	}
+
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
+	}
+
+	value, _ := resultMap["_val"].(string)
+	if value != content {
+		t.Errorf("Expected content %q, got %q", content, value)
+	}
+
+	meta, _ := resultMap["_meta"].(map[string]any)
+	if meta["encoding"] != "utf8" {
+		t.Errorf("Expected encoding 'utf8' in metadata, got %v", meta["encoding"])
+	}
+}
+
+func TestCat_InvalidEncoding(t *testing.T) {
+	content := "test\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
+
+	// Invalid encoding should be caught
+	result := cat(tmpFile, []any{map[string]any{"encoding": "invalid"}})
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected map result, got %T", result)
+	}
+
+	errMsg, hasErr := resultMap["_err"].(string)
+	if !hasErr {
+		t.Fatalf("Expected error for invalid encoding, got success")
+	}
+
+	if !strings.Contains(errMsg, "unsupported encoding") {
+		t.Errorf("Expected 'unsupported encoding' error, got: %v", errMsg)
+	}
+}
+
+func TestCat_WithTailAsString(t *testing.T) {
+	content := "line1\nline2\nline3\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
+
+	result := cat(tmpFile, []any{map[string]any{"tail": "1"}})
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected map result, got %T", result)
+	}
+
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
+	}
+
+	value, _ := resultMap["_val"].(string)
+	expected := "line3\n"
+	if value != expected {
+		t.Errorf("Expected tail output %q, got %q", expected, value)
+	}
+}
+
+func TestCat_EmptyFile(t *testing.T) {
+	content := ""
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
+
+	result := cat(tmpFile, []any{})
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected map result, got %T", result)
+	}
+
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success for empty file, got error: %v", resultMap["_err"])
+	}
+
+	value, _ := resultMap["_val"].(string)
+	if value != "" {
+		t.Errorf("Expected empty string, got %q", value)
+	}
+}
+
+func TestCat_Metadata(t *testing.T) {
+	content := "test content\n"
+	tmpFile, cleanup := setupTestFile(t, content)
+	defer cleanup()
+
+	result := cat(tmpFile, []any{})
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected map result, got %T", result)
+	}
+
+	if _, hasErr := resultMap["_err"]; hasErr {
+		t.Fatalf("Expected success, got error")
+	}
+
+	meta, _ := resultMap["_meta"].(map[string]any)
+
+	if meta["operation"] != "cat" {
+		t.Errorf("Expected operation 'cat', got %v", meta["operation"])
+	}
+
+	if meta["file_path"] != tmpFile {
+		t.Errorf("Expected file_path %q, got %v", tmpFile, meta["file_path"])
+	}
+
+	if meta["file_size"] != len(content) {
+		t.Errorf("Expected file_size %d, got %v", len(content), meta["file_size"])
+	}
+}
+
+func TestParseCatArgs_Basic(t *testing.T) {
+	args := []any{"test.txt"}
+	path, opts, err := parseCatArgs(args)
+	if err != nil {
+		t.Fatalf("parseCatArgs failed: %v", err)
+	}
+
+	if path != "test.txt" {
+		t.Errorf("expected path 'test.txt', got '%s'", path)
+	}
+	if opts.TailLines != -1 {
+		t.Errorf("expected default TailLines -1, got %d", opts.TailLines)
+	}
+	if opts.TotalCount != -1 {
+		t.Errorf("expected default TotalCount -1, got %d", opts.TotalCount)
+	}
+	if opts.Encoding != "utf8" {
+		t.Errorf("expected default Encoding 'utf8', got '%s'", opts.Encoding)
+	}
+}
+
+func TestParseCatArgs_WithOptions(t *testing.T) {
+	args := []any{
+		"test.txt",
+		map[string]any{
+			"tail":       float64(5),
+			"totalcount": float64(10),
+			"encoding":   "utf16le",
 		},
-		{
-			name:     "cat from argument",
-			input:    nil,
-			query:    `cat("` + tmpFile.Name() + `") | ._val`,
-			expected: testContent,
-			options:  []gojq.CompilerOption{RegisterCat()},
-		},
+	}
+	path, opts, err := parseCatArgs(args)
+	if err != nil {
+		t.Fatalf("parseCatArgs failed: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := runGojqQuery(t, tt.query, tt.input, tt.options...)
-
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("Expected %q, got %q", tt.expected, result)
-			}
-		})
+	if path != "test.txt" {
+		t.Errorf("expected path 'test.txt', got '%s'", path)
+	}
+	if opts.TailLines != 5 {
+		t.Errorf("expected TailLines 5, got %d", opts.TailLines)
+	}
+	if opts.TotalCount != 10 {
+		t.Errorf("expected TotalCount 10, got %d", opts.TotalCount)
+	}
+	if opts.Encoding != "utf16le" {
+		t.Errorf("expected Encoding 'utf16le', got '%s'", opts.Encoding)
 	}
 }
 
+func TestParseCatArgs_MissingPath(t *testing.T) {
+	_, _, err := parseCatArgs([]any{})
+	if err == nil {
+		t.Fatal("expected error for missing path, got nil")
+	}
+}

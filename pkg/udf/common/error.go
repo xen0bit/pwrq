@@ -7,10 +7,17 @@ func MakeUDFErrorResult(err error, meta map[string]any) map[string]any {
 		meta = make(map[string]any)
 	}
 	
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+	} else {
+		errMsg = "unknown error"
+	}
+	
 	result := map[string]any{
 		"_val":  nil,
 		"_meta": meta,
-		"_err":  err.Error(),
+		"_err":  errMsg,
 	}
 	
 	return result

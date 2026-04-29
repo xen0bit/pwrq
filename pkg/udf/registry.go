@@ -35,6 +35,16 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
 	"github.com/xen0bit/pwrq/pkg/udf/xml"
+	// PowerShell cmdlets
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/filesystem"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/objects"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/formatting"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/variables"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/location"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/process"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/service"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/web"
+	"github.com/xen0bit/pwrq/pkg/udf/powershell/datetime"
 )
 
 // Registry holds all user-defined functions
@@ -172,6 +182,35 @@ func DefaultRegistry() *Registry {
 	reg.Register(hmac.RegisterHMACSHA512())
 	reg.Register(hmac.RegisterHMACSHA512_224())
 	reg.Register(hmac.RegisterHMACSHA512_256())
+
+	// PowerShell cmdlets
+	for _, opt := range filesystem.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range objects.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range formatting.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range variables.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range location.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range process.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range service.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range web.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range datetime.RegisterAll() {
+		reg.Register(opt)
+	}
 
 	return reg
 }

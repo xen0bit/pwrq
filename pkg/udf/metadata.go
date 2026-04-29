@@ -120,6 +120,29 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"rc4", 1, 3, "RC4 encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`rc4("key")`, `"data" | rc4("key")`}},
 		{"chacha20", 1, 4, "ChaCha20 encryption/decryption (key, [nonce], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`chacha20("key")`, `"data" | chacha20("key")`}},
 		{"xor", 1, 3, "XOR encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`xor("key")`, `"data" | xor("key")`}},
+
+		// PowerShell - File System
+		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
+		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},
+		{"test_path", 1, 1, "Test if a path exists", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp")`}},
+		{"join_path", 2, 2, "Join path segments", "PowerShell", []string{`join_path("/tmp"; "file.txt")`}},
+		{"split_path", 1, 1, "Split a path into components", "PowerShell", []string{`split_path("/tmp/file.txt")`}},
+
+		// PowerShell - Objects
+		{"select_object", 1, 2, "Select object properties (properties, [input])", "PowerShell", []string{`select_object("Name")`, `{"Name":"test"} | select_object("Name")`}},
+		{"where_object", 1, 2, "Filter objects by condition (condition, [input])", "PowerShell", []string{`where_object({ . > 10 })`, `[1,5,10,15] | where_object({ . > 10 })`}},
+		{"sort_object", 1, 2, "Sort objects by property (property, [input])", "PowerShell", []string{`sort_object("Name")`, `[{"Name":"b"},{"Name":"a"}] | sort_object("Name")`}},
+		{"group_object", 1, 2, "Group objects by property (property, [input])", "PowerShell", []string{`group_object("Category")`}},
+		{"measure_object", 0, 2, "Measure object properties ([property], [input])", "PowerShell", []string{`measure_object`, `[1,2,3] | measure_object`}},
+
+		// PowerShell - Formatting
+		{"format_list", 0, 2, "Format output as a list ([properties], [input])", "PowerShell", []string{`format_list`, `{"Name":"test"} | format_list`}},
+		{"format_table", 0, 2, "Format output as a table ([properties], [input])", "PowerShell", []string{`format_table`, `[{"Name":"a"},{"Name":"b"}] | format_table`}},
+
+		// PowerShell - Variables
+		{"set_variable", 1, 3, "Set a variable (name, [value], [options])", "PowerShell", []string{`set_variable("count"; 42)`, `set_variable("name"; "test"; {"Scope": "global"})`}},
+		{"get_variable", 0, 2, "Get a variable (name, [options])", "PowerShell", []string{`get_variable("count")`, `get_variable("*")`, `get_variable("name"; {"ValueOnly": true})`}},
+		{"remove_variable", 1, 2, "Remove a variable (name, [options])", "PowerShell", []string{`remove_variable("temp")`, `remove_variable("*"; {"Exclude": "ErrorActionPreference"})`}},
 	}
 }
 

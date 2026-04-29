@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"time"
 	"unicode/utf8"
 )
 
@@ -39,6 +40,16 @@ func (e *encoder) marshal(v any, w io.Writer) error {
 }
 
 func (e *encoder) encode(v any) error {
+	// Unwrap UDF result structures {_val: value, _meta: {...}}
+	if m, ok := v.(map[string]any); ok {
+		if val, hasVal := m["_val"]; hasVal {
+			if _, hasMeta := m["_meta"]; hasMeta {
+				// This is a wrapped UDF result - encode the value only
+				return e.encode(val)
+			}
+		}
+	}
+	
 	switch v := v.(type) {
 	case nil:
 		e.write([]byte("null"), nullColor)
@@ -58,6 +69,8 @@ func (e *encoder) encode(v any) error {
 		e.write([]byte(v.String()), numberColor)
 	case string:
 		e.encodeString(v, stringColor)
+	case time.Time:
+		e.encodeString(v.Format(time.RFC3339), stringColor)
 	case []any:
 		if err := e.encodeArray(v); err != nil {
 			return err
