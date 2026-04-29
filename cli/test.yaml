@@ -65,3 +65,29 @@
   expected: |
     pwrq - Enhanced Go implementation of jq
 
+- name: select_object with pipe and positional property
+  args:
+    - '.[] | select_object("Name")'
+  input: '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}]'
+  expected: |
+    {
+      "Name": "Alice"
+    }
+    {
+      "Name": "Bob"
+    }
+
+- name: select_object with pipe and multiple positional properties
+  args:
+    - '.[] | select_object("Name"; "Age")'
+  input: '[{"Name":"Alice","Age":30,"City":"NYC"},{"Name":"Bob","Age":25,"City":"LA"}]'
+  expected: |
+    {
+      "Age": 30,
+      "Name": "Alice"
+    }
+    {
+      "Age": 25,
+      "Name": "Bob"
+    }
+

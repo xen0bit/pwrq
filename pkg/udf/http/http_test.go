@@ -341,9 +341,10 @@ func TestHTTPServe(t *testing.T) {
 
 	// Make GET request to trigger return
 	// We need to know the port, so let's use a fixed port for this test
+	testPort := 18082
 	resultChan2 := make(chan any, 1)
 	go func() {
-		result := runGojqQuery(t, `http_serve("127.0.0.1"; 8082)`, "test-item", RegisterHTTPServe())
+		result := runGojqQuery(t, fmt.Sprintf(`http_serve("127.0.0.1"; %d)`, testPort), "test-item", RegisterHTTPServe())
 		resultChan2 <- result
 	}()
 
@@ -351,7 +352,7 @@ func TestHTTPServe(t *testing.T) {
 
 	// Make GET request
 	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://127.0.0.1:8082/")
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/", testPort))
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -385,10 +386,11 @@ func TestHTTPServe(t *testing.T) {
 func TestHTTPServeWithRequest(t *testing.T) {
 	// Test GET request - server blocks until GET, then returns the input item
 	testInput := map[string]any{"test": "value", "number": float64(42)}
+	testPort := 18083
 	
 	resultChan := make(chan any, 1)
 	go func() {
-		result := runGojqQuery(t, `http_serve("127.0.0.1"; 8083)`, testInput, RegisterHTTPServe())
+		result := runGojqQuery(t, fmt.Sprintf(`http_serve("127.0.0.1"; %d)`, testPort), testInput, RegisterHTTPServe())
 		resultChan <- result
 	}()
 
@@ -397,7 +399,7 @@ func TestHTTPServeWithRequest(t *testing.T) {
 
 	// Make GET request - this should return the input item and unblock the query
 	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://127.0.0.1:8083/")
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/", testPort))
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -437,9 +439,11 @@ func TestHTTPServeWithRequest(t *testing.T) {
 
 func TestHTTPServeWithPOSTBody(t *testing.T) {
 	// Test POST request - server blocks until POST, then returns POST data
+	// Use a high port number to avoid conflicts with common services
+	testPort := 18084
 	resultChan := make(chan any, 1)
 	go func() {
-		result := runGojqQuery(t, `http_serve("127.0.0.1"; 8084)`, nil, RegisterHTTPServe())
+		result := runGojqQuery(t, fmt.Sprintf(`http_serve("127.0.0.1"; %d)`, testPort), nil, RegisterHTTPServe())
 		resultChan <- result
 	}()
 
@@ -449,7 +453,7 @@ func TestHTTPServeWithPOSTBody(t *testing.T) {
 	// Make POST request with JSON body - this should unblock and return POST data
 	client := &http.Client{Timeout: 2 * time.Second}
 	body := bytes.NewBufferString(`{"test": "value", "number": 42}`)
-	resp, err := client.Post("http://127.0.0.1:8084/", "application/json", body)
+	resp, err := client.Post(fmt.Sprintf("http://127.0.0.1:%d/", testPort), "application/json", body)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}

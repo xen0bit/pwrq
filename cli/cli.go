@@ -12,8 +12,10 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
 	"github.com/xen0bit/pwrq/pkg/graph"
 	"github.com/xen0bit/pwrq/pkg/udf"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 const name = "pwrq"
@@ -53,6 +55,8 @@ type cli struct {
 
 	outputYAMLSeparator bool
 	exitCodeError       error
+
+	sessionState *sessionstate.SessionState
 }
 
 type flagopts struct {
@@ -134,6 +138,14 @@ Usage:
 	if opts.IDE {
 		return cli.launchIDE()
 	}
+
+	// Initialize session state after flag parsing
+	cli.sessionState = sessionstate.NewSessionState()
+	cli.loadStandardAliases()
+	
+	// Set global session state for UDF access
+	common.SetGlobalSessionState(cli.sessionState)
+
 	cli.outputRaw, cli.outputRaw0, cli.outputJoin,
 		cli.outputCompact, cli.outputIndent, cli.outputTab, cli.outputYAML =
 		opts.OutputRaw, opts.OutputRaw0, opts.OutputJoin,
@@ -467,4 +479,66 @@ func (cli *cli) funcStderr(v any, _ []any) any {
 		return err
 	}
 	return v
+}
+
+// loadStandardAliases loads PowerShell-compatible command aliases and initializes preference variables
+func (cli *cli) loadStandardAliases() {
+	if cli.sessionState == nil {
+		return
+	}
+
+	// Initialize preference variables (PowerShell standard)
+	// These control how cmdlets handle verbose, debug, warning, and error output
+	cli.sessionState.SetVariable("VerbosePreference", "Continue", 0)
+	cli.sessionState.SetVariable("DebugPreference", "Continue", 0)
+	cli.sessionState.SetVariable("WarningPreference", "Continue", 0)
+	cli.sessionState.SetVariable("ErrorActionPreference", "Continue", 0)
+	cli.sessionState.SetVariable("InformationPreference", "Continue", 0)
+	cli.sessionState.SetVariable("ProgressPreference", "Continue", 0)
+	cli.sessionState.SetVariable("ConfirmPreference", "High", 0)
+	cli.sessionState.SetVariable("WhatIfPreference", false, 0)
+
+	// Initialize automatic variables
+	cli.sessionState.SetVariable("?", true, 0)              // Last command success status
+	cli.sessionState.SetVariable("LASTEXITCODE", 0, 0)      // Last native command exit code
+	cli.sessionState.SetVariable("PID", os.Getpid(), 0)     // Current process ID
+	cli.sessionState.SetVariable("PWD", "", 0)              // Current working directory (updated by Set-Location)
+
+	// FileSystem aliases
+	cli.sessionState.SetAlias("gci", "get_childitem")
+	cli.sessionState.SetAlias("ls", "get_childitem")
+	cli.sessionState.SetAlias("dir", "get_childitem")
+
+	// Object manipulation aliases
+	cli.sessionState.SetAlias("select", "select_object")
+	cli.sessionState.SetAlias("where", "where_object")
+	cli.sessionState.SetAlias("sort", "sort_object")
+	cli.sessionState.SetAlias("group", "group_object")
+	cli.sessionState.SetAlias("measure", "measure_object")
+
+	// Common short aliases (PowerShell single-character aliases)
+	cli.sessionState.SetAlias("?", "where_object")     // Where-Object shorthand
+	// Note: '%' (foreach_object) not yet implemented - foreach_object UDF pending
+
+	// Output aliases - note: write_output not yet implemented, echo maps to identity
+	// In jq/pwrq, the identity operator '.' serves the same purpose as Write-Output
+	// When write_output is implemented, these aliases should be updated
+
+	// Formatting aliases
+	cli.sessionState.SetAlias("fl", "format_list")
+	cli.sessionState.SetAlias("ft", "format_table")
+	// Note: fw (format_wide) not yet implemented
+
+	// Location aliases
+	cli.sessionState.SetAlias("cd", "set_location")
+	cli.sessionState.SetAlias("pwd", "get_location")
+	cli.sessionState.SetAlias("pushd", "push_location")
+	cli.sessionState.SetAlias("popd", "pop_location")
+	// Note: set_location, get_location, push_location, pop_location UDFs pending implementation
+
+	// History aliases - pending implementation
+	// Note: get_history UDF pending
+
+	// Clear/cls alias - pending implementation
+	// Note: clear_host UDF pending
 }

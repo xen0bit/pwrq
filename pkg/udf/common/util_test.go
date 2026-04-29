@@ -2,72 +2,99 @@ package common
 
 import (
 	"testing"
+
+	"github.com/xen0bit/pwrq/pkg/core/psobject"
 )
 
-func TestIsUDFResult(t *testing.T) {
-	tests := []struct {
-		name string
-		input any
-		want bool
-	}{
-		{
-			name:  "valid UDF result with both keys",
-			input: map[string]any{"_val": "test", "_meta": map[string]any{}},
-			want:  true,
-		},
-		{
-			name:  "missing _meta",
-			input: map[string]any{"_val": "test"},
-			want:  false,
-		},
-		{
-			name:  "missing _val",
-			input: map[string]any{"_meta": map[string]any{}},
-			want:  false,
-		},
-		{
-			name:  "regular string",
-			input: "test",
-			want:  false,
-		},
-		{
-			name:  "regular map without UDF keys",
-			input: map[string]any{"key": "value"},
-			want:  false,
-		},
-		{
-			name:  "nil",
-			input: nil,
-			want:  false,
-		},
-		{
-			name:  "number",
-			input: 42,
-			want:  false,
-		},
-		{
-			name:  "array",
-			input: []any{1, 2, 3},
-			want:  false,
-		},
-		{
-			name: "UDF result with nested values",
-			input: map[string]any{
-				"_val": map[string]any{"nested": "value"},
-				"_meta": map[string]any{"type": "complex"},
-			},
-			want: true,
-		},
-	}
+func TestNormalizeToSlice(t *testing.T) {
+	t.Run("nil returns empty slice", func(t *testing.T) {
+		result := NormalizeToSlice(nil)
+		if len(result) != 0 {
+			t.Errorf("Expected empty slice, got %d elements", len(result))
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsUDFResult(tt.input)
-			if got != tt.want {
-				t.Errorf("IsUDFResult() = %v, want %v", got, tt.want)
+	t.Run("slice returned as-is", func(t *testing.T) {
+		input := []any{1, 2, 3}
+		result := NormalizeToSlice(input)
+		if len(result) != 3 {
+			t.Errorf("Expected 3 elements, got %d", len(result))
+		}
+	})
+
+	t.Run("single map wrapped in slice", func(t *testing.T) {
+		input := map[string]any{"Name": "Alice"}
+		result := NormalizeToSlice(input)
+		if len(result) != 1 {
+			t.Errorf("Expected 1 element, got %d", len(result))
+		}
+	})
+
+	t.Run("single value wrapped in slice", func(t *testing.T) {
+		input := "hello"
+		result := NormalizeToSlice(input)
+		if len(result) != 1 {
+			t.Errorf("Expected 1 element, got %d", len(result))
+		}
+		if result[0] != "hello" {
+			t.Errorf("Expected 'hello', got %v", result[0])
+		}
+	})
+}
+
+func TestPreservePSObjectMetadata(t *testing.T) {
+	t.Run("non-PSObject input returned as-is", func(t *testing.T) {
+		input := map[string]any{"Name": "Alice"}
+		result := PreservePSObjectMetadata(input, input)
+		if m, ok := result.(map[string]any); !ok {
+			t.Errorf("Expected map, got %T", result)
+		} else if m["Name"] != "Alice" {
+			t.Errorf("Expected Name=Alice, got %v", m["Name"])
+		}
+	})
+
+	t.Run("PSObject TypeName preserved", func(t *testing.T) {
+		psobj := psobject.NewPSObjectWithTypeName(map[string]any{"Name": "Alice"}, "Custom.Type")
+		input := psobj.ToMap()
+		result := PreservePSObjectMetadata(input, input)
+
+		if m, ok := result.(map[string]any); !ok {
+			t.Errorf("Expected map, got %T", result)
+		} else {
+			if meta, exists := m["_meta"].(map[string]any); !exists {
+				t.Error("Expected _meta in result")
+			} else if typeName, exists := meta["type"].(string); !exists || typeName != "Custom.Type" {
+				t.Errorf("Expected type=Custom.Type, got %v", typeName)
 			}
-		})
-	}
+		}
+	})
+
+	t.Run("NoteProperty members preserved", func(t *testing.T) {
+		psobj := psobject.NewPSObjectWithTypeName(map[string]any{"Name": "Alice", "Age": 30}, "Person")
+		psobj.AddNoteProperty("DisplayName", "Alice Smith")
+		input := psobj.ToMap()
+
+		// Filter to just Name
+		filtered := map[string]any{"Name": "Alice"}
+		result := PreservePSObjectMetadata(input, filtered)
+
+		if m, ok := result.(map[string]any); !ok {
+			t.Errorf("Expected map, got %T", result)
+		} else {
+			// Check TypeName preserved
+			if meta, exists := m["_meta"].(map[string]any); exists {
+				if typeName, exists := meta["type"].(string); !exists || typeName != "Person" {
+					t.Errorf("Expected type=Person, got %v", typeName)
+				}
+			}
+			// Check DisplayName member preserved (it wasn't in filtered)
+			if members, exists := m["_meta"].(map[string]any)["members"].(map[string]any); exists {
+				if _, hasDisplayName := members["DisplayName"]; !hasDisplayName {
+					t.Error("Expected DisplayName member to be preserved")
+				}
+			}
+		}
+	})
 }
 
 func TestExtractUDFValue(t *testing.T) {
