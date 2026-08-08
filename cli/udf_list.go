@@ -94,8 +94,35 @@ func (cli *cli) printUDFList() {
 		fmt.Fprintf(cli.outStream, "\n")
 	}
 	
+	cli.printAliases()
+
 	fmt.Fprintf(cli.outStream, "Note: Most functions support an optional 'file' boolean argument.\n")
 	fmt.Fprintf(cli.outStream, "      When true, the input is treated as a file path to operate on.\n")
 	fmt.Fprintf(cli.outStream, "      Example: base64_encode(true) reads from a file.\n")
+}
+
+// printAliases lists the PowerShell aliases, grouped by the cmdlet they name.
+// They are as callable as any function here, so leaving them out of the listing
+// would hide half the names a PowerShell user would reach for first.
+func (cli *cli) printAliases() {
+	byTarget := make(map[string][]string)
+	for _, alias := range udf.StandardAliases {
+		byTarget[alias.Target] = append(byTarget[alias.Target], alias.Name)
+	}
+
+	targets := make([]string, 0, len(byTarget))
+	for target := range byTarget {
+		targets = append(targets, target)
+	}
+	sort.Strings(targets)
+
+	fmt.Fprintf(cli.outStream, "Aliases:\n")
+	fmt.Fprintf(cli.outStream, "%s\n", strings.Repeat("-", 8))
+	for _, target := range targets {
+		names := byTarget[target]
+		sort.Strings(names)
+		fmt.Fprintf(cli.outStream, "  %-25s %s\n", strings.Join(names, ", "), target)
+	}
+	fmt.Fprintf(cli.outStream, "\n")
 }
 

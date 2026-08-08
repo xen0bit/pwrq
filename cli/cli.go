@@ -283,6 +283,15 @@ Usage:
 	udfRegistry := udf.DefaultRegistry()
 	udfOptions := udfRegistry.Options()
 
+	// Prepend the PowerShell aliases as jq function definitions. gojq binds
+	// function names at compile time and never consults session state, so this
+	// is the only point at which an alias can mean anything.
+	aliasDefs, err := udfRegistry.AliasFuncDefs(udf.StandardAliases)
+	if err != nil {
+		return err
+	}
+	query.FuncDefs = append(aliasDefs, query.FuncDefs...)
+
 	// Build compiler options
 	options := []gojq.CompilerOption{
 		gojq.WithModuleLoader(gojq.NewModuleLoader(modulePaths)),

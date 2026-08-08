@@ -110,9 +110,10 @@ func DefaultRegistry() *Registry {
 	reg.Register(string.RegisterLower())
 	reg.Register(string.RegisterReverse())
 	reg.Register(string.RegisterReplace())
-	reg.Register(string.RegisterTrim())
-	reg.Register(string.RegisterSplit())
-	reg.Register(string.RegisterJoin())
+	// split, join and trim are jq builtins. Registering them here had no
+	// effect - gojq resolves builtins first - so pwrq's versions never ran.
+	// Use jq's, and `cat("f") | split(",")` for the file case pwrq's took a
+	// flag for.
 	
 	// Timestamp operations
 	reg.Register(timestamp.RegisterTimestampToDate())
