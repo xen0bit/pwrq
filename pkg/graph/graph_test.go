@@ -3,1033 +3,261 @@ package graph
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/itchyny/gojq"
 )
 
-func TestGenerateGraph_SimpleQuery(t *testing.T) {
-	query, err := gojq.Parse(".")
+// render parses a query and returns the D2 script for it.
+func render(t *testing.T, src string) string {
+	t.Helper()
+	query, err := gojq.Parse(src)
 	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
+		t.Fatalf("parsing %q: %v", src, err)
 	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "start") {
-		t.Error("Output should contain 'start' node")
-	}
-	if !strings.Contains(contentStr, "end") {
-		t.Error("Output should contain 'end' node")
-	}
-	if !strings.Contains(contentStr, "Start") {
-		t.Error("Output should contain 'Start' label")
-	}
+	return RenderD2(query)
 }
 
-func TestGenerateGraph_PipeOperation(t *testing.T) {
-	query, err := gojq.Parse("md5 | ._val")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
+var labelPattern = regexp.MustCompile(`(?m)^\s*[\w.]+\s*:\s*"((?:[^"\\]|\\.)*)"`)
 
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
+// labels returns every label the script assigns, unescaped.
+func labels(script string) []string {
+	var out []string
+	for _, m := range labelPattern.FindAllStringSubmatch(script, -1) {
+		label := strings.ReplaceAll(m[1], `\"`, `"`)
+		label = strings.ReplaceAll(label, `\$`, "$")
+		out = append(out, strings.ReplaceAll(label, `\\`, `\`))
 	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "md5()") {
-		t.Error("Output should contain 'md5()' function")
-	}
-	if !strings.Contains(contentStr, "._val") {
-		t.Error("Output should contain '._val' access")
-	}
-	if !strings.Contains(contentStr, "start ->") {
-		t.Error("Start node should be connected")
-	}
-	// Pipes should not create nodes, just edges
-	if strings.Contains(contentStr, "Pipe") {
-		t.Error("Pipe operations should not create nodes")
-	}
+	return out
 }
 
-func TestGenerateGraph_FunctionCall(t *testing.T) {
-	query, err := gojq.Parse("md5")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "md5()") {
-		t.Error("Output should contain 'md5()' function")
-	}
-}
-
-func TestGenerateGraph_ObjectLiteral(t *testing.T) {
-	query, err := gojq.Parse(`{file: "test", md5: (md5 | ._val)}`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Each key should have its own container
-	if !strings.Contains(contentStr, "file {") {
-		t.Error("Output should contain 'file' container")
-	}
-	if !strings.Contains(contentStr, "md5 {") {
-		t.Error("Output should contain 'md5' container")
-	}
-	// Keys should be independent (no edges between them)
-	// Check that md5 container doesn't connect to file container
-	lines := strings.Split(contentStr, "\n")
-	fileFound := false
-	for _, line := range lines {
-		if strings.Contains(line, "file {") {
-			fileFound = true
+// mentions reports whether any label contains the given text.
+func mentions(script, text string) bool {
+	for _, label := range labels(script) {
+		if strings.Contains(label, text) {
+			return true
 		}
-		// Should not have edge from file to md5
-		if fileFound && strings.Contains(line, "file") && strings.Contains(line, "md5") && strings.Contains(line, "->") {
-			t.Error("Object keys should not be connected to each other")
+	}
+	return false
+}
+
+// requireMentions is the property the renderer exists to satisfy: a diagram
+// that omits part of the query is showing the reader something untrue about
+// what will run.
+func requireMentions(t *testing.T, script string, parts ...string) {
+	t.Helper()
+	for _, part := range parts {
+		if !mentions(script, part) {
+			t.Errorf("diagram never mentions %q\n--- script ---\n%s", part, script)
 		}
 	}
 }
 
-func TestGenerateGraph_ObjectLiteralWithMultipleHashes(t *testing.T) {
-	query, err := gojq.Parse(`{file: "test", md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val)}`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
+func TestRenderD2_PipelineIsTheSpine(t *testing.T) {
+	script := render(t, ".a | .b | .c")
 
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
+	requireMentions(t, script, "Start", "End", ".a", ".b", ".c")
 
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// All keys should have containers
-	keys := []string{"file", "md5", "sha1", "sha256"}
-	for _, key := range keys {
-		if !strings.Contains(contentStr, key+" {") {
-			t.Errorf("Output should contain '%s' container", key)
+	// Stages are chained in order.
+	for _, edge := range []string{"start -> n1", "n1 -> n2", "n2 -> n3", "n3 -> end"} {
+		if !strings.Contains(script, edge) {
+			t.Errorf("expected edge %q\n--- script ---\n%s", edge, script)
 		}
 	}
-	// Each hash function should be in its own container
-	if !strings.Contains(contentStr, "md5()") {
-		t.Error("Output should contain 'md5()' function")
+}
+
+// TestRenderD2_NothingIsLost is the regression guard. Each of these queries had
+// a part the previous renderer dropped: the operands of a comparison, an
+// object's shorthand keys, a unary operator's operand, the array construction
+// that a later stage depends on.
+func TestRenderD2_NothingIsLost(t *testing.T) {
+	cases := []struct {
+		query string
+		parts []string
+	}{
+		{`select(.Length > 1000)`, []string{"select", ".Length", "1000"}},
+		{`{Name, Size}`, []string{"Name", "Size"}},
+		{`{Name, Hash: (.Path | sha256)}`, []string{"Name", "Hash", ".Path", "sha256"}},
+		{`sort_by(-.Length)`, []string{"sort_by", ".Length"}},
+		{`[.[] | select(.a)] | length`, []string{"Collect", "select", "length"}},
+		{`.a and (.b or .c)`, []string{".a", ".b", ".c"}},
+		{`if .n > 5 then "big" else "small" end`, []string{"if", "then", "else", ".n", "big", "small"}},
+		{`try (cat("f") | fromjson) catch "bad"`, []string{"try", "catch", "cat", "fromjson", "bad"}},
+		{`reduce .[] as $i (0; . + $i)`, []string{"reduce", "$i", "source", "init", "update"}},
+		{`foreach .[] as $x (0; . + $x; .)`, []string{"foreach", "$x", "extract"}},
+		{`. as $p | $p | cat`, []string{"as $p", "cat"}},
+		{`get_childitem("."; {Recurse: true, Filter: "*.go"})`,
+			[]string{"get_childitem", "Recurse", "true", "Filter", "*.go"}},
+		{`.a[0].b[]?`, []string{".a[0].b[]?"}},
+		{`map(select(.x | endswith(".go")))`, []string{"map", "select", ".x", "endswith"}},
+		{`.[] |= (. * 2)`, []string{"2"}},
 	}
-	if !strings.Contains(contentStr, "sha1()") {
-		t.Error("Output should contain 'sha1()' function")
-	}
-	if !strings.Contains(contentStr, "sha256()") {
-		t.Error("Output should contain 'sha256()' function")
+
+	for _, tc := range cases {
+		t.Run(tc.query, func(t *testing.T) {
+			requireMentions(t, render(t, tc.query), tc.parts...)
+		})
 	}
 }
 
-func TestGenerateGraph_ArrayLiteral(t *testing.T) {
-	query, err := gojq.Parse(`[find("pkg/udf"; "file")]`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
+// TestRenderD2_StructureNests checks that a subquery appears inside the node it
+// belongs to, not merely somewhere in the file.
+func TestRenderD2_StructureNests(t *testing.T) {
+	script := render(t, `[get_childitem(".") | select(.Length > 10) | {Name}] | sort_by(.Name)`)
+
+	collectAt := strings.Index(script, "Collect [ ]")
+	if collectAt < 0 {
+		t.Fatalf("array construction is missing\n%s", script)
 	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
+	closeAt := strings.Index(script[collectAt:], "\n}")
+	if closeAt < 0 {
+		t.Fatalf("collect container is never closed\n%s", script)
 	}
+	inside := script[collectAt : collectAt+closeAt]
 
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "find") {
-		t.Error("Output should contain 'find' function")
-	}
-}
-
-func TestGenerateGraph_SliceOperation(t *testing.T) {
-	query, err := gojq.Parse(".[0:3]")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "Slice [0:3]") {
-		t.Error("Output should contain 'Slice [0:3]'")
-	}
-	// Should only appear once (no duplicates)
-	count := strings.Count(contentStr, "Slice [0:3]")
-	if count != 1 {
-		t.Errorf("Slice should appear exactly once, found %d times", count)
-	}
-}
-
-func TestGenerateGraph_MapFunction(t *testing.T) {
-	query, err := gojq.Parse(`map(select(._val | endswith(".go")))`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "map()") {
-		t.Error("Output should contain 'map()' function container")
-	}
-	if !strings.Contains(contentStr, "select()") {
-		t.Error("Output should contain 'select()' function container")
-	}
-	if !strings.Contains(contentStr, "endswith()") {
-		t.Error("Output should contain 'endswith()' function container")
-	}
-}
-
-func TestGenerateGraph_ComplexNestedQuery(t *testing.T) {
-	query, err := gojq.Parse(`[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val)}) | .[0:3]`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Check for key components
-	components := []string{"find", "map()", "select()", "endswith()", "cat()", "md5()", "Slice [0:3]"}
-	for _, comp := range components {
-		if !strings.Contains(contentStr, comp) {
-			t.Errorf("Output should contain '%s'", comp)
+	for _, part := range []string{"get_childitem", "select", "Name"} {
+		if !strings.Contains(inside, part) {
+			t.Errorf("%q should be inside the collect container\n--- container ---\n%s", part, inside)
 		}
 	}
-	// Check that object literal has independent keys
-	if !strings.Contains(contentStr, "file {") {
-		t.Error("Output should contain 'file' container")
-	}
-	if !strings.Contains(contentStr, "md5 {") {
-		t.Error("Output should contain 'md5' container")
+	// sort_by consumes the array, so it belongs outside it.
+	if strings.Contains(inside, "sort_by") {
+		t.Errorf("sort_by consumes the array and should sit outside it\n%s", script)
 	}
 }
 
-func TestGenerateGraph_StartNodeConnection(t *testing.T) {
-	query, err := gojq.Parse("md5")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "start ->") {
-		t.Error("Start node should be connected to first node")
+// TestRenderD2_NoStrayIdentifierNodes guards a D2 scoping mistake: writing a
+// dotted path inside a container declares that whole path *under* it, which
+// produced boxes labelled "n1" and "n2" beside the real ones.
+func TestRenderD2_NoStrayIdentifierNodes(t *testing.T) {
+	script := render(t, `[get_childitem("."; {A: 1}) | {B: (.x | sha256)}]`)
+	stray := regexp.MustCompile(`^n\d+$`)
+	for _, label := range labels(script) {
+		if stray.MatchString(label) {
+			t.Errorf("label %q is an internal identifier, not part of the query\n%s", label, script)
+		}
 	}
 }
 
-func TestGenerateGraph_EndNodeConnection(t *testing.T) {
-	query, err := gojq.Parse("md5")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "-> end_") {
-		t.Error("Last node should be connected to end node")
+// TestRenderD2_SimpleThingsStayInline keeps the diagram readable: expanding
+// every path expression into its own box would show less than the query text.
+func TestRenderD2_SimpleThingsStayInline(t *testing.T) {
+	script := render(t, `select(.Length > 1000)`)
+	if strings.Count(script, "shape: rectangle") != 1 {
+		t.Errorf("a simple call should be one node, got:\n%s", script)
 	}
 }
 
-func TestGenerateGraph_SVGOutput(t *testing.T) {
-	query, err := gojq.Parse("md5 | ._val")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
+func TestRenderD2_FuncDefsAreShownAsContext(t *testing.T) {
+	script := render(t, `def double: . * 2; .a | double`)
+	requireMentions(t, script, "Definitions", "double", ".a")
+}
 
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.svg")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
+func TestRenderD2_EmptyAndTrivialQueries(t *testing.T) {
+	if got := RenderD2(nil); !strings.Contains(got, "empty query") {
+		t.Errorf("a nil query should render something explanatory, got %q", got)
 	}
+	requireMentions(t, render(t, "."), "Start", "End", ".")
+}
 
-	// Check that SVG file was created
-	info, err := os.Stat(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to stat output file: %v", err)
-	}
-	if info.Size() == 0 {
-		t.Error("SVG file should not be empty")
-	}
-
-	// Check that it's actually SVG content
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "<svg") {
-		t.Error("Output should be valid SVG")
+// TestRenderD2_LabelsAreEscaped checks that query text D2 would read as syntax
+// cannot break the script.
+func TestRenderD2_LabelsAreEscaped(t *testing.T) {
+	for _, src := range []string{`"a \"quoted\" string"`, `"back\\slash"`, `{"k: v": 1}`} {
+		t.Run(src, func(t *testing.T) {
+			script := render(t, src)
+			if _, err := renderSVG(script); err != nil {
+				t.Errorf("script does not compile: %v\n--- script ---\n%s", err, script)
+			}
+		})
 	}
 }
 
-func TestGenerateGraph_InvalidOutputPath(t *testing.T) {
-	query, err := gojq.Parse(".")
+// TestGenerateGraph_WritesBothFormats covers the file-producing entry point.
+func TestGenerateGraph_WritesBothFormats(t *testing.T) {
+	query, err := gojq.Parse(`[get_childitem(".") | select(.Length > 10) | {Name, H: (.p | sha256)}] | .[0:3]`)
 	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
+		t.Fatal(err)
 	}
+	dir := t.TempDir()
 
-	// Try to write to a non-existent directory
-	outputPath := "/nonexistent/path/test.d2"
+	d2Path := filepath.Join(dir, "out.d2")
+	if err := GenerateGraph(query, d2Path); err != nil {
+		t.Fatalf("GenerateGraph(.d2): %v", err)
+	}
+	script, err := os.ReadFile(d2Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireMentions(t, string(script), "get_childitem", "select", "Name", "sha256")
 
-	err = GenerateGraph(query, outputPath)
+	svgPath := filepath.Join(dir, "out.svg")
+	if err := GenerateGraph(query, svgPath); err != nil {
+		t.Fatalf("GenerateGraph(.svg): %v", err)
+	}
+	svg, err := os.ReadFile(svgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(svg), "<svg") {
+		t.Error("output is not an SVG document")
+	}
+	// The labels have to survive into the rendered image, not just the script.
+	for _, part := range []string{"get_childitem", "sha256", "Collect"} {
+		if !strings.Contains(string(svg), part) {
+			t.Errorf("rendered SVG never shows %q", part)
+		}
+	}
+}
+
+func TestGenerateGraph_RejectsUnknownFormat(t *testing.T) {
+	query, _ := gojq.Parse(".")
+	err := GenerateGraph(query, filepath.Join(t.TempDir(), "out.png"))
 	if err == nil {
-		t.Error("GenerateGraph should fail with invalid path")
+		t.Fatal("expected an error for an unsupported format")
+	}
+	if !strings.Contains(err.Error(), ".d2") || !strings.Contains(err.Error(), ".svg") {
+		t.Errorf("the error should name the supported formats, got: %v", err)
 	}
 }
 
-func TestGenerateGraph_UnsupportedFormat(t *testing.T) {
-	query, err := gojq.Parse(".")
+func TestGenerateSVG(t *testing.T) {
+	query, err := gojq.Parse(`.a | select(.b > 1) | {c}`)
 	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
+		t.Fatal(err)
 	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.txt")
-
-	err = GenerateGraph(query, outputPath)
-	if err == nil {
-		t.Error("GenerateGraph should fail with unsupported format")
+	svg, err := GenerateSVG(query)
+	if err != nil {
+		t.Fatalf("GenerateSVG: %v", err)
 	}
-	if !strings.Contains(err.Error(), "unsupported output format") {
-		t.Errorf("Error should mention unsupported format, got: %v", err)
+	if !strings.Contains(svg, "<svg") {
+		t.Error("output is not an SVG document")
 	}
 }
 
-func TestGenerateGraph_EmptyQuery(t *testing.T) {
-	query, err := gojq.Parse("")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	// Empty query might succeed or fail, but shouldn't panic
-	if err != nil {
-		t.Logf("GenerateGraph with empty query returned error (expected): %v", err)
-	}
-}
-
-func TestGenerateGraph_NestedFunctions(t *testing.T) {
-	query, err := gojq.Parse(`map(select(._val | endswith(".go")))`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Nested functions should create nested containers
-	if !strings.Contains(contentStr, "map()") {
-		t.Error("Output should contain 'map()' container")
-	}
-	// select should be inside map
-	lines := strings.Split(contentStr, "\n")
-	mapFound := false
-	selectFound := false
-	for _, line := range lines {
-		if strings.Contains(line, "map()") {
-			mapFound = true
-		}
-		if mapFound && strings.Contains(line, "select()") {
-			selectFound = true
-			break
-		}
-	}
-	if !selectFound {
-		t.Error("select() should be nested inside map()")
-	}
-}
-
-func TestGenerateGraph_ObjectLiteralWithVariable(t *testing.T) {
-	query, err := gojq.Parse(`. as $path | {file: $path}`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "file {") {
-		t.Error("Output should contain 'file' container")
-	}
-	// Variable should be shown (might be formatted as _VAR_path)
-	if !strings.Contains(contentStr, "$path") && !strings.Contains(contentStr, "_VAR_path") {
-		t.Error("Output should contain variable reference")
-	}
-}
-
-func TestGenerateGraph_MultiplePipes(t *testing.T) {
-	query, err := gojq.Parse("md5 | ._val | sha1 | ._val")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Should have md5 and sha1 functions
-	if !strings.Contains(contentStr, "md5()") {
-		t.Error("Output should contain 'md5()' function")
-	}
-	if !strings.Contains(contentStr, "sha1()") {
-		t.Error("Output should contain 'sha1()' function")
-	}
-	// Should not have pipe nodes
-	if strings.Contains(contentStr, "Pipe") {
-		t.Error("Pipe operations should not create nodes")
-	}
-}
-
-func TestGenerateGraph_ObjectLiteralInMap(t *testing.T) {
-	query, err := gojq.Parse(`map({file: "test", md5: (md5 | ._val)})`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// map should contain object literal
-	if !strings.Contains(contentStr, "map()") {
-		t.Error("Output should contain 'map()' container")
-	}
-	// Object literal should be nested inside map
-	lines := strings.Split(contentStr, "\n")
-	mapFound := false
-	objectFound := false
-	for _, line := range lines {
-		if strings.Contains(line, "map()") {
-			mapFound = true
-		}
-		if mapFound && (strings.Contains(line, "Object") || strings.Contains(line, "file {")) {
-			objectFound = true
-			break
-		}
-	}
-	if !objectFound {
-		t.Error("Object literal should be nested inside map()")
-	}
-}
-
-func TestGenerateGraph_ParenthesizedExpression(t *testing.T) {
-	query, err := gojq.Parse("(md5 | ._val)")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Parenthesized expression currently shows as "Query" - this is a known limitation
-	// The expression is wrapped in TermTypeQuery which needs unwrapping
-	if !strings.Contains(contentStr, "Query") && !strings.Contains(contentStr, "md5") {
-		t.Error("Output should contain parenthesized expression representation")
-	}
-}
-
-func TestGenerateGraph_StringLiteral(t *testing.T) {
-	query, err := gojq.Parse(`"test"`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "test") || !strings.Contains(contentStr, "String") {
-		t.Error("Output should contain string literal")
-	}
-}
-
-func TestGenerateGraph_NumberLiteral(t *testing.T) {
-	query, err := gojq.Parse("42")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "42") || !strings.Contains(contentStr, "Number") {
-		t.Error("Output should contain number literal")
-	}
-}
-
-func TestGenerateGraph_IdentityOperator(t *testing.T) {
-	query, err := gojq.Parse(".")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "Identity") {
-		t.Error("Output should contain 'Identity' operator")
-	}
-}
-
-func TestGenerateGraph_IndexAccess(t *testing.T) {
-	query, err := gojq.Parse(".[0]")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Index access shows as "Index" - this is the current label format
-	if !strings.Contains(contentStr, "Index") {
-		t.Error("Output should contain 'Index' label")
-	}
-}
-
-func TestGenerateGraph_ObjectKeyAccess(t *testing.T) {
-	query, err := gojq.Parse(".file")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, ".file") {
-		t.Error("Output should contain object key access '.file'")
-	}
-}
-
-func TestGenerateGraph_NoDuplicateSlices(t *testing.T) {
-	query, err := gojq.Parse(".[0:3] | .[0:2]")
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Should have both slices
-	if !strings.Contains(contentStr, "Slice [0:3]") {
-		t.Error("Output should contain 'Slice [0:3]'")
-	}
-	if !strings.Contains(contentStr, "Slice [0:2]") {
-		t.Error("Output should contain 'Slice [0:2]'")
-	}
-	// Each should appear only once
-	count1 := strings.Count(contentStr, "Slice [0:3]")
-	count2 := strings.Count(contentStr, "Slice [0:2]")
-	if count1 != 1 {
-		t.Errorf("Slice [0:3] should appear exactly once, found %d times", count1)
-	}
-	if count2 != 1 {
-		t.Errorf("Slice [0:2] should appear exactly once, found %d times", count2)
-	}
-}
-
-func TestGenerateGraph_FunctionWithArguments(t *testing.T) {
-	query, err := gojq.Parse(`find("pkg/udf"; "file")`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "find()") {
-		t.Error("Output should contain 'find()' function container")
-	}
-	// Arguments should be inside the function container
-	if !strings.Contains(contentStr, "pkg/udf") || !strings.Contains(contentStr, "file") {
-		t.Error("Output should contain function arguments")
-	}
-}
-
-func TestGenerateGraph_ComplexObjectWithAllHashes(t *testing.T) {
-	query, err := gojq.Parse(`{file: "test", md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)}`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// All keys should have containers
-	keys := []string{"file", "md5", "sha1", "sha256", "sha512"}
-	for _, key := range keys {
-		if !strings.Contains(contentStr, key+" {") {
-			t.Errorf("Output should contain '%s' container", key)
-		}
-	}
-	// Each hash function should be in its own container
-	hashFuncs := []string{"md5()", "sha1()", "sha256()", "sha512()"}
-	for _, funcName := range hashFuncs {
-		if !strings.Contains(contentStr, funcName) {
-			t.Errorf("Output should contain '%s' function", funcName)
-		}
-	}
-}
-
-func TestGenerateGraph_ArrayWithFunction(t *testing.T) {
-	query, err := gojq.Parse(`[find("pkg/udf"; "file")]`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Array should show the function inside
-	if !strings.Contains(contentStr, "find") {
-		t.Error("Output should contain 'find' function")
-	}
-}
-
-func TestGenerateGraph_SelectWithPipe(t *testing.T) {
-	query, err := gojq.Parse(`select(._val | endswith(".go"))`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "select()") {
-		t.Error("Output should contain 'select()' function container")
-	}
-	if !strings.Contains(contentStr, "endswith()") {
-		t.Error("Output should contain 'endswith()' function container")
-	}
-	// endswith should be inside select
-	lines := strings.Split(contentStr, "\n")
-	selectFound := false
-	endswithFound := false
-	for _, line := range lines {
-		if strings.Contains(line, "select()") {
-			selectFound = true
-		}
-		if selectFound && strings.Contains(line, "endswith()") {
-			endswithFound = true
-			break
-		}
-	}
-	if !endswithFound {
-		t.Error("endswith() should be nested inside select()")
-	}
-}
-
-func TestGenerateGraph_VariableAssignment(t *testing.T) {
-	query, err := gojq.Parse(`. as $path | $path`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Variable should be shown
-	if !strings.Contains(contentStr, "$path") && !strings.Contains(contentStr, "_VAR_path") {
-		t.Error("Output should contain variable reference")
-	}
-}
-
-func TestGenerateGraph_HTTPFunction(t *testing.T) {
-	query, err := gojq.Parse(`http("POST"; "https://httpbin.konghq.com/post")`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "http()") {
-		t.Error("Output should contain 'http()' function container")
-	}
-	// Arguments should be inside
-	if !strings.Contains(contentStr, "POST") {
-		t.Error("Output should contain HTTP method")
-	}
-}
-
-func TestGenerateGraph_FromJSONFunction(t *testing.T) {
-	query, err := gojq.Parse(`fromjson`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	if !strings.Contains(contentStr, "fromjson()") {
-		t.Error("Output should contain 'fromjson()' function")
-	}
-}
-
-func TestGenerateGraph_EndToEndComplexQuery(t *testing.T) {
-	// This is the full query from the examples
-	query, err := gojq.Parse(`[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)}) | .[0:3] | http("POST"; "https://httpbin.konghq.com/post") | ._val | fromjson`)
-	if err != nil {
-		t.Fatalf("Failed to parse query: %v", err)
-	}
-
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "test.d2")
-
-	err = GenerateGraph(query, outputPath)
-	if err != nil {
-		t.Fatalf("GenerateGraph failed: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	contentStr := string(content)
-	// Verify all major components are present
-	components := []string{
-		"find", "map()", "select()", "endswith()",
-		"cat()", "md5()", "sha1()", "sha256()", "sha512()",
-		"Slice [0:3]", "http()", "fromjson()",
-	}
-	for _, comp := range components {
-		if !strings.Contains(contentStr, comp) {
-			t.Errorf("Output should contain '%s'", comp)
-		}
-	}
-	// Verify object literal structure
-	if !strings.Contains(contentStr, "file {") {
-		t.Error("Output should contain 'file' container")
-	}
-	// Verify start and end connections
-	if !strings.Contains(contentStr, "start ->") {
-		t.Error("Start node should be connected")
-	}
-	if !strings.Contains(contentStr, "-> end_") {
-		t.Error("End node should be connected")
+// TestRenderD2_EveryQueryCompiles is a broad check that no AST shape produces a
+// script D2 cannot parse.
+func TestRenderD2_EveryQueryCompiles(t *testing.T) {
+	queries := []string{
+		".", "..", ".a.b.c", ".[]", ".[1:3]", ".a?",
+		"1, 2, 3", "[1,2,3]", "{}", "{a: 1}", "$__loc__",
+		`"interp \(.a) here"`, "@base64 \"x\"", "-.a", "not",
+		".a // .b", ".a as [$x, $y] | $x",
+		"label $out | .[] | if . then ., break $out else . end",
+		`[limit(3; repeat(1))]`,
+		`get_childitem("."; {Recurse: true}) | where_object(.; {script: ".a > 1"})`,
+		`reduce (.[] | select(.n)) as $i ({}; .[$i.k] = $i.v)`,
+		`try error("x") catch .`,
+		`def f(g): g | g; f(.a)`,
+	}
+	for _, src := range queries {
+		t.Run(src, func(t *testing.T) {
+			script := render(t, src)
+			if _, err := renderSVG(script); err != nil {
+				t.Errorf("script does not compile: %v\n--- script ---\n%s", err, script)
+			}
+		})
 	}
 }
