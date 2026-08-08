@@ -1,10 +1,35 @@
 # pwrq
 
-Enhanced Go implementation of jq, extending [gojq](https://github.com/itchyny/gojq).
+PowerShell-style cmdlets on top of jq.
 
-## Overview
+`pwrq` is [gojq](https://github.com/itchyny/gojq) plus a library of cmdlets that
+reach the filesystem, the OS, the network and a pile of codecs. Cmdlets emit
+ordinary JSON objects, so jq's own filters work on them directly:
 
-`pwrq` is a command-line JSON processor that functions identically to `gojq`, providing a drop-in replacement with the same features and behavior. It's built on top of the excellent `gojq` library and will be enhanced with additional features in the future.
+```console
+$ pwrq -c '[get_childitem(".") | select(.Length > 10000) | {Name, Length}]'
+[{"Length":15673,"Name":"EXAMPLES.md"},{"Length":26859,"Name":"task.md"}]
+
+$ pwrq -c '[get_service | select(.Status == "Running") | .Name] | length'
+68
+```
+
+## It is a strict superset of jq
+
+Any valid jq program produces byte-identical output. That is enforced, not
+aspirational: the test suite runs gojq's own 831-case CLI corpus unchanged, so
+pwrq cannot drift from jq without a test failing.
+
+Concretely, this means pwrq never quietly reinterprets your data:
+
+```console
+$ echo '{"_val":1,"_meta":{"a":2}}' | pwrq -c .
+{"_meta":{"a":2},"_val":1}
+```
+
+It also means pwrq's own functions never shadow jq's. `split`, `join` and `sort`
+are jq's; a UDF that collided with a builtin would never run, so the build fails
+if one is added.
 
 ## Installation
 
@@ -12,218 +37,122 @@ Enhanced Go implementation of jq, extending [gojq](https://github.com/itchyny/go
 go install github.com/xen0bit/pwrq/cmd/pwrq@latest
 ```
 
-## Usage
+## The object model
 
-`pwrq` works exactly like `gojq`. Here are some examples:
+Everything a cmdlet emits is plain JSON. There is no envelope to unwrap.
 
-```bash
-# Basic query
-echo '{"foo": 128}' | pwrq '.foo'
+| What it is | What it returns | Example |
+|---|---|---|
+| **Transforms** | the transformed value | `"hello" \| sha256` → `"2cf24d…"` |
+| **Object producers** | an object whose keys are PowerShell property names, plus `PSTypeName` | `get_childitem(".")` |
+| **Formatters** | text | `format_table(.)` |
 
-# Array processing
-echo '[1, 2, 3]' | pwrq '.[]'
-
-# Raw output
-echo '{"foo": "bar"}' | pwrq -r '.foo'
-
-# Compact output
-echo '{"foo": 128}' | pwrq -c '.'
+```console
+$ pwrq -c 'get_childitem(".") | select(.Name == "go.mod")'
+{"CreationTime":"2026-08-07T22:08:58-04:00","Extension":".mod",
+ "FullName":"/home/you/pwrq/go.mod","IsHidden":false,"IsReadOnly":false,
+ "LastWriteTime":"2026-08-07T22:08:58-04:00","Length":2928,"Mode":"-rw-rw-r--",
+ "Name":"go.mod","PSPath":"go.mod","PSTypeName":"System.IO.FileInfo"}
 ```
 
-## Features
+Because it is JSON, everything jq knows how to do applies — `select`, `map`,
+`group_by`, `to_entries`, string interpolation, all of it.
 
-- All features from `gojq`:
-  - JSON querying with jq-compatible syntax
-  - YAML input/output support
-  - Raw input/output
-  - Streaming JSON parsing
-  - Module support
-  - Color output
-  - And more...
+### Failures are jq errors
 
-- **User-Defined Functions (UDF)**: Extensible function system
-  - `find` - Unix find-like file/directory search function
-  - `base64_encode` / `base64_decode` - Base64 encoding/decoding
-  - `sh` - Execute shell commands
-  - File operations: `cat`, `mkdir`, `rm`, `tempdir`, `tee`
-  - Encryption/Decryption: AES, DES, 3DES, Blowfish, RC4, ChaCha20, XOR
-  - Hash functions: MD5, SHA1, SHA256, SHA512, and more
-  - HTTP client and server functions
-  - And many more...
-  - Easy to add custom functions via the `pkg/udf` package
+A cmdlet that fails raises an error rather than returning a value that looks
+successful, so `try`/`catch` and the exit status behave as they do for jq:
 
-## User-Defined Functions
-
-### find
-
-The `find` function provides Unix find-like functionality. It returns objects with `_val` (the path) and `_meta` (metadata including type):
-
-```bash
-# Find all files and directories
-pwrq '[find("pkg/udf")]'
-
-# Extract just the paths
-pwrq '[find("pkg/udf")] | map(._val)'
-
-# Filter by type using metadata
-pwrq '[find("pkg/udf")] | map(select(._meta.type == "file"))'
+```console
+$ pwrq -c 'try cat("/nope") catch "missing"'
+"missing"
 ```
 
-### base64_encode / base64_decode
+## Aliases
 
-Base64 encoding and decoding functions with automatic `_val` extraction when chaining:
+The PowerShell short names are compiled into your query as jq definitions:
 
-```bash
-# Encode a string
-pwrq '"hello" | base64_encode | ._val'
-
-# Decode a base64 string
-pwrq '"aGVsbG8=" | base64_decode | ._val'
-
-# Round-trip (automatic _val extraction)
-pwrq '"hello world" | base64_encode | base64_decode | ._val'
-
-# Encode a file
-pwrq '"README.md" | base64_encode(true) | ._val'
+```console
+$ pwrq -c '[gci(".")] | length'      # gci, dir, gi
+$ pwrq -c '[gps | .Name] | length'   # gps
+$ pwrq -c 'gl.Path'                  # gl
 ```
 
-### hex_encode / hex_decode
+Aliases that would collide with a jq builtin are deliberately absent. PowerShell's
+`select` and `sort` would shadow jq's own `select/1` and `sort/0` — and unlike a
+function, a definition *does* take precedence, so such an alias would silently
+change what existing jq programs mean. Use `select_object` and `sort_object`.
 
-Hexadecimal encoding and decoding functions with automatic `_val` extraction when chaining:
+`pwrq --udf-list` prints every function and alias, grouped by category.
 
-```bash
-# Encode a string
-pwrq '"hello" | hex_encode | ._val'
+## Cmdlets
 
-# Decode a hex string
-pwrq '"68656c6c6f" | hex_decode | ._val'
+Filesystem, location, processes, services, web, date/time:
 
-# Round-trip (automatic _val extraction)
-pwrq '"hello world" | hex_encode | hex_decode | ._val'
-
-# Encode a file
-pwrq '"README.md" | hex_encode(true) | ._val'
+```console
+$ pwrq -c '[get_childitem("src"; {Recurse: true, Filter: "*.go"})] | length'
+$ pwrq -c '[get_process | select(.Name | test("^go")) | {Name, Id}]'
+$ pwrq -c 'get_date | {Year, Month, DayOfWeek}'
+$ pwrq -c 'invoke_web_request("https://example.com") | {StatusCode, ContentLength}'
+$ pwrq -c 'test_path("go.mod")'
 ```
 
-### sh - Shell Command Execution
+Parameter names bind case-insensitively, as PowerShell's do, so `{Recurse: true}`
+and `{recurse: true}` are the same.
 
-Execute shell commands and capture their output:
+### Object cmdlets
 
-```bash
-# Execute a simple command
-pwrq 'sh("echo hello world") | ._val'
-# Output: "hello world"
+`select_object`, `where_object`, `sort_object`, `group_object` and
+`measure_object` take either a jq script block or the PowerShell
+property/operator/value form:
 
-# Command from pipeline
-pwrq '"echo test" | sh(.) | ._val'
-# Output: "test"
-
-# Commands with non-zero exit codes return stderr in _err
-pwrq 'sh("false")'
-# Returns: {"_val": "", "_meta": {...}, "_err": "command exited with code 1"}
-
-# Commands with stderr output
-pwrq 'sh("echo stdout && echo stderr >&2 && exit 1")'
-# Returns: {"_val": "stdout", "_meta": {...}, "_err": "stderr"}
+```console
+$ pwrq -c 'where_object(.; {script: ".Age > 26 and (.Name | startswith(\"A\"))"})'
+$ pwrq -c 'where_object(.; {property: "Name", operator: "like", value: "A*"})'
 ```
 
-**Behavior:**
-- **Success (exit code 0)**: Returns `{"_val": stdout, "_meta": {...}}`
-- **Failure (non-zero exit)**: Returns `{"_val": stdout, "_meta": {...}, "_err": stderr}`
+A script block is jq — any expression, not a subset. Note that jq's own `select`
+is usually shorter: `map(select(.Age > 26))`.
 
-### Hash Functions
+### Codecs, hashes and crypto
 
-pwrq supports all hash algorithms available in Go's crypto package:
-- **md5**, **sha1**, **sha224**, **sha256**, **sha384**, **sha512**, **sha512_224**, **sha512_256**
-- All functions support an optional `file` boolean argument to operate on files
+Encodings (base64/32/85, hex, binary, url, html), hashes (md5 through sha512,
+hmac, ssdeep), ciphers (AES, DES, 3DES, Blowfish, RC4, ChaCha20, XOR),
+compression (gzip, zlib, deflate), format conversion (csv, xml), entropy, and
+`sh`, `http`, `find`, `cat`, `tee`.
 
-```bash
-# Hash a string
-pwrq '"hello" | sha256 | ._val'
-
-# Hash a file (using pipeline value)
-pwrq '"README.md" | sha256(true) | ._val'
-
-# Hash a file (explicit path)
-pwrq 'sha256("README.md"; true) | ._val'
-
-# Chain with find
-pwrq '[find("pkg/udf"; "file")] | .[0] | sha256(true) | ._val'
+```console
+$ pwrq -r '"hello" | base64_encode'
+aGVsbG8=
+$ pwrq -r 'cat("go.mod") | sha256'
+$ pwrq -c '[find("."; "file") | select(endswith(".go"))] | length'
 ```
 
-### File Operations
+See [EXAMPLES.md](EXAMPLES.md) and [pkg/udf/README.md](pkg/udf/README.md).
 
-pwrq provides several file operation UDFs:
+## pwrq-viz
 
-```bash
-# Read file contents
-pwrq 'cat("README.md") | ._val'
-
-# Create directory
-pwrq 'mkdir("/tmp/mydir") | ._val'
-
-# Remove file or folder
-pwrq 'rm("/tmp/file.txt"; "file") | ._val'
-pwrq 'rm("/tmp/dir"; "folder") | ._val'
-
-# Create temporary directory
-pwrq 'tempdir("prefix_") | ._val'
-
-# Write to file or stderr
-pwrq '{"key": "value"} | tee("/tmp/output.json")'
-```
-
-### Encryption/Decryption
-
-pwrq supports multiple encryption algorithms (AES, DES, 3DES, Blowfish, RC4, ChaCha20, XOR):
+Query diagramming and the browser IDE live in a separate binary. Rendering uses
+d2, which brings a JavaScript engine, a syntax highlighter and a PDF writer with
+it — about 35MB that everyday use has no need for.
 
 ```bash
-# AES encryption/decryption
-pwrq 'aes_encrypt("data"; "12345678901234567890123456789012") | ._val | aes_decrypt(.; "12345678901234567890123456789012") | ._val'
-
-# XOR encryption
-pwrq '"secret" | xor("key") | ._val'
+make build-viz
+./pwrq-viz -g query.svg '.a | .b'   # render the query's structure
+./pwrq-viz -i                        # browser IDE on :8080
 ```
-
-See [pkg/udf/README.md](pkg/udf/README.md) for complete documentation of all UDFs.
 
 ## Development
 
-### Building
-
 ```bash
-# Using Makefile (recommended)
-make build
-
-# Or directly with go
-go build ./cmd/pwrq
+make build       # pwrq (9.5MB)
+make build-viz   # pwrq-viz
+make build-all
+make test        # full suite, including gojq's corpus, for both builds
+make test-short  # skips tests that touch system services
+make help
 ```
-
-### Testing
-
-```bash
-# Using Makefile
-make test          # Run all tests with race detector
-make test-short    # Run tests without race detector
-make test-coverage # Generate coverage report
-
-# Or directly with go
-go test ./...
-```
-
-### Other Makefile Targets
-
-```bash
-make install   # Install to $GOPATH/bin
-make clean     # Remove build artifacts
-make fmt       # Format code
-make lint      # Run linters (requires golangci-lint)
-make example   # Run example queries
-make help      # Show all available targets
-```
-
-See `make help` for all available targets.
 
 ## License
 
-MIT License (same as gojq)
+MIT, as gojq is.

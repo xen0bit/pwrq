@@ -7,15 +7,14 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // TestPathOptions represents options for Test-Path
 type TestPathOptions struct {
-	Path      string
-	PathType  string // "Leaf", "Container", or "" for any
-	IsValid   bool   // Check if path is valid syntax (not implemented for filesystem)
+	Path     string
+	PathType string // "Leaf", "Container", or "" for any
+	IsValid  bool   // Check if path is valid syntax (not implemented for filesystem)
 }
 
 // parseTestPathArgs parses arguments for test_path
@@ -107,7 +106,7 @@ func testPath(opts TestPathOptions) (any, error) {
 
 	// Permission denied or other access errors
 	// PowerShell semantics: if path exists but we can't access it, return true
-	// We can't distinguish "exists but no permission" from "doesn't exist" 
+	// We can't distinguish "exists but no permission" from "doesn't exist"
 	// without checking parent, so we check parent directory
 	parent := filepath.Dir(path)
 	if parentInfo, parentErr := os.Stat(parent); parentErr == nil && parentInfo.IsDir() {
@@ -134,7 +133,7 @@ func isValidPathSyntax(path string) bool {
 	}
 
 	// Windows reserved characters that are invalid in paths:
-	// < > : " | ? * 
+	// < > : " | ? *
 	// Exception: colon is valid as drive letter separator (C:) at position 1
 	// We enforce these for cross-platform compatibility with PowerShell semantics
 	for i, r := range path {
@@ -173,12 +172,9 @@ func RegisterTestPath() gojq.CompilerOption {
 			})
 		}
 
-		// Return PSObject with boolean value
-		psobj := psobject.NewPSObject(result)
-		psobj.TypeName = "System.Boolean"
-		psobj.AddNoteProperty("Path", opts.Path)
-		psobj.AddNoteProperty("PathType", opts.PathType)
-
-		return psobj.ToMap()
+		// Test-Path is a predicate, so it answers with a boolean. Wrapping it
+		// in an object made `if test_path(x) then ... end` always take the
+		// true branch, since every object is truthy.
+		return result
 	})
 }

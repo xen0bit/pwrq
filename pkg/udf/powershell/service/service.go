@@ -3,6 +3,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -17,28 +18,28 @@ import (
 
 // ServiceInfo holds information about a service
 type ServiceInfo struct {
-	Name           string `json:"Name"`
-	DisplayName    string `json:"DisplayName"`
-	Status         string `json:"Status"`
-	StartType      string `json:"StartType"`
-	CanStop        bool   `json:"CanStop"`
-	CanPause       bool   `json:"CanPause"`
-	CanShutdown    bool   `json:"CanShutdown"`
-	DependentServices []string `json:"DependentServices"`
+	Name               string   `json:"Name"`
+	DisplayName        string   `json:"DisplayName"`
+	Status             string   `json:"Status"`
+	StartType          string   `json:"StartType"`
+	CanStop            bool     `json:"CanStop"`
+	CanPause           bool     `json:"CanPause"`
+	CanShutdown        bool     `json:"CanShutdown"`
+	DependentServices  []string `json:"DependentServices"`
 	ServicesDependedOn []string `json:"ServicesDependedOn"`
-	MachineName    string `json:"MachineName"`
-	ProcessId      int    `json:"ProcessId"`
-	ServiceType    string `json:"ServiceType"`
-	Site           string `json:"Site"`
-	Container      string `json:"Container"`
+	MachineName        string   `json:"MachineName"`
+	ProcessId          int      `json:"ProcessId"`
+	ServiceType        string   `json:"ServiceType"`
+	Site               string   `json:"Site"`
+	Container          string   `json:"Container"`
 }
 
 // GetServiceOptions holds options for the get_service function
 type GetServiceOptions struct {
-	Name       string // Service name filter
-	DisplayName string // Display name filter
-	Exclude    string // Exclude pattern
-	IncludeUserName bool // Include username in output
+	Name            string // Service name filter
+	DisplayName     string // Display name filter
+	Exclude         string // Exclude pattern
+	IncludeUserName bool   // Include username in output
 }
 
 // RegisterGetService registers the get_service function with gojq
@@ -54,7 +55,7 @@ func RegisterGetService() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			firstArg := common.BindValue(args[0])
-			
+
 			// Check if first arg is a string (service name)
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr
@@ -142,7 +143,7 @@ func getServices(opts GetServiceOptions) ([]map[string]any, error) {
 		if opts.Name != "" && !matchPattern(svc.Name, opts.Name) {
 			continue
 		}
-		
+
 		// Apply display name filter
 		if opts.DisplayName != "" && !matchPattern(svc.DisplayName, opts.DisplayName) {
 			continue
@@ -154,15 +155,15 @@ func getServices(opts GetServiceOptions) ([]map[string]any, error) {
 		}
 
 		serviceMap := map[string]any{
-			"Name":             svc.Name,
-			"DisplayName":      svc.DisplayName,
-			"Status":           svc.Status,
-			"StartType":        svc.StartType,
-			"CanStop":          svc.CanStop,
-			"CanPause":         svc.CanPause,
-			"CanShutdown":      svc.CanShutdown,
-			"MachineName":      svc.MachineName,
-			"ServiceType":      svc.ServiceType,
+			"Name":        svc.Name,
+			"DisplayName": svc.DisplayName,
+			"Status":      svc.Status,
+			"StartType":   svc.StartType,
+			"CanStop":     svc.CanStop,
+			"CanPause":    svc.CanPause,
+			"CanShutdown": svc.CanShutdown,
+			"MachineName": svc.MachineName,
+			"ServiceType": svc.ServiceType,
 		}
 
 		if len(svc.DependentServices) > 0 {
@@ -193,7 +194,7 @@ func matchPattern(s, pattern string) bool {
 	if matched {
 		return true
 	}
-	
+
 	// If no match, try case-insensitive
 	matched, err = filepath.Match(strings.ToLower(pattern), strings.ToLower(s))
 	if err != nil {
@@ -212,54 +213,26 @@ func getServicesUnix(opts GetServiceOptions) ([]ServiceInfo, error) {
 		return getServicesUnixText(opts)
 	}
 
-	// Parse JSON output
+	// Parse with encoding/json. The previous version declared these struct
+	// tags and then hand-parsed the output by splitting on newlines, but
+	// systemctl emits the whole array on one line, so it only ever found the
+	// first service - one, on a machine with a hundred and sixty.
 	var units []struct {
-		Unit      string `json:"unit"`
-		Load      string `json:"load"`
-		Active    string `json:"active"`
-		Sub       string `json:"sub"`
+		Unit        string `json:"unit"`
+		Load        string `json:"load"`
+		Active      string `json:"active"`
+		Sub         string `json:"sub"`
 		Description string `json:"description"`
 	}
-
-	// Simple JSON array parsing - each line is an object
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || line == "[" || line == "]" {
-			continue
-		}
-		// Remove trailing comma if present
-		line = strings.TrimSuffix(line, ",")
-		
-		// Extract fields using string parsing
-		unit := extractJSONString(line, "unit")
-		active := extractJSONString(line, "active")
-		sub := extractJSONString(line, "sub")
-		load := extractJSONString(line, "load")
-		description := extractJSONString(line, "description")
-
-		if unit != "" {
-			units = append(units, struct {
-				Unit      string `json:"unit"`
-				Load      string `json:"load"`
-				Active    string `json:"active"`
-				Sub       string `json:"sub"`
-				Description string `json:"description"`
-			}{
-				Unit:      unit,
-				Load:      load,
-				Active:    active,
-				Sub:       sub,
-				Description: description,
-			})
-		}
+	if err := json.Unmarshal(output, &units); err != nil {
+		return getServicesUnixText(opts)
 	}
 
 	// Get detailed info for all services in batch
 	var services []ServiceInfo
 	for _, unit := range units {
 		serviceName := strings.TrimSuffix(unit.Unit, ".service")
-		
+
 		// Map active state to PowerShell Status
 		status := "Stopped"
 		if unit.Active == "active" {
@@ -287,36 +260,6 @@ func getServicesUnix(opts GetServiceOptions) ([]ServiceInfo, error) {
 	return services, nil
 }
 
-// extractJSONString extracts a string value from a simple JSON object line
-func extractJSONString(line, key string) string {
-	prefix := "\"" + key + "\":"
-	idx := strings.Index(line, prefix)
-	if idx == -1 {
-		return ""
-	}
-	
-	start := idx + len(prefix)
-	// Skip whitespace and find opening quote
-	for start < len(line) && (line[start] == ' ' || line[start] == '"') {
-		if line[start] == '"' {
-			start++
-			break
-		}
-		start++
-	}
-	
-	end := start
-	for end < len(line) && line[end] != '"' {
-		if line[end] == '\\' && end+1 < len(line) {
-			end += 2
-			continue
-		}
-		end++
-	}
-	
-	return line[start:end]
-}
-
 // getStartTypeUnix gets the start type for a service
 func getStartTypeUnix(name string) string {
 	cmd := exec.Command("systemctl", "is-enabled", name+".service", "--quiet")
@@ -324,14 +267,14 @@ func getStartTypeUnix(name string) string {
 	if err == nil {
 		return "Automatic"
 	}
-	
+
 	// Check if it's disabled
 	cmd = exec.Command("systemctl", "is-enabled", name+".service")
 	output, _ := cmd.Output()
 	if strings.TrimSpace(string(output)) == "disabled" {
 		return "Disabled"
 	}
-	
+
 	return "Manual"
 }
 
@@ -345,26 +288,26 @@ func getServicesUnixText(opts GetServiceOptions) ([]ServiceInfo, error) {
 
 	var services []ServiceInfo
 	lines := strings.Split(string(output), "\n")
-	
+
 	for _, line := range lines {
 		fields := strings.Fields(line)
 		if len(fields) < 5 {
 			continue
 		}
-		
+
 		// Skip header and footer lines
 		if strings.Contains(fields[0], ".service") == false {
 			continue
 		}
-		
+
 		unitName := strings.TrimSuffix(fields[0], ".service")
 		load := fields[1]
 		active := fields[2]
 		sub := fields[3]
-		
+
 		// Description is everything after the first 4 fields
 		description := strings.Join(fields[4:], " ")
-		
+
 		// Map active state to PowerShell Status
 		status := "Stopped"
 		if active == "active" && sub == "running" {
@@ -376,7 +319,7 @@ func getServicesUnixText(opts GetServiceOptions) ([]ServiceInfo, error) {
 		} else if active == "deactivating" {
 			status = "StopPending"
 		}
-		
+
 		// Skip unloaded services
 		if load == "not-found" || load == "masked" {
 			continue
@@ -409,16 +352,16 @@ func getServiceDetailsUnix(name string) *ServiceInfo {
 
 	info := &ServiceInfo{}
 	lines := strings.Split(string(output), "\n")
-	
+
 	for _, line := range lines {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		key := parts[0]
 		value := parts[1]
-		
+
 		switch key {
 		case "Description":
 			info.DisplayName = value
@@ -455,22 +398,22 @@ func getServicesWindows(opts GetServiceOptions) ([]ServiceInfo, error) {
 
 	var services []ServiceInfo
 	lines := strings.Split(string(output), "\n")
-	
+
 	var currentService *ServiceInfo
-	
+
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
 			continue
 		}
-		
+
 		// Check for service header line (SERVICE_NAME:)
 		if strings.HasPrefix(trimmed, "SERVICE_NAME:") {
 			// Save previous service if exists
 			if currentService != nil {
 				services = append(services, *currentService)
 			}
-			
+
 			// Start new service entry
 			serviceName := strings.TrimSpace(strings.TrimPrefix(trimmed, "SERVICE_NAME:"))
 			currentService = &ServiceInfo{
@@ -480,17 +423,17 @@ func getServicesWindows(opts GetServiceOptions) ([]ServiceInfo, error) {
 			}
 			continue
 		}
-		
+
 		// Parse service details
 		if currentService == nil {
 			continue
 		}
-		
+
 		// Parse key-value pairs (KEY : VALUE format)
 		if idx := strings.Index(trimmed, " : "); idx != -1 {
 			key := strings.TrimSpace(trimmed[:idx])
 			value := strings.TrimSpace(trimmed[idx+3:])
-			
+
 			switch key {
 			case "DISPLAY_NAME":
 				currentService.DisplayName = value
@@ -519,7 +462,7 @@ func getServicesWindows(opts GetServiceOptions) ([]ServiceInfo, error) {
 			}
 		}
 	}
-	
+
 	// Don't forget the last service
 	if currentService != nil {
 		services = append(services, *currentService)
@@ -560,7 +503,7 @@ func parseServiceState(stateStr string) string {
 	// 5 - CONTINUE_PENDING
 	// 6 - PAUSE_PENDING
 	// 7 - PAUSED
-	
+
 	if strings.Contains(stateStr, "RUNNING") {
 		return "Running"
 	}
@@ -582,7 +525,7 @@ func parseServiceState(stateStr string) string {
 	if strings.Contains(stateStr, "CONTINUE_PENDING") {
 		return "ContinuePending"
 	}
-	
+
 	return "Unknown"
 }
 
@@ -598,7 +541,7 @@ func RegisterStartService() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			firstArg := common.BindValue(args[0])
-			
+
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr
 			} else if optsMap, ok := firstArg.(map[string]any); ok {
@@ -659,7 +602,7 @@ func parseStartServiceOptions(opts *StartServiceOptions, optsMap map[string]any)
 // startService starts a service
 func startService(opts StartServiceOptions) (map[string]any, error) {
 	var err error
-	
+
 	if runtime.GOOS == "windows" {
 		err = startServiceWindows(opts.Name)
 	} else {
@@ -714,7 +657,7 @@ func RegisterStopService() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			firstArg := common.BindValue(args[0])
-			
+
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr
 			} else if optsMap, ok := firstArg.(map[string]any); ok {
@@ -781,7 +724,7 @@ func parseStopServiceOptions(opts *StopServiceOptions, optsMap map[string]any) {
 // stopService stops a service
 func stopService(opts StopServiceOptions) (map[string]any, error) {
 	var err error
-	
+
 	if runtime.GOOS == "windows" {
 		err = stopServiceWindows(opts.Name, opts.Force)
 	} else {
@@ -807,7 +750,7 @@ func stopService(opts StopServiceOptions) (map[string]any, error) {
 // stopServiceUnix stops a service on Unix using systemctl
 func stopServiceUnix(name string, force bool) error {
 	var cmd *exec.Cmd
-	
+
 	if force {
 		// Force stop uses systemctl kill which sends SIGKILL
 		// This is more aggressive than stop and cannot be caught by the service
@@ -816,7 +759,7 @@ func stopServiceUnix(name string, force bool) error {
 		// Normal stop sends SIGTERM, allowing graceful shutdown
 		cmd = exec.Command("systemctl", "stop", name)
 	}
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("stop_service: failed to stop %s: %w - %s", name, err, string(output))
@@ -832,7 +775,7 @@ func stopServiceWindows(name string, force bool) error {
 	} else {
 		cmd = exec.Command("sc", "stop", name)
 	}
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("stop_service: failed to stop %s: %w - %s", name, err, string(output))

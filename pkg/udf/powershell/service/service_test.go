@@ -1,6 +1,7 @@
 package service
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
@@ -305,5 +306,37 @@ func TestServiceInfoStructure(t *testing.T) {
 	}
 	if svc.MachineName != "localhost" {
 		t.Error("Failed to set MachineName")
+	}
+}
+
+// TestGetServicesUnixParsesAllUnits guards a bug that made get_service report
+// exactly one service on a machine with a hundred and sixty: systemctl's JSON
+// output is a single line, and the parser split it on newlines.
+func TestGetServicesUnixParsesAllUnits(t *testing.T) {
+	if testing.Short() {
+		t.Skip("shells out to the system service manager")
+	}
+	if runtime.GOOS != "linux" {
+		t.Skip("systemd is linux-only")
+	}
+
+	services, err := getServices(GetServiceOptions{})
+	if err != nil {
+		t.Skipf("no service manager available: %v", err)
+	}
+	if len(services) <= 1 {
+		t.Errorf("got %d services; a single result means the listing was not parsed", len(services))
+	}
+
+	seen := make(map[string]bool)
+	for _, svc := range services {
+		name, _ := svc["Name"].(string)
+		if name == "" {
+			t.Error("a service came back with no name")
+		}
+		seen[name] = true
+	}
+	if len(seen) != len(services) {
+		t.Errorf("%d services but only %d distinct names", len(services), len(seen))
 	}
 }

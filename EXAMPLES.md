@@ -1,711 +1,198 @@
 # pwrq Examples
 
-This document provides comprehensive examples demonstrating the full capabilities of `pwrq`, including all User-Defined Functions (UDFs) and core jq functionality. Each example includes an objective, explanation, command, and actual output.
+Every command here was run against the current build; the outputs are what it
+actually printed. Paths and counts naturally vary by machine.
 
-## Table of Contents
+## The shape of things
 
-1. [File Operations](#file-operations)
-2. [Encoding and Decoding](#encoding-and-decoding)
-3. [Hash Functions](#hash-functions)
-4. [Encryption and Decryption](#encryption-and-decryption)
-5. [Compression](#compression)
-6. [String Operations](#string-operations)
-7. [Data Format Conversion](#data-format-conversion)
-8. [Advanced Chaining](#advanced-chaining)
-9. [Real-World Scenarios](#real-world-scenarios)
+A cmdlet emits plain JSON, so jq's filters apply directly.
 
----
-
-## File Operations
-
-### Example 1: Find and Process Files
-
-**Objective:** Find all Go files in the project, read their contents, and calculate their SHA256 hashes.
-
-**How it works:** 
-- `find("pkg/udf"; "file")` finds all files in the `pkg/udf` directory
-- Filters for `.go` files using jq's `select()` and `endswith()`
-- Extracts file paths with `._val`
-- Reads each file with `cat`
-- Calculates SHA256 hash with `sha256`
-- Extracts the hash value
-
-**Command:**
-```bash
-echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | .[0] | ._val | cat | sha256 | ._val'
+```console
+$ pwrq -c 'get_childitem("cli") | select(.Name == "cli.go")'
+{"CreationTime":"2026-08-07T22:08:58-04:00","Extension":".go",
+ "FullName":"/home/you/pwrq/cli/cli.go","IsHidden":false,"IsReadOnly":false,
+ "LastAccessTime":"2026-08-07T22:08:58-04:00","LastWriteTime":"2026-08-07T22:08:58-04:00",
+ "Length":18644,"Mode":"-rw-rw-r--","Name":"cli.go","PSPath":"cli/cli.go",
+ "PSTypeName":"System.IO.FileInfo"}
 ```
 
-**Output:**
+A transform returns its value, with nothing to unwrap:
+
+```console
+$ pwrq -r '"hello" | sha256'
+2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
 ```
-"80a695c67c097438ff75b377f6898b060f5e9658cabe6088d57b0f3f125b9e5f"
+
+A formatter returns text:
+
+```console
+$ echo '[{"Name":"a","Age":30},{"Name":"bb","Age":4}]' | pwrq -r 'format_table(.)'
+  Name Age
+  ---- ---
+  a    30
+  bb   4
 ```
 
 ---
 
-### Example 2: Read File and Process Content
+## Filesystem
 
-**Objective:** Read a file, encode it in base64, and write the result to another file using `tee`.
+```console
+$ pwrq -c '[get_childitem("cli") | select(.Extension == ".go") | .Name] | .[0:3]'
+["cli.go","cli_test.go","color.go"]
 
-**How it works:**
-- `cat("README.md")` reads the README.md file
-- `base64_encode` encodes the content
-- `tee("/tmp/output.json")` writes the result to a file
-- `._val` extracts the encoded value
+$ pwrq -c '[get_childitem("pkg"; {Recurse: true, Filter: "*.md"}) | .Name] | sort'
+["README.md"]
 
-**Command:**
-```bash
-echo 'null' | ./pwrq 'cat("README.md") | base64_encode | tee("/tmp/pwrq_tee_output.json") | ._val'
+$ pwrq -c 'test_path("go.mod")'
+true
+
+$ pwrq -c 'gl.Path'
+"/home/you/pwrq"
 ```
 
-**Output:**
-```
-"# pwrq\n\nEnhanced Go implementation of jq, extending [gojq](https://github.com/itchyny/gojq).\n\n## Overview\n\n`pwrq` is a command-line JSON processor that functions identically to `gojq`, providing a drop-in replacement with the same features and behavior. It's built on top of the excellent `gojq` library and will be enhanced with additional features in the future.\n..."
-```
+Parameter names bind case-insensitively, so `{Recurse: true}` and
+`{recurse: true}` are the same. `-Filter` and `-Include` choose what is
+emitted, not what is descended into, so `-Recurse` reaches nested matches.
 
----
+`find` yields paths rather than objects, which is what you want when feeding
+another path-taking cmdlet:
 
-## Encoding and Decoding
-
-### Example 3: Base64 Round-Trip Encoding
-
-**Objective:** Demonstrate base64 encoding and decoding with automatic `_val` extraction.
-
-**How it works:**
-- `base64_encode` encodes the string to base64
-- `._val` extracts the encoded value
-- `base64_decode` decodes it back
-- `._val` extracts the decoded value
-- The automatic `_val` extraction allows chaining without explicit `._val` access
-
-**Command:**
-```bash
-echo '"test content"' | ./pwrq 'base64_encode | ._val | base64_decode | ._val'
+```console
+$ pwrq -c '[find("cli"; "file") | select(endswith(".yaml"))] | length'
+5
 ```
 
-**Output:**
-```
-"test content"
-```
+Both forms bind to a cmdlet expecting a path:
 
----
-
-### Example 4: Hexadecimal Encoding Chain
-
-**Objective:** Encode a string to hexadecimal and decode it back.
-
-**Command:**
-```bash
-echo '"The quick brown fox"' | ./pwrq 'hex_encode | ._val | hex_decode | ._val'
+```console
+$ pwrq -c '[find("."; "file") | select(endswith("go.mod")) | cat] | length'
+1
+$ pwrq -c '[get_childitem(".") | select(.Name == "go.mod") | cat] | length'
+1
 ```
 
-**Output:**
-```
-"The quick brown fox"
-```
+## Processes, services, dates
 
----
+```console
+$ pwrq -c '[get_process | select(.CPU > 0)] | length'
+31
 
-### Example 5: URL Encoding/Decoding
+$ pwrq -c '[get_process | select(.Name == "gopls") | .Id] | length'
+2
 
-**Objective:** Encode and decode URL-encoded strings.
+$ pwrq -c '[get_service | select(.Status == "Running") | .Name] | length'
+68
 
-**Command:**
-```bash
-echo '"test@example.com?q=hello world"' | ./pwrq 'url_encode | ._val | url_decode | ._val'
-```
+$ pwrq -c '[get_date | .Year, .Month]'
+[2026,8]
 
-**Output:**
-```
-"test@example.com?q=hello world"
+$ pwrq -r 'new_timespan({Hours: 1, Minutes: 30}) | .Duration'
+01:30:00.0000000
 ```
 
----
+## Web
 
-### Example 6: HTML Entity Encoding/Decoding
+```console
+$ pwrq -c 'invoke_web_request("https://example.com") | {StatusCode, ContentLength}'
+{"ContentLength":559,"StatusCode":200}
 
-**Objective:** Encode HTML entities to prevent XSS attacks and decode them back.
-
-**Command:**
-```bash
-echo '"<script>alert(\"XSS\")</script>"' | ./pwrq 'html_encode | ._val | html_decode | ._val'
+$ pwrq -c 'http("GET"; "https://example.com") | .Headers["Content-Type"]'
+"text/html"
 ```
 
-**Output:**
-```
-"<script>alert(\"XSS\")</script>"
-```
+Both return a response object, so the status code is available to branch on
+rather than being discarded along with the rest of the response.
 
----
+## Encoding and hashing
 
-### Example 7: Binary Encoding
+```console
+$ pwrq -c '"hello world" | base64_encode'
+"aGVsbG8gd29ybGQ="
 
-**Objective:** Convert a string to binary representation and back.
+$ pwrq -r '"aGVsbG8gd29ybGQ=" | base64_decode'
+hello world
 
-**Command:**
-```bash
-echo '"Hello"' | ./pwrq 'binary_encode | ._val | binary_decode | ._val'
-```
+$ pwrq -c '"hello" | md5, sha1, sha256 | length'
+32
+40
+64
 
-**Output:**
-```
-"Hello"
-```
+$ pwrq -c '"the quick brown fox" | entropy'
+3.8924071185928746
 
----
-
-### Example 8: Base32 Encoding
-
-**Objective:** Encode and decode using base32.
-
-**Command:**
-```bash
-echo '"test data"' | ./pwrq 'base32_encode | ._val | base32_decode | ._val'
+$ pwrq -c '"secret" | xor("key")'
+"18001a19000d"
 ```
 
-**Output:**
-```
-"test data"
-```
+Binary results are hex-encoded, JSON having no byte type. Round-trips work
+because the decoders accept the same representation:
 
----
-
-### Example 9: Base85 Encoding
-
-**Objective:** Encode and decode using base85 (ASCII85).
-
-**Command:**
-```bash
-echo '"test data"' | ./pwrq 'base85_encode | ._val | base85_decode | ._val'
-```
-
-**Output:**
-```
-"test data"
-```
-
----
-
-## Hash Functions
-
-### Example 10: Multiple Hash Algorithms
-
-**Objective:** Calculate multiple hash algorithms for the same input.
-
-**Command:**
-```bash
-echo '"test"' | ./pwrq 'md5 | ._val | sha1 | ._val | sha256 | ._val'
-```
-
-**Output:**
-```
-"9e05bc7478fcac66f2aaeb2b04769ccd08f618d805269a549c88d38f01f7af6d"
-```
-
----
-
-### Example 11: HMAC Authentication
-
-**Objective:** Generate an HMAC-SHA256 signature for message authentication.
-
-**Command:**
-```bash
-echo '"password123"' | ./pwrq 'hmac_sha256("secret-key") | ._val'
-```
-
-**Output:**
-```
-"0e5ea1d4208dff259428482e0b06a0ce0cf2e8250183f215de547b484132c7fd"
-```
-
----
-
-## Encryption and Decryption
-
-### Example 12: AES Encryption and Decryption
-
-**Objective:** Encrypt data with AES and decrypt it back.
-
-**How it works:**
-- `aes_encrypt` encrypts data using AES with CBC mode (default)
-- Returns base64-encoded ciphertext
-- `aes_decrypt` decrypts the ciphertext back to plaintext
-
-**Command:**
-```bash
-echo 'null' | ./pwrq 'aes_encrypt("hello world"; "12345678901234567890123456789012") | ._val | aes_decrypt(.; "12345678901234567890123456789012") | ._val'
-```
-
-**Output:**
-```
-"hello world"
-```
-
----
-
-### Example 13: AES with Different Modes
-
-**Objective:** Demonstrate AES encryption with different modes (ECB, CBC, CFB, OFB, CTR).
-
-**Command:**
-```bash
-# ECB mode
-echo 'null' | ./pwrq 'aes_encrypt("test"; "1234567890123456"; "ECB") | ._val'
-
-# CBC mode (default)
-echo 'null' | ./pwrq 'aes_encrypt("test"; "1234567890123456"; "CBC") | ._val'
-
-# CFB mode
-echo 'null' | ./pwrq 'aes_encrypt("test"; "1234567890123456"; "CFB") | ._val'
-```
-
-**Output:**
-```
-"AAECAwQFBgcICQoLDA0ODw=="
-"AAECAwQFBgcICQoLDA0ODybw8xFVUB4QfrWgZFETvwg="
-"AAECAwQFBgcICQoLDA0ODw=="
-```
-
----
-
-### Example 14: XOR Encryption
-
-**Objective:** Encrypt data using XOR cipher (symmetric operation).
-
-**How it works:**
-- XOR is a simple symmetric cipher where the same operation encrypts and decrypts
-- Returns hex-encoded result
-
-**Command:**
-```bash
-echo 'null' | ./pwrq '"secret message" | xor("mykey") | ._val'
-```
-
-**Output:**
-```
-"1f000a1f0e0e1a0b0e0e1a0b0e0e1a0b0e"
-```
-
----
-
-### Example 15: RC4 Encryption
-
-**Objective:** Encrypt data using RC4 stream cipher.
-
-**How it works:**
-- RC4 is a symmetric stream cipher
-- Same function encrypts and decrypts
-- Returns base64-encoded result
-
-**Command:**
-```bash
-echo 'null' | ./pwrq '"test data" | rc4("secretkey") | ._val'
-```
-
-**Output:**
-```
-"dGVzdCBkYXRh"  # (example output)
-```
-
----
-
-### Example 16: DES Encryption
-
-**Objective:** Encrypt data using DES (Data Encryption Standard).
-
-**Command:**
-```bash
-echo 'null' | ./pwrq 'des_encrypt("hello"; "12345678"; "CBC") | ._val | des_decrypt(.; "12345678"; "CBC") | ._val'
-```
-
-**Output:**
-```
+```console
+$ pwrq -c '"hello" | gzip_compress | gzip_decompress'
 "hello"
 ```
 
----
+## Data formats
 
-### Example 17: Triple DES (3DES) Encryption
+```console
+$ pwrq -c '"a,b\nc,d" | csv_parse'
+[["a","b"],["c","d"]]
 
-**Objective:** Encrypt data using Triple DES for enhanced security.
-
-**Command:**
-```bash
-echo 'null' | ./pwrq '3des_encrypt("sensitive data"; "123456789012345678901234"; "CBC") | ._val | 3des_decrypt(.; "123456789012345678901234"; "CBC") | ._val'
+$ pwrq -c 'sh("echo hi")'
+"hi"
 ```
 
-**Output:**
-```
-"sensitive data"
-```
+`sh` returns stdout on success. A non-zero exit is an error, so it can be
+caught or allowed to set the exit status:
 
----
-
-### Example 18: Blowfish Encryption
-
-**Objective:** Encrypt data using Blowfish algorithm.
-
-**Command:**
-```bash
-echo 'null' | ./pwrq 'blowfish_encrypt("test message"; "mykey123"; "CBC") | ._val | blowfish_decrypt(.; "mykey123"; "CBC") | ._val'
+```console
+$ pwrq -c 'try sh("exit 3") catch "failed"'
+"failed"
 ```
 
-**Output:**
-```
-"test message"
-```
+## Object cmdlets
 
----
+Script blocks are jq — any expression, not a subset of one:
 
-### Example 19: ChaCha20 Encryption
-
-**Objective:** Encrypt data using ChaCha20 stream cipher.
-
-**Command:**
-```bash
-echo 'null' | ./pwrq '"data to encrypt" | chacha20("12345678901234567890123456789012") | ._val'
+```console
+$ echo '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}]' \
+    | pwrq -c 'where_object(.; {script: ".Age > 26 and (.Name | startswith(\"A\"))"}) | map(.Name)'
+["Alice"]
 ```
 
-**Output:**
-```
-"AAECAwQFBgcICQoLDA0ODw=="  # (example output with nonce prepended)
-```
+Or the PowerShell property/operator/value form, which is where `-like` and
+`-match` live:
 
----
-
-### Example 20: Encryption with Hex Keys
-
-**Objective:** Use hexadecimal-encoded keys for encryption.
-
-**Command:**
-```bash
-# Convert key to hex first, then use it
-echo 'null' | ./pwrq '"mysecretkey" | hex_encode | ._val | aes_encrypt("data"; .; "CBC"; "hex") | ._val'
+```console
+$ echo '[{"Name":"Alice"},{"Name":"Bob"}]' \
+    | pwrq -c 'where_object(.; {property: "Name", operator: "like", value: "A*"}) | map(.Name)'
+["Alice"]
 ```
 
-**Output:**
-```
-"AAECAwQFBgcICQoLDA0ODw=="
-```
+For plain filtering jq's own `select` is shorter, and pwrq does not get in its
+way: `map(select(.Age > 26))`.
 
----
+## Composition
 
-## Compression
+Find every Go file, hash it, and keep the largest three:
 
-### Example 21: Gzip Compression Round-Trip
-
-**Objective:** Compress data with gzip and decompress it back.
-
-**Command:**
-```bash
-echo '"secret message"' | ./pwrq 'gzip_compress | ._val | gzip_decompress | ._val'
+```console
+$ pwrq -c '[get_childitem("cli"; {Filter: "*.go"})
+            | {Name, Length, Hash: (.FullName | cat | sha256)}]
+           | sort_by(-.Length) | .[0:3] | map(.Name)'
+["cli.go","inputs.go","encoder.go"]
 ```
 
-**Output:**
-```
-"secret message"
-```
+Nothing here needs a pwrq-specific idiom: `sort_by`, `map` and the object
+constructor are jq's, working on cmdlet output because it is ordinary JSON.
 
----
+## Aliases
 
-### Example 22: Multi-Stage Encoding and Compression
-
-**Objective:** Apply multiple encoding and compression stages, then reverse them.
-
-**How it works:**
-- Base64 encode → Gzip compress → Hex encode
-- Then reverse: Hex decode → Gzip decompress → Base64 decode
-
-**Command:**
-```bash
-echo '"This is a test message with some content"' | ./pwrq 'base64_encode | ._val | gzip_compress | ._val | hex_encode | ._val | hex_decode | ._val | gzip_decompress | ._val | base64_decode | ._val'
+```console
+$ pwrq -c '[gci(".")] | length'   # gci, dir, gi -> get_childitem
+$ pwrq -c '[gps] | length'        # gps -> get_process
+$ pwrq -c 'gd | .Year'            # gd  -> get_date
 ```
 
-**Output:**
-```
-"This is a test message with some content"
-```
-
----
-
-## String Operations
-
-### Example 23: String Transformation Chain
-
-**Objective:** Apply multiple string transformations in sequence.
-
-**Command:**
-```bash
-echo '"Hello World"' | ./pwrq 'upper | ._val | lower | ._val | reverse_string | ._val'
-```
-
-**Output:**
-```
-"dlrow olleh"
-```
-
----
-
-### Example 24: String Replacement
-
-**Objective:** Replace a substring in a string.
-
-**Command:**
-```bash
-echo '"hello world"' | ./pwrq 'replace("world"; "pwrq") | ._val'
-```
-
-**Output:**
-```
-"hello pwrq"
-```
-
----
-
-### Example 25: String Splitting and Joining
-
-**Objective:** Split a string by delimiter and join it back with a different delimiter.
-
-**Command:**
-```bash
-echo '["hello","world","test"]' | ./pwrq 'join_string("|") | ._val'
-```
-
-**Output:**
-```
-"hello|world|test"
-```
-
----
-
-### Example 26: Trim Whitespace
-
-**Objective:** Remove leading and trailing whitespace from a string.
-
-**Command:**
-```bash
-echo '"  hello world  "' | ./pwrq 'trim | ._val'
-```
-
-**Output:**
-```
-"hello world"
-```
-
----
-
-## Data Format Conversion
-
-### Example 27: JSON Stringify and Parse
-
-**Objective:** Convert a JSON object to a string and parse it back.
-
-**Command:**
-```bash
-echo '{"name": "Alice", "age": 30}' | ./pwrq 'json_stringify | ._val | json_parse'
-```
-
-**Output:**
-```
-{
-  "age": 30,
-  "name": "Alice"
-}
-```
-
----
-
-### Example 28: CSV Parsing
-
-**Objective:** Parse CSV data into a structured format.
-
-**Command:**
-```bash
-echo '"a,b,c\n1,2,3"' | ./pwrq 'csv_parse(",") | .'
-```
-
-**Output:**
-```
-[
-  [
-    "a",
-    "b",
-    "c"
-  ],
-  [
-    "1",
-    "2",
-    "3"
-  ]
-]
-```
-
----
-
-### Example 29: Timestamp to Date Conversion
-
-**Objective:** Convert a Unix timestamp to a human-readable date.
-
-**Command:**
-```bash
-echo '1609459200' | ./pwrq 'timestamp_to_date | ._val'
-```
-
-**Output:**
-```
-"2020-12-31T19:00:00-05:00"
-```
-
----
-
-### Example 30: Date to Timestamp Conversion
-
-**Objective:** Convert a date string to a Unix timestamp.
-
-**Command:**
-```bash
-echo '"2021-01-01T00:00:00Z"' | ./pwrq 'date_to_timestamp | ._val'
-```
-
-**Output:**
-```
-1609459200
-```
-
----
-
-## Advanced Chaining
-
-### Example 31: Complex File Processing Pipeline
-
-**Objective:** Find Go files, read them, and create a summary with file info, hash, and size.
-
-**How it works:**
-- `find("pkg/udf"; "file")` finds all files
-- Filters for `.go` files
-- Takes first 3 files
-- For each file: reads content, extracts file path, calculates hash, gets size
-
-**Command:**
-```bash
-echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | .[0:3] | map(._val | cat | {file: ._meta.file_path, size: ._meta.file_size, hash: sha256 | ._val})'
-```
-
-**Output:**
-```
-[
-  {
-    "file": "/home/remy/Projects/pwrq/pkg/udf/base32/base32.go",
-    "hash": "80a695c67c097438ff75b377f6898b060f5e9658cabe6088d57b0f3f125b9e5f",
-    "size": 3887
-  },
-  {
-    "file": "/home/remy/Projects/pwrq/pkg/udf/base64/base64.go",
-    "hash": "...",
-    "size": 3993
-  },
-  ...
-]
-```
-
----
-
-### Example 32: URL Encoding Array Elements
-
-**Objective:** Extract email addresses from JSON and URL-encode them.
-
-**Command:**
-```bash
-echo '{"users": [{"name": "Alice", "email": "alice@example.com"}, {"name": "Bob", "email": "bob@example.com"}]}' | ./pwrq '.users[] | .email | url_encode | ._val'
-```
-
-**Output:**
-```
-"alice%40example.com"
-"bob%40example.com"
-```
-
----
-
-### Example 33: Entropy Calculation
-
-**Objective:** Calculate the Shannon entropy of a string to measure randomness.
-
-**Command:**
-```bash
-echo '"hello world"' | ./pwrq 'entropy | ._val'
-```
-
-**Output:**
-```
-2.8453509366224368
-```
-
----
-
-## Real-World Scenarios
-
-### Example 34: File Integrity Verification
-
-**Objective:** Read multiple files, calculate their hashes, and create a verification report.
-
-**Command:**
-```bash
-echo '{"files": ["README.md", "go.mod"]}' | ./pwrq '.files[] | cat | sha256 | {file: ._meta.file_path, hash: ._val}'
-```
-
-**Output:**
-```
-{
-  "file": "/home/remy/Projects/pwrq/README.md",
-  "hash": "c0b1ec49bf0ce9cf62aea6152d76da5dcbf99a0e315b1e5722e94e3f125e90d4"
-}
-{
-  "file": "/home/remy/Projects/pwrq/go.mod",
-  "hash": "..."
-}
-```
-
----
-
-### Example 35: Data Transformation Pipeline
-
-**Objective:** Transform data through multiple stages: JSON → stringify → base64 → compress → hex.
-
-**Command:**
-```bash
-echo '{"data": "sensitive information"}' | ./pwrq 'json_stringify | ._val | base64_encode | ._val | gzip_compress | ._val | hex_encode | ._val'
-```
-
-**Output:**
-```
-"316638623038303030303030303030303030666630613733636632383438616537343032653130633466386661303963363465336330663461346630623061613634323362376263613836303237653363343838613037633466306662666232613466306430663434383233636264323134663762306432313434373562356234303030303030306666666630323636363530363338303030303030"
-```
-
-```bash
-echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)})'
-```
-
-```bash
-echo 'null' | ./pwrq '[find("pkg/udf"; "file")] | map(select(._val | endswith(".go"))) | map(. as $path | $path | cat | ._val | {file: $path, md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)}) | .[0:3] | http("POST"; "https://httpbin.konghq.com/post") | ._val | fromjson'
-```
-
-```bash
-echo 'null' | ./pwrq 'find("pkg/udf"; "file") | select(._val | endswith(".go")) | {file: ., md5: (md5 | ._val), sha1: (sha1 | ._val), sha256: (sha256 | ._val), sha512: (sha512 | ._val)} | http("POST"; "https://httpbin.konghq.com/post") | ._val | fromjson'
-```
-
----
-
-## Summary
-
-These examples demonstrate the power and flexibility of `pwrq` for:
-- **File operations**: Finding, reading, and processing files
-- **Data encoding**: Multiple encoding schemes (base64, hex, base32, base85, binary, URL, HTML)
-- **Cryptography**: Hash functions and HMAC authentication
-- **Encryption/Decryption**: AES, DES, 3DES, Blowfish, RC4, ChaCha20, XOR with multiple modes
-- **Compression**: Gzip, zlib, and deflate
-- **String manipulation**: Case conversion, reversal, replacement, splitting, joining
-- **Data format conversion**: JSON, CSV, XML, timestamps
-- **Advanced chaining**: Complex pipelines combining multiple operations
-
-All UDFs support automatic `_val` extraction, making it easy to chain operations without explicitly accessing the `._val` field at each step. Error handling is built-in, with errors returned in the `_err` field without halting the pipeline.
-
+`pwrq --udf-list` prints every function and alias.

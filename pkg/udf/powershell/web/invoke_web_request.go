@@ -21,32 +21,32 @@ import (
 
 // WebResponse holds the response from Invoke-WebRequest
 type WebResponse struct {
-	Content        string              `json:"Content"`
-	StatusCode     int                 `json:"StatusCode"`
-	Status         string              `json:"Status"`
-	Headers        map[string][]string `json:"Headers"`
-	BaseResponse   string              `json:"BaseResponse"`
-	RequestMethod  string              `json:"RequestMethod"`
-	RequestUri     *url.URL            `json:"RequestUri"`
-	ContentLength  int64               `json:"ContentLength"`
-	ContentType    string              `json:"ContentType"`
-	LastModified   time.Time           `json:"LastModified"`
-	ResponseUri    *url.URL            `json:"ResponseUri"`
+	Content       string              `json:"Content"`
+	StatusCode    int                 `json:"StatusCode"`
+	Status        string              `json:"Status"`
+	Headers       map[string][]string `json:"Headers"`
+	BaseResponse  string              `json:"BaseResponse"`
+	RequestMethod string              `json:"RequestMethod"`
+	RequestUri    *url.URL            `json:"RequestUri"`
+	ContentLength int64               `json:"ContentLength"`
+	ContentType   string              `json:"ContentType"`
+	LastModified  time.Time           `json:"LastModified"`
+	ResponseUri   *url.URL            `json:"ResponseUri"`
 }
 
 // InvokeWebRequestOptions holds options for invoke_web_request
 type InvokeWebRequestOptions struct {
-	Uri             string
-	Method          string
-	Headers         map[string]string
-	Body            any
-	ContentType     string
-	Timeout         int // seconds
-	SkipSSLVerify   bool
-	AllowAutoRedirect bool
+	Uri                string
+	Method             string
+	Headers            map[string]string
+	Body               any
+	ContentType        string
+	Timeout            int // seconds
+	SkipSSLVerify      bool
+	AllowAutoRedirect  bool
 	MaximumRedirection int
-	OutFile         string
-	PassThru        bool
+	OutFile            string
+	PassThru           bool
 }
 
 // RegisterInvokeWebRequest registers the invoke_web_request function with gojq
@@ -58,11 +58,11 @@ type InvokeWebRequestOptions struct {
 func RegisterInvokeWebRequest() gojq.CompilerOption {
 	return gojq.WithFunction("invoke_web_request", 0, 2, func(v any, args []any) any {
 		opts := InvokeWebRequestOptions{
-			Method:               "GET",
-			Timeout:              30,
-			AllowAutoRedirect:    true,
-			MaximumRedirection:   5,
-			SkipSSLVerify:        false,
+			Method:             "GET",
+			Timeout:            30,
+			AllowAutoRedirect:  true,
+			MaximumRedirection: 5,
+			SkipSSLVerify:      false,
 		}
 
 		// Parse arguments
@@ -319,7 +319,9 @@ func invokeWebRequest(opts InvokeWebRequestOptions) (*WebResponse, error) {
 		Headers:       resp.Header,
 		RequestMethod: resp.Request.Method,
 		RequestUri:    resp.Request.URL,
-		ContentLength: resp.ContentLength,
+		// The header value is -1 for a chunked response, which tells the
+		// caller nothing. Report what was actually received.
+		ContentLength: int64(len(respBody)),
 		ContentType:   contentType,
 		LastModified:  lastModified,
 		ResponseUri:   resp.Request.URL,
@@ -347,11 +349,11 @@ func invokeWebRequest(opts InvokeWebRequestOptions) (*WebResponse, error) {
 func RegisterInvokeRestMethod() gojq.CompilerOption {
 	return gojq.WithFunction("invoke_rest_method", 0, 2, func(v any, args []any) any {
 		opts := InvokeWebRequestOptions{
-			Method:               "GET",
-			Timeout:              30,
-			AllowAutoRedirect:    true,
-			MaximumRedirection:   5,
-			SkipSSLVerify:        false,
+			Method:             "GET",
+			Timeout:            30,
+			AllowAutoRedirect:  true,
+			MaximumRedirection: 5,
+			SkipSSLVerify:      false,
 		}
 
 		// Parse arguments (same as invoke_web_request)
@@ -425,9 +427,9 @@ func RegisterInvokeRestMethod() gojq.CompilerOption {
 		}
 
 		return common.MakeUDFSuccessResult(parsedContent, map[string]any{
-			"operation":    "invoke_rest_method",
-			"statusCode":   response.StatusCode,
-			"contentType":  response.ContentType,
+			"operation":   "invoke_rest_method",
+			"statusCode":  response.StatusCode,
+			"contentType": response.ContentType,
 		})
 	})
 }
@@ -442,21 +444,21 @@ func webResponseToMap(r *WebResponse) map[string]any {
 			headersMap[k] = v
 		}
 	}
-	
+
 	// Convert int64 to int for encoder compatibility
 	contentLength := int(r.ContentLength)
-	
+
 	return map[string]any{
-		"Content":        r.Content,
-		"StatusCode":     r.StatusCode,
-		"Status":         r.Status,
-		"Headers":        headersMap,
-		"BaseResponse":   r.BaseResponse,
-		"RequestMethod":  r.RequestMethod,
-		"RequestUri":     r.RequestUri.String(),
-		"ContentLength":  contentLength,
-		"ContentType":    r.ContentType,
-		"LastModified":   r.LastModified.Format(time.RFC3339),
-		"ResponseUri":    r.ResponseUri.String(),
+		"Content":       r.Content,
+		"StatusCode":    r.StatusCode,
+		"Status":        r.Status,
+		"Headers":       headersMap,
+		"BaseResponse":  r.BaseResponse,
+		"RequestMethod": r.RequestMethod,
+		"RequestUri":    r.RequestUri.String(),
+		"ContentLength": contentLength,
+		"ContentType":   r.ContentType,
+		"LastModified":  r.LastModified.Format(time.RFC3339),
+		"ResponseUri":   r.ResponseUri.String(),
 	}
 }

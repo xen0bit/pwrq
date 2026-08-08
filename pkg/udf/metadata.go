@@ -171,5 +171,9 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"get_date", 0, 2, "Get the current date and time as an object ([options])", "PowerShell", []string{`get_date`, `get_date | .Year`}},
 		{"set_date", 1, 2, "Set the system date (requires privileges)", "PowerShell", []string{`set_date("2026-01-01T00:00:00Z")`}},
 		{"new_timespan", 0, 2, "Create a timespan from components or two dates", "PowerShell", []string{`new_timespan({"Hours": 2})`}},
+
+		// Discovery
+		{"get_command", 0, 2, "List commands, optionally filtered by a wildcard on name or alias", "Discovery", []string{`get_command`, `get_command("get_*")`, `[get_command | select(.Category == "PowerShell") | .Name]`}},
+		{"get_help", 0, 2, "Show usage for the commands matching a name or alias", "Discovery", []string{`get_help("get_childitem")`, `"gci" | get_help`}},
 	}
 }
