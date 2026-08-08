@@ -261,3 +261,63 @@ func TestRenderD2_EveryQueryCompiles(t *testing.T) {
 		})
 	}
 }
+
+// TestRenderD2_KitchenSink runs the renderer over a query that reaches for
+// nearly every construct jq and pwrq have between them: recursive and
+// closure-taking definitions, destructuring binds, reduce, foreach, label and
+// break, try/catch, path surgery, streaming, @-formats, regex captures,
+// generators, and a dozen cmdlets. It exists because the renderer's failure
+// mode was silent - it drew a plausible diagram that had quietly dropped
+// whatever it did not understand.
+func TestRenderD2_KitchenSink(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("testdata", "kitchen_sink.jq"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := render(t, string(src))
+
+	// Nothing may be dropped: each of these is a construct the query uses.
+	requireMentions(t, script,
+		"Definitions", "human", "descend", "bucket", "stats", "redact",
+		"Collect [ ]", "gci", "select", "cat", "sha256", "entropy",
+		"as $files", "as $f", "as $src", "as $dir", "as $line",
+		"reduce", "foreach", "source", "init", "update", "extract",
+		"if", "then", "else", "try", "catch",
+		"group_by", "sort_by", "from_entries", "to_entries",
+		"limit", "paths", "getpath", "setpath", "delpaths", "walk",
+		"tostream", "fromstream", "scan", "gsub", "ascii_upcase",
+		"where_object", "select_object", "measure_object", "format_table",
+		"get_date", "new_timespan", "get_service", "test_path", "gps",
+		"builtins", "env",
+	)
+
+	// It has to be a diagram, not a wall: containers nest and stages chain.
+	if depth := maxIndent(script); depth < 5 {
+		t.Errorf("expected deep nesting for this query, got depth %d", depth)
+	}
+	if edges := strings.Count(script, " -> "); edges < 50 {
+		t.Errorf("expected the stages to be chained, got %d edges", edges)
+	}
+
+	// And no internal identifiers may leak into labels.
+	stray := regexp.MustCompile(`^n\d+$`)
+	for _, label := range labels(script) {
+		if stray.MatchString(label) {
+			t.Errorf("label %q is an internal identifier", label)
+		}
+	}
+}
+
+// maxIndent reports the deepest container nesting in a script.
+func maxIndent(script string) int {
+	deepest := 0
+	for _, line := range strings.Split(script, "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if d := (len(line) - len(strings.TrimLeft(line, " "))) / 2; d > deepest {
+			deepest = d
+		}
+	}
+	return deepest
+}
