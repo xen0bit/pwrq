@@ -1,5 +1,4 @@
-//go:build embed_web
-// +build embed_web
+//go:build viz && embed_web
 
 package cli
 

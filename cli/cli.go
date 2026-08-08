@@ -13,7 +13,6 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
-	"github.com/xen0bit/pwrq/pkg/graph"
 	"github.com/xen0bit/pwrq/pkg/udf"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -86,7 +85,7 @@ type flagopts struct {
 	Version       bool              `short:"v" long:"version" description:"display version information"`
 	Help          bool              `short:"h" long:"help" description:"display this help information"`
 	UDFList       bool              `short:"u" long:"udf-list" description:"list all available user-defined functions"`
-	Graph         string            `short:"g" long:"graph" args:"output.png" description:"generate a D2 diagram of the query flow and save to PNG file"`
+	Graph         string            `short:"g" long:"graph" args:"output.svg" description:"render the query structure as a diagram (.svg or .d2)"`
 	IDE           bool              `short:"i" long:"ide" description:"launch IDE web interface"`
 }
 
@@ -142,7 +141,7 @@ Usage:
 	// Initialize session state after flag parsing
 	cli.sessionState = sessionstate.NewSessionState()
 	cli.loadStandardAliases()
-	
+
 	// Set global session state for UDF access
 	common.SetGlobalSessionState(cli.sessionState)
 
@@ -264,7 +263,7 @@ Usage:
 
 	// Handle graph generation flag
 	if opts.Graph != "" {
-		err := graph.GenerateGraph(query, opts.Graph)
+		err := generateGraph(query, opts.Graph)
 		if err != nil {
 			return fmt.Errorf("failed to generate graph: %w", err)
 		}
@@ -513,10 +512,10 @@ func (cli *cli) loadStandardAliases() {
 	cli.sessionState.SetVariable("WhatIfPreference", false, 0)
 
 	// Initialize automatic variables
-	cli.sessionState.SetVariable("?", true, 0)              // Last command success status
-	cli.sessionState.SetVariable("LASTEXITCODE", 0, 0)      // Last native command exit code
-	cli.sessionState.SetVariable("PID", os.Getpid(), 0)     // Current process ID
-	cli.sessionState.SetVariable("PWD", "", 0)              // Current working directory (updated by Set-Location)
+	cli.sessionState.SetVariable("?", true, 0)          // Last command success status
+	cli.sessionState.SetVariable("LASTEXITCODE", 0, 0)  // Last native command exit code
+	cli.sessionState.SetVariable("PID", os.Getpid(), 0) // Current process ID
+	cli.sessionState.SetVariable("PWD", "", 0)          // Current working directory (updated by Set-Location)
 
 	// FileSystem aliases
 	cli.sessionState.SetAlias("gci", "get_childitem")
@@ -531,7 +530,7 @@ func (cli *cli) loadStandardAliases() {
 	cli.sessionState.SetAlias("measure", "measure_object")
 
 	// Common short aliases (PowerShell single-character aliases)
-	cli.sessionState.SetAlias("?", "where_object")     // Where-Object shorthand
+	cli.sessionState.SetAlias("?", "where_object") // Where-Object shorthand
 	// Note: '%' (foreach_object) not yet implemented - foreach_object UDF pending
 
 	// Output aliases - note: write_output not yet implemented, echo maps to identity

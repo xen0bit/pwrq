@@ -11,9 +11,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-# Build
-RUN source ~/.bashrc && make
+# The image serves the browser IDE, so it needs the viz build.
+RUN source ~/.bashrc && make build-viz-with-ide
 
 ENV PWRQ_PORT=8084
 
-ENTRYPOINT [ "/app/pwrq", "-i"]
+ENTRYPOINT [ "/app/pwrq-viz", "-i"]

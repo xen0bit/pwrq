@@ -1,4 +1,5 @@
 BIN := pwrq
+VIZ_BIN := pwrq-viz
 VERSION := 0.1.0
 CURRENT_REVISION := $(shell git rev-parse --short HEAD 2>/dev/null || echo "HEAD")
 BUILD_LDFLAGS := -s -w -X github.com/xen0bit/pwrq/cli.revision=$(CURRENT_REVISION)
@@ -6,17 +7,28 @@ GOBIN ?= $(shell go env GOPATH)/bin
 SHELL := /bin/bash
 
 .PHONY: all
-all: build-with-ide
+all: build
 
 .PHONY: build
 build:
 	@echo "Building $(BIN)..."
 	go build -ldflags="$(BUILD_LDFLAGS)" -o $(BIN) ./cmd/$(BIN)
 
-.PHONY: build-with-ide
-build-with-ide: web.build
-	@echo "Building $(BIN) with embedded web assets..."
-	go build -tags embed_web -ldflags="$(BUILD_LDFLAGS)" -o $(BIN) ./cmd/$(BIN)
+# pwrq-viz carries the query diagramming and the browser IDE. It is separate
+# because d2 pulls in a JavaScript engine, a syntax highlighter and a PDF
+# writer - roughly 35MB the everyday pwrq has no use for.
+.PHONY: build-viz
+build-viz:
+	@echo "Building $(VIZ_BIN)..."
+	go build -tags viz -ldflags="$(BUILD_LDFLAGS)" -o $(VIZ_BIN) ./cmd/$(VIZ_BIN)
+
+.PHONY: build-viz-with-ide
+build-viz-with-ide: web.build
+	@echo "Building $(VIZ_BIN) with embedded web assets..."
+	go build -tags "viz embed_web" -ldflags="$(BUILD_LDFLAGS)" -o $(VIZ_BIN) ./cmd/$(VIZ_BIN)
+
+.PHONY: build-all
+build-all: build build-viz
 
 .PHONY: install
 install:
@@ -26,12 +38,14 @@ install:
 .PHONY: test
 test:
 	@echo "Running tests..."
-	go test -v -race ./...
+	go test -race ./...
+	@echo "Running tests for the viz build..."
+	go test -race -tags viz ./cli/...
 
 .PHONY: test-short
 test-short:
 	@echo "Running short tests..."
-	go test -v ./...
+	go test -short ./...
 
 .PHONY: test-coverage
 test-coverage:
@@ -60,7 +74,7 @@ web.wasm:
 	@echo "Building web.wasm..."
 	@mkdir -p pkg/web/src/wasm
 	@mkdir -p pkg/web/src
-	GOOS=js GOARCH=wasm go build -ldflags="$(BUILD_LDFLAGS)" -o pkg/web/src/wasm/web.wasm ./cmd/web
+	GOOS=js GOARCH=wasm go build -tags viz -ldflags="$(BUILD_LDFLAGS)" -o pkg/web/src/wasm/web.wasm ./cmd/web
 	@echo "Copying wasm_exec.js..."
 	@cp $$(go env GOROOT)/lib/wasm/wasm_exec.js pkg/web/src/wasm_exec.js 2>/dev/null || cp $$(go env GOROOT)/misc/wasm/wasm_exec.js pkg/web/src/wasm_exec.js 2>/dev/null || echo "Warning: wasm_exec.js not found, you may need to copy it manually"
 
@@ -82,7 +96,7 @@ web.build: web.wasm
 .PHONY: clean
 clean:
 	@echo "Cleaning..."
-	rm -f $(BIN)
+	rm -f $(BIN) $(VIZ_BIN)
 	rm -f web.wasm
 	rm -rf pkg/web/src/wasm
 	rm -rf pkg/web/dist
@@ -112,9 +126,10 @@ examples: build
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  make                - Build WASM, web assets, and CLI with embedded IDE (default)"
-	@echo "  make build          - Build the $(BIN) binary (without embedded web assets)"
-	@echo "  make build-with-ide - Build $(BIN) with embedded web assets for IDE"
+	@echo "  make                - Build $(BIN) (default)"
+	@echo "  make build          - Build the $(BIN) binary"
+	@echo "  make build-viz      - Build $(VIZ_BIN) (adds query diagrams and the IDE)"
+	@echo "  make build-all      - Build both binaries"
 	@echo "  make install        - Install $(BIN) to $$GOPATH/bin"
 	@echo "  make test           - Run all tests with race detector"
 	@echo "  make test-short     - Run tests without race detector"
@@ -127,7 +142,7 @@ help:
 	@echo "  make examples       - Run multiple examples"
 	@echo "  make web.wasm       - Build web.wasm into pkg/web/src/wasm/"
 	@echo "  make web.build      - Copy web files and WASM to pkg/web/dist/"
-	@echo "  make build-with-ide - Build $(BIN) with embedded web assets for IDE"
+	@echo "  make build-viz-with-ide - Build $(VIZ_BIN) with embedded web assets"
 	@echo "  make help           - Show this help message"
 
 .PHONY: version
