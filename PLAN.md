@@ -194,6 +194,24 @@ These fail the build rather than relying on anyone remembering:
 - `TestMetadataArityMatches` — documented arities equal registered arities
 - `TestAliasesResolve` — every alias names something that exists
 
+## Follow-up: the query visualizer
+
+`pkg/graph` drew only an outline of any non-trivial query. Binary operators
+rendered with unlabelled children, object shorthand keys were dropped, unary
+operands vanished, and array construction was absent entirely — so
+`[... ] | sort_by(...)` showed a sort with nothing to sort.
+
+Rewritten to emit D2 source directly from the AST (1,691 → 614 lines, and the
+`d2oracle`/`d2format`/`d2target` dependencies are gone). Every construct that
+carries meaning expands; what does not stays inline as label text.
+
+The old tests asserted on label spellings, which is how they passed while the
+diagrams were wrong. They now assert that every part of a query appears in its
+diagram — which caught two more bugs: dotted paths written inside a D2
+container declare that path *under* it (stray `n1`/`n2` boxes), and D2 reads
+`${...}` as a substitution even inside quotes, so any query naming a jq
+variable produced an uncompilable script.
+
 ## Known remaining work
 
 - Object cmdlets (`select_object`, `where_object`, `sort_object`) still
@@ -202,3 +220,5 @@ These fail the build rather than relying on anyone remembering:
 - `EXAMPLES.md` outputs are verified by hand today; generating them in CI
   would stop them drifting again.
 - Most of `pkg/core/pipeline` remains unused (see the Phase 3 note).
+- The web IDE renders the diagram but still does not evaluate a query against
+  sample input, so it shows structure without results.
