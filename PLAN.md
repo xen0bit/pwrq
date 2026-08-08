@@ -78,24 +78,31 @@ Two bugs the tests caught, worth remembering:
 - `json.Number` is a `fmt.Stringer`; the CLI decodes with `UseNumber()`, so
   numbers in cmdlet output were being stringified.
 
-## Phase 2 — Registry as the single source of truth ⏳
+## Phase 2 — Registry as the single source of truth ✅
 
-`pkg/udf/registry.go` stores opaque `gojq.CompilerOption`s, so nothing downstream
-can see a function's name, arity, or docs. That one limitation causes three
-separate defects. Fix it once.
+- [x] `Registry.Signatures()` discovers registered name/arity pairs by asking
+      gojq for `builtins` with and without the registry applied and taking the
+      difference — nothing declares its own name, so it cannot drift
+- [x] Aliases compiled into the query as jq `FuncDef`s, generated from the
+      arities the registry reports (`pkg/udf/alias.go`)
+- [x] Guards: no UDF or alias may share a builtin's signature; documented list
+      must equal the registered set; documented arities must match
+- [x] 20 missing metadata entries added, wrong arities corrected
+- [x] `--udf-list` lists aliases, grouped by the cmdlet they name
 
-- [ ] Registry unit becomes a struct: `Name, MinArity, MaxArity, Iter, Fn,
-      Category, Description, Examples`; `Options()` builds the CompilerOptions
-- [ ] Aliases registered as real gojq functions from one `StandardAliases` table
-      (`gci`, `gps`, `gsv`, `fl`, `ft`, `cd`, `pushd`, `popd`, …).
-      `cli/cli.go:loadStandardAliases` keeps only its preference-variable half
-- [ ] Collision guard failing the build: no registered name may be a jq builtin.
-      Get the list by compiling `builtins` with **no** CompilerOptions — with
-      options applied it returns builtins ∪ custom. Rejects today's `select`,
-      `sort`, and `?` aliases
-- [ ] Generate `--udf-list` from the registry; delete `pkg/udf/metadata.go`
-      (20 registered functions are currently undiscoverable, 8 documented
-      `hmac_*` names don't exist)
+**Note on the approach.** The plan called for the registry to carry
+`Name/Arity/Fn/Description`, replacing the 119 `Register*() gojq.CompilerOption`
+signatures. Discovering names from gojq instead achieves the same guarantee
+without that sweep. Descriptions and examples cannot be derived from a function
+pointer, so `metadata.go` remains the declaration — but it is now
+machine-verified against reality rather than maintained by hand.
+
+Found by the guards on first run:
+- 20 registered functions were absent from `--udf-list`
+- `split`, `join` and `trim` were registered but shadowed by jq builtins, so
+  they had never executed. Removed; jq covers them.
+- A function *fully* shadowed by a builtin is invisible to the set difference,
+  so the guard also checks declared arities against the builtin set directly.
 
 ## Phase 3 — Make the cmdlets real
 

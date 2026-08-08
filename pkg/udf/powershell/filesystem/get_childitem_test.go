@@ -197,3 +197,65 @@ func TestMatchPattern(t *testing.T) {
 		})
 	}
 }
+
+// TestGetChildItem_RecurseWithFilter guards a bug that made the most natural
+// PowerShell one-liner return nothing: a directory whose own name did not match
+// -Filter was pruned, so recursion never reached the files being looked for.
+func TestGetChildItem_RecurseWithFilter(t *testing.T) {
+	root := t.TempDir()
+	nested := filepath.Join(root, "sub", "deeper")
+	if err := os.MkdirAll(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		filepath.Join(root, "top.go"),
+		filepath.Join(root, "skip.txt"),
+		filepath.Join(nested, "buried.go"),
+	} {
+		if err := os.WriteFile(path, []byte("x"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	results, err := getChildItems(GetChildItemOptions{Path: root, Recurse: true, Filter: "*.go", Depth: -1})
+	if err != nil {
+		t.Fatalf("getChildItems: %v", err)
+	}
+
+	found := make(map[string]bool)
+	for _, r := range results {
+		found[r.(map[string]any)["Name"].(string)] = true
+	}
+	for _, want := range []string{"top.go", "buried.go"} {
+		if !found[want] {
+			t.Errorf("-Recurse -Filter *.go should have found %s, got %v", want, found)
+		}
+	}
+	if found["skip.txt"] {
+		t.Error("-Filter *.go should not emit skip.txt")
+	}
+}
+
+// TestGetChildItem_BindsNamedOptions covers the reflection-based parameter
+// binding, including the case-insensitive names PowerShell accepts.
+func TestGetChildItem_BindsNamedOptions(t *testing.T) {
+	opts, err := parseGetChildItemArgs([]any{
+		"somewhere",
+		map[string]any{"recurse": true, "filter": "*.go", "Include": []any{"a", "b"}, "Depth": 3},
+	})
+	if err != nil {
+		t.Fatalf("parseGetChildItemArgs: %v", err)
+	}
+	if !opts.Recurse {
+		t.Error("lowercase 'recurse' should bind, as PowerShell parameter names are case-insensitive")
+	}
+	if opts.Filter != "*.go" {
+		t.Errorf("Filter = %q, want *.go", opts.Filter)
+	}
+	if len(opts.Include) != 2 || opts.Include[0] != "a" {
+		t.Errorf("Include = %v, want [a b] converted from []any", opts.Include)
+	}
+	if opts.Depth != 3 {
+		t.Errorf("Depth = %d, want 3", opts.Depth)
+	}
+}

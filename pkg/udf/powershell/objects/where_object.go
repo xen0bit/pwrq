@@ -67,7 +67,8 @@ func (op FilterOperator) String() string {
 
 // WhereObjectOptions holds options for the where_object function
 type WhereObjectOptions struct {
-	// ScriptBlock is a jq-style filter expression (e.g., ".Age > 18")
+	// ScriptBlock is a jq filter expression (e.g. ".Age > 18"). Any jq
+	// expression is valid; it is compiled once and run against each object.
 	ScriptBlock string
 	// Property is the property name to filter on (simplified syntax)
 	Property string
@@ -90,13 +91,13 @@ func RegisterWhereObject() gojq.CompilerOption {
 		// Parse arguments
 		objects, opts, err := ParseWhereObjectArgs(args)
 		if err != nil {
-			return newErrorObject(err.Error())
+			return common.MakeUDFErrorResult(err, nil)
 		}
 
 		// Filter objects
 		filtered, err := whereObject(objects, opts)
 		if err != nil {
-			return newErrorObject(err.Error())
+			return common.MakeUDFErrorResult(err, nil)
 		}
 
 		return filtered
@@ -140,10 +141,9 @@ func parseOperator(s string) FilterOperator {
 }
 
 // evaluateCondition evaluates whether an object matches the filter condition
-func evaluateCondition(obj any, opts WhereObjectOptions) (bool, error) {
-	if opts.ScriptBlock != "" {
-		// Script block mode - evaluate jq-style expression
-		return evaluateScriptBlock(obj, opts.ScriptBlock, opts.CaseSensitive)
+func evaluateCondition(obj any, opts WhereObjectOptions, block *common.ScriptBlock) (bool, error) {
+	if block != nil {
+		return evaluateScriptBlock(obj, block)
 	}
 
 	// Simplified syntax mode - property + operator + value
@@ -154,166 +154,9 @@ func evaluateCondition(obj any, opts WhereObjectOptions) (bool, error) {
 	return evaluatePropertyCondition(obj, opts.Property, opts.Operator, opts.Value, opts.CaseSensitive)
 }
 
-// evaluateScriptBlock evaluates a jq-style filter expression against an object
-func evaluateScriptBlock(obj any, script string, caseSensitive bool) (bool, error) {
-	// Extract the underlying value from PSObject if present
-	value := common.BindValue(obj)
-
-	// For script blocks, we need to evaluate them as jq expressions
-	// This is a simplified implementation - full implementation would use gojq
-	// to evaluate the script block against the object
-
-	// Handle common patterns manually for now
-	// Pattern: .Property -op Value or .Property op Value
-
-	// Try to parse and evaluate the script block
-	result, err := evaluateJqLikeExpression(value, script, caseSensitive)
-	if err != nil {
-		return false, fmt.Errorf("script block evaluation failed: %w", err)
-	}
-
-	// Convert result to bool
-	return toBool(result), nil
-}
-
-// evaluateJqLikeExpression evaluates a jq-like expression manually
-// This is a simplified implementation for common patterns
-func evaluateJqLikeExpression(value any, expr string, caseSensitive bool) (any, error) {
-	expr = strings.TrimSpace(expr)
-
-	// Check for function-style expressions first: .Property | contains("value")
-	if strings.Contains(expr, " | contains(") {
-		parts := strings.SplitN(expr, " | contains(", 2)
-		if len(parts) == 2 {
-			left := strings.TrimSpace(parts[0])
-			right := strings.TrimSuffix(strings.TrimSpace(parts[1]), ")")
-			right = strings.Trim(right, "\"'")
-
-			propValue, err := extractPropertyByPath(value, left)
-			if err != nil {
-				return nil, err
-			}
-
-			return containsValue(propValue, right), nil
-		}
-	}
-
-	// Check for startswith/endswith
-	if strings.Contains(expr, " | startswith(") {
-		parts := strings.SplitN(expr, " | startswith(", 2)
-		if len(parts) == 2 {
-			left := strings.TrimSpace(parts[0])
-			right := strings.TrimSuffix(strings.TrimSpace(parts[1]), ")")
-			right = strings.Trim(right, "\"'")
-
-			propValue, err := extractPropertyByPath(value, left)
-			if err != nil {
-				return nil, err
-			}
-
-			return startsWithValue(propValue, right), nil
-		}
-	}
-
-	if strings.Contains(expr, " | endswith(") {
-		parts := strings.SplitN(expr, " | endswith(", 2)
-		if len(parts) == 2 {
-			left := strings.TrimSpace(parts[0])
-			right := strings.TrimSuffix(strings.TrimSpace(parts[1]), ")")
-			right = strings.Trim(right, "\"'")
-
-			propValue, err := extractPropertyByPath(value, left)
-			if err != nil {
-				return nil, err
-			}
-
-			return endsWithValue(propValue, right), nil
-		}
-	}
-
-	// Pattern: .Property > Value or .Property -gt Value
-	// Pattern: .Property == Value or .Property -eq Value
-	// etc.
-	// Order matters - check longer operators first
-	operators := []string{
-		" -contains ", " -notcontains ",
-		" -notlike ", " -notmatch ",
-		" -eq ", " -ne ", " -gt ", " -ge ", " -lt ", " -le ",
-		" -like ", " -match ",
-		" == ", " != ", " >= ", " <= ", " > ", " < ",
-	}
-
-	for _, op := range operators {
-		idx := strings.Index(expr, op)
-		if idx > 0 {
-			left := strings.TrimSpace(expr[:idx])
-			right := strings.TrimSpace(expr[idx+len(op):])
-
-			// Extract property value from left side
-			propValue, err := extractPropertyByPath(value, left)
-			if err != nil {
-				return nil, err
-			}
-
-			// Parse right side value
-			rightValue := parseLiteralValue(right)
-
-			// Apply operator with case sensitivity
-			return applyOperator(propValue, parseOperatorFromToken(op), rightValue, caseSensitive)
-		}
-	}
-
-	// Simple property access: .Property
-	if strings.HasPrefix(expr, ".") {
-		return extractPropertyByPath(value, expr)
-	}
-
-	// Return the expression as-is if it can't be parsed
-	return expr, nil
-}
-
-// parseOperatorFromToken converts an operator token to FilterOperator
-func parseOperatorFromToken(token string) FilterOperator {
-	switch token {
-	case " -eq ":
-		return FilterOperatorEq
-	case " -ne ":
-		return FilterOperatorNe
-	case " -gt ":
-		return FilterOperatorGt
-	case " -ge ":
-		return FilterOperatorGe
-	case " -lt ":
-		return FilterOperatorLt
-	case " -le ":
-		return FilterOperatorLe
-	case " -like ":
-		return FilterOperatorLike
-	case " -notlike ":
-		return FilterOperatorNotLike
-	case " -match ":
-		return FilterOperatorMatch
-	case " -notmatch ":
-		return FilterOperatorNotMatch
-	case " -contains ":
-		return FilterOperatorContains
-	case " -notcontains ":
-		return FilterOperatorNotContains
-	case " == ":
-		return FilterOperatorEq
-	case " != ":
-		return FilterOperatorNe
-	case " > ":
-		return FilterOperatorGt
-	case " >= ":
-		return FilterOperatorGe
-	case " < ":
-		return FilterOperatorLt
-	case " <= ":
-		return FilterOperatorLe
-	default:
-		return FilterOperatorEq
-	}
+// evaluateScriptBlock evaluates a jq expression against an object.
+func evaluateScriptBlock(obj any, block *common.ScriptBlock) (bool, error) {
+	return block.EvalBool(obj)
 }
 
 // extractPropertyByPath extracts a property value using dot notation
@@ -387,38 +230,6 @@ func extractPropertyByPath(value any, path string) (any, error) {
 	}
 
 	return current, nil
-}
-
-// parseLiteralValue parses a literal value from a string
-func parseLiteralValue(s string) any {
-	s = strings.TrimSpace(s)
-
-	// Remove quotes
-	if (strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"")) ||
-		(strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'")) {
-		return s[1 : len(s)-1]
-	}
-
-	// Try to parse as number
-	if num, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return num
-	}
-	if num, err := strconv.ParseFloat(s, 64); err == nil {
-		return num
-	}
-
-	// Boolean
-	switch strings.ToLower(s) {
-	case "true":
-		return true
-	case "false":
-		return false
-	case "null", "$null":
-		return nil
-	}
-
-	// Return as string
-	return s
 }
 
 // applyOperator applies a comparison operator to two values
@@ -610,22 +421,6 @@ func containsValue(left, right any) bool {
 	return strings.Contains(leftStr, rightStr)
 }
 
-// startsWithValue checks if left starts with right
-func startsWithValue(left, right any) bool {
-	leftStr := fmt.Sprintf("%v", left)
-	rightStr := fmt.Sprintf("%v", right)
-
-	return strings.HasPrefix(leftStr, rightStr)
-}
-
-// endsWithValue checks if left ends with right
-func endsWithValue(left, right any) bool {
-	leftStr := fmt.Sprintf("%v", left)
-	rightStr := fmt.Sprintf("%v", right)
-
-	return strings.HasSuffix(leftStr, rightStr)
-}
-
 // toBool converts a value to boolean
 func toBool(v any) bool {
 	if v == nil {
@@ -679,10 +474,20 @@ func whereObject(objects []any, opts WhereObjectOptions) ([]any, error) {
 		return nil, fmt.Errorf("where_object: requires either 'script' or 'property' option")
 	}
 
+	// Compile the script block once rather than per object.
+	var block *common.ScriptBlock
+	if opts.ScriptBlock != "" {
+		compiled, err := common.CompileScriptBlock(opts.ScriptBlock)
+		if err != nil {
+			return nil, fmt.Errorf("where_object: %w", err)
+		}
+		block = compiled
+	}
+
 	result := make([]any, 0, len(objects))
 
 	for _, obj := range objects {
-		matches, err := evaluateCondition(obj, opts)
+		matches, err := evaluateCondition(obj, opts, block)
 		if err != nil {
 			return nil, err
 		}
@@ -695,14 +500,6 @@ func whereObject(objects []any, opts WhereObjectOptions) ([]any, error) {
 	}
 
 	return result, nil
-}
-
-// newErrorObject creates an error result object
-func newErrorObject(message string) map[string]any {
-	return map[string]any{
-		"_error": true,
-		"error":  message,
-	}
 }
 
 // ParseWhereObjectArgs parses arguments for testing

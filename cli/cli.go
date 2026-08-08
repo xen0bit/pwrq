@@ -292,6 +292,11 @@ Usage:
 	}
 	query.FuncDefs = append(aliasDefs, query.FuncDefs...)
 
+	// Script blocks passed to cmdlets compile against the same vocabulary as
+	// the surrounding query, so `where_object($x; {script: "sha256 == $h"})`
+	// can reach the UDFs.
+	common.SetScriptBlockOptions(udfOptions)
+
 	// Build compiler options
 	options := []gojq.CompilerOption{
 		gojq.WithModuleLoader(gojq.NewModuleLoader(modulePaths)),

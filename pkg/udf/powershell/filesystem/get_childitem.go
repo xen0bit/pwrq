@@ -7,34 +7,39 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/pipeline"
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
-// GetChildItemOptions represents options for Get-ChildItem
+// GetChildItemOptions represents options for Get-ChildItem.
+//
+// The param tags let pipeline.BindParameters populate this from an options
+// object, so `get_childitem("src"; {Recurse: true, Filter: "*.go"})` needs no
+// per-field unpacking here. Names bind case-insensitively, as PowerShell's do.
 type GetChildItemOptions struct {
-	Path      string
-	Filter    string
-	Recurse   bool
-	Force     bool
-	Name      string
-	Include   []string
-	Exclude   []string
-	Depth     int
-	Directory bool
-	File      bool
+	Path      string   `param:"Path"`
+	Filter    string   `param:"Filter"`
+	Recurse   bool     `param:"Recurse"`
+	Force     bool     `param:"Force"`
+	Name      string   `param:"Name"`
+	Include   []string `param:"Include"`
+	Exclude   []string `param:"Exclude"`
+	Depth     int      `param:"Depth"`
+	Directory bool     `param:"Directory"`
+	File      bool     `param:"File"`
 }
 
 // parseGetChildItemArgs parses arguments for get_childitem
 func parseGetChildItemArgs(args []any) (GetChildItemOptions, error) {
 	opts := GetChildItemOptions{
-		Path:      ".",
-		Filter:    "",
-		Recurse:   false,
-		Force:     false,
-		Depth:     -1, // -1 means unlimited
-		Include:   []string{},
-		Exclude:   []string{},
+		Path:    ".",
+		Filter:  "",
+		Recurse: false,
+		Force:   false,
+		Depth:   -1, // -1 means unlimited
+		Include: []string{},
+		Exclude: []string{},
 	}
 
 	if len(args) == 0 {
@@ -59,44 +64,10 @@ func parseGetChildItemArgs(args []any) (GetChildItemOptions, error) {
 				opts.Recurse = true
 			}
 		case map[string]any:
-			// Object with named options (PowerShell-style parameters)
-			if path, ok := v["Path"].(string); ok {
-				opts.Path = path
-			}
-			if filter, ok := v["Filter"].(string); ok {
-				opts.Filter = filter
-			}
-			if recurse, ok := v["Recurse"].(bool); ok {
-				opts.Recurse = recurse
-			}
-			if force, ok := v["Force"].(bool); ok {
-				opts.Force = force
-			}
-			if name, ok := v["Name"].(string); ok {
-				opts.Name = name
-			}
-			if depth, ok := v["Depth"].(float64); ok {
-				opts.Depth = int(depth)
-			}
-			if directory, ok := v["Directory"].(bool); ok {
-				opts.Directory = directory
-			}
-			if file, ok := v["File"].(bool); ok {
-				opts.File = file
-			}
-			if include, ok := v["Include"].([]any); ok {
-				for _, inc := range include {
-					if s, ok := inc.(string); ok {
-						opts.Include = append(opts.Include, s)
-					}
-				}
-			}
-			if exclude, ok := v["Exclude"].([]any); ok {
-				for _, exc := range exclude {
-					if s, ok := exc.(string); ok {
-						opts.Exclude = append(opts.Exclude, s)
-					}
-				}
+			// Named options bind by reflection from the struct's param tags,
+			// rather than a hand-written unpacking of every field.
+			if err := pipeline.BindParameters(v, &opts); err != nil {
+				return opts, fmt.Errorf("get_childitem: %w", err)
 			}
 		}
 	}
@@ -168,15 +139,22 @@ func getChildItems(opts GetChildItemOptions) ([]any, error) {
 			return filepath.SkipDir
 		}
 
-		// Apply Filter (PowerShell-style wildcard matching)
+		// Apply Filter and Include (PowerShell-style wildcard matching).
+		//
+		// These decide what is emitted, not what is descended into. Pruning a
+		// directory because its own name does not match the filter made
+		// -Recurse with -Filter return nothing at all: every intermediate
+		// directory was skipped before its contents were ever considered.
 		if opts.Filter != "" && !matchPattern(opts.Filter, info.Name()) {
+			if info.IsDir() && opts.Recurse {
+				return nil
+			}
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		// Apply Include filters (if specified, file must match at least one)
 		if len(opts.Include) > 0 {
 			matched := false
 			for _, pattern := range opts.Include {
@@ -186,6 +164,9 @@ func getChildItems(opts GetChildItemOptions) ([]any, error) {
 				}
 			}
 			if !matched {
+				if info.IsDir() && opts.Recurse {
+					return nil
+				}
 				if info.IsDir() {
 					return filepath.SkipDir
 				}

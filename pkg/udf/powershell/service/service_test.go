@@ -8,6 +8,9 @@ import (
 )
 
 func TestGetService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("shells out to the system service manager")
+	}
 	ss := sessionstate.NewSessionState()
 	common.SetGlobalSessionState(ss)
 	defer common.SetGlobalSessionState(nil)
@@ -26,6 +29,9 @@ func TestGetService(t *testing.T) {
 }
 
 func TestGetServiceByName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("shells out to the system service manager")
+	}
 	ss := sessionstate.NewSessionState()
 	common.SetGlobalSessionState(ss)
 	defer common.SetGlobalSessionState(nil)
@@ -135,6 +141,9 @@ func TestMatchPattern(t *testing.T) {
 }
 
 func TestStartService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("shells out to the system service manager")
+	}
 	ss := sessionstate.NewSessionState()
 	common.SetGlobalSessionState(ss)
 	defer common.SetGlobalSessionState(nil)
@@ -192,6 +201,9 @@ func TestStartServiceOptionsParsing(t *testing.T) {
 }
 
 func TestStopService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("shells out to the system service manager")
+	}
 	ss := sessionstate.NewSessionState()
 	common.SetGlobalSessionState(ss)
 	defer common.SetGlobalSessionState(nil)

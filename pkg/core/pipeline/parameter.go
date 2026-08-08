@@ -139,6 +139,25 @@ func convertValue(value any, targetType reflect.Type) (reflect.Value, error) {
 			}
 			return reflect.Zero(targetType), fmt.Errorf("cannot convert %q to bool", v)
 		}
+
+	case reflect.Slice:
+		// JSON arrays arrive as []any, so a parameter declared as []string has
+		// to convert element-wise. A single value binds as a one-element list,
+		// which is how PowerShell treats a scalar passed to an array parameter.
+		elemType := targetType.Elem()
+		items, ok := value.([]any)
+		if !ok {
+			items = []any{value}
+		}
+		result := reflect.MakeSlice(targetType, 0, len(items))
+		for i, item := range items {
+			converted, err := convertValue(item, elemType)
+			if err != nil {
+				return reflect.Zero(targetType), fmt.Errorf("element %d: %w", i, err)
+			}
+			result = reflect.Append(result, converted)
+		}
+		return result, nil
 	}
 
 	return reflect.Zero(targetType), fmt.Errorf("no conversion from %v to %v", valueType, targetType)
@@ -157,7 +176,7 @@ func BindParameters(params map[string]any, target any, positionalParams ...any) 
 	}
 
 	targetValue := reflect.ValueOf(target)
-	if targetValue.Kind() != reflect.Ptr {
+	if targetValue.Kind() != reflect.Pointer {
 		return fmt.Errorf("target must be a pointer")
 	}
 	targetElem := targetValue.Elem()
@@ -207,7 +226,9 @@ func BindParameters(params map[string]any, target any, positionalParams ...any) 
 			}
 		}
 
-		nameMap[paramName] = i
+		// PowerShell parameter names are case-insensitive, so -recurse and
+		// -Recurse are the same parameter.
+		nameMap[strings.ToLower(paramName)] = i
 		if position >= 0 {
 			positionMap[position] = i
 		}
@@ -258,7 +279,7 @@ func BindParameters(params map[string]any, target any, positionalParams ...any) 
 
 	// Step 2: Bind named parameters (don't override already-bound positional params)
 	for paramName, value := range params {
-		if fieldIdx, ok := nameMap[paramName]; ok {
+		if fieldIdx, ok := nameMap[strings.ToLower(paramName)]; ok {
 			// Skip if already bound by positional parameter
 			if boundFields[fieldIdx] {
 				continue

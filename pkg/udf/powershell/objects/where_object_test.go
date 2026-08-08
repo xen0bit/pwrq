@@ -356,7 +356,7 @@ func TestWhereObject_ScriptBlock(t *testing.T) {
 	}
 
 	opts := WhereObjectOptions{
-		ScriptBlock: ".Age -gt 28",
+		ScriptBlock: ".Age > 28",
 	}
 	result, err := whereObject(objects, opts)
 	if err != nil {
@@ -650,5 +650,60 @@ func TestCompareValues(t *testing.T) {
 		if result != test.expected {
 			t.Errorf("compareValues(%v, %v) = %d, expected %d", test.left, test.right, result, test.expected)
 		}
+	}
+}
+
+// Script blocks are jq, not a dialect of it. The previous implementation
+// hand-parsed a dozen hardcoded shapes; anything outside that list misbehaved
+// silently. These are the expressions that could not be written before.
+func TestWhereObject_ScriptBlockIsRealJq(t *testing.T) {
+	objects := []any{
+		map[string]any{"Name": "Alice", "Age": 30, "Tags": []any{"admin"}},
+		map[string]any{"Name": "Bob", "Age": 25, "Tags": []any{"user"}},
+		map[string]any{"Name": "Carol", "Age": 35, "Tags": []any{"user", "admin"}},
+	}
+
+	cases := []struct {
+		script string
+		want   []string
+	}{
+		{`.Age > 26 and (.Name | startswith("A"))`, []string{"Alice"}},
+		{`.Name | test("^[AB]")`, []string{"Alice", "Bob"}},
+		{`(.Age / 5 | floor) == 6`, []string{"Alice"}},
+		{`.Tags | index("admin") != null`, []string{"Alice", "Carol"}},
+		{`.Tags | length > 1`, []string{"Carol"}},
+		{`[.Age, 30] | min == 30`, []string{"Alice", "Carol"}},
+		{`.Name | ascii_downcase | endswith("l")`, []string{"Carol"}},
+		{`if .Age > 32 then true else false end`, []string{"Carol"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.script, func(t *testing.T) {
+			result, err := whereObject(objects, WhereObjectOptions{ScriptBlock: tc.script})
+			if err != nil {
+				t.Fatalf("whereObject(%q): %v", tc.script, err)
+			}
+			var got []string
+			for _, obj := range result {
+				got = append(got, obj.(map[string]any)["Name"].(string))
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("got %v, want %v", got, tc.want)
+					break
+				}
+			}
+		})
+	}
+}
+
+func TestWhereObject_InvalidScriptBlockErrors(t *testing.T) {
+	// A malformed block must fail loudly rather than filtering everything away.
+	_, err := whereObject([]any{map[string]any{"Age": 1}}, WhereObjectOptions{ScriptBlock: ".Age >"})
+	if err == nil {
+		t.Fatal("expected a malformed script block to be reported")
 	}
 }
