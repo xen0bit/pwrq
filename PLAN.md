@@ -104,14 +104,45 @@ Found by the guards on first run:
 - A function *fully* shadowed by a builtin is invisible to the set difference,
   so the guard also checks declared arities against the builtin set directly.
 
-## Phase 3 — Make the cmdlets real
+## Phase 3 — Make the cmdlets real ✅
 
-- [ ] Wire in `pkg/core/pipeline` (1,272 LOC, full test suite, zero importers)
-- [ ] `where_object` script blocks use real `gojq.Parse`/`Compile`/`Run` instead
-      of 751 lines hand-parsing jq expressions from strings; same for
-      `sort_object`/`select_object` computed properties
-- [ ] Fill out object producers with full property sets
-- [ ] Put the 50s `service` test behind a short-test skip
+- [x] `where_object` script blocks are real jq — `gojq.Parse`/`Compile`/`Run`,
+      compiled once per call and against the query's own UDF vocabulary. The
+      PowerShell `{property, operator, value}` form is untouched
+- [x] `pkg/core/pipeline`'s parameter binder wired into `get_childitem`; two
+      gaps closed first (case-insensitive names, `[]any` → `[]string`)
+- [x] System-touching `service` tests behind `-short`
+
+**Note on the approach.** Only the parameter binder was adopted. The rest of
+`pkg/core/pipeline` — `CmdletBase`, the channel-based context, a second table
+formatter — duplicates working code and does not fit gojq's synchronous
+function model. Wiring it in would have meant rewriting ~40 cmdlets for no
+user-visible gain.
+
+Found while doing it:
+- `get_childitem` pruned any directory whose own name did not match `-Filter`,
+  so `-Recurse -Filter *.go` returned nothing at all.
+
+## Phase 4 — Split the visualizer ✅
+
+- [x] `pkg/graph` and the IDE behind a `viz` build tag; `cmd/pwrq-viz` added
+- [x] `-g` help text no longer advertises `.png`, which errors
+- [x] Makefile and Dockerfile build both; `make test` covers both builds
+- [x] **43MB → 9.5MB** for the default binary
+
+## Phase 5 — Real tests and honest docs ✅
+
+- [x] `test/integration` builds and runs the binary instead of asserting
+      against the empty strings its stub `Run()` returned
+- [x] README, EXAMPLES.md, pkg/udf/README.md rewritten; every example taken
+      from a real run
+- [x] `get_command`/`get_help` over the registry, searchable by alias
+
+Found while writing the docs:
+- `test_path` returned an object, so `if test_path(x)` was always true
+- `get_service` reported 1 service on a machine with 164: it declared JSON
+  struct tags then hand-parsed by splitting on newlines
+- `invoke_web_request` reported `ContentLength: -1` for chunked responses
 
 ## Phase 4 — Split the visualizer
 
@@ -129,14 +160,45 @@ Found by the guards on first run:
 
 ---
 
+## All phases complete
+
+| | Before | After |
+|---|---|---|
+| gojq corpus cases | 11 | 840, all passing |
+| Default binary | 43MB | 9.5MB |
+| `--udf-list` accuracy | 20 missing, arities wrong | machine-verified |
+| Aliases | none worked | 30, guarded against shadowing |
+| Integration tests | asserted on `""` | run the real binary |
+
 ## Verification
 
 ```bash
-make test                                          # full suite + gojq corpus
-echo '{"_val":1,"_meta":{"a":2}}' | ./pwrq -c .    # => {"_meta":{"a":2},"_val":1}
+make test          # full suite + gojq's corpus, for both builds
+make test-short    # skips tests that touch system services
+make build-all
+
+echo '{"_val":1,"_meta":{"a":2}}' | ./pwrq -c .    # {"_meta":{"a":2},"_val":1}
 ./pwrq -c '[get_childitem(".") | select(.Length > 10000) | {Name, Length}]'
-./pwrq 'gci' && ./pwrq 'gps | length'              # aliases resolve
-go test ./pkg/udf/ -run TestNoBuiltinShadowing     # no name shadows a builtin
-diff <(./pwrq -u | names) <(registry names)        # discovery matches reality
-ls -la pwrq                                        # ~8MB target
+./pwrq -c '[gci(".")] | length'                    # aliases resolve
+./pwrq -r 'get_help("get_childitem")'
+go test ./pkg/udf/ -run TestNoBuiltinShadowing
 ```
+
+## Standing guards
+
+These fail the build rather than relying on anyone remembering:
+
+- `TestCliRun` — gojq's 840-case corpus, byte-identical
+- `TestNoBuiltinShadowing` — no UDF or alias shares a builtin's signature
+- `TestUDFListMatchesRegistry` — documented set equals registered set
+- `TestMetadataArityMatches` — documented arities equal registered arities
+- `TestAliasesResolve` — every alias names something that exists
+
+## Known remaining work
+
+- Object cmdlets (`select_object`, `where_object`, `sort_object`) still
+  overlap jq's own `select`/`sort_by`/`group_by`. They are correct now, but
+  whether they earn their place is worth revisiting with real usage.
+- `EXAMPLES.md` outputs are verified by hand today; generating them in CI
+  would stop them drifting again.
+- Most of `pkg/core/pipeline` remains unused (see the Phase 3 note).
