@@ -34,7 +34,7 @@ func RegisterPushLocation() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			if pathStr, isString := firstArg.(string); isString {
 				opts.Path = pathStr

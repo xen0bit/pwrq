@@ -316,14 +316,14 @@ func TestWhereObject_NestedProperty(t *testing.T) {
 		map[string]any{
 			"Name": "Alice",
 			"Address": map[string]any{
-				"City": "NYC",
+				"City":  "NYC",
 				"State": "NY",
 			},
 		},
 		map[string]any{
 			"Name": "Bob",
 			"Address": map[string]any{
-				"City": "LA",
+				"City":  "LA",
 				"State": "CA",
 			},
 		},

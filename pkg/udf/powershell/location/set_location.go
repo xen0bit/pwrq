@@ -48,7 +48,7 @@ func RegisterSetLocation() gojq.CompilerOption {
 		}
 
 		// First argument is path or options
-		firstArg := common.ExtractUDFValue(args[0])
+		firstArg := common.BindValue(args[0])
 		
 		if pathStr, isString := firstArg.(string); isString {
 			path = pathStr

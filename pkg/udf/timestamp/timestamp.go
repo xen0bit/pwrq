@@ -18,7 +18,7 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var timestamp int64
 		var filePath string
@@ -106,7 +106,7 @@ func RegisterDateToTimestamp() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("date_to_timestamp: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var dateStr string
 		var filePath string

@@ -85,4 +85,3 @@ func ReadFileFromPath(filePath string) ([]byte, string, int64, error) {
 
 	return fileData, absPath, fileSize, nil
 }
-

@@ -8,10 +8,10 @@ import (
 
 func TestParseGetChildItemArgs(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []any
-		wantPath string
-		wantFilter string
+		name        string
+		args        []any
+		wantPath    string
+		wantFilter  string
 		wantRecurse bool
 		wantInclude []string
 		wantExclude []string
@@ -27,29 +27,29 @@ func TestParseGetChildItemArgs(t *testing.T) {
 			wantPath: "/tmp",
 		},
 		{
-			name:     "path and filter",
-			args:     []any{"/tmp", "*.go"},
-			wantPath: "/tmp",
+			name:       "path and filter",
+			args:       []any{"/tmp", "*.go"},
+			wantPath:   "/tmp",
 			wantFilter: "*.go",
 		},
 		{
 			name: "named parameters with include",
 			args: []any{map[string]any{
-				"Path": "/tmp",
+				"Path":    "/tmp",
 				"Include": []any{"*.go", "*.md"},
 				"Exclude": []any{"*.tmp"},
 			}},
-			wantPath: "/tmp",
+			wantPath:    "/tmp",
 			wantInclude: []string{"*.go", "*.md"},
 			wantExclude: []string{"*.tmp"},
 		},
 		{
 			name: "recurse flag",
 			args: []any{map[string]any{
-				"Path": "/tmp",
+				"Path":    "/tmp",
 				"Recurse": true,
 			}},
-			wantPath: "/tmp",
+			wantPath:    "/tmp",
 			wantRecurse: true,
 		},
 	}
@@ -98,8 +98,8 @@ func TestGetChildItems(t *testing.T) {
 	os.WriteFile(filepath.Join(subDir, "file3.txt"), []byte("content3"), 0644)
 
 	tests := []struct {
-		name        string
-		opts        GetChildItemOptions
+		name         string
+		opts         GetChildItemOptions
 		wantMinCount int
 		wantMaxCount int
 	}{
@@ -114,7 +114,7 @@ func TestGetChildItems(t *testing.T) {
 		{
 			name: "filter by extension",
 			opts: GetChildItemOptions{
-				Path: tmpDir,
+				Path:   tmpDir,
 				Filter: "*.go",
 			},
 			wantMinCount: 1,
@@ -123,7 +123,7 @@ func TestGetChildItems(t *testing.T) {
 		{
 			name: "force includes hidden",
 			opts: GetChildItemOptions{
-				Path: tmpDir,
+				Path:  tmpDir,
 				Force: true,
 			},
 			wantMinCount: 4,
@@ -132,7 +132,7 @@ func TestGetChildItems(t *testing.T) {
 		{
 			name: "recursive",
 			opts: GetChildItemOptions{
-				Path: tmpDir,
+				Path:    tmpDir,
 				Recurse: true,
 			},
 			wantMinCount: 4, // includes subdir/file3.txt
@@ -141,7 +141,7 @@ func TestGetChildItems(t *testing.T) {
 		{
 			name: "directory only",
 			opts: GetChildItemOptions{
-				Path: tmpDir,
+				Path:      tmpDir,
 				Directory: true,
 			},
 			wantMinCount: 1, // only subdir

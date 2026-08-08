@@ -16,7 +16,7 @@ func RegisterEntropy() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("entropy: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string

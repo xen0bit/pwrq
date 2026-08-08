@@ -2,6 +2,8 @@ package psobject
 
 import (
 	"encoding/json"
+	"math/big"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -147,377 +149,6 @@ func TestInvokeMethod(t *testing.T) {
 	}
 }
 
-func TestToMap(t *testing.T) {
-	psobj := NewPSObject("test")
-	psobj.AddNoteProperty("Name", "value")
-	psobj.AddAliasProperty("Alias", "Name")
-
-	m := psobj.ToMap()
-
-	if m["_val"] != "test" {
-		t.Errorf("Expected _val 'test', got %v", m["_val"])
-	}
-
-	meta, ok := m["_meta"].(map[string]any)
-	if !ok {
-		t.Fatal("_meta should be a map")
-	}
-
-	if meta["type"] != "System.String" {
-		t.Errorf("Expected type 'System.String', got %v", meta["type"])
-	}
-
-	members, ok := meta["members"].(map[string]any)
-	if !ok {
-		t.Fatal("members should be a map")
-	}
-
-	nameMember, ok := members["Name"].(map[string]any)
-	if !ok {
-		t.Fatal("Name member not found")
-	}
-	if nameMember["value"] != "value" {
-		t.Errorf("Expected Name value 'value', got %v", nameMember["value"])
-	}
-}
-
-func TestFromMap(t *testing.T) {
-	m := map[string]any{
-		"_val": "test",
-		"_meta": map[string]any{
-			"type": "System.String",
-			"members": map[string]any{
-				"Name": map[string]any{
-					"type":         "NoteProperty",
-					"value":        "value",
-					"serializable": true,
-				},
-				"Alias": map[string]any{
-					"type":         "AliasProperty",
-					"target":       "Name",
-					"serializable": true,
-				},
-			},
-		},
-	}
-
-	psobj, err := FromMap(m)
-	if err != nil {
-		t.Fatalf("FromMap failed: %v", err)
-	}
-
-	if psobj.Value != "test" {
-		t.Errorf("Expected value 'test', got %v", psobj.Value)
-	}
-	if psobj.TypeName != "System.String" {
-		t.Errorf("Expected type 'System.String', got %s", psobj.TypeName)
-	}
-
-	val, err := psobj.GetPropertyValue("Name")
-	if err != nil {
-		t.Fatalf("GetPropertyValue failed: %v", err)
-	}
-	if val != "value" {
-		t.Errorf("Expected 'value', got %v", val)
-	}
-}
-
-func TestFromMapValidation(t *testing.T) {
-	// Missing _val
-	_, err := FromMap(map[string]any{
-		"_meta": map[string]any{},
-	})
-	if err == nil {
-		t.Error("Expected error for missing _val")
-	}
-
-	// Missing _meta
-	_, err = FromMap(map[string]any{
-		"_val": "test",
-	})
-	if err == nil {
-		t.Error("Expected error for missing _meta")
-	}
-
-	// Nil map
-	_, err = FromMap(nil)
-	if err == nil {
-		t.Error("Expected error for nil map")
-	}
-}
-
-func TestJSONRoundTrip(t *testing.T) {
-	psobj := NewPSObject("test")
-	psobj.AddNoteProperty("Name", "value")
-	psobj.AddAliasProperty("Alias", "Name")
-
-	// Convert to map and serialize to JSON
-	m := psobj.ToMap()
-	jsonBytes, err := json.Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal failed: %v", err)
-	}
-
-	// Deserialize and reconstruct
-	var m2 map[string]any
-	err = json.Unmarshal(jsonBytes, &m2)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-
-	psobj2, err := FromMap(m2)
-	if err != nil {
-		t.Fatalf("FromMap failed: %v", err)
-	}
-
-	// Verify value and type
-	if psobj2.Value != "test" {
-		t.Errorf("Expected value 'test', got %v", psobj2.Value)
-	}
-	if psobj2.TypeName != "System.String" {
-		t.Errorf("Expected type 'System.String', got %s", psobj2.TypeName)
-	}
-
-	// Verify NoteProperty survived
-	val, err := psobj2.GetPropertyValue("Name")
-	if err != nil {
-		t.Fatalf("GetPropertyValue failed: %v", err)
-	}
-	if val != "value" {
-		t.Errorf("Expected 'value', got %v", val)
-	}
-
-	// Verify AliasProperty survived
-	val, err = psobj2.GetPropertyValue("Alias")
-	if err != nil {
-		t.Fatalf("GetPropertyValue for alias failed: %v", err)
-	}
-	if val != "value" {
-		t.Errorf("Expected alias to resolve to 'value', got %v", val)
-	}
-}
-
-func TestNestedPSObject(t *testing.T) {
-	inner := NewPSObject("inner")
-	inner.AddNoteProperty("InnerProp", "innervalue")
-
-	outer := NewPSObject("outer")
-	outer.AddNoteProperty("Inner", inner)
-
-	m := outer.ToMap()
-	jsonBytes, err := json.Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal failed: %v", err)
-	}
-
-	var m2 map[string]any
-	err = json.Unmarshal(jsonBytes, &m2)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-
-	psobj, err := FromMap(m2)
-	if err != nil {
-		t.Fatalf("FromMap failed: %v", err)
-	}
-
-	// Verify nested PSObject was reconstructed
-	innerVal, err := psobj.GetPropertyValue("Inner")
-	if err != nil {
-		t.Fatalf("GetPropertyValue for Inner failed: %v", err)
-	}
-
-	innerPSObj, ok := innerVal.(*PSObject)
-	if !ok {
-		t.Fatal("Inner value should be a PSObject")
-	}
-
-	propVal, err := innerPSObj.GetPropertyValue("InnerProp")
-	if err != nil {
-		t.Fatalf("GetPropertyValue for InnerProp failed: %v", err)
-	}
-	if propVal != "innervalue" {
-		t.Errorf("Expected 'innervalue', got %v", propVal)
-	}
-}
-
-func TestNestedPSObjectWithScriptProperty(t *testing.T) {
-	// ScriptProperty/Method cannot be serialized, so test with NoteProperty only
-	inner := NewPSObject("inner")
-	inner.AddNoteProperty("InnerProp", "innervalue")
-
-	outer := NewPSObject("outer")
-	outer.AddNoteProperty("Inner", inner)
-
-	m := outer.ToMap()
-	jsonBytes, err := json.Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal failed: %v", err)
-	}
-
-	var m2 map[string]any
-	err = json.Unmarshal(jsonBytes, &m2)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-
-	psobj, err := FromMap(m2)
-	if err != nil {
-		t.Fatalf("FromMap failed: %v", err)
-	}
-
-	// Verify nested PSObject was reconstructed
-	innerVal, err := psobj.GetPropertyValue("Inner")
-	if err != nil {
-		t.Fatalf("GetPropertyValue for Inner failed: %v", err)
-	}
-
-	innerPSObj, ok := innerVal.(*PSObject)
-	if !ok {
-		t.Fatal("Inner value should be a PSObject")
-	}
-
-	propVal, err := innerPSObj.GetPropertyValue("InnerProp")
-	if err != nil {
-		t.Fatalf("GetPropertyValue for InnerProp failed: %v", err)
-	}
-	if propVal != "innervalue" {
-		t.Errorf("Expected 'innervalue', got %v", propVal)
-	}
-}
-
-func TestScriptPropertySerialization(t *testing.T) {
-	psobj := NewPSObject(42)
-	psobj.AddScriptProperty("Doubled", func() (any, error) {
-		return 84, nil
-	})
-
-	m := psobj.ToMap()
-	// ScriptProperty with nil Getter and no Description won't serialize the function
-	// but the member metadata should be preserved
-	members := m["_meta"].(map[string]any)["members"].(map[string]any)
-	doubledMember, ok := members["Doubled"].(map[string]any)
-	if !ok {
-		t.Fatal("Doubled member not in serialized output")
-	}
-	if doubledMember["serializable"] != false {
-		t.Error("ScriptProperty should be marked non-serializable")
-	}
-
-	// JSON marshal succeeds because Getter has json:"-" tag
-	// The function is silently dropped - this is expected behavior
-	jsonBytes, err := json.Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal should succeed with json:\"-\" tag, got: %v", err)
-	}
-
-	// After round-trip, the ScriptProperty becomes a NoteProperty (no getter)
-	var m2 map[string]any
-	err = json.Unmarshal(jsonBytes, &m2)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-
-	psobj2, err := FromMap(m2)
-	if err != nil {
-		t.Fatalf("FromMap failed: %v", err)
-	}
-
-	member, ok := psobj2.GetMember("Doubled")
-	if !ok {
-		t.Fatal("Doubled member should exist after round-trip")
-	}
-	if member.Getter != nil {
-		t.Error("Getter should be nil after JSON round-trip (functions not serializable)")
-	}
-}
-
-func TestScriptPropertyWithDescriptionSerialization(t *testing.T) {
-	psobj := NewPSObject(42)
-	// Add ScriptProperty with a description - this survives serialization
-	psobj.Members["Doubled"] = &PSMember{
-		Name:       "Doubled",
-		MemberType: MemberTypeScriptProperty,
-		Getter:     func() (any, error) { return 84, nil },
-		Description: "Returns double the value",
-		Serializable: false,
-	}
-
-	m := psobj.ToMap()
-	jsonBytes, err := json.Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal failed: %v", err)
-	}
-
-	var m2 map[string]any
-	err = json.Unmarshal(jsonBytes, &m2)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-
-	psobj2, err := FromMap(m2)
-	if err != nil {
-		t.Fatalf("FromMap failed: %v", err)
-	}
-
-	// ScriptProperty getter is lost, but member metadata survives
-	member, ok := psobj2.GetMember("Doubled")
-	if !ok {
-		t.Fatal("Doubled member not found after round-trip")
-	}
-	// The getter function is not serializable, so it should be nil
-	if member.Getter != nil {
-		t.Error("Getter should be nil after JSON round-trip")
-	}
-	if member.Description != "Returns double the value" {
-		t.Errorf("Expected description to survive, got %v", member.Description)
-	}
-}
-
-func TestMethodSerialization(t *testing.T) {
-	psobj := NewPSObject(10)
-	// Add Method with a description - this survives serialization
-	psobj.Members["Add"] = &PSMember{
-		Name:       "Add",
-		MemberType: MemberTypeMethod,
-		Invoker:    func(args ...any) any { return 42 },
-		Description: "Adds values together",
-		Serializable: false,
-	}
-
-	m := psobj.ToMap()
-	jsonBytes, err := json.Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal failed: %v", err)
-	}
-
-	var m2 map[string]any
-	err = json.Unmarshal(jsonBytes, &m2)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-
-	psobj2, err := FromMap(m2)
-	if err != nil {
-		t.Fatalf("FromMap failed: %v", err)
-	}
-
-	// Method invoker is lost, but member metadata survives
-	member, ok := psobj2.GetMember("Add")
-	if !ok {
-		t.Fatal("Add member not found after round-trip")
-	}
-	if member.MemberType != MemberTypeMethod {
-		t.Errorf("Expected MemberTypeMethod, got %s", member.MemberType)
-	}
-	if member.Invoker != nil {
-		t.Error("Invoker should be nil after JSON round-trip")
-	}
-	if member.Description != "Adds values together" {
-		t.Errorf("Expected description to survive, got %v", member.Description)
-	}
-}
-
 func TestConvertValue(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -563,34 +194,6 @@ func TestIsPSObject(t *testing.T) {
 	}
 }
 
-func TestExtractValue(t *testing.T) {
-	psobj := NewPSObject("test")
-	val := ExtractValue(psobj)
-	if val != "test" {
-		t.Errorf("Expected 'test', got %v", val)
-	}
-
-	m := psobj.ToMap()
-	val = ExtractValue(m)
-	if val != "test" {
-		t.Errorf("Expected 'test', got %v", val)
-	}
-}
-
-func TestExtractTypeName(t *testing.T) {
-	psobj := NewPSObject("test")
-	typeName := ExtractTypeName(psobj)
-	if typeName != "System.String" {
-		t.Errorf("Expected 'System.String', got %s", typeName)
-	}
-
-	m := psobj.ToMap()
-	typeName = ExtractTypeName(m)
-	if typeName != "System.String" {
-		t.Errorf("Expected 'System.String', got %s", typeName)
-	}
-}
-
 func TestConvertToDateTime(t *testing.T) {
 	now := time.Now()
 	psobj := NewPSObject(now.Format(time.RFC3339))
@@ -603,26 +206,181 @@ func TestConvertToDateTime(t *testing.T) {
 	}
 }
 
-func TestMemberSerializableFlag(t *testing.T) {
-	psobj := NewPSObject("test")
-	psobj.AddNoteProperty("Prop", "value")
-	psobj.AddScriptProperty("Computed", func() (any, error) { return 42, nil })
+// The tests below specify pwrq's object wire format: a PSObject travels as
+// ordinary JSON so that jq can query it and the encoder can print it without
+// knowing anything about PowerShell.
 
-	members := psobj.getMembersMap()
-
-	propMember, ok := members["Prop"].(map[string]any)
-	if !ok {
-		t.Fatal("Prop member not found")
-	}
-	if propMember["serializable"] != true {
-		t.Error("NoteProperty should be serializable")
-	}
-
-	computedMember, ok := members["Computed"].(map[string]any)
-	if !ok {
-		t.Fatal("Computed member not found")
-	}
-	if computedMember["serializable"] != false {
-		t.Error("ScriptProperty should not be serializable")
+func TestToJSONScalarHasNoEnvelope(t *testing.T) {
+	// A PSObject with no properties is just its value. Wrapping it would make
+	// every downstream expression pay for metadata it did not ask for.
+	for _, value := range []any{"hello", 42, true, nil} {
+		if got := NewPSObject(value).ToJSON(); !reflect.DeepEqual(got, value) {
+			t.Errorf("ToJSON(%v) = %#v, want the bare value", value, got)
+		}
 	}
 }
+
+func TestToMapFlattensProperties(t *testing.T) {
+	psobj := NewPSObjectWithTypeName("/tmp/x.txt", "System.IO.FileInfo")
+	psobj.AddNoteProperty("Name", "x.txt")
+	psobj.AddNoteProperty("Length", 128)
+
+	got := psobj.ToMap()
+
+	if got["Name"] != "x.txt" || got["Length"] != 128 {
+		t.Errorf("properties should be top-level keys, got %#v", got)
+	}
+	if got[PSTypeNameKey] != "System.IO.FileInfo" {
+		t.Errorf("%s = %v, want System.IO.FileInfo", PSTypeNameKey, got[PSTypeNameKey])
+	}
+	if got[PSPathKey] != "/tmp/x.txt" {
+		t.Errorf("%s = %v, want the underlying value", PSPathKey, got[PSPathKey])
+	}
+	for _, retired := range []string{"_val", "_meta", "_err"} {
+		if _, present := got[retired]; present {
+			t.Errorf("wire format must not carry %q", retired)
+		}
+	}
+}
+
+func TestToMapEvaluatesScriptProperties(t *testing.T) {
+	// A computed property that is never evaluated is a property that does not
+	// exist as far as the user is concerned.
+	psobj := NewPSObject("base")
+	psobj.AddScriptProperty("Computed", func() (any, error) { return 42, nil })
+	psobj.AddScriptProperty("Broken", func() (any, error) { return nil, errTest })
+
+	got := psobj.ToMap()
+
+	if got["Computed"] != 42 {
+		t.Errorf("Computed = %#v, want 42", got["Computed"])
+	}
+	if v, present := got["Broken"]; !present || v != nil {
+		t.Errorf("a failing getter should yield null, got %#v (present=%v)", v, present)
+	}
+}
+
+func TestToMapResolvesAliasProperties(t *testing.T) {
+	psobj := NewPSObject("base")
+	psobj.AddNoteProperty("Length", 7)
+	psobj.AddAliasProperty("Size", "Length")
+
+	if got := psobj.ToMap(); got["Size"] != 7 {
+		t.Errorf("Size = %#v, want 7 (aliased to Length)", got["Size"])
+	}
+}
+
+func TestToMapOmitsMethodsAndEvents(t *testing.T) {
+	psobj := NewPSObject("base")
+	psobj.AddNoteProperty("Name", "n")
+	psobj.AddMethod("Refresh", func(args ...any) any { return nil })
+	psobj.AddMember("Changed", MemberTypeEvent, nil)
+
+	got := psobj.ToMap()
+	for _, name := range []string{"Refresh", "Changed"} {
+		if _, present := got[name]; present {
+			t.Errorf("%s has no JSON representation and should be omitted", name)
+		}
+	}
+}
+
+func TestToMapIsJSONEncodable(t *testing.T) {
+	// Whatever ToMap produces has to survive the encoder, which only knows
+	// JSON types.
+	psobj := NewPSObject("base")
+	psobj.AddNoteProperty("When", time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC))
+	psobj.AddNoteProperty("Size", int64(99))
+	psobj.AddNoteProperty("Raw", []byte("bytes"))
+
+	got := psobj.ToMap()
+	if got["When"] != "2026-08-07T12:00:00Z" {
+		t.Errorf("When = %#v, want an RFC3339 string", got["When"])
+	}
+	if got["Size"] != 99 {
+		t.Errorf("Size = %#v (%T), want int 99", got["Size"], got["Size"])
+	}
+	if got["Raw"] != "bytes" {
+		t.Errorf("Raw = %#v, want a string", got["Raw"])
+	}
+	if _, err := json.Marshal(got); err != nil {
+		t.Errorf("ToMap output must be JSON-encodable: %v", err)
+	}
+}
+
+func TestFromMapAcceptsPlainJSON(t *testing.T) {
+	// Any JSON object is a valid PSObject; that is what lets cmdlets accept
+	// hand-written JSON as readily as cmdlet output.
+	psobj, err := FromMap(map[string]any{"Name": "x", "Length": 3})
+	if err != nil {
+		t.Fatalf("FromMap: %v", err)
+	}
+	if v, err := psobj.GetPropertyValue("Name"); err != nil || v != "x" {
+		t.Errorf("Name = %#v (err %v), want x", v, err)
+	}
+	if psobj.TypeName != "System.Management.Automation.PSCustomObject" {
+		t.Errorf("untyped JSON should get the PSCustomObject type, got %s", psobj.TypeName)
+	}
+}
+
+func TestRoundTrip(t *testing.T) {
+	psobj := NewPSObjectWithTypeName("/tmp/x.txt", "System.IO.FileInfo")
+	psobj.AddNoteProperty("Name", "x.txt")
+	psobj.AddNoteProperty("Length", 128)
+
+	back, err := FromMap(psobj.ToMap())
+	if err != nil {
+		t.Fatalf("FromMap: %v", err)
+	}
+	if back.TypeName != "System.IO.FileInfo" {
+		t.Errorf("TypeName lost in round-trip: %s", back.TypeName)
+	}
+	if v, _ := back.GetPropertyValue("Length"); v != 128 {
+		t.Errorf("Length lost in round-trip: %#v", v)
+	}
+	if back.Value != "/tmp/x.txt" {
+		t.Errorf("underlying value lost in round-trip: %#v", back.Value)
+	}
+}
+
+func TestIsPSObjectRequiresPSTypeName(t *testing.T) {
+	// A plain JSON object is not cmdlet output, even though FromMap accepts it.
+	if IsPSObject(map[string]any{"Name": "x"}) {
+		t.Error("plain JSON should not be reported as a PSObject")
+	}
+	if !IsPSObject(map[string]any{PSTypeNameKey: "System.String"}) {
+		t.Error("an object carrying PSTypeName is a PSObject")
+	}
+	if IsPSObject(map[string]any{"_val": 1, "_meta": map[string]any{}}) {
+		t.Error("the retired envelope must no longer be recognised")
+	}
+}
+
+func TestNormalizeJSONProducesJQValues(t *testing.T) {
+	cases := []struct {
+		name string
+		in   any
+		want any
+	}{
+		{"int64", int64(5), 5},
+		{"uint8", uint8(5), 5},
+		{"float32", float32(1.5), 1.5},
+		{"bytes", []byte("hi"), "hi"},
+		{"duration", 90 * time.Second, "1m30s"},
+		{"bigint", big.NewInt(7), big.NewInt(7)},
+		{"nil", nil, nil},
+		{"nested", map[string]any{"a": []any{int64(1)}}, map[string]any{"a": []any{1}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NormalizeJSON(tc.in); !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("NormalizeJSON(%#v) = %#v, want %#v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+var errTest = &testError{"boom"}
+
+type testError struct{ msg string }
+
+func (e *testError) Error() string { return e.msg }

@@ -29,14 +29,14 @@ func TestEnsurePSObject(t *testing.T) {
 			wantVal:  "test",
 		},
 		{
-			name: "PSObject-like map converted",
+			name: "typed cmdlet output keeps its type",
 			input: map[string]any{
-				"_val":  42,
-				"_meta": map[string]any{"type": "System.Int32"},
+				"PSPath":     42,
+				"PSTypeName": "System.Int32",
 			},
 			wantNil:  false,
 			wantType: "System.Int32",
-			wantVal:  42,
+			wantVal:  map[string]any{"PSPath": 42, "PSTypeName": "System.Int32"},
 		},
 		{
 			name:     "raw string wrapped",
@@ -67,10 +67,12 @@ func TestEnsurePSObject(t *testing.T) {
 			wantVal:  true,
 		},
 		{
-			name:     "raw map wrapped",
+			// Any JSON object is a PSObject; an untyped one is a PSCustomObject,
+			// which is what PowerShell calls an object with no type of its own.
+			name:     "plain JSON object becomes a PSCustomObject",
 			input:    map[string]any{"key": "value"},
 			wantNil:  false,
-			wantType: "System.Management.Automation.PSObject",
+			wantType: "System.Management.Automation.PSCustomObject",
 			wantVal:  map[string]any{"key": "value"},
 		},
 		{
@@ -86,17 +88,17 @@ func TestEnsurePSObject(t *testing.T) {
 				"_val": "incomplete",
 			},
 			wantNil:  false,
-			wantType: "System.Management.Automation.PSObject",
+			wantType: "System.Management.Automation.PSCustomObject",
 			wantVal:  map[string]any{"_val": "incomplete"},
 		},
 		{
-			name: "malformed PSObject map (missing _val) wrapped as raw value",
+			name: "object carrying only a type is still that type",
 			input: map[string]any{
-				"_meta": map[string]any{"type": "System.String"},
+				"PSTypeName": "System.String",
 			},
 			wantNil:  false,
-			wantType: "System.Management.Automation.PSObject",
-			wantVal:  map[string]any{"_meta": map[string]any{"type": "System.String"}},
+			wantType: "System.String",
+			wantVal:  map[string]any{"PSTypeName": "System.String"},
 		},
 	}
 
@@ -149,12 +151,12 @@ func TestEnsurePSObject(t *testing.T) {
 
 func TestTryEnsurePSObject(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     any
-		wantErr   bool
-		wantNil   bool
-		wantType  string
-		wantVal   any
+		name        string
+		input       any
+		wantErr     bool
+		wantNil     bool
+		wantType    string
+		wantVal     any
 		errContains string
 	}{
 		{
@@ -166,8 +168,8 @@ func TestTryEnsurePSObject(t *testing.T) {
 		{
 			name: "valid PSObject map converted",
 			input: map[string]any{
-				"_val":  "hello",
-				"_meta": map[string]any{"type": "System.String"},
+				"PSPath":     "hello",
+				"PSTypeName": "System.String",
 			},
 			wantErr:  false,
 			wantNil:  false,
@@ -175,11 +177,11 @@ func TestTryEnsurePSObject(t *testing.T) {
 			wantVal:  "hello",
 		},
 		{
-			name:     "map that is not a PSObject is wrapped as raw value",
+			name:     "plain JSON object becomes a PSCustomObject",
 			input:    map[string]any{"key": "value"},
 			wantErr:  false,
 			wantNil:  false,
-			wantType: "System.Management.Automation.PSObject",
+			wantType: "System.Management.Automation.PSCustomObject",
 			wantVal:  map[string]any{"key": "value"},
 		},
 		{
@@ -191,12 +193,12 @@ func TestTryEnsurePSObject(t *testing.T) {
 			wantVal:  42,
 		},
 		{
-			name:    "already PSObject returned",
-			input:   psobject.NewPSObject("test"),
-			wantErr: false,
-			wantNil: false,
+			name:     "already PSObject returned",
+			input:    psobject.NewPSObject("test"),
+			wantErr:  false,
+			wantNil:  false,
 			wantType: "System.String",
-			wantVal: "test",
+			wantVal:  "test",
 		},
 	}
 
@@ -249,108 +251,11 @@ func TestTryEnsurePSObject(t *testing.T) {
 	}
 }
 
-func TestExtractPSValue(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   any
-		wantVal any
-	}{
-		{
-			name:    "*PSObject extracts Value",
-			input:   psobject.NewPSObject("extracted"),
-			wantVal: "extracted",
-		},
-		{
-			name: "PSObject map extracts _val",
-			input: map[string]any{
-				"_val":  "from_map",
-				"_meta": map[string]any{"type": "System.String"},
-			},
-			wantVal: "from_map",
-		},
-		{
-			name:    "raw value returned as-is",
-			input:   "raw",
-			wantVal: "raw",
-		},
-		{
-			name:    "nil returned as-is",
-			input:   nil,
-			wantVal: nil,
-		},
-		{
-			name:    "UDF result falls back to ExtractUDFValue",
-			input:   map[string]any{"_val": "udf_val", "_meta": map[string]any{}},
-			wantVal: "udf_val",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractPSValue(tt.input)
-			if got != tt.wantVal {
-				t.Errorf("ExtractPSValue() = %v, want %v", got, tt.wantVal)
-			}
-		})
-	}
-}
-
-func TestMakePSObjectResult(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    *psobject.PSObject
-		wantNil  bool
-		wantErr  bool
-	}{
-		{
-			name:    "nil PSObject returns error result",
-			input:   nil,
-			wantNil: false,
-			wantErr: true,
-		},
-		{
-			name:    "valid PSObject returns map",
-			input:   psobject.NewPSObject("test"),
-			wantNil: false,
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := MakePSObjectResult(tt.input)
-
-			if got == nil {
-				t.Fatalf("MakePSObjectResult() returned nil")
-			}
-
-			if tt.wantErr {
-				if _, hasErr := got["_err"]; !hasErr {
-					t.Errorf("MakePSObjectResult() expected error, got %v", got)
-				}
-				return
-			}
-
-			if _, hasErr := got["_err"]; hasErr {
-				t.Errorf("MakePSObjectResult() unexpected error: %v", got["_err"])
-			}
-
-			if _, hasVal := got["_val"]; !hasVal {
-				t.Errorf("MakePSObjectResult() missing _val")
-			}
-
-			if _, hasMeta := got["_meta"]; !hasMeta {
-				t.Errorf("MakePSObjectResult() missing _meta")
-			}
-		})
-	}
-}
-
 func TestGetPSTypeName(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  any
-		want   string
+		name  string
+		input any
+		want  string
 	}{
 		{
 			name:  "*PSObject extracts TypeName",
@@ -360,8 +265,8 @@ func TestGetPSTypeName(t *testing.T) {
 		{
 			name: "PSObject map extracts type",
 			input: map[string]any{
-				"_val":  42,
-				"_meta": map[string]any{"type": "System.Int32"},
+				"PSPath":     42,
+				"PSTypeName": "System.Int32",
 			},
 			want: "System.Int32",
 		},

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -46,12 +47,10 @@ func TestMD5(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input - should extract _val",
+			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"_val": "hello",
-				"_meta": map[string]any{
-					"source": "previous_udf",
-				},
+				"PSPath":     "hello",
+				"PSTypeName": "System.String",
 			},
 			want:    fmt.Sprintf("%x", md5.Sum([]byte("hello"))),
 			wantErr: false,
@@ -61,7 +60,7 @@ func TestMD5(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Extract _val if it's a UDF result
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			// Convert to bytes
 			var inputBytes []byte
@@ -91,14 +90,12 @@ func TestMD5(t *testing.T) {
 func TestMD5WithUDFResultInput(t *testing.T) {
 	// Create a UDF result object
 	udfResult := map[string]any{
-		"_val": "test string",
-		"_meta": map[string]any{
-			"source": "previous_udf",
-		},
+		"PSPath":     "test string",
+		"PSTypeName": "System.String",
 	}
 
 	// Extract _val (simulating what the function does)
-	extracted := common.ExtractUDFValue(udfResult)
+	extracted := common.BindValue(udfResult)
 
 	if extracted != "test string" {
 		t.Errorf("extractUDFValue() = %v, want %v", extracted, "test string")
@@ -127,14 +124,12 @@ func TestMD5Chaining(t *testing.T) {
 			// Simulate: base64_encode returns UDF result
 			// (We'll just test that md5 can extract from UDF results)
 			udfResult := map[string]any{
-				"_val": tc,
-				"_meta": map[string]any{
-					"source": "base64_encode",
-				},
+				"PSPath":     tc,
+				"PSTypeName": "System.String",
 			}
 
 			// Simulate: md5 receives UDF result and extracts _val
-			extracted := common.ExtractUDFValue(udfResult)
+			extracted := common.BindValue(udfResult)
 			if extracted != tc {
 				t.Fatalf("extraction failed: got %v, want %v", extracted, tc)
 			}
@@ -150,45 +145,22 @@ func TestMD5Chaining(t *testing.T) {
 	}
 }
 
-func TestMD5Metadata(t *testing.T) {
-	// Test that the function returns correct metadata structure
-	input := "hello"
-	expectedHash := fmt.Sprintf("%x", md5.Sum([]byte(input)))
-
-	// Simulate function call
-	inputBytes := []byte(input)
-	hash := md5.Sum(inputBytes)
-	hashHex := fmt.Sprintf("%x", hash)
-
-	result := map[string]any{
-		"_val": hashHex,
-		"_meta": map[string]any{
-			"algorithm":    "md5",
-			"input_length": len(inputBytes),
-			"hash_length":  len(hashHex),
-		},
+func TestMD5ThroughPipeline(t *testing.T) {
+	// Exercise the registered function, not a local re-implementation of it.
+	q, err := gojq.Parse(`md5`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
 	}
-
-	// Verify structure
-	if val, ok := result["_val"].(string); !ok || val != expectedHash {
-		t.Errorf("_val = %v, want %v", val, expectedHash)
+	code, err := gojq.Compile(q, RegisterMD5())
+	if err != nil {
+		t.Fatalf("compile: %v", err)
 	}
-
-	meta, ok := result["_meta"].(map[string]any)
-	if !ok {
-		t.Fatal("_meta is not a map")
+	v, _ := code.Run("hello").Next()
+	if err, ok := v.(error); ok {
+		t.Fatalf("md5: %v", err)
 	}
-
-	if algo, ok := meta["algorithm"].(string); !ok || algo != "md5" {
-		t.Errorf("algorithm = %v, want %v", algo, "md5")
-	}
-
-	if inputLen, ok := meta["input_length"].(int); !ok || inputLen != len(input) {
-		t.Errorf("input_length = %v, want %v", inputLen, len(input))
-	}
-
-	if hashLen, ok := meta["hash_length"].(int); !ok || hashLen != len(expectedHash) {
-		t.Errorf("hash_length = %v, want %v", hashLen, len(expectedHash))
+	want := fmt.Sprintf("%x", md5.Sum([]byte("hello")))
+	if v != want {
+		t.Errorf("md5 = %#v, want %q", v, want)
 	}
 }
-

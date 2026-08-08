@@ -70,15 +70,15 @@ func TestJSONStringify(t *testing.T) {
 		{
 			name: "UDF result object",
 			input: map[string]any{
-				"_val": map[string]any{"key": "value"},
-				"_meta": map[string]any{},
+				"PSPath":     map[string]any{"key": "value"},
+				"PSTypeName": "System.String",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 			jsonBytes, err := json.Marshal(inputVal)
 			if err != nil {
 				t.Errorf("json_stringify() error = %v", err)
@@ -135,4 +135,3 @@ func TestJSONRoundTrip(t *testing.T) {
 		})
 	}
 }
-

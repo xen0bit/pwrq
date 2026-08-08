@@ -28,12 +28,10 @@ func TestSHA256(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input - should extract _val",
+			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"_val": "hello",
-				"_meta": map[string]any{
-					"source": "previous_udf",
-				},
+				"PSPath":     "hello",
+				"PSTypeName": "System.String",
 			},
 			want:    fmt.Sprintf("%x", sha256.Sum256([]byte("hello"))),
 			wantErr: false,
@@ -43,7 +41,7 @@ func TestSHA256(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Extract _val if it's a UDF result
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			// Convert to bytes
 			var inputBytes []byte
@@ -69,4 +67,3 @@ func TestSHA256(t *testing.T) {
 		})
 	}
 }
-

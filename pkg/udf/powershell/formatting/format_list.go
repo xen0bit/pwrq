@@ -52,10 +52,15 @@ func RegisterFormatList() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(err, nil)
 		}
 
-		return common.MakeUDFSuccessResult(formatted, map[string]any{
-			"operation": "format_list",
-			"count":     len(formatted),
-		})
+		// A formatter's output is text. Objects are separated by a blank line,
+		// as Format-List does.
+		blocks := make([]string, 0, len(formatted))
+		for _, obj := range formatted {
+			if s := FormatListToStringWithDepth(obj, opts.Depth); s != "" {
+				blocks = append(blocks, s)
+			}
+		}
+		return strings.Join(blocks, "\n\n")
 	})
 }
 
@@ -113,8 +118,6 @@ func formatSingleObject(obj any, opts FormatListOptions) map[string]any {
 	}
 }
 
-
-
 // ParseFormatListArgs parses arguments for the format_list function
 func ParseFormatListArgs(args []any) ([]any, FormatListOptions, error) {
 	opts := FormatListOptions{
@@ -128,7 +131,7 @@ func ParseFormatListArgs(args []any) ([]any, FormatListOptions, error) {
 
 	// First argument is objects
 	var objects []any
-	inputVal := common.ExtractUDFValue(args[0])
+	inputVal := common.BindValue(args[0])
 	objects = common.NormalizeToSlice(inputVal)
 
 	// Validate input - objects should not be nil after extraction
@@ -200,35 +203,31 @@ func FormatListToStringWithDepth(formattedList any, maxDepth int) string {
 	return ""
 }
 
-
-
-// GetFormattedProperties extracts the properties from a formatted list result
+// GetFormattedProperties extracts the properties from a formatted list result.
 func GetFormattedProperties(formattedList any) []PropertyDisplay {
-	if m, ok := formattedList.(map[string]any); ok {
-		// Check for PSObject-wrapped format: {_val: {properties: [...]}, _meta: {...}}
-		if val, exists := m["_val"]; exists {
-			if inner, ok := val.(map[string]any); ok {
-				if propsVal, exists := inner["properties"]; exists {
-					if propsSlice, ok := propsVal.([]any); ok {
-						result := make([]PropertyDisplay, 0, len(propsSlice))
-						for _, p := range propsSlice {
-							if propMap, ok := p.(map[string]any); ok {
-								name, _ := propMap["Name"].(string)
-								value := propMap["Value"]
-								result = append(result, PropertyDisplay{Name: name, Value: value})
-							}
-						}
-						return result
-					}
-				}
+	m, ok := formattedList.(map[string]any)
+	if !ok {
+		return nil
+	}
+	propsVal, exists := m["properties"]
+	if !exists {
+		return nil
+	}
+	switch props := propsVal.(type) {
+	case []PropertyDisplay:
+		return props
+	case []any:
+		result := make([]PropertyDisplay, 0, len(props))
+		for _, p := range props {
+			switch prop := p.(type) {
+			case PropertyDisplay:
+				result = append(result, prop)
+			case map[string]any:
+				name, _ := prop["Name"].(string)
+				result = append(result, PropertyDisplay{Name: name, Value: prop["Value"]})
 			}
 		}
-		// Also check direct format (for testing convenience)
-		if propsVal, exists := m["properties"]; exists {
-			if propsSlice, ok := propsVal.([]PropertyDisplay); ok {
-				return propsSlice
-			}
-		}
+		return result
 	}
 	return nil
 }

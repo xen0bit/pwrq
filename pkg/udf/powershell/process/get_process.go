@@ -56,7 +56,7 @@ func RegisterGetProcess() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			// Check if first arg is a string (process name)
 			if nameStr, ok := firstArg.(string); ok {
@@ -501,7 +501,7 @@ func RegisterStopProcess() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr
@@ -644,7 +644,7 @@ func RegisterStartProcess() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			if filePathStr, ok := firstArg.(string); ok {
 				opts.FilePath = filePathStr

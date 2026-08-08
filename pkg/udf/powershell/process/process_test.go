@@ -84,7 +84,7 @@ func TestGetProcessByID(t *testing.T) {
 			t.Errorf("Expected process ID 1, got %v", id)
 		}
 	}
-	
+
 	// Note: PID 1 may not exist in container environments, so no failure if empty
 }
 
@@ -144,7 +144,7 @@ func TestStopProcess(t *testing.T) {
 	// Test stopping a non-existent process (should error gracefully)
 	opts := StopProcessOptions{Name: "nonexistent_process_xyz"}
 	stopped, failed, err := stopProcesses(opts)
-	
+
 	// Should get an error or empty results
 	if err == nil && len(stopped) == 0 && len(failed) == 0 {
 		// This is acceptable - no processes found
@@ -286,5 +286,3 @@ func TestStartProcessOptionsParsing(t *testing.T) {
 		})
 	}
 }
-
-

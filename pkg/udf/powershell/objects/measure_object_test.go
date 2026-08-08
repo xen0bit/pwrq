@@ -472,5 +472,3 @@ func TestConvertToFloat64_Bool(t *testing.T) {
 		t.Errorf("Expected 0, got %f", result)
 	}
 }
-
-

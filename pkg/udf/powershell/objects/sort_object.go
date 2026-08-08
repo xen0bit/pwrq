@@ -177,7 +177,7 @@ func ParseSortObjectArgs(args []any) ([]any, SortObjectOptions, error) {
 
 	// First argument is objects
 	var objects []any
-	inputVal := common.ExtractUDFValue(args[0])
+	inputVal := common.BindValue(args[0])
 	objects = common.NormalizeToSlice(inputVal)
 
 	// Parse options if present
@@ -341,8 +341,8 @@ func compareValuesForSort(a, b any, caseSensitive bool) int {
 	}
 
 	// Extract PSObject values if present
-	a = common.ExtractPSValue(a)
-	b = common.ExtractPSValue(b)
+	a = common.BindValue(a)
+	b = common.BindValue(b)
 
 	// Try numeric comparison first
 	aNum, aIsNum := toNumber(a)
@@ -406,7 +406,7 @@ func deduplicateByValue(objects []any) []any {
 	seen := make(map[string]bool)
 
 	for _, obj := range objects {
-		key := fmt.Sprintf("%v", common.ExtractPSValue(obj))
+		key := fmt.Sprintf("%v", common.BindValue(obj))
 		if !seen[key] {
 			seen[key] = true
 			result = append(result, obj)
@@ -419,7 +419,7 @@ func deduplicateByValue(objects []any) []any {
 // buildDedupKey creates a unique key for an object based on its sort properties
 func buildDedupKey(obj any, properties []SortProperty) string {
 	if len(properties) == 0 {
-		return fmt.Sprintf("%v", common.ExtractPSValue(obj))
+		return fmt.Sprintf("%v", common.BindValue(obj))
 	}
 
 	parts := make([]string, 0, len(properties))
@@ -428,15 +428,15 @@ func buildDedupKey(obj any, properties []SortProperty) string {
 		if err != nil {
 			parts = append(parts, "<nil>")
 		} else {
-			parts = append(parts, fmt.Sprintf("%v", common.ExtractPSValue(val)))
+			parts = append(parts, fmt.Sprintf("%v", common.BindValue(val)))
 		}
 	}
 
 	return strings.Join(parts, "|")
 }
 
-// newSortErrorObject creates an error result object for sort operations
-func newSortErrorObject(message string) map[string]any {
+// newSortErrorObject reports a sort failure as a jq error.
+func newSortErrorObject(message string) any {
 	return common.MakeUDFErrorResult(fmt.Errorf("sort_object: %s", message), nil)
 }
 

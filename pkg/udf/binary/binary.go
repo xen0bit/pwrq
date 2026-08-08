@@ -17,7 +17,7 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("binary_encode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -84,7 +84,7 @@ func RegisterBinaryDecode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("binary_decode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string

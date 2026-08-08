@@ -163,7 +163,7 @@ func TestFormatTable_NestedProperty(t *testing.T) {
 		map[string]any{
 			"Name": "Alice",
 			"Address": map[string]any{
-				"City": "NYC",
+				"City":  "NYC",
 				"State": "NY",
 			},
 		},

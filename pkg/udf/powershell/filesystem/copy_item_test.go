@@ -32,10 +32,10 @@ func TestParseCopyItemArgs(t *testing.T) {
 		{
 			name: "named parameters",
 			args: []any{map[string]any{
-				"Path": "/tmp/src",
+				"Path":        "/tmp/src",
 				"Destination": "/tmp/dst",
-				"Recurse": true,
-				"Force": true,
+				"Recurse":     true,
+				"Force":       true,
 			}},
 			wantPath:    "/tmp/src",
 			wantDest:    "/tmp/dst",
@@ -86,31 +86,31 @@ func TestCopyItem(t *testing.T) {
 		{
 			name: "copy file",
 			opts: CopyItemOptions{
-				Path: srcFile,
+				Path:        srcFile,
 				Destination: dstFile,
 			},
 			wantSuccess: true,
-			checkDest: true,
+			checkDest:   true,
 		},
 		{
 			name: "copy with force (overwrite)",
 			opts: CopyItemOptions{
-				Path: srcFile,
+				Path:        srcFile,
 				Destination: dstFile,
-				Force: true,
+				Force:       true,
 			},
 			wantSuccess: true,
-			checkDest: true,
+			checkDest:   true,
 		},
 		{
 			name: "copy without force (should fail)",
 			opts: CopyItemOptions{
-				Path: srcFile,
+				Path:        srcFile,
 				Destination: dstFile,
-				Force: false,
+				Force:       false,
 			},
 			wantSuccess: false,
-			checkDest: false,
+			checkDest:   false,
 		},
 	}
 
@@ -153,9 +153,9 @@ func TestCopyItemDirectory(t *testing.T) {
 
 	// Test recursive copy
 	opts := CopyItemOptions{
-		Path: srcDir,
+		Path:        srcDir,
 		Destination: dstDir,
-		Recurse: true,
+		Recurse:     true,
 	}
 
 	result, err := copyItem(opts)
@@ -204,7 +204,7 @@ func TestCopyItemIntoDirectory(t *testing.T) {
 
 	// Copy file into directory
 	opts := CopyItemOptions{
-		Path: srcFile,
+		Path:        srcFile,
 		Destination: dstDir,
 	}
 

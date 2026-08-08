@@ -42,7 +42,7 @@ func RegisterGetVariable() gojq.CompilerOption {
 			name = "*"
 		} else {
 			// First argument is name or options
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			if nameStr, isString := firstArg.(string); isString {
 				name = nameStr

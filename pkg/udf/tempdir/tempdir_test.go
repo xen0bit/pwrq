@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 func runGojqQuery(t *testing.T, query string, input any, options ...gojq.CompilerOption) any {
@@ -33,17 +32,43 @@ func runGojqQuery(t *testing.T, query string, input any, options ...gojq.Compile
 	return result
 }
 
+// runGojqQueryErr runs a query that is expected to fail and returns the error.
+// UDF failures now travel on jq's error channel rather than in-band, so a test
+// that wants a failure has to look for one there.
+func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		t.Fatalf("Failed to parse query %q: %v", query, err)
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		t.Fatalf("Failed to compile query %q: %v", query, err)
+	}
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+	}
+	t.Fatalf("expected query %q to fail, but it succeeded", query)
+	return nil
+}
+
+// priorCmdletOutput models what an upstream cmdlet now puts on the pipeline:
+// the value itself, with no envelope around it.
+func priorCmdletOutput(value any, _ map[string]any) any { return value }
+
 func TestTempDir_NoArgs(t *testing.T) {
 	result := runGojqQuery(t, "tempdir", nil, RegisterTempDir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists
@@ -64,26 +89,14 @@ func TestTempDir_NoArgs(t *testing.T) {
 	os.RemoveAll(val)
 
 	// Check metadata
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
-	}
-	if meta["operation"] != "tempdir" {
-		t.Errorf("Expected operation to be 'tempdir', got %v", meta["operation"])
-	}
 }
 
 func TestTempDir_WithPrefix(t *testing.T) {
 	result := runGojqQuery(t, `tempdir("pwrq_test_")`, nil, RegisterTempDir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists and has the prefix
@@ -100,13 +113,6 @@ func TestTempDir_WithPrefix(t *testing.T) {
 	os.RemoveAll(val)
 
 	// Check metadata
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
-	}
-	if meta["prefix"] != "pwrq_test_" {
-		t.Errorf("Expected prefix in metadata to be 'pwrq_test_', got %v", meta["prefix"])
-	}
 }
 
 func TestTempDir_WithDir(t *testing.T) {
@@ -119,14 +125,9 @@ func TestTempDir_WithDir(t *testing.T) {
 
 	result := runGojqQuery(t, `tempdir(""; "`+parentDir+`")`, nil, RegisterTempDir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists and is in the parent directory
@@ -155,14 +156,9 @@ func TestTempDir_WithPrefixAndDir(t *testing.T) {
 
 	result := runGojqQuery(t, `tempdir("pwrq_test_"; "`+parentDir+`")`, nil, RegisterTempDir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists
@@ -188,23 +184,9 @@ func TestTempDir_WithPrefixAndDir(t *testing.T) {
 }
 
 func TestTempDir_InvalidDir(t *testing.T) {
-	result := runGojqQuery(t, `tempdir(""; "/nonexistent/directory/path")`, nil, RegisterTempDir())
+	qErr := runGojqQueryErr(t, `tempdir(""; "/nonexistent/directory/path")`, nil, RegisterTempDir())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	errStr := qErr.Error()
 
 	if errStr == "" {
 		t.Errorf("Expected error message, got empty string")
@@ -213,7 +195,7 @@ func TestTempDir_InvalidDir(t *testing.T) {
 
 func TestTempDir_Chaining(t *testing.T) {
 	// Test that tempdir can be chained
-	result := runGojqQuery(t, `tempdir | ._val | length`, nil, RegisterTempDir())
+	result := runGojqQuery(t, `tempdir | length`, nil, RegisterTempDir())
 
 	// Should return the length of the path string
 	length, ok := result.(int)
@@ -230,14 +212,9 @@ func TestTempDir_FromPipe(t *testing.T) {
 	// Test that we can use tempdir with input from pipe (though it doesn't use it)
 	result := runGojqQuery(t, `"test" | tempdir`, "test", RegisterTempDir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists
@@ -251,18 +228,13 @@ func TestTempDir_FromPipe(t *testing.T) {
 
 func TestTempDir_WithUDFResultInput(t *testing.T) {
 	// Test that tempdir works with UDF result objects
-	udfResult := common.MakeUDFSuccessResult("pwrq_test_", map[string]any{"test": "value"})
+	udfResult := priorCmdletOutput("pwrq_test_", map[string]any{"test": "value"})
 
-	result := runGojqQuery(t, `tempdir(._val)`, udfResult, RegisterTempDir())
+	result := runGojqQuery(t, `tempdir(.)`, udfResult, RegisterTempDir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists and has the prefix
@@ -278,4 +250,3 @@ func TestTempDir_WithUDFResultInput(t *testing.T) {
 	// Cleanup
 	os.RemoveAll(val)
 }
-

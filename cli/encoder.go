@@ -40,16 +40,6 @@ func (e *encoder) marshal(v any, w io.Writer) error {
 }
 
 func (e *encoder) encode(v any) error {
-	// Unwrap UDF result structures {_val: value, _meta: {...}}
-	if m, ok := v.(map[string]any); ok {
-		if val, hasVal := m["_val"]; hasVal {
-			if _, hasMeta := m["_meta"]; hasMeta {
-				// This is a wrapped UDF result - encode the value only
-				return e.encode(val)
-			}
-		}
-	}
-	
 	switch v := v.(type) {
 	case nil:
 		e.write([]byte("null"), nullColor)
@@ -80,7 +70,10 @@ func (e *encoder) encode(v any) error {
 			return err
 		}
 	default:
-		panic(fmt.Sprintf("invalid type: %[1]T (%[1]v)", v))
+		// Every value reaching the encoder must be a JSON type. A Go value here
+		// means a UDF leaked an internal representation into the output stream;
+		// report it as a query error rather than crashing the process.
+		return fmt.Errorf("cannot encode value of type %T (not a JSON value)", v)
 	}
 	if e.w.Len() > 8*1024 {
 		return e.flush()

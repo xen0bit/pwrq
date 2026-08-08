@@ -7,142 +7,114 @@ import (
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
 )
 
-// IsUDFResult checks if a value is a UDF result object (has _val and _meta keys)
-func IsUDFResult(v any) bool {
-	obj, ok := v.(map[string]any)
-	if !ok {
-		return false
-	}
-	_, hasVal := obj["_val"]
-	_, hasMeta := obj["_meta"]
-	return hasVal && hasMeta
-}
+// pathProperties are the properties that identify a filesystem location, in the
+// order PowerShell's FileSystem provider would bind them. Name is deliberately
+// absent: it is relative and cannot locate a file on its own.
+var pathProperties = []string{psobject.PSPathKey, "FullName", "Path"}
 
-// NormalizeToSlice converts various input types to a slice of any.
-// This is a shared utility for UDFs that process pipeline objects.
+// BindValue resolves pipeline input to the value a UDF should operate on.
 //
-// Behavior:
-//   - nil -> empty slice
-//   - []any -> return as-is
-//   - UDF result object {_val, _meta} -> extract _val, then normalize
-//   - PSObject map -> extract _val, then normalize (preserves pipeline semantics)
-//   - map[string]any (non-UDF) -> wrap in slice (single object)
-//   - anything else -> wrap in slice (single value)
-//
-// TODO: Prior implementation treated all maps uniformly, losing UDF/PSObject
-// pipeline semantics. Re-implement with: explicit UDF result detection before
-// map handling, _val extraction for pipeline objects to enable proper iteration,
-// PSObject-aware unwrapping via ExtractPSValue(), and documentation of when
-// _meta is preserved vs discarded during normalization.
-func NormalizeToSlice(v any) []any {
-	if v == nil {
-		return []any{}
-	}
-
+// A scalar binds directly. Cmdlet output that wraps a scalar - a PSObject whose
+// PSPath carries the real value - binds to that scalar, which is what lets one
+// cmdlet's output feed the next. An ordinary JSON object binds as itself: the
+// object cmdlets (where_object, sort_object, group_object) need the whole
+// object, and collapsing it to some property would silently discard the rest.
+func BindValue(v any) any {
 	switch val := v.(type) {
-	case []any:
-		return val
+	case *psobject.PSObject:
+		if _, isMap := val.Value.(map[string]any); !isMap && val.Value != nil {
+			return psobject.NormalizeJSON(val.Value)
+		}
+		return psobject.NormalizeJSON(val.Value)
 	case map[string]any:
-		// Single object - wrap in slice
-		return []any{val}
-	default:
-		// Single value - wrap in slice
-		return []any{val}
-	}
-}
-
-// PreservePSObjectMetadata wraps a filtered result in a PSObject with the same TypeName
-// as the original, preserving PowerShell-style type information through the pipeline.
-// If the original was not a PSObject, returns the result as-is.
-//
-// TODO: Prior implementation has incomplete TypeName extraction (misses PSObject map
-// shape via ExtractTypeName), loses _meta during member copy, and doesn't handle
-// ScriptProperty/AliasProperty members. Re-implement with: use GetPSTypeName() for
-// comprehensive extraction, preserve _meta from original when building result map,
-// copy all member types (not just NoteProperty) with proper value resolution for
-// ScriptProperty, and add input validation for nil original/result.
-func PreservePSObjectMetadata(original, result any) any {
-	if !psobject.IsPSObject(original) {
-		return result
-	}
-
-	// Extract TypeName from original
-	var typeName string
-	if psobj, ok := original.(*psobject.PSObject); ok {
-		typeName = psobj.TypeName
-	} else if m, ok := original.(map[string]any); ok {
-		if meta, exists := m["_meta"].(map[string]any); exists {
-			if t, exists := meta["type"].(string); exists {
-				typeName = t
+		// Only unwrap objects that are demonstrably a cmdlet's scalar output.
+		if _, typed := val[psobject.PSTypeNameKey]; typed {
+			if s, ok := val[psobject.PSPathKey].(string); ok {
+				return s
 			}
 		}
+		return val
+	default:
+		return v
 	}
+}
 
-	if typeName == "" {
-		return result
-	}
-
-	// Wrap result in PSObject with preserved TypeName
-	psobj := psobject.NewPSObjectWithTypeName(result, typeName)
-
-	// Copy NoteProperty members from original if result is a map
-	if resultMap, ok := result.(map[string]any); ok {
-		if origPSObj, err := psobject.FromMap(original.(map[string]any)); err == nil {
-			for name, member := range origPSObj.Members {
-				if member.MemberType == psobject.MemberTypeNoteProperty {
-					// Only add if not already in result
-					if _, exists := resultMap[name]; !exists {
-						psobj.AddNoteProperty(name, member.Value)
-					}
+// BindPath resolves pipeline input to a filesystem path, following PowerShell's
+// ByValue-then-ByPropertyName binding. This is what lets `find(".") | cat` (a
+// stream of strings) and `get_childitem(".") | cat` (a stream of FileInfo
+// objects) both work without the caller reaching for a property.
+func BindPath(v any) (string, bool) {
+	switch val := v.(type) {
+	case string:
+		return val, true
+	case *psobject.PSObject:
+		if s, ok := val.Value.(string); ok {
+			return s, true
+		}
+		for _, name := range pathProperties {
+			if got, err := val.GetPropertyValue(name); err == nil {
+				if s, ok := got.(string); ok && s != "" {
+					return s, true
 				}
 			}
 		}
+	case map[string]any:
+		for _, name := range pathProperties {
+			if s, ok := val[name].(string); ok && s != "" {
+				return s, true
+			}
+		}
 	}
-
-	return psobj.ToMap()
+	return "", false
 }
 
-// HasUDFError checks if a UDF result object has an error
-func HasUDFError(v any) bool {
-	obj, ok := v.(map[string]any)
+// BindString resolves pipeline input to a string parameter, reporting a usable
+// error rather than silently binding the wrong thing.
+func BindString(v any, param string) (string, error) {
+	if s, ok := BindPath(v); ok {
+		return s, nil
+	}
+	bound := BindValue(v)
+	if bound == nil {
+		return "", fmt.Errorf("cannot bind null to parameter %q", param)
+	}
+	return "", fmt.Errorf("cannot bind %T to string parameter %q", bound, param)
+}
+
+// NormalizeToSlice converts pipeline input to a slice the object cmdlets can
+// iterate. A single object is a one-element pipeline, matching PowerShell,
+// where every value is a pipeline of length one.
+func NormalizeToSlice(v any) []any {
+	switch val := v.(type) {
+	case nil:
+		return []any{}
+	case []any:
+		return val
+	default:
+		return []any{val}
+	}
+}
+
+// PreserveTypeName carries the PowerShell type of an input object onto a value
+// derived from it, so that a projection of a FileInfo still reports what it came
+// from. Values derived from untyped JSON stay untyped.
+func PreserveTypeName(original, result any) any {
+	typeName := psobject.ExtractTypeName(original)
+	if typeName == "" || !psobject.IsPSObject(original) {
+		return result
+	}
+	resultMap, ok := result.(map[string]any)
 	if !ok {
-		return false
+		return result
 	}
-	_, hasErr := obj["_err"]
-	return hasErr
+	if _, exists := resultMap[psobject.PSTypeNameKey]; !exists {
+		resultMap[psobject.PSTypeNameKey] = typeName
+	}
+	return resultMap
 }
 
-// GetUDFError gets the error message from a UDF result object, or returns empty string
-func GetUDFError(v any) string {
-	obj, ok := v.(map[string]any)
-	if !ok {
-		return ""
-	}
-	if err, ok := obj["_err"].(string); ok {
-		return err
-	}
-	return ""
-}
-
-// ExtractUDFValue extracts the _val from a UDF result object, or returns the value as-is
-// This allows UDFs to automatically unwrap _val when chaining UDFs together.
-// This is the standard behavior for all UDFs - if a UDF receives a UDF result object
-// and doesn't need to access _meta, it should automatically extract _val.
-//
-// TODO: Prior implementation has TOCTOU race between IsUDFResult check and type assertion.
-// Re-implement with: single type assertion with comma-ok idiom, inline _val extraction,
-// and nil-safe handling when _val key is missing (return v instead of panicking).
-func ExtractUDFValue(v any) any {
-	if IsUDFResult(v) {
-		obj := v.(map[string]any)
-		return obj["_val"]
-	}
-	return v
-}
-
-// ExtractPropertyByPath extracts a property value using dot notation (e.g., "Address.City").
-// This is a shared utility for UDFs that need to access nested properties on objects.
-// Supports PSObject members (NoteProperty, ScriptProperty, AliasProperty).
+// ExtractPropertyByPath reads a property using dot notation ("Address.City"),
+// resolving PSObject members as well as plain map keys.
 func ExtractPropertyByPath(value any, path string) (any, error) {
 	path = strings.TrimSpace(path)
 	path = strings.TrimPrefix(path, ".")
@@ -150,62 +122,38 @@ func ExtractPropertyByPath(value any, path string) (any, error) {
 		return value, nil
 	}
 
-	parts := strings.Split(path, ".")
 	current := value
-
-	for _, part := range parts {
+	for _, part := range strings.Split(path, ".") {
 		if current == nil {
 			return nil, fmt.Errorf("cannot access property %q on nil", part)
 		}
 
-		found := false
 		switch v := current.(type) {
 		case map[string]any:
-			if psobject.IsPSObject(v) {
-				psobj, err := psobject.FromMap(v)
-				if err == nil {
-					if member, ok := psobj.Members[part]; ok {
-						if member.MemberType == psobject.MemberTypeNoteProperty ||
-							member.MemberType == psobject.MemberTypeScriptProperty ||
-							member.MemberType == psobject.MemberTypeAliasProperty {
-							current = member.Value
-							found = true
-							break
-						}
-					}
-					if valMap, ok := psobj.Value.(map[string]any); ok {
-						current, found = valMap[part]
-						if found {
-							break
-						}
-					}
-				}
+			got, ok := v[part]
+			if !ok {
+				return nil, fmt.Errorf("property %q not found", part)
 			}
-			current, found = v[part]
+			current = got
 		case *psobject.PSObject:
-			if member, ok := v.Members[part]; ok {
-				if member.MemberType == psobject.MemberTypeNoteProperty ||
-					member.MemberType == psobject.MemberTypeScriptProperty ||
-					member.MemberType == psobject.MemberTypeAliasProperty {
-					current = member.Value
-					found = true
-					break
-				}
+			got, err := v.GetPropertyValue(part)
+			if err == nil {
+				current = got
+				continue
 			}
-			if valMap, ok := v.Value.(map[string]any); ok {
-				current, found = valMap[part], true
-				break
+			valMap, ok := v.Value.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("property %q not found", part)
 			}
-			return nil, fmt.Errorf("property %q not found", part)
+			got, ok = valMap[part]
+			if !ok {
+				return nil, fmt.Errorf("property %q not found", part)
+			}
+			current = got
 		default:
 			return nil, fmt.Errorf("cannot access property %q on type %T", part, current)
-		}
-
-		if !found {
-			return nil, fmt.Errorf("property %q not found", part)
 		}
 	}
 
 	return current, nil
 }
-

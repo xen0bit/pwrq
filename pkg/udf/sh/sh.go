@@ -17,7 +17,7 @@ func RegisterSh() gojq.CompilerOption {
 		// Parse argument: command string can come from pipe or as argument
 		if len(args) == 0 {
 			// Try to get command from pipeline
-			inputVal := common.ExtractUDFValue(v)
+			inputVal := common.BindValue(v)
 			if cmdStr, ok := inputVal.(string); ok {
 				command = cmdStr
 			} else {
@@ -29,7 +29,7 @@ func RegisterSh() gojq.CompilerOption {
 				command = cmd
 			} else {
 				// Try to extract from UDF result
-				cmdVal := common.ExtractUDFValue(args[0])
+				cmdVal := common.BindValue(args[0])
 				if cmdStr, ok := cmdVal.(string); ok {
 					command = cmdStr
 				} else {
@@ -44,7 +44,7 @@ func RegisterSh() gojq.CompilerOption {
 
 		// Execute command using sh -c
 		cmd := exec.Command("sh", "-c", command)
-		
+
 		// Capture stdout and stderr
 		stdout, err := cmd.Output()
 		stderr := []byte{}
@@ -77,20 +77,20 @@ func RegisterSh() gojq.CompilerOption {
 			"exit_code": exitCode,
 		}
 
-		// If exit code is non-zero, return error result with stderr
+		// A failed command is a jq error, so `sh("...") // "fallback"` and
+		// `try sh("...") catch .` behave the way they do for every other
+		// failure in the pipeline.
 		if exitCode != 0 {
-			stderrStr := strings.TrimSpace(string(stderr))
-			if stderrStr == "" {
-				stderrStr = fmt.Sprintf("command exited with code %d", exitCode)
+			if stderrStr := strings.TrimSpace(string(stderr)); stderrStr != "" {
+				return common.MakeUDFErrorResult(
+					fmt.Errorf("command %q exited with code %d: %s", command, exitCode, stderrStr),
+					meta,
+				)
 			}
-			
-			// Return error result with stdout in _val and stderr in _err
-			result := map[string]any{
-				"_val":  strings.TrimSpace(string(stdout)),
-				"_meta": meta,
-				"_err":  stderrStr,
-			}
-			return result
+			return common.MakeUDFErrorResult(
+				fmt.Errorf("command %q exited with code %d", command, exitCode),
+				meta,
+			)
 		}
 
 		// Success: return stdout
@@ -98,4 +98,3 @@ func RegisterSh() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(stdoutStr, meta)
 	})
 }
-

@@ -24,7 +24,7 @@ func RegisterMkdir() gojq.CompilerOption {
 			dirPath = path
 		} else {
 			// Try to extract from UDF result
-			pathVal := common.ExtractUDFValue(args[0])
+			pathVal := common.BindValue(args[0])
 			if pathStr, ok := pathVal.(string); ok {
 				dirPath = pathStr
 			} else {

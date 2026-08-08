@@ -87,26 +87,10 @@ func findFiles(opts FindOptions) ([]any, error) {
 		if opts.Type == "dir" && !info.IsDir() {
 			return nil
 		}
-		
-		// Path from Walk is already absolute (since startPath is absolute)
-		// But ensure it's normalized
-		absPath := filepath.Clean(path)
-		
-		// Determine type for metadata
-		pathType := "file"
-		if info.IsDir() {
-			pathType = "dir"
-		}
-		
-		// Return object with _val and _meta keys
-		result := map[string]any{
-			"_val": absPath,
-			"_meta": map[string]any{
-				"type": pathType,
-			},
-		}
-		
-		results = append(results, result)
+
+		// find yields paths, like find(1). Callers wanting file metadata use
+		// get_childitem, which returns FileInfo objects.
+		results = append(results, filepath.Clean(path))
 		return nil
 	})
 
@@ -128,10 +112,10 @@ func parseFindArgs(args []any) (FindOptions, error) {
 	if len(args) == 0 {
 		return opts, fmt.Errorf("find: expected at least 1 argument (path)")
 	}
-	
+
 	// Extract _val from UDF result objects (standard behavior for all UDFs)
-	pathArg := common.ExtractUDFValue(args[0])
-	
+	pathArg := common.BindValue(args[0])
+
 	// First argument is always the path
 	path, ok := pathArg.(string)
 	if !ok {
@@ -158,8 +142,8 @@ func parseFindArgs(args []any) (FindOptions, error) {
 	// Parse additional arguments
 	for i := 1; i < len(args); i++ {
 		// Extract _val from UDF result objects (standard behavior for all UDFs)
-		arg := common.ExtractUDFValue(args[i])
-		
+		arg := common.BindValue(args[i])
+
 		switch v := arg.(type) {
 		case string:
 			// String argument could be type specification

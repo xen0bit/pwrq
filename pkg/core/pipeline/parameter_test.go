@@ -156,8 +156,8 @@ func TestBindParameters(t *testing.T) {
 func TestBindParametersWithPosition(t *testing.T) {
 	t.Run("parses positional tags", func(t *testing.T) {
 		type TestParams struct {
-			Path  string `param:"path,pos=0"`
-			Recurse bool  `param:"recurse,pos=1"`
+			Path    string `param:"path,pos=0"`
+			Recurse bool   `param:"recurse,pos=1"`
 		}
 
 		params := &TestParams{}

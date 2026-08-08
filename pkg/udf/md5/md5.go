@@ -17,7 +17,7 @@ func RegisterMD5() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("md5: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string

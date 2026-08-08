@@ -93,7 +93,7 @@ func TestCSVStringify(t *testing.T) {
 
 func TestCSVRoundTrip(t *testing.T) {
 	input := "a,b,c\n1,2,3\nx,y,z"
-	
+
 	// Parse
 	reader := csv.NewReader(strings.NewReader(input))
 	records, err := reader.ReadAll()
@@ -114,4 +114,3 @@ func TestCSVRoundTrip(t *testing.T) {
 		t.Error("round-trip produced empty result")
 	}
 }
-

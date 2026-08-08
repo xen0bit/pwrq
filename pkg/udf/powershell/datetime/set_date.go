@@ -29,7 +29,7 @@ func RegisterSetDate() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 
 			if firstArg != nil {
 				switch val := firstArg.(type) {
@@ -49,7 +49,7 @@ func RegisterSetDate() gojq.CompilerOption {
 
 		// Second argument could be options map
 		if len(args) > 1 {
-			if secondArg := common.ExtractUDFValue(args[1]); secondArg != nil {
+			if secondArg := common.BindValue(args[1]); secondArg != nil {
 				if optsMap, ok := secondArg.(map[string]any); ok {
 					if dateVal, exists := optsMap["Date"]; exists {
 						opts.Date = dateVal
@@ -60,7 +60,7 @@ func RegisterSetDate() gojq.CompilerOption {
 
 		// If no date specified, try to get from pipeline input
 		if opts.Date == nil {
-			if pipelineVal := common.ExtractUDFValue(v); pipelineVal != nil {
+			if pipelineVal := common.BindValue(v); pipelineVal != nil {
 				switch val := pipelineVal.(type) {
 				case string:
 					opts.Date = val

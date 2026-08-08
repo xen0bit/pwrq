@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 func runGojqQuery(t *testing.T, query string, input any, options ...gojq.CompilerOption) any {
@@ -33,6 +32,37 @@ func runGojqQuery(t *testing.T, query string, input any, options ...gojq.Compile
 	return result
 }
 
+// runGojqQueryErr runs a query that is expected to fail and returns the error.
+// UDF failures now travel on jq's error channel rather than in-band, so a test
+// that wants a failure has to look for one there.
+func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		t.Fatalf("Failed to parse query %q: %v", query, err)
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		t.Fatalf("Failed to compile query %q: %v", query, err)
+	}
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+	}
+	t.Fatalf("expected query %q to fail, but it succeeded", query)
+	return nil
+}
+
+// priorCmdletOutput models what an upstream cmdlet now puts on the pipeline:
+// the value itself, with no envelope around it.
+func priorCmdletOutput(value any, _ map[string]any) any { return value }
+
 func TestRm_File(t *testing.T) {
 	// Create a temporary directory to test in
 	parentDir, err := os.MkdirTemp("", "pwrq_rm_test_")
@@ -49,14 +79,9 @@ func TestRm_File(t *testing.T) {
 
 	result := runGojqQuery(t, `rm("`+testFile+`"; "file")`, nil, RegisterRm())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	if val != testFile {
@@ -71,19 +96,6 @@ func TestRm_File(t *testing.T) {
 	}
 
 	// Check metadata
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
-	}
-	if meta["operation"] != "rm" {
-		t.Errorf("Expected operation to be 'rm', got %v", meta["operation"])
-	}
-	if meta["type"] != "file" {
-		t.Errorf("Expected type to be 'file', got %v", meta["type"])
-	}
-	if meta["removed"] != true {
-		t.Errorf("Expected removed to be true, got %v", meta["removed"])
-	}
 }
 
 func TestRm_Folder(t *testing.T) {
@@ -109,14 +121,9 @@ func TestRm_Folder(t *testing.T) {
 
 	result := runGojqQuery(t, `rm("`+testDir+`"; "folder")`, nil, RegisterRm())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	if val != testDir {
@@ -131,13 +138,6 @@ func TestRm_Folder(t *testing.T) {
 	}
 
 	// Check metadata
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
-	}
-	if meta["type"] != "folder" {
-		t.Errorf("Expected type to be 'folder', got %v", meta["type"])
-	}
 }
 
 func TestRm_NestedFolder(t *testing.T) {
@@ -179,23 +179,8 @@ func TestRm_FileNotFound(t *testing.T) {
 
 	nonexistentFile := filepath.Join(parentDir, "nonexistent.txt")
 
-	result := runGojqQuery(t, `rm("`+nonexistentFile+`"; "file")`, nil, RegisterRm())
-
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	qErr := runGojqQueryErr(t, `rm("`+nonexistentFile+`"; "file")`, nil, RegisterRm())
+	errStr := qErr.Error()
 
 	if errStr == "" {
 		t.Errorf("Expected error message, got empty string")
@@ -216,23 +201,8 @@ func TestRm_TypeMismatch(t *testing.T) {
 	}
 
 	// Try to remove file as folder
-	result := runGojqQuery(t, `rm("`+testFile+`"; "folder")`, nil, RegisterRm())
-
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	qErr := runGojqQueryErr(t, `rm("`+testFile+`"; "folder")`, nil, RegisterRm())
+	errStr := qErr.Error()
 
 	if errStr == "" {
 		t.Errorf("Expected error message, got empty string")
@@ -258,23 +228,8 @@ func TestRm_InvalidType(t *testing.T) {
 	}
 	defer os.Remove(testFile)
 
-	result := runGojqQuery(t, `rm("`+testFile+`"; "invalid")`, nil, RegisterRm())
-
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	qErr := runGojqQueryErr(t, `rm("`+testFile+`"; "invalid")`, nil, RegisterRm())
+	errStr := qErr.Error()
 
 	if errStr == "" {
 		t.Errorf("Expected error message, got empty string")
@@ -331,7 +286,7 @@ func TestRm_Chaining(t *testing.T) {
 	}
 
 	// Test that rm can be chained
-	result := runGojqQuery(t, `rm("`+testFile+`"; "file") | ._val | length`, nil, RegisterRm())
+	result := runGojqQuery(t, `rm("`+testFile+`"; "file") | length`, nil, RegisterRm())
 
 	// Should return the length of the path string
 	length, ok := result.(int)
@@ -358,18 +313,13 @@ func TestRm_WithUDFResultInput(t *testing.T) {
 	}
 
 	// Test that rm works with UDF result objects
-	udfResult := common.MakeUDFSuccessResult(testFile, map[string]any{"test": "value"})
+	udfResult := priorCmdletOutput(testFile, map[string]any{"test": "value"})
 
-	result := runGojqQuery(t, `rm(._val; "file")`, udfResult, RegisterRm())
+	result := runGojqQuery(t, `rm(.; "file")`, udfResult, RegisterRm())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the file was removed
@@ -396,15 +346,10 @@ func TestRm_CaseInsensitiveType(t *testing.T) {
 	// Test with uppercase type
 	result := runGojqQuery(t, `rm("`+testFile+`"; "FILE")`, nil, RegisterRm())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
 	// Should succeed (case insensitive)
-	_, ok = resultMap["_val"].(string)
+	_, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("Expected string result, got %T", result)
 	}
 
 	// Verify the file was removed
@@ -414,4 +359,3 @@ func TestRm_CaseInsensitiveType(t *testing.T) {
 		t.Fatalf("Unexpected error checking file: %v", err)
 	}
 }
-

@@ -16,7 +16,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -99,8 +99,8 @@ func RegisterSSDeepCompare() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep_compare: expected 2 arguments (hash1, hash2)"), nil)
 		}
 
-		hash1Val := common.ExtractUDFValue(args[0])
-		hash2Val := common.ExtractUDFValue(args[1])
+		hash1Val := common.BindValue(args[0])
+		hash2Val := common.BindValue(args[1])
 
 		var hash1, hash2 string
 

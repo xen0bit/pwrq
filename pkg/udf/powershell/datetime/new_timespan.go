@@ -50,7 +50,7 @@ func RegisterNewTimeSpan() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 
 			if firstArg != nil {
 				switch val := firstArg.(type) {
@@ -58,7 +58,7 @@ func RegisterNewTimeSpan() gojq.CompilerOption {
 					// First argument is Start date
 					opts.Start = val
 					if len(args) > 1 {
-						if secondArg := common.ExtractUDFValue(args[1]); secondArg != nil {
+						if secondArg := common.BindValue(args[1]); secondArg != nil {
 							switch val2 := secondArg.(type) {
 							case string:
 								opts.End = val2

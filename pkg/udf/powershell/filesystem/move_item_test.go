@@ -8,36 +8,36 @@ import (
 
 func TestParseMoveItemArgs(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []any
-		wantPath    string
-		wantDest    string
-		wantForce   bool
+		name      string
+		args      []any
+		wantPath  string
+		wantDest  string
+		wantForce bool
 	}{
 		{
-			name:        "no args",
-			args:        []any{},
-			wantPath:    ".",
-			wantDest:    "",
-			wantForce:   false,
+			name:      "no args",
+			args:      []any{},
+			wantPath:  ".",
+			wantDest:  "",
+			wantForce: false,
 		},
 		{
-			name:        "path and destination",
-			args:        []any{"/tmp/src", "/tmp/dst"},
-			wantPath:    "/tmp/src",
-			wantDest:    "/tmp/dst",
-			wantForce:   false,
+			name:      "path and destination",
+			args:      []any{"/tmp/src", "/tmp/dst"},
+			wantPath:  "/tmp/src",
+			wantDest:  "/tmp/dst",
+			wantForce: false,
 		},
 		{
 			name: "named parameters",
 			args: []any{map[string]any{
-				"Path": "/tmp/src",
+				"Path":        "/tmp/src",
 				"Destination": "/tmp/dst",
-				"Force": true,
+				"Force":       true,
 			}},
-			wantPath:    "/tmp/src",
-			wantDest:    "/tmp/dst",
-			wantForce:   true,
+			wantPath:  "/tmp/src",
+			wantDest:  "/tmp/dst",
+			wantForce: true,
 		},
 	}
 
@@ -81,23 +81,23 @@ func TestMoveItem(t *testing.T) {
 		{
 			name: "move file",
 			opts: MoveItemOptions{
-				Path: srcFile,
+				Path:        srcFile,
 				Destination: dstFile,
 			},
 			wantSuccess: true,
-			checkSrc: false,
-			checkDest: true,
+			checkSrc:    false,
+			checkDest:   true,
 		},
 		{
 			name: "move with force (overwrite)",
 			opts: MoveItemOptions{
-				Path: dstFile,
+				Path:        dstFile,
 				Destination: srcFile,
-				Force: true,
+				Force:       true,
 			},
 			wantSuccess: true,
-			checkSrc: false,
-			checkDest: true,
+			checkSrc:    false,
+			checkDest:   true,
 		},
 	}
 
@@ -145,7 +145,7 @@ func TestMoveItemDirectory(t *testing.T) {
 	}
 
 	opts := MoveItemOptions{
-		Path: srcDir,
+		Path:        srcDir,
 		Destination: dstDir,
 	}
 
@@ -197,7 +197,7 @@ func TestMoveItemIntoDirectory(t *testing.T) {
 
 	// Move file into directory
 	opts := MoveItemOptions{
-		Path: srcFile,
+		Path:        srcFile,
 		Destination: dstDir,
 	}
 

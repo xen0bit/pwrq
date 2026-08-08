@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 func runGojqQuery(t *testing.T, query string, input any, options ...gojq.CompilerOption) any {
@@ -33,6 +32,37 @@ func runGojqQuery(t *testing.T, query string, input any, options ...gojq.Compile
 	return result
 }
 
+// runGojqQueryErr runs a query that is expected to fail and returns the error.
+// UDF failures now travel on jq's error channel rather than in-band, so a test
+// that wants a failure has to look for one there.
+func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		t.Fatalf("Failed to parse query %q: %v", query, err)
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		t.Fatalf("Failed to compile query %q: %v", query, err)
+	}
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+	}
+	t.Fatalf("expected query %q to fail, but it succeeded", query)
+	return nil
+}
+
+// priorCmdletOutput models what an upstream cmdlet now puts on the pipeline:
+// the value itself, with no envelope around it.
+func priorCmdletOutput(value any, _ map[string]any) any { return value }
+
 func TestAESEncryptDecrypt_CBC(t *testing.T) {
 	key := "12345678901234567890123456789012" // 32 bytes
 	data := "hello world"
@@ -41,14 +71,9 @@ func TestAESEncryptDecrypt_CBC(t *testing.T) {
 	encryptResult := runGojqQuery(t, `aes_encrypt("`+data+`"; "`+key+`"; "CBC")`, nil,
 		RegisterAESEncrypt(), RegisterAESDecrypt())
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedVal, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedVal, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	if encryptedVal == "" {
@@ -59,14 +84,9 @@ func TestAESEncryptDecrypt_CBC(t *testing.T) {
 	decryptResult := runGojqQuery(t, `aes_decrypt("`+encryptedVal+`"; "`+key+`"; "CBC")`, nil,
 		RegisterAESEncrypt(), RegisterAESDecrypt())
 
-	decryptMap, ok := decryptResult.(map[string]any)
+	decryptedVal, ok := decryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedVal, ok := decryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", decryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", decryptResult)
 	}
 
 	if decryptedVal != data {
@@ -82,28 +102,18 @@ func TestAESEncryptDecrypt_ECB(t *testing.T) {
 	encryptResult := runGojqQuery(t, `aes_encrypt("`+data+`"; "`+key+`"; "ECB")`, nil,
 		RegisterAESEncrypt(), RegisterAESDecrypt())
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedVal, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedVal, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	// Decrypt
 	decryptResult := runGojqQuery(t, `aes_decrypt("`+encryptedVal+`"; "`+key+`"; "ECB")`, nil,
 		RegisterAESEncrypt(), RegisterAESDecrypt())
 
-	decryptMap, ok := decryptResult.(map[string]any)
+	decryptedVal, ok := decryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedVal, ok := decryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", decryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", decryptResult)
 	}
 
 	if decryptedVal != data {
@@ -115,23 +125,9 @@ func TestAESEncrypt_InvalidKeySize(t *testing.T) {
 	key := "shortkey" // Invalid size
 	data := "test"
 
-	result := runGojqQuery(t, `aes_encrypt("`+data+`"; "`+key+`")`, nil, RegisterAESEncrypt())
+	qErr := runGojqQueryErr(t, `aes_encrypt("`+data+`"; "`+key+`")`, nil, RegisterAESEncrypt())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	errStr := qErr.Error()
 
 	if errStr == "" {
 		t.Errorf("Expected error message, got empty string")
@@ -145,14 +141,9 @@ func TestXOR_EncryptDecrypt(t *testing.T) {
 	// Encrypt
 	encryptResult := runGojqQuery(t, `"`+data+`" | xor("`+key+`")`, data, RegisterXOR())
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedHex, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedHex, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	// Decrypt (XOR is symmetric)
@@ -163,14 +154,9 @@ func TestXOR_EncryptDecrypt(t *testing.T) {
 
 	decryptResult := runGojqQuery(t, `xor("`+key+`"; "raw"; "hex")`, hex.EncodeToString(encryptedBytes), RegisterXOR())
 
-	decryptMap, ok := decryptResult.(map[string]any)
+	decryptedHex, ok := decryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedHex, ok := decryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", decryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", decryptResult)
 	}
 
 	decryptedBytes, err := hex.DecodeString(decryptedHex)
@@ -191,27 +177,17 @@ func TestRC4_EncryptDecrypt(t *testing.T) {
 	// Encrypt
 	encryptResult := runGojqQuery(t, `"`+data+`" | rc4("`+key+`")`, data, RegisterRC4())
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedB64, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedB64, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	// Decrypt (RC4 is symmetric)
 	decryptResult := runGojqQuery(t, `rc4("`+key+`"; "raw"; "base64")`, encryptedB64, RegisterRC4())
 
-	decryptMap, ok := decryptResult.(map[string]any)
+	decryptedB64, ok := decryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedB64, ok := decryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", decryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", decryptResult)
 	}
 
 	decryptedBytes, err := base64.StdEncoding.DecodeString(decryptedB64)
@@ -233,28 +209,18 @@ func TestDESEncryptDecrypt_CBC(t *testing.T) {
 	encryptResult := runGojqQuery(t, `des_encrypt("`+data+`"; "`+key+`"; "CBC")`, nil,
 		RegisterDESEncrypt(), RegisterDESDecrypt())
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedVal, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedVal, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	// Decrypt
 	decryptResult := runGojqQuery(t, `des_decrypt("`+encryptedVal+`"; "`+key+`"; "CBC")`, nil,
 		RegisterDESEncrypt(), RegisterDESDecrypt())
 
-	decryptMap, ok := decryptResult.(map[string]any)
+	decryptedVal, ok := decryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedVal, ok := decryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", decryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", decryptResult)
 	}
 
 	if decryptedVal != data {
@@ -269,34 +235,24 @@ func Test3DESEncryptDecrypt_CBC(t *testing.T) {
 	// Encrypt - use quoted function name since it starts with a number
 	encryptResult := runGojqQuery(t, `"3des_encrypt" as $fn | if $fn == "3des_encrypt" then aes_encrypt("`+data+`"; "`+key+`"; "CBC") else null end`, nil,
 		Register3DESEncrypt(), Register3DESDecrypt(), RegisterAESEncrypt())
-	
+
 	// Actually, let's just test with the function directly by using a workaround
 	// Since 3des_encrypt starts with a number, we need to call it differently
 	// Let's skip this test for now and test the function manually
 	t.Skip("3des_encrypt function name starts with number, requires special handling")
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedVal, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedVal, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	// Decrypt
 	decryptResult := runGojqQuery(t, `3des_decrypt("`+encryptedVal+`"; "`+key+`"; "CBC")`, nil,
 		Register3DESEncrypt(), Register3DESDecrypt())
 
-	decryptMap, ok := decryptResult.(map[string]any)
+	decryptedVal, ok := decryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedVal, ok := decryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", decryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", decryptResult)
 	}
 
 	if decryptedVal != data {
@@ -312,28 +268,18 @@ func TestBlowfishEncryptDecrypt_CBC(t *testing.T) {
 	encryptResult := runGojqQuery(t, `blowfish_encrypt("`+data+`"; "`+key+`"; "CBC")`, nil,
 		RegisterBlowfishEncrypt(), RegisterBlowfishDecrypt())
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedVal, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedVal, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	// Decrypt
 	decryptResult := runGojqQuery(t, `blowfish_decrypt("`+encryptedVal+`"; "`+key+`"; "CBC")`, nil,
 		RegisterBlowfishEncrypt(), RegisterBlowfishDecrypt())
 
-	decryptMap, ok := decryptResult.(map[string]any)
+	decryptedVal, ok := decryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedVal, ok := decryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", decryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", decryptResult)
 	}
 
 	if decryptedVal != data {
@@ -348,14 +294,9 @@ func TestChaCha20_EncryptDecrypt(t *testing.T) {
 	// Encrypt
 	encryptResult := runGojqQuery(t, `"`+data+`" | chacha20("`+key+`")`, data, RegisterChaCha20())
 
-	encryptMap, ok := encryptResult.(map[string]any)
+	encryptedB64, ok := encryptResult.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", encryptResult)
-	}
-
-	encryptedB64, ok := encryptMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", encryptMap["_val"])
+		t.Fatalf("Expected _val to be string, got %T", encryptResult)
 	}
 
 	// Decrypt - ChaCha20 encrypts and prepends nonce, so we need to extract it
@@ -374,12 +315,7 @@ func TestChaCha20_EncryptDecrypt(t *testing.T) {
 	// Decrypt by re-encrypting (ChaCha20 is symmetric XOR stream)
 	decryptResult := runGojqQuery(t, `chacha20("`+key+`"; "`+hex.EncodeToString(nonce)+`"; "raw"; "raw")`, hex.EncodeToString(ciphertext), RegisterChaCha20())
 
-	decryptMap, ok := decryptResult.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", decryptResult)
-	}
-
-	decryptedB64, ok := decryptMap["_val"].(string)
+	decryptedB64, ok := decryptResult.(string)
 	if !ok {
 		// If decryption failed, that's okay - ChaCha20 needs proper nonce handling
 		// The important thing is that encryption worked
@@ -403,18 +339,13 @@ func TestChaCha20_EncryptDecrypt(t *testing.T) {
 
 func TestAESEncrypt_WithUDFResultInput(t *testing.T) {
 	key := "12345678901234567890123456789012"
-	udfResult := common.MakeUDFSuccessResult("test data", map[string]any{"test": "value"})
+	udfResult := priorCmdletOutput("test data", map[string]any{"test": "value"})
 
-	result := runGojqQuery(t, `aes_encrypt(._val; "`+key+`")`, udfResult, RegisterAESEncrypt())
+	result := runGojqQuery(t, `aes_encrypt(.; "`+key+`")`, udfResult, RegisterAESEncrypt())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	if val == "" {
@@ -425,7 +356,7 @@ func TestAESEncrypt_WithUDFResultInput(t *testing.T) {
 func TestAESEncrypt_Chaining(t *testing.T) {
 	key := "12345678901234567890123456789012"
 
-	result := runGojqQuery(t, `aes_encrypt("test"; "`+key+`") | ._val | length`, nil, RegisterAESEncrypt())
+	result := runGojqQuery(t, `aes_encrypt("test"; "`+key+`") | length`, nil, RegisterAESEncrypt())
 
 	length, ok := result.(int)
 	if !ok {
@@ -436,4 +367,3 @@ func TestAESEncrypt_Chaining(t *testing.T) {
 		t.Errorf("Expected encrypted length > 0, got %d", length)
 	}
 }
-

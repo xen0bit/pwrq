@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 func runGojqQuery(t *testing.T, query string, input any, options ...gojq.CompilerOption) any {
@@ -33,6 +32,37 @@ func runGojqQuery(t *testing.T, query string, input any, options ...gojq.Compile
 	return result
 }
 
+// runGojqQueryErr runs a query that is expected to fail and returns the error.
+// UDF failures now travel on jq's error channel rather than in-band, so a test
+// that wants a failure has to look for one there.
+func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		t.Fatalf("Failed to parse query %q: %v", query, err)
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		t.Fatalf("Failed to compile query %q: %v", query, err)
+	}
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+	}
+	t.Fatalf("expected query %q to fail, but it succeeded", query)
+	return nil
+}
+
+// priorCmdletOutput models what an upstream cmdlet now puts on the pipeline:
+// the value itself, with no envelope around it.
+func priorCmdletOutput(value any, _ map[string]any) any { return value }
+
 func TestMkdir_Basic(t *testing.T) {
 	// Create a temporary directory to test in
 	parentDir, err := os.MkdirTemp("", "pwrq_mkdir_test_")
@@ -45,14 +75,9 @@ func TestMkdir_Basic(t *testing.T) {
 
 	result := runGojqQuery(t, `mkdir("`+testDir+`")`, nil, RegisterMkdir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists
@@ -70,16 +95,6 @@ func TestMkdir_Basic(t *testing.T) {
 	}
 
 	// Check metadata
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
-	}
-	if meta["operation"] != "mkdir" {
-		t.Errorf("Expected operation to be 'mkdir', got %v", meta["operation"])
-	}
-	if meta["created"] != true {
-		t.Errorf("Expected created to be true, got %v", meta["created"])
-	}
 }
 
 func TestMkdir_NestedPath(t *testing.T) {
@@ -94,14 +109,9 @@ func TestMkdir_NestedPath(t *testing.T) {
 
 	result := runGojqQuery(t, `mkdir("`+nestedDir+`")`, nil, RegisterMkdir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the nested directory exists
@@ -135,15 +145,10 @@ func TestMkdir_AlreadyExists(t *testing.T) {
 	// Try to create it again
 	result := runGojqQuery(t, `mkdir("`+testDir+`")`, nil, RegisterMkdir())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
 	// Should succeed (like mkdir -p)
-	val, ok := resultMap["_val"].(string)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("Expected string result, got %T", result)
 	}
 
 	if val != testDir {
@@ -151,13 +156,6 @@ func TestMkdir_AlreadyExists(t *testing.T) {
 	}
 
 	// Check metadata indicates it already existed
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
-	}
-	if meta["existed"] != true {
-		t.Errorf("Expected existed to be true, got %v", meta["existed"])
-	}
 }
 
 func TestMkdir_NoArgs(t *testing.T) {
@@ -197,43 +195,20 @@ func TestMkdir_NoArgs(t *testing.T) {
 }
 
 func TestMkdir_InvalidPath(t *testing.T) {
-	// Try to create a directory in a non-existent parent (should fail without MkdirAll, but we use MkdirAll)
-	// Actually, with MkdirAll this should succeed, so let's test with a file path instead
 	parentDir, err := os.MkdirTemp("", "pwrq_mkdir_test_")
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
 	defer os.RemoveAll(parentDir)
 
-	// Create a file
+	// A file cannot be a parent directory.
 	testFile := filepath.Join(parentDir, "testfile.txt")
-	err = os.WriteFile(testFile, []byte("test"), 0644)
-	if err != nil {
+	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	// Try to create a directory with the same name as the file
-	invalidDir := filepath.Join(parentDir, "testfile.txt", "subdir")
-
-	result := runGojqQuery(t, `mkdir("`+invalidDir+`")`, nil, RegisterMkdir())
-
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error (can't create subdir of a file)
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
-
-	if errStr == "" {
+	qErr := runGojqQueryErr(t, `mkdir("`+filepath.Join(testFile, "subdir")+`")`, nil, RegisterMkdir())
+	if qErr.Error() == "" {
 		t.Errorf("Expected error message, got empty string")
 	}
 }
@@ -248,7 +223,7 @@ func TestMkdir_Chaining(t *testing.T) {
 	testDir := filepath.Join(parentDir, "chaintest")
 
 	// Test that mkdir can be chained
-	result := runGojqQuery(t, `mkdir("`+testDir+`") | ._val | length`, nil, RegisterMkdir())
+	result := runGojqQuery(t, `mkdir("`+testDir+`") | length`, nil, RegisterMkdir())
 
 	// Should return the length of the path string
 	length, ok := result.(int)
@@ -273,14 +248,9 @@ func TestMkdir_FromPipe(t *testing.T) {
 	// Test that mkdir works with input from pipe (though it requires argument)
 	result := runGojqQuery(t, `"`+testDir+`" | mkdir(.)`, testDir, RegisterMkdir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists
@@ -299,18 +269,13 @@ func TestMkdir_WithUDFResultInput(t *testing.T) {
 	testDir := filepath.Join(parentDir, "udfresulttest")
 
 	// Test that mkdir works with UDF result objects
-	udfResult := common.MakeUDFSuccessResult(testDir, map[string]any{"test": "value"})
+	udfResult := priorCmdletOutput(testDir, map[string]any{"test": "value"})
 
-	result := runGojqQuery(t, `mkdir(._val)`, udfResult, RegisterMkdir())
+	result := runGojqQuery(t, `mkdir(.)`, udfResult, RegisterMkdir())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Verify the directory exists
@@ -318,4 +283,3 @@ func TestMkdir_WithUDFResultInput(t *testing.T) {
 		t.Fatalf("Created directory does not exist: %v", err)
 	}
 }
-

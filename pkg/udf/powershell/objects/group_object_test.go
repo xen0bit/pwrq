@@ -2,8 +2,6 @@ package objects
 
 import (
 	"testing"
-
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 )
 
 func TestGroupObject_Basic(t *testing.T) {
@@ -132,18 +130,7 @@ func TestGroupObject_NoElement(t *testing.T) {
 	// Verify groups don't have Group property
 	for _, group := range result {
 		if groupMap, ok := group.(map[string]any); ok {
-			// Handle PSObject-wrapped format: {_val: {Name, Count}, _meta: {...}}
-			var innerMap map[string]any
-			if psobject.IsPSObject(groupMap) {
-				if val, exists := groupMap["_val"]; exists {
-					if inner, ok := val.(map[string]any); ok {
-						innerMap = inner
-					}
-				}
-			} else {
-				// Plain map format
-				innerMap = groupMap
-			}
+			innerMap := groupMap
 
 			if innerMap == nil {
 				t.Error("Could not extract group data")
@@ -233,21 +220,7 @@ func TestGroupObject_GroupStructure(t *testing.T) {
 	group := result[0].(map[string]any)
 
 	// Handle PSObject-wrapped format: {_val: {Name, Count, Group}, _meta: {...}}
-	var innerMap map[string]any
-	if psobject.IsPSObject(group) {
-		if val, exists := group["_val"]; exists {
-			if inner, ok := val.(map[string]any); ok {
-				innerMap = inner
-			}
-		}
-	} else {
-		// Plain map format
-		innerMap = group
-	}
-
-	if innerMap == nil {
-		t.Fatal("Failed to extract group data")
-	}
+	innerMap := group
 
 	// Verify structure
 	if _, ok := innerMap["Name"]; !ok {

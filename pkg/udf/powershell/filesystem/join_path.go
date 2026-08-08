@@ -36,7 +36,7 @@ func parseJoinPathArgs(args []any) ([]string, bool, error) {
 	paths := make([]string, 0, len(pathArgs))
 	for i, arg := range pathArgs {
 		// Extract value from PSObject if wrapped
-		val := common.ExtractPSValue(arg)
+		val := common.BindValue(arg)
 
 		// Validate and convert to string
 		if val == nil {
@@ -107,7 +107,7 @@ func RegisterJoinPath() gojq.CompilerOption {
 		allArgs := args
 		if v != nil {
 			// If there's pipeline input, prepend it
-			inputVal := common.ExtractPSValue(v)
+			inputVal := common.BindValue(v)
 			if inputStr, ok := inputVal.(string); ok && inputStr != "" {
 				allArgs = append([]any{inputStr}, args...)
 			}
@@ -168,7 +168,7 @@ func RegisterSplitPath() gojq.CompilerOption {
 
 		// Get path from argument or pipeline input
 		if len(args) > 0 {
-			argVal := common.ExtractPSValue(args[0])
+			argVal := common.BindValue(args[0])
 			if p, ok := argVal.(string); ok {
 				path = p
 			} else {
@@ -178,7 +178,7 @@ func RegisterSplitPath() gojq.CompilerOption {
 				)
 			}
 		} else {
-			inputVal := common.ExtractPSValue(v)
+			inputVal := common.BindValue(v)
 			if p, ok := inputVal.(string); ok {
 				path = p
 			} else {

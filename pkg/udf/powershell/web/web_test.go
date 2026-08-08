@@ -6,11 +6,11 @@ import (
 
 func TestInvokeWebRequest_OptionsParsing(t *testing.T) {
 	opts := InvokeWebRequestOptions{
-		Method:               "GET",
-		Timeout:              30,
-		AllowAutoRedirect:    true,
-		MaximumRedirection:   5,
-		SkipSSLVerify:        false,
+		Method:             "GET",
+		Timeout:            30,
+		AllowAutoRedirect:  true,
+		MaximumRedirection: 5,
+		SkipSSLVerify:      false,
 	}
 
 	optsMap := map[string]any{
@@ -104,16 +104,16 @@ func TestTestConnection_OptionsParsing(t *testing.T) {
 	}
 
 	optsMap := map[string]any{
-		"Target":           "google.com",
-		"Count":            2,
-		"TimeoutSeconds":   10,
-		"TTL":              128,
-		"BufferSize":       64,
-		"ResolveDNS":       false,
-		"Quiet":            true,
-		"TcpPort":          443,
-		"HttpProbe":        true,
-		"SkipSSLVerify":    true,
+		"Target":         "google.com",
+		"Count":          2,
+		"TimeoutSeconds": 10,
+		"TTL":            128,
+		"BufferSize":     64,
+		"ResolveDNS":     false,
+		"Quiet":          true,
+		"TcpPort":        443,
+		"HttpProbe":      true,
+		"SkipSSLVerify":  true,
 	}
 
 	parseTestConnectionOptions(&opts, optsMap)

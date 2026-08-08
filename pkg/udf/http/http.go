@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -25,7 +26,7 @@ func RegisterHTTP() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) == 0 {
 			// No arguments: URL from pipeline, method = POST
-			inputVal := common.ExtractUDFValue(v)
+			inputVal := common.BindValue(v)
 			if urlStr, ok := inputVal.(string); ok {
 				url = urlStr
 			} else {
@@ -35,7 +36,7 @@ func RegisterHTTP() gojq.CompilerOption {
 			// One argument: could be method or URL
 			// If it's a string, treat it as URL (method = POST)
 			// If it's a method name, we'd need URL from pipeline
-			argVal := common.ExtractUDFValue(args[0])
+			argVal := common.BindValue(args[0])
 			if urlStr, ok := argVal.(string); ok {
 				url = urlStr
 				// Method stays as default POST
@@ -44,8 +45,8 @@ func RegisterHTTP() gojq.CompilerOption {
 			}
 		} else if len(args) == 2 {
 			// Two arguments: method, url
-			methodVal := common.ExtractUDFValue(args[0])
-			urlVal := common.ExtractUDFValue(args[1])
+			methodVal := common.BindValue(args[0])
+			urlVal := common.BindValue(args[1])
 
 			if methodStr, ok := methodVal.(string); ok {
 				method = strings.ToUpper(methodStr)
@@ -92,7 +93,7 @@ func RegisterHTTP() gojq.CompilerOption {
 			hasBody = false
 		} else if len(args) == 1 {
 			// URL came from arg, v might be body
-			bodyVal := common.ExtractUDFValue(v)
+			bodyVal := common.BindValue(v)
 			if bodyVal != nil {
 				hasBody = true
 				// Convert body to string/bytes
@@ -119,7 +120,7 @@ func RegisterHTTP() gojq.CompilerOption {
 			}
 		} else if len(args) == 2 {
 			// Method and URL from args, v is body
-			bodyVal := common.ExtractUDFValue(v)
+			bodyVal := common.BindValue(v)
 			if bodyVal != nil {
 				hasBody = true
 				// Convert body to string/bytes
@@ -209,26 +210,25 @@ func RegisterHTTP() gojq.CompilerOption {
 			}
 		}
 
-		// Return response body as string
-		responseBody := string(respBody)
-
-		meta := map[string]any{
-			"operation":  "http",
-			"method":     method,
-			"url":        url,
-			"status":     resp.StatusCode,
-			"statusText": resp.Status,
-			"headers":    headers,
+		// Return a response object shaped like Invoke-WebRequest's. The status
+		// code and headers are part of the answer, not decoration: discarding
+		// them would make it impossible to branch on a 404 from a query.
+		response := map[string]any{
+			"Content":              string(respBody),
+			"StatusCode":           resp.StatusCode,
+			"StatusText":           resp.Status,
+			"Headers":              headers,
+			"Method":               method,
+			"Url":                  url,
+			"ContentLength":        len(respBody),
+			psobject.PSTypeNameKey: "Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject",
 		}
-
 		if hasBody {
-			meta["requestBody"] = bodyString
-			meta["requestBodySize"] = len(bodyBytes)
+			response["RequestBody"] = bodyString
+			response["RequestContentLength"] = len(bodyBytes)
 		}
 
-		meta["responseBodySize"] = len(respBody)
-
-		return common.MakeUDFSuccessResult(responseBody, meta)
+		return common.MakeUDFSuccessResult(response, nil)
 	})
 }
 
@@ -240,8 +240,8 @@ func RegisterHTTPServe() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: expected 2 arguments (host, port), got %d", len(args)), nil)
 		}
 
-		hostVal := common.ExtractUDFValue(args[0])
-		portVal := common.ExtractUDFValue(args[1])
+		hostVal := common.BindValue(args[0])
+		portVal := common.BindValue(args[1])
 
 		var host string
 		var port int
@@ -276,7 +276,7 @@ func RegisterHTTPServe() gojq.CompilerOption {
 		}
 
 		// Get the input value from the pipeline
-		inputVal := common.ExtractUDFValue(v)
+		inputVal := common.BindValue(v)
 
 		// Create a channel to receive the result (either from GET or POST)
 		resultChan := make(chan any, 1)

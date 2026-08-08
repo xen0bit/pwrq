@@ -47,7 +47,7 @@ func RegisterCSVParse() gojq.CompilerOption {
 			inputVal = v
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -156,7 +156,7 @@ func RegisterCSVStringify() gojq.CompilerOption {
 			inputVal = v
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		// Input should be an array of arrays
 		var records [][]string

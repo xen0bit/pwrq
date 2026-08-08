@@ -3,8 +3,8 @@ package tee
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/itchyny/gojq"
@@ -38,6 +38,33 @@ func runGojqQuery(t *testing.T, query string, input any, options ...gojq.Compile
 	return result
 }
 
+// runGojqQueryErr runs a query that is expected to fail and returns the error.
+// UDF failures now travel on jq's error channel rather than in-band, so a test
+// that wants a failure has to look for one there.
+func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		t.Fatalf("Failed to parse query %q: %v", query, err)
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		t.Fatalf("Failed to compile query %q: %v", query, err)
+	}
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+	}
+	t.Fatalf("expected query %q to fail, but it succeeded", query)
+	return nil
+}
+
 func TestTeeToStderr(t *testing.T) {
 
 	input := map[string]any{
@@ -50,29 +77,9 @@ func TestTeeToStderr(t *testing.T) {
 		t.Fatalf("tee function returned an error: %v", err)
 	}
 
-	// Check that result is a UDF result object
-	resMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("expected map[string]any, got %T", result)
-	}
-
-	// Check _val matches input
-	if !reflect.DeepEqual(resMap["_val"], input) {
-		t.Errorf("expected _val to match input, got %v", resMap["_val"])
-	}
-
-	// Check _meta
-	meta, ok := resMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected _meta to be map[string]any, got %T", resMap["_meta"])
-	}
-
-	if meta["operation"] != "tee" {
-		t.Errorf("expected operation 'tee', got %v", meta["operation"])
-	}
-
-	if meta["written_to"] != "stderr" {
-		t.Errorf("expected written_to 'stderr', got %v", meta["written_to"])
+	// tee passes its input through unchanged
+	if !reflect.DeepEqual(result, input) {
+		t.Errorf("tee must pass its input through unchanged, got %v", result)
 	}
 }
 
@@ -95,38 +102,9 @@ func TestTeeToFile(t *testing.T) {
 		t.Fatalf("tee function returned an error: %v", err)
 	}
 
-	// Check that result is a UDF result object
-	resMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("expected map[string]any, got %T", result)
-	}
-
 	// Check _val matches input
-	if !reflect.DeepEqual(resMap["_val"], input) {
-		t.Errorf("expected _val to match input, got %v", resMap["_val"])
-	}
-
-	// Check _meta
-	meta, ok := resMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected _meta to be map[string]any, got %T", resMap["_meta"])
-	}
-
-	if meta["operation"] != "tee" {
-		t.Errorf("expected operation 'tee', got %v", meta["operation"])
-	}
-
-	if meta["written"] != true {
-		t.Errorf("expected written true, got %v", meta["written"])
-	}
-
-	absPath, err := filepath.Abs(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("failed to get absolute path: %v", err)
-	}
-
-	if meta["file_path"] != absPath {
-		t.Errorf("expected file_path %q, got %q", absPath, meta["file_path"])
+	if !reflect.DeepEqual(result, input) {
+		t.Errorf("tee must pass its input through unchanged, got %v", result)
 	}
 
 	// Verify file was written
@@ -160,8 +138,8 @@ func TestTeeToFile(t *testing.T) {
 func TestTeeWithUDFResult(t *testing.T) {
 	// Test that tee passes through UDF results correctly
 	udfResult := map[string]any{
-		"_val":  "test_value",
-		"_meta": map[string]any{"source": "previous_udf"},
+		"PSPath":     "test_value",
+		"PSTypeName": "System.String",
 	}
 
 	result := runGojqQuery(t, "tee", udfResult, RegisterTee())
@@ -176,23 +154,11 @@ func TestTeeWithUDFResult(t *testing.T) {
 }
 
 func TestTeeErrorHandling(t *testing.T) {
-	// Test with invalid file path (directory that doesn't exist)
 	invalidPath := "/nonexistent/directory/file.json"
 
-	result := runGojqQuery(t, "tee(\""+invalidPath+"\")", "test", RegisterTee())
-	if err, ok := result.(error); ok {
-		// This is expected - should return error in _err format
-		t.Logf("Got expected error: %v", err)
-	} else {
-		// Check if it's an error result object
-		resMap, ok := result.(map[string]any)
-		if ok {
-			if errStr, hasErr := resMap["_err"].(string); hasErr {
-				t.Logf("Got error in _err field: %s", errStr)
-				return
-			}
-		}
-		t.Errorf("expected error for invalid file path, got %v", result)
+	qErr := runGojqQueryErr(t, "tee(\""+invalidPath+"\")", "test", RegisterTee())
+	if !strings.Contains(qErr.Error(), invalidPath) {
+		t.Errorf("error should name the path it could not write, got %q", qErr)
 	}
 }
 
@@ -205,15 +171,9 @@ func TestTeeChaining(t *testing.T) {
 		t.Fatalf("tee function returned an error: %v", err)
 	}
 
-	// Extract value and pass to another operation
-	resMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("expected map[string]any, got %T", result)
-	}
-
-	val := resMap["_val"]
-	if val != input {
-		t.Errorf("expected _val to be %q, got %q", input, val)
+	// tee is transparent: what goes in comes out
+	if result != input {
+		t.Errorf("expected tee to pass through %q, got %q", input, result)
 	}
 }
 
@@ -228,21 +188,21 @@ func TestTeeGojqIntegration(t *testing.T) {
 		{
 			name:     "tee to stderr",
 			input:    map[string]any{"test": "value"},
-			query:    `tee | ._val`,
+			query:    `tee`,
 			expected: map[string]any{"test": "value"},
 			options:  []gojq.CompilerOption{RegisterTee()},
 		},
 		{
 			name:     "tee with file path",
 			input:    "test_string",
-			query:    `tee("/tmp/pwrq_test_tee.json") | ._val`,
+			query:    `tee("/tmp/pwrq_test_tee.json")`,
 			expected: "test_string",
 			options:  []gojq.CompilerOption{RegisterTee()},
 		},
 		{
 			name:     "tee in pipeline",
 			input:    "hello",
-			query:    `tee | upper | ._val`,
+			query:    `tee | upper`,
 			expected: "HELLO",
 			options:  []gojq.CompilerOption{RegisterTee(), stringudf.RegisterUpper()},
 		},

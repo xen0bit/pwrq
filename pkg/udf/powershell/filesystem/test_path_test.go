@@ -8,12 +8,12 @@ import (
 
 func TestParseTestPathArgs(t *testing.T) {
 	tests := []struct {
-		name       string
-		args       []any
-		wantPath   string
-		wantType   string
-		wantValid  bool
-		wantErr    bool
+		name      string
+		args      []any
+		wantPath  string
+		wantType  string
+		wantValid bool
+		wantErr   bool
 	}{
 		{
 			name:    "no args",
@@ -38,10 +38,10 @@ func TestParseTestPathArgs(t *testing.T) {
 			wantType: "Container",
 		},
 		{
-			name:     "PSObject wrapped path",
-			args:     []any{map[string]any{"Path": "/tmp", "PathType": "Leaf", "IsValid": true}},
-			wantPath: "/tmp",
-			wantType: "Leaf",
+			name:      "PSObject wrapped path",
+			args:      []any{map[string]any{"Path": "/tmp", "PathType": "Leaf", "IsValid": true}},
+			wantPath:  "/tmp",
+			wantType:  "Leaf",
 			wantValid: true,
 		},
 		{
@@ -125,15 +125,15 @@ func TestTestPath(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		opts     TestPathOptions
-		want     bool
-		wantErr  bool
+		name    string
+		opts    TestPathOptions
+		want    bool
+		wantErr bool
 	}{
 		{
-			name:    "empty path returns false",
-			opts:    TestPathOptions{Path: ""},
-			want:    false,
+			name: "empty path returns false",
+			opts: TestPathOptions{Path: ""},
+			want: false,
 		},
 		{
 			name: "existing file - any type",

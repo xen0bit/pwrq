@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -42,12 +43,10 @@ func TestMD5File(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input - should extract _val",
+			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"_val": tmpFile.Name(),
-				"_meta": map[string]any{
-					"source": "previous_udf",
-				},
+				"PSPath":     tmpFile.Name(),
+				"PSTypeName": "System.String",
 			},
 			want:    expectedHash,
 			wantErr: false,
@@ -69,7 +68,7 @@ func TestMD5File(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Extract _val if it's a UDF result
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			// Convert to file path
 			filePath, ok := inputVal.(string)
@@ -127,14 +126,12 @@ func TestMD5FileWithUDFResultInput(t *testing.T) {
 
 	// Create a UDF result object
 	udfResult := map[string]any{
-		"_val": tmpFile.Name(),
-		"_meta": map[string]any{
-			"source": "find",
-		},
+		"PSPath":     tmpFile.Name(),
+		"PSTypeName": "System.String",
 	}
 
 	// Extract _val (simulating what the function does)
-	extracted := common.ExtractUDFValue(udfResult)
+	extracted := common.BindValue(udfResult)
 
 	if extracted != tmpFile.Name() {
 		t.Errorf("extractUDFValue() = %v, want %v", extracted, tmpFile.Name())
@@ -172,14 +169,12 @@ func TestMD5FileChaining(t *testing.T) {
 
 	// Simulate: find returns UDF result with file path
 	udfResult := map[string]any{
-		"_val": tmpFile.Name(),
-		"_meta": map[string]any{
-			"type": "file",
-		},
+		"PSPath":     tmpFile.Name(),
+		"PSTypeName": "System.String",
 	}
 
 	// Simulate: md5_file receives UDF result and extracts _val
-	extracted := common.ExtractUDFValue(udfResult)
+	extracted := common.BindValue(udfResult)
 	if extracted != tmpFile.Name() {
 		t.Fatalf("extraction failed: got %v, want %v", extracted, tmpFile.Name())
 	}
@@ -222,7 +217,7 @@ func TestMD5FileMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to stat file: %v", err)
 	}
-	
+
 	// Verify file size is correct
 	if fileInfo.Size() != int64(len(testContent)) {
 		t.Fatalf("File size mismatch: got %d, want %d", fileInfo.Size(), len(testContent))
@@ -237,64 +232,38 @@ func TestMD5FileMetadata(t *testing.T) {
 	hash := md5.Sum(fileData)
 	hashHex := fmt.Sprintf("%x", hash)
 
-	absPath, err := filepath.Abs(tmpFile.Name())
+	q, err := gojq.Parse(`md5(true)`)
 	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
+		t.Fatalf("parse: %v", err)
 	}
-
-	// Simulate function return (matching actual function behavior)
-	result := map[string]any{
-		"_val": hashHex,
-		"_meta": map[string]any{
-			"algorithm":    "md5",
-			"file_path":    absPath,
-			"file_size":    int(fileInfo.Size()), // Function converts to int
-			"hash_length":  len(hashHex),
-		},
+	code, err := gojq.Compile(q, RegisterMD5())
+	if err != nil {
+		t.Fatalf("compile: %v", err)
 	}
-
-	// Verify structure
-	if val, ok := result["_val"].(string); !ok || val != hashHex {
-		t.Errorf("_val = %v, want %v", val, hashHex)
+	v, _ := code.Run(tmpFile.Name()).Next()
+	if err, ok := v.(error); ok {
+		t.Fatalf("md5(true): %v", err)
 	}
-
-	meta, ok := result["_meta"].(map[string]any)
-	if !ok {
-		t.Fatal("_meta is not a map")
-	}
-
-	if algo, ok := meta["algorithm"].(string); !ok || algo != "md5" {
-		t.Errorf("algorithm = %v, want %v", algo, "md5")
-	}
-
-	if filePath, ok := meta["file_path"].(string); !ok || filePath != absPath {
-		t.Errorf("file_path = %v, want %v", filePath, absPath)
-	}
-
-	if fileSize, ok := meta["file_size"].(int); !ok || fileSize != int(fileInfo.Size()) {
-		t.Errorf("file_size = %v, want %v", fileSize, fileInfo.Size())
-	}
-
-	if hashLen, ok := meta["hash_length"].(int); !ok || hashLen != len(hashHex) {
-		t.Errorf("hash_length = %v, want %v", hashLen, len(hashHex))
+	if v != hashHex {
+		t.Errorf("md5(file) = %#v, want %q", v, hashHex)
 	}
 }
 
 func TestMD5FileErrorCases(t *testing.T) {
 	tests := []struct {
-		name    string
+		name     string
 		filePath string
-		wantErr bool
+		wantErr  bool
 	}{
 		{
-			name:    "non-existent file",
+			name:     "non-existent file",
 			filePath: "/nonexistent/path/to/file",
-			wantErr: true,
+			wantErr:  true,
 		},
 		{
-			name:    "directory instead of file",
+			name:     "directory instead of file",
 			filePath: "/tmp",
-			wantErr: false, // Reading a directory might succeed or fail depending on OS
+			wantErr:  false, // Reading a directory might succeed or fail depending on OS
 		},
 	}
 
@@ -312,4 +281,3 @@ func TestMD5FileErrorCases(t *testing.T) {
 		})
 	}
 }
-

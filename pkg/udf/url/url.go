@@ -16,7 +16,7 @@ func RegisterURLEncode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("url_encode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -79,7 +79,7 @@ func RegisterURLDecode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("url_decode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string

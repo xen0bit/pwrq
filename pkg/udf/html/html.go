@@ -16,7 +16,7 @@ func RegisterHTMLEncode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("html_encode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -79,7 +79,7 @@ func RegisterHTMLDecode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("html_decode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string

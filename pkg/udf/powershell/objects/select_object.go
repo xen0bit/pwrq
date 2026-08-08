@@ -44,15 +44,15 @@ func RegisterSelectObject() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			// First argument: objects (or could be property names if objects from pipe)
-			firstArg := common.ExtractUDFValue(args[0])
-			
+			firstArg := common.BindValue(args[0])
+
 			// Check if first arg is a property name (string) - means objects from pipe
 			if propStr, isString := firstArg.(string); isString {
 				// Objects from pipe, first arg is a property name
-				inputVal := common.ExtractUDFValue(v)
+				inputVal := common.BindValue(v)
 				objects = common.NormalizeToSlice(inputVal)
 				opts.Properties = []string{propStr}
-				
+
 				// Remaining args are additional property names
 				for i := 1; i < len(args); i++ {
 					if pStr, ok := args[i].(string); ok {
@@ -61,17 +61,17 @@ func RegisterSelectObject() gojq.CompilerOption {
 				}
 			} else if arr, isArray := firstArg.([]any); isArray && allStrings(arr) && len(args) == 1 {
 				// First arg is an array of all strings and no other args - treat as property names from pipe
-				inputVal := common.ExtractUDFValue(v)
+				inputVal := common.BindValue(v)
 				objects = common.NormalizeToSlice(inputVal)
 				opts.Properties = arrToStrings(arr)
 			} else {
 				// First arg is objects
 				objects = common.NormalizeToSlice(firstArg)
-				
+
 				// Parse remaining arguments
 				for i := 1; i < len(args); i++ {
-					argVal := common.ExtractUDFValue(args[i])
-					
+					argVal := common.BindValue(args[i])
+
 					// Check if it's a string (positional property name)
 					if propStr, ok := argVal.(string); ok {
 						if opts.Properties == nil {
@@ -116,7 +116,7 @@ func RegisterSelectObject() gojq.CompilerOption {
 			}
 		} else {
 			// Objects from pipe
-			inputVal := common.ExtractUDFValue(v)
+			inputVal := common.BindValue(v)
 			objects = common.NormalizeToSlice(inputVal)
 		}
 

@@ -16,7 +16,7 @@ func RegisterTrim() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("trim: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -100,7 +100,7 @@ func RegisterSplit() gojq.CompilerOption {
 			inputVal = v
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -172,7 +172,7 @@ func RegisterJoin() gojq.CompilerOption {
 		}
 
 		// Extract _val if it's a UDF result
-		inputVal := common.ExtractUDFValue(v)
+		inputVal := common.BindValue(v)
 
 		// Input should be an array
 		var arr []any
@@ -186,7 +186,7 @@ func RegisterJoin() gojq.CompilerOption {
 		// Convert array elements to strings
 		var parts []string
 		for _, item := range arr {
-			itemVal := common.ExtractUDFValue(item)
+			itemVal := common.BindValue(item)
 			switch v := itemVal.(type) {
 			case string:
 				parts = append(parts, v)

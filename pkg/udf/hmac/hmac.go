@@ -48,7 +48,7 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 		}
 
 		// First argument is the key
-		keyVal := common.ExtractUDFValue(args[0])
+		keyVal := common.BindValue(args[0])
 		var key []byte
 		switch val := keyVal.(type) {
 		case string:
@@ -79,7 +79,7 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 			inputVal = v
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string

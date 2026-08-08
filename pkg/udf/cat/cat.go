@@ -55,7 +55,7 @@ func RegisterCat() gojq.CompilerOption {
 				filePath = path
 			} else {
 				// Try to extract from UDF result
-				pathVal := common.ExtractUDFValue(args[0])
+				pathVal := common.BindValue(args[0])
 				if pathStr, ok := pathVal.(string); ok {
 					filePath = pathStr
 				} else {
@@ -65,7 +65,7 @@ func RegisterCat() gojq.CompilerOption {
 
 			// Parse options from second argument if provided
 			if len(args) > 1 {
-				optsVal := common.ExtractUDFValue(args[1])
+				optsVal := common.BindValue(args[1])
 				if opts, ok := optsVal.(map[string]any); ok {
 					if tailVal, exists := opts["tail"]; exists {
 						if tailNum, ok := tailVal.(float64); ok {
@@ -94,7 +94,7 @@ func RegisterCat() gojq.CompilerOption {
 			}
 		} else {
 			// File path from pipe
-			inputVal := common.ExtractUDFValue(v)
+			inputVal := common.BindValue(v)
 			if pathStr, ok := inputVal.(string); ok {
 				filePath = pathStr
 			} else {
@@ -491,7 +491,7 @@ func parseCatArgs(args []any) (string, CatOptions, error) {
 	if path, ok := args[0].(string); ok {
 		filePath = path
 	} else {
-		pathVal := common.ExtractUDFValue(args[0])
+		pathVal := common.BindValue(args[0])
 		if pathStr, ok := pathVal.(string); ok {
 			filePath = pathStr
 		} else {
@@ -500,7 +500,7 @@ func parseCatArgs(args []any) (string, CatOptions, error) {
 	}
 
 	if len(args) > 1 {
-		optsVal := common.ExtractUDFValue(args[1])
+		optsVal := common.BindValue(args[1])
 		if optsMap, ok := optsVal.(map[string]any); ok {
 			if tailVal, exists := optsMap["tail"]; exists {
 				if tailNum, ok := tailVal.(float64); ok {

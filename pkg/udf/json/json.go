@@ -16,7 +16,7 @@ func RegisterJSONParse() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("json_parse: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var result any
 		var filePath string
@@ -91,7 +91,7 @@ func RegisterJSONStringify() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("json_stringify: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		// Stringify the input value
 		jsonBytes, err := json.Marshal(inputVal)

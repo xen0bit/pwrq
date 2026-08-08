@@ -35,7 +35,7 @@ func parseNewItemArgs(args []any) (NewItemOptions, error) {
 	}
 
 	for i, arg := range args {
-		argVal := common.ExtractUDFValue(arg)
+		argVal := common.BindValue(arg)
 
 		switch v := argVal.(type) {
 		case string:

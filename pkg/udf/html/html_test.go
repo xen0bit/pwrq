@@ -27,10 +27,10 @@ func TestHTMLEncode(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input",
+			name: "cmdlet output input",
 			input: map[string]any{
-				"_val": "<div>test</div>",
-				"_meta": map[string]any{},
+				"PSPath":     "<div>test</div>",
+				"PSTypeName": "System.String",
 			},
 			want:    html.EscapeString("<div>test</div>"),
 			wantErr: false,
@@ -39,7 +39,7 @@ func TestHTMLEncode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			var input string
 			switch val := inputVal.(type) {
@@ -82,10 +82,10 @@ func TestHTMLDecode(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input",
+			name: "cmdlet output input",
 			input: map[string]any{
-				"_val": html.EscapeString("<div>test</div>"),
-				"_meta": map[string]any{},
+				"PSPath":     html.EscapeString("<div>test</div>"),
+				"PSTypeName": "System.String",
 			},
 			want:    "<div>test</div>",
 			wantErr: false,
@@ -94,7 +94,7 @@ func TestHTMLDecode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			var input string
 			switch val := inputVal.(type) {
@@ -137,4 +137,3 @@ func TestHTMLRoundTrip(t *testing.T) {
 		})
 	}
 }
-

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -45,12 +46,10 @@ func TestHexEncode(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input - should extract _val",
+			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"_val": "hello",
-				"_meta": map[string]any{
-					"source": "previous_udf",
-				},
+				"PSPath":     "hello",
+				"PSTypeName": "System.String",
 			},
 			want:    hex.EncodeToString([]byte("hello")),
 			wantErr: false,
@@ -60,7 +59,7 @@ func TestHexEncode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Extract _val if it's a UDF result
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			// Convert to bytes
 			var inputBytes []byte
@@ -118,12 +117,10 @@ func TestHexDecode(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input - should extract _val",
+			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"_val": hex.EncodeToString([]byte("hello")),
-				"_meta": map[string]any{
-					"source": "hex_encode",
-				},
+				"PSPath":     hex.EncodeToString([]byte("hello")),
+				"PSTypeName": "System.String",
 			},
 			want:    "hello",
 			wantErr: false,
@@ -145,7 +142,7 @@ func TestHexDecode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Extract _val if it's a UDF result
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			// Convert to string
 			var input string
@@ -210,14 +207,12 @@ func TestHexRoundTrip(t *testing.T) {
 func TestHexEncodeWithUDFResultInput(t *testing.T) {
 	// Create a UDF result object
 	udfResult := map[string]any{
-		"_val": "test string",
-		"_meta": map[string]any{
-			"source": "previous_udf",
-		},
+		"PSPath":     "test string",
+		"PSTypeName": "System.String",
 	}
 
 	// Extract _val (simulating what the function does)
-	extracted := common.ExtractUDFValue(udfResult)
+	extracted := common.BindValue(udfResult)
 
 	if extracted != "test string" {
 		t.Errorf("extractUDFValue() = %v, want %v", extracted, "test string")
@@ -236,14 +231,12 @@ func TestHexDecodeWithUDFResultInput(t *testing.T) {
 	// Create a hex-encoded UDF result object
 	encoded := hex.EncodeToString([]byte("test string"))
 	udfResult := map[string]any{
-		"_val": encoded,
-		"_meta": map[string]any{
-			"source": "hex_encode",
-		},
+		"PSPath":     encoded,
+		"PSTypeName": "System.String",
 	}
 
 	// Extract _val (simulating what the function does)
-	extracted := common.ExtractUDFValue(udfResult)
+	extracted := common.BindValue(udfResult)
 
 	if extracted != encoded {
 		t.Errorf("extractUDFValue() = %v, want %v", extracted, encoded)
@@ -260,44 +253,21 @@ func TestHexDecodeWithUDFResultInput(t *testing.T) {
 	}
 }
 
-func TestHexMetadata(t *testing.T) {
-	// Test that the function returns correct metadata structure
-	input := "hello"
-	expectedEncoded := hex.EncodeToString([]byte(input))
-
-	// Simulate function call
-	inputBytes := []byte(input)
-	encoded := hex.EncodeToString(inputBytes)
-
-	result := map[string]any{
-		"_val": encoded,
-		"_meta": map[string]any{
-			"encoding":        "hex",
-			"original_length": len(inputBytes),
-			"encoded_length":  len(encoded),
-		},
+func TestHexEncodeThroughPipeline(t *testing.T) {
+	// Exercise the registered function, not a local re-implementation of it.
+	q, err := gojq.Parse(`hex_encode`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
 	}
-
-	// Verify structure
-	if val, ok := result["_val"].(string); !ok || val != expectedEncoded {
-		t.Errorf("_val = %v, want %v", val, expectedEncoded)
+	code, err := gojq.Compile(q, RegisterHexEncode())
+	if err != nil {
+		t.Fatalf("compile: %v", err)
 	}
-
-	meta, ok := result["_meta"].(map[string]any)
-	if !ok {
-		t.Fatal("_meta is not a map")
+	v, _ := code.Run("hello").Next()
+	if err, ok := v.(error); ok {
+		t.Fatalf("hex_encode: %v", err)
 	}
-
-	if enc, ok := meta["encoding"].(string); !ok || enc != "hex" {
-		t.Errorf("encoding = %v, want %v", enc, "hex")
-	}
-
-	if origLen, ok := meta["original_length"].(int); !ok || origLen != len(input) {
-		t.Errorf("original_length = %v, want %v", origLen, len(input))
-	}
-
-	if encLen, ok := meta["encoded_length"].(int); !ok || encLen != len(expectedEncoded) {
-		t.Errorf("encoded_length = %v, want %v", encLen, len(expectedEncoded))
+	if v != hex.EncodeToString([]byte("hello")) {
+		t.Errorf("hex_encode = %#v, want %q", v, hex.EncodeToString([]byte("hello")))
 	}
 }
-

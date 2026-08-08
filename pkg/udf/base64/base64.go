@@ -16,7 +16,7 @@ func RegisterBase64Encode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("base64_encode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -79,7 +79,7 @@ func RegisterBase64Decode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("base64_decode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string

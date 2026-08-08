@@ -22,18 +22,18 @@ func extractPropertyByPathLocal(value any, path string) (any, error) {
 
 // GroupObjectOptions holds options for the group_object function
 type GroupObjectOptions struct {
-	Property    string // Property to group by
-	CaseSensitive bool // Whether grouping is case-sensitive
-	NoElement   bool   // Don't include the elements in output (-NoElement)
-	NoGroup     bool   // Don't group, just output unique values (-NoGroup)
-	AsHashTable bool   // Return as hashtable instead of objects (-AsHashTable)
+	Property      string // Property to group by
+	CaseSensitive bool   // Whether grouping is case-sensitive
+	NoElement     bool   // Don't include the elements in output (-NoElement)
+	NoGroup       bool   // Don't group, just output unique values (-NoGroup)
+	AsHashTable   bool   // Return as hashtable instead of objects (-AsHashTable)
 }
 
 // GroupedObject represents a group of objects with a common property value
 type GroupedObject struct {
-	Name   string // The group key (property value)
-	Count  int    // Number of items in the group
-	Group  []any  // The objects in this group
+	Name  string // The group key (property value)
+	Count int    // Number of items in the group
+	Group []any  // The objects in this group
 }
 
 // RegisterGroupObject registers the group_object function with gojq
@@ -138,7 +138,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 
 	for _, obj := range objects {
 		// Use the entire object as the key
-		keyStr := fmt.Sprintf("%v", common.ExtractPSValue(obj))
+		keyStr := fmt.Sprintf("%v", common.BindValue(obj))
 		if !opts.CaseSensitive {
 			keyStr = strings.ToLower(keyStr)
 		}
@@ -146,7 +146,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 		group, exists := groupMap[keyStr]
 		if !exists {
 			group = &GroupedObject{
-				Name:  fmt.Sprintf("%v", common.ExtractPSValue(obj)),
+				Name:  fmt.Sprintf("%v", common.BindValue(obj)),
 				Count: 0,
 				Group: make([]any, 0),
 			}
@@ -189,7 +189,7 @@ func extractPropertyByWildcard(obj any, pattern string) (any, error) {
 	hasWildcard := strings.ContainsAny(pattern, "*?")
 
 	// Extract the underlying value from PSObject if present
-	value := common.ExtractPSValue(obj)
+	value := common.BindValue(obj)
 
 	if !hasWildcard {
 		// Direct property access - use local implementation to avoid cross-file dependency
@@ -213,8 +213,6 @@ func extractPropertyByWildcard(obj any, pattern string) (any, error) {
 
 	return nil, fmt.Errorf("property matching pattern %q not found", pattern)
 }
-
-
 
 // getPropertyNames returns all property names available on an object
 func getPropertyNames(value any) []string {
@@ -340,7 +338,7 @@ func ParseGroupObjectArgs(args []any) ([]any, GroupObjectOptions, error) {
 
 	// First argument is objects
 	var objects []any
-	inputVal := common.ExtractUDFValue(args[0])
+	inputVal := common.BindValue(args[0])
 	objects = common.NormalizeToSlice(inputVal)
 
 	// Parse options if present
@@ -395,18 +393,7 @@ func GetGroupByName(groups []any, name string) *GroupedObject {
 			continue
 		}
 
-		// Handle PSObject-wrapped format: {_val: {Name, Count, Group}, _meta: {...}}
-		var innerMap map[string]any
-		if psobject.IsPSObject(groupMap) {
-			if val, exists := groupMap["_val"]; exists {
-				if inner, ok := val.(map[string]any); ok {
-					innerMap = inner
-				}
-			}
-		} else {
-			// Plain map format
-			innerMap = groupMap
-		}
+		innerMap := groupMap
 
 		if innerMap == nil {
 			continue
@@ -472,19 +459,6 @@ func getGroupCount(group any) int {
 		return 0
 	}
 
-	// Handle PSObject-wrapped format
-	if psobject.IsPSObject(groupMap) {
-		if val, exists := groupMap["_val"]; exists {
-			if inner, ok := val.(map[string]any); ok {
-				if count, ok := inner["Count"].(int); ok {
-					return count
-				}
-			}
-		}
-		return 0
-	}
-
-	// Plain map format
 	if count, ok := groupMap["Count"].(int); ok {
 		return count
 	}
@@ -497,19 +471,6 @@ func getGroupName(group any) string {
 		return ""
 	}
 
-	// Handle PSObject-wrapped format
-	if psobject.IsPSObject(groupMap) {
-		if val, exists := groupMap["_val"]; exists {
-			if inner, ok := val.(map[string]any); ok {
-				if name, ok := inner["Name"].(string); ok {
-					return name
-				}
-			}
-		}
-		return ""
-	}
-
-	// Plain map format
 	if name, ok := groupMap["Name"].(string); ok {
 		return name
 	}

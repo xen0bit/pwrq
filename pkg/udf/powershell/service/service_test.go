@@ -142,7 +142,7 @@ func TestStartService(t *testing.T) {
 	// Test starting a service (will likely fail in test environment)
 	opts := StartServiceOptions{Name: "nonexistent_test_service"}
 	result, err := startService(opts)
-	
+
 	if err != nil {
 		// Expected to fail for non-existent service
 		t.Logf("startService() error (expected for non-existent service): %v", err)
@@ -157,21 +157,21 @@ func TestStartService(t *testing.T) {
 
 func TestStartServiceOptionsParsing(t *testing.T) {
 	tests := []struct {
-		name       string
-		optsMap    map[string]any
-		wantName   string
+		name         string
+		optsMap      map[string]any
+		wantName     string
 		wantPassThru bool
 	}{
 		{
-			name:       "name only",
-			optsMap:    map[string]any{"Name": "test"},
-			wantName:   "test",
+			name:         "name only",
+			optsMap:      map[string]any{"Name": "test"},
+			wantName:     "test",
 			wantPassThru: false,
 		},
 		{
-			name:       "with pass thru",
-			optsMap:    map[string]any{"Name": "test", "PassThru": true},
-			wantName:   "test",
+			name:         "with pass thru",
+			optsMap:      map[string]any{"Name": "test", "PassThru": true},
+			wantName:     "test",
 			wantPassThru: true,
 		},
 	}
@@ -199,7 +199,7 @@ func TestStopService(t *testing.T) {
 	// Test stopping a service (will likely fail in test environment)
 	opts := StopServiceOptions{Name: "nonexistent_test_service"}
 	result, err := stopService(opts)
-	
+
 	if err != nil {
 		// Expected to fail for non-existent service
 		t.Logf("stopService() error (expected for non-existent service): %v", err)
@@ -214,31 +214,31 @@ func TestStopService(t *testing.T) {
 
 func TestStopServiceOptionsParsing(t *testing.T) {
 	tests := []struct {
-		name       string
-		optsMap    map[string]any
-		wantName   string
-		wantForce  bool
+		name         string
+		optsMap      map[string]any
+		wantName     string
+		wantForce    bool
 		wantPassThru bool
 	}{
 		{
-			name:       "name only",
-			optsMap:    map[string]any{"Name": "test"},
-			wantName:   "test",
-			wantForce:  false,
+			name:         "name only",
+			optsMap:      map[string]any{"Name": "test"},
+			wantName:     "test",
+			wantForce:    false,
 			wantPassThru: false,
 		},
 		{
-			name:       "with force",
-			optsMap:    map[string]any{"Name": "test", "Force": true},
-			wantName:   "test",
-			wantForce:  true,
+			name:         "with force",
+			optsMap:      map[string]any{"Name": "test", "Force": true},
+			wantName:     "test",
+			wantForce:    true,
 			wantPassThru: false,
 		},
 		{
-			name:       "all options",
-			optsMap:    map[string]any{"Name": "test", "Force": true, "PassThru": true},
-			wantName:   "test",
-			wantForce:  true,
+			name:         "all options",
+			optsMap:      map[string]any{"Name": "test", "Force": true, "PassThru": true},
+			wantName:     "test",
+			wantForce:    true,
 			wantPassThru: true,
 		},
 	}

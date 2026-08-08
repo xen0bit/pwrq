@@ -7,9 +7,9 @@ import (
 
 func TestParseResolvePathArgs(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []any
-		wantPath string
+		name        string
+		args        []any
+		wantPath    string
 		wantLiteral bool
 	}{
 		{
@@ -25,10 +25,10 @@ func TestParseResolvePathArgs(t *testing.T) {
 		{
 			name: "named parameters",
 			args: []any{map[string]any{
-				"Path": "/tmp",
+				"Path":    "/tmp",
 				"Literal": true,
 			}},
-			wantPath: "/tmp",
+			wantPath:    "/tmp",
 			wantLiteral: true,
 		},
 	}

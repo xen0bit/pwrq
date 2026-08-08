@@ -19,18 +19,18 @@ import (
 type FilterOperator int
 
 const (
-	FilterOperatorEq FilterOperator = iota // -eq (equal)
-	FilterOperatorNe                        // -ne (not equal)
-	FilterOperatorGt                        // -gt (greater than)
-	FilterOperatorGe                        // -ge (greater or equal)
-	FilterOperatorLt                        // -lt (less than)
-	FilterOperatorLe                        // -le (less or equal)
-	FilterOperatorLike                      // -like (wildcard match)
-	FilterOperatorNotLike                   // -notlike (wildcard non-match)
-	FilterOperatorMatch                     // -match (regex match)
-	FilterOperatorNotMatch                  // -notmatch (regex non-match)
-	FilterOperatorContains                  // -contains (contains value)
-	FilterOperatorNotContains               // -notcontains (does not contain)
+	FilterOperatorEq          FilterOperator = iota // -eq (equal)
+	FilterOperatorNe                                // -ne (not equal)
+	FilterOperatorGt                                // -gt (greater than)
+	FilterOperatorGe                                // -ge (greater or equal)
+	FilterOperatorLt                                // -lt (less than)
+	FilterOperatorLe                                // -le (less or equal)
+	FilterOperatorLike                              // -like (wildcard match)
+	FilterOperatorNotLike                           // -notlike (wildcard non-match)
+	FilterOperatorMatch                             // -match (regex match)
+	FilterOperatorNotMatch                          // -notmatch (regex non-match)
+	FilterOperatorContains                          // -contains (contains value)
+	FilterOperatorNotContains                       // -notcontains (does not contain)
 )
 
 // String returns the PowerShell-style name for the operator
@@ -157,7 +157,7 @@ func evaluateCondition(obj any, opts WhereObjectOptions) (bool, error) {
 // evaluateScriptBlock evaluates a jq-style filter expression against an object
 func evaluateScriptBlock(obj any, script string, caseSensitive bool) (bool, error) {
 	// Extract the underlying value from PSObject if present
-	value := common.ExtractPSValue(obj)
+	value := common.BindValue(obj)
 
 	// For script blocks, we need to evaluate them as jq expressions
 	// This is a simplified implementation - full implementation would use gojq
@@ -688,9 +688,9 @@ func whereObject(objects []any, opts WhereObjectOptions) ([]any, error) {
 		}
 
 		if matches {
-			// Preserve PSObject metadata on filtered output
-			filteredObj := common.PreservePSObjectMetadata(obj, obj)
-			result = append(result, filteredObj)
+			// Where-Object is a filter: matching objects pass through as they
+			// arrived, type and all.
+			result = append(result, obj)
 		}
 	}
 
@@ -715,7 +715,7 @@ func ParseWhereObjectArgs(args []any) ([]any, WhereObjectOptions, error) {
 
 	// First argument is objects
 	var objects []any
-	inputVal := common.ExtractUDFValue(args[0])
+	inputVal := common.BindValue(args[0])
 	objects = common.NormalizeToSlice(inputVal)
 
 	// Parse options if present

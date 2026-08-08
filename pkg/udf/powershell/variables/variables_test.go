@@ -274,7 +274,7 @@ func TestGetVariableWildcard(t *testing.T) {
 
 	// Test wildcard matching using filepath.Match
 	allVars := ss.GetVariables()
-	
+
 	var matchedCount int
 	for name := range allVars {
 		matched, err := filepath.Match("test*", name)
@@ -286,7 +286,7 @@ func TestGetVariableWildcard(t *testing.T) {
 			matchedCount++
 		}
 	}
-	
+
 	// We expect at least testVar1 and testVar2 to match
 	if matchedCount < 2 {
 		t.Errorf("Expected at least 2 variables matching 'test*', got %d", matchedCount)
@@ -307,9 +307,9 @@ func TestGetVariableExcludeInclude(t *testing.T) {
 		Include: "include*",
 		Exclude: "exclude*",
 	}
-	
+
 	allVars := ss.GetVariables()
-	
+
 	// Simulate filtering
 	var includedCount int
 	var excludedCount int
@@ -329,7 +329,7 @@ func TestGetVariableExcludeInclude(t *testing.T) {
 			}
 		}
 	}
-	
+
 	if includedCount < 2 {
 		t.Errorf("Expected at least 2 variables matching include pattern, got %d", includedCount)
 	}

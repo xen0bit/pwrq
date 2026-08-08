@@ -16,7 +16,7 @@ func RegisterHexEncode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("hex_encode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -79,7 +79,7 @@ func RegisterHexDecode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("hex_decode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string

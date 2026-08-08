@@ -30,9 +30,9 @@ func TestParseJoinPathArgs(t *testing.T) {
 			wantPaths: []string{"/tmp", "test", "file.go"},
 		},
 		{
-			name:      "with resolve flag",
-			args:      []any{"/tmp", "test", true},
-			wantPaths: []string{"/tmp", "test"},
+			name:        "with resolve flag",
+			args:        []any{"/tmp", "test", true},
+			wantPaths:   []string{"/tmp", "test"},
 			wantResolve: true,
 		},
 		{
@@ -51,8 +51,8 @@ func TestParseJoinPathArgs(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:      "PSObject wrapped path",
-			args:      []any{map[string]any{"_val": "/tmp", "_meta": map[string]any{"type": "System.String"}}},
+			name:      "cmdlet output path binds by property name",
+			args:      []any{map[string]any{"PSPath": "/tmp", "PSTypeName": "System.String"}},
 			wantPaths: []string{"/tmp"},
 		},
 	}
@@ -84,48 +84,48 @@ func TestParseJoinPathArgs(t *testing.T) {
 
 func TestJoinPath(t *testing.T) {
 	tests := []struct {
-		name     string
-		paths    []string
-		resolve  bool
+		name         string
+		paths        []string
+		resolve      bool
 		wantContains string
-		wantAbs  bool
-		wantErr  bool
+		wantAbs      bool
+		wantErr      bool
 	}{
 		{
-			name:     "simple join",
-			paths:    []string{"/tmp", "test"},
+			name:         "simple join",
+			paths:        []string{"/tmp", "test"},
 			wantContains: "tmp",
 		},
 		{
-			name:     "multiple segments",
-			paths:    []string{"/tmp", "test", "file.go"},
+			name:         "multiple segments",
+			paths:        []string{"/tmp", "test", "file.go"},
 			wantContains: "file.go",
 		},
 		{
-			name:     "absolute path resets",
-			paths:    []string{"/tmp", "/usr", "local"},
+			name:         "absolute path resets",
+			paths:        []string{"/tmp", "/usr", "local"},
 			wantContains: "usr",
 		},
 		{
-			name:     "relative with dot",
-			paths:    []string{"/tmp", ".", "test"},
+			name:         "relative with dot",
+			paths:        []string{"/tmp", ".", "test"},
 			wantContains: "tmp",
 		},
 		{
-			name:     "relative with dotdot",
-			paths:    []string{"/tmp/test", "..", "other"},
+			name:         "relative with dotdot",
+			paths:        []string{"/tmp/test", "..", "other"},
 			wantContains: "other",
 		},
 		{
-			name:     "UNC path",
-			paths:    []string{"\\\\server\\share", "folder"},
+			name:         "UNC path",
+			paths:        []string{"\\\\server\\share", "folder"},
 			wantContains: "server",
 		},
 		{
-			name:     "resolve to absolute",
-			paths:    []string{"tmp", "test"},
-			resolve:  true,
-			wantAbs:  true,
+			name:    "resolve to absolute",
+			paths:   []string{"tmp", "test"},
+			resolve: true,
+			wantAbs: true,
 		},
 		{
 			name:    "no paths",
@@ -156,22 +156,22 @@ func TestJoinPath(t *testing.T) {
 
 func TestJoinPathErrors(t *testing.T) {
 	tests := []struct {
-		name       string
+		name          string
 		pipelineInput any
-		args       []any
-		wantErr    bool
+		args          []any
+		wantErr       bool
 	}{
 		{
-			name:       "null in args",
+			name:          "null in args",
 			pipelineInput: nil,
-			args:       []any{nil},
-			wantErr:    true,
+			args:          []any{nil},
+			wantErr:       true,
 		},
 		{
-			name:       "non-string arg",
+			name:          "non-string arg",
 			pipelineInput: nil,
-			args:       []any{123},
-			wantErr:    true,
+			args:          []any{123},
+			wantErr:       true,
 		},
 	}
 
@@ -182,7 +182,7 @@ func TestJoinPathErrors(t *testing.T) {
 			if tt.pipelineInput != nil {
 				allArgs = append([]any{tt.pipelineInput}, tt.args...)
 			}
-			
+
 			_, _, err := parseJoinPathArgs(allArgs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("expected error = %v, wantErr %v", err, tt.wantErr)
@@ -193,12 +193,12 @@ func TestJoinPathErrors(t *testing.T) {
 
 func TestSplitPathComponents(t *testing.T) {
 	tests := []struct {
-		name       string
-		path       string
-		wantDir    string
-		wantBase   string
-		wantExt    string
-		wantName   string
+		name     string
+		path     string
+		wantDir  string
+		wantBase string
+		wantExt  string
+		wantName string
 	}{
 		{
 			name:     "Unix path",

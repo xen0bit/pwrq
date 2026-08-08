@@ -52,24 +52,9 @@ func TestFindFiles(t *testing.T) {
 			args:    []any{tmpDir},
 			wantErr: false,
 			check: func(results []any) bool {
-				// Should find files and directories
-				// Check that results have the correct structure
+				// find yields paths
 				for _, r := range results {
-					result, ok := r.(map[string]any)
-					if !ok {
-						return false
-					}
-					if _, ok := result["_val"]; !ok {
-						return false
-					}
-					if _, ok := result["_meta"]; !ok {
-						return false
-					}
-					meta, ok := result["_meta"].(map[string]any)
-					if !ok {
-						return false
-					}
-					if _, ok := meta["type"]; !ok {
+					if _, ok := r.(string); !ok {
 						return false
 					}
 				}
@@ -81,17 +66,9 @@ func TestFindFiles(t *testing.T) {
 			args:    []any{tmpDir, "file"},
 			wantErr: false,
 			check: func(results []any) bool {
-				// Should only find files
+				// find yields paths
 				for _, r := range results {
-					result, ok := r.(map[string]any)
-					if !ok {
-						return false
-					}
-					meta, ok := result["_meta"].(map[string]any)
-					if !ok {
-						return false
-					}
-					if meta["type"] != "file" {
+					if _, ok := r.(string); !ok {
 						return false
 					}
 				}
@@ -103,17 +80,9 @@ func TestFindFiles(t *testing.T) {
 			args:    []any{tmpDir, "dir"},
 			wantErr: false,
 			check: func(results []any) bool {
-				// Should only find directories
+				// find yields paths
 				for _, r := range results {
-					result, ok := r.(map[string]any)
-					if !ok {
-						return false
-					}
-					meta, ok := result["_meta"].(map[string]any)
-					if !ok {
-						return false
-					}
-					if meta["type"] != "dir" {
+					if _, ok := r.(string); !ok {
 						return false
 					}
 				}

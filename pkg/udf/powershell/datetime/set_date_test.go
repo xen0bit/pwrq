@@ -19,12 +19,12 @@ func TestSetDateParseOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := SetDateOptions{}
-			
+
 			// Simulate parsing
 			if dateVal, exists := tt.input["Date"]; exists {
 				opts.Date = dateVal
 			}
-			
+
 			if opts.Date == nil && !tt.wantErr {
 				t.Errorf("Expected date to be parsed")
 			}
@@ -62,9 +62,9 @@ func TestSetDateUnixTimestamp(t *testing.T) {
 	// Test that Unix timestamp conversion works correctly
 	timestamp := int64(1704067200) // 2024-01-01 00:00:00 UTC
 	expected := time.Unix(timestamp, 0)
-	
+
 	result := time.Unix(timestamp, 0)
-	
+
 	if !result.Equal(expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}

@@ -42,7 +42,7 @@ func parseGetChildItemArgs(args []any) (GetChildItemOptions, error) {
 	}
 
 	for i, arg := range args {
-		argVal := common.ExtractUDFValue(arg)
+		argVal := common.BindValue(arg)
 
 		switch v := argVal.(type) {
 		case string:
@@ -299,7 +299,13 @@ func createPSObjectFromFileInfo(path string, info os.FileInfo) (map[string]any, 
 
 	// Add NoteProperties (PowerShell-style properties)
 	psobj.AddNoteProperty("Name", info.Name())
-	psobj.AddNoteProperty("FullName", path)
+	// FullName is absolute, as PowerShell's FileInfo.FullName is: it is what
+	// downstream cmdlets bind to, so it has to survive a change of directory.
+	fullName := path
+	if abs, err := filepath.Abs(path); err == nil {
+		fullName = abs
+	}
+	psobj.AddNoteProperty("FullName", fullName)
 	psobj.AddNoteProperty("Length", func() int64 {
 		if info.IsDir() {
 			return 0

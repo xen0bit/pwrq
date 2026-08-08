@@ -53,7 +53,7 @@ func RegisterGetService() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			// Check if first arg is a string (service name)
 			if nameStr, ok := firstArg.(string); ok {
@@ -597,7 +597,7 @@ func RegisterStartService() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr
@@ -713,7 +713,7 @@ func RegisterStopService() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 			
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr

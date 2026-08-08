@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 func runGojqQuery(t *testing.T, query string, input any, options ...gojq.CompilerOption) any {
@@ -32,17 +31,43 @@ func runGojqQuery(t *testing.T, query string, input any, options ...gojq.Compile
 	return result
 }
 
+// runGojqQueryErr runs a query that is expected to fail and returns the error.
+// UDF failures now travel on jq's error channel rather than in-band, so a test
+// that wants a failure has to look for one there.
+func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		t.Fatalf("Failed to parse query %q: %v", query, err)
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		t.Fatalf("Failed to compile query %q: %v", query, err)
+	}
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+	}
+	t.Fatalf("expected query %q to fail, but it succeeded", query)
+	return nil
+}
+
+// priorCmdletOutput models what an upstream cmdlet now puts on the pipeline:
+// the value itself, with no envelope around it.
+func priorCmdletOutput(value any, _ map[string]any) any { return value }
+
 func TestSh_SimpleCommand(t *testing.T) {
 	result := runGojqQuery(t, `sh("echo hello")`, nil, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	if val != "hello" {
@@ -50,29 +75,14 @@ func TestSh_SimpleCommand(t *testing.T) {
 	}
 
 	// Check metadata
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
-	}
-	if meta["operation"] != "sh" {
-		t.Errorf("Expected operation to be 'sh', got %v", meta["operation"])
-	}
-	if meta["exit_code"] != 0 {
-		t.Errorf("Expected exit_code to be 0, got %v", meta["exit_code"])
-	}
 }
 
 func TestSh_CommandWithOutput(t *testing.T) {
 	result := runGojqQuery(t, `sh("echo -n 'test output'")`, nil, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	if val != "test output" {
@@ -83,14 +93,9 @@ func TestSh_CommandWithOutput(t *testing.T) {
 func TestSh_CommandWithMultipleLines(t *testing.T) {
 	result := runGojqQuery(t, `sh("echo -e 'line1\nline2\nline3'")`, nil, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	// Should contain all lines (trimmed, so newlines might be preserved in the middle)
@@ -100,68 +105,26 @@ func TestSh_CommandWithMultipleLines(t *testing.T) {
 }
 
 func TestSh_NonZeroExitCode(t *testing.T) {
-	result := runGojqQuery(t, `sh("false")`, nil, RegisterSh())
+	qErr := runGojqQueryErr(t, `sh("false")`, nil, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have _err field
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result for non-zero exit code")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	errStr := qErr.Error()
 
 	if errStr == "" {
 		t.Errorf("Expected error message, got empty string")
 	}
 
-	// Check metadata has exit code
-	meta, ok := resultMap["_meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("Expected _meta to be map, got %T", resultMap["_meta"])
+	// A failing command reports the exit code in the error message.
+	if !strings.Contains(errStr, "exited with code") {
+		t.Errorf("error should name the exit code, got %q", errStr)
 	}
 
-	exitCode, ok := meta["exit_code"].(int)
-	if !ok {
-		// Try float64 (JSON numbers)
-		if exitCodeFloat, ok := meta["exit_code"].(float64); ok {
-			exitCode = int(exitCodeFloat)
-		} else {
-			t.Fatalf("Expected exit_code to be int or float64, got %T", meta["exit_code"])
-		}
-	}
-
-	if exitCode == 0 {
-		t.Errorf("Expected non-zero exit code, got %d", exitCode)
-	}
 }
 
 func TestSh_CommandWithStderr(t *testing.T) {
 	// Use a command that writes to stderr and exits with non-zero
-	result := runGojqQuery(t, `sh("echo 'error message' >&2 && exit 1")`, nil, RegisterSh())
+	qErr := runGojqQueryErr(t, `sh("echo 'error message' >&2 && exit 1")`, nil, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have _err field
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	errStr := qErr.Error()
 
 	// Should contain the error message
 	if !strings.Contains(errStr, "error message") && !strings.Contains(errStr, "1") {
@@ -173,14 +136,9 @@ func TestSh_CommandWithStderr(t *testing.T) {
 func TestSh_CommandFromPipe(t *testing.T) {
 	result := runGojqQuery(t, `"echo test" | sh(.)`, "echo test", RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	if val != "test" {
@@ -189,7 +147,7 @@ func TestSh_CommandFromPipe(t *testing.T) {
 }
 
 func TestSh_Chaining(t *testing.T) {
-	result := runGojqQuery(t, `sh("echo hello") | ._val | length`, nil, RegisterSh())
+	result := runGojqQuery(t, `sh("echo hello") | length`, nil, RegisterSh())
 
 	length, ok := result.(int)
 	if !ok {
@@ -202,18 +160,13 @@ func TestSh_Chaining(t *testing.T) {
 }
 
 func TestSh_WithUDFResultInput(t *testing.T) {
-	udfResult := common.MakeUDFSuccessResult("echo test", map[string]any{"test": "value"})
+	udfResult := priorCmdletOutput("echo test", map[string]any{"test": "value"})
 
-	result := runGojqQuery(t, `sh(._val)`, udfResult, RegisterSh())
+	result := runGojqQuery(t, `sh(.)`, udfResult, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
+	val, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	val, ok := resultMap["_val"].(string)
-	if !ok {
-		t.Fatalf("Expected _val to be string, got %T", resultMap["_val"])
+		t.Fatalf("expected string result, got %T", result)
 	}
 
 	if val != "test" {
@@ -222,23 +175,9 @@ func TestSh_WithUDFResultInput(t *testing.T) {
 }
 
 func TestSh_EmptyCommand(t *testing.T) {
-	result := runGojqQuery(t, `sh("")`, nil, RegisterSh())
+	qErr := runGojqQueryErr(t, `sh("")`, nil, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error
-	errVal, ok := resultMap["_err"]
-	if !ok {
-		t.Fatalf("Expected _err field in result")
-	}
-
-	errStr, ok := errVal.(string)
-	if !ok {
-		t.Fatalf("Expected _err to be string, got %T", errVal)
-	}
+	errStr := qErr.Error()
 
 	if errStr == "" {
 		t.Errorf("Expected error message, got empty string")
@@ -246,27 +185,9 @@ func TestSh_EmptyCommand(t *testing.T) {
 }
 
 func TestSh_CommandNotFound(t *testing.T) {
-	result := runGojqQuery(t, `sh("nonexistentcommand12345")`, nil, RegisterSh())
+	qErr := runGojqQueryErr(t, `sh("nonexistentcommand12345")`, nil, RegisterSh())
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
-
-	// Should have an error (either in _err or as UDF error)
-	errVal, hasErr := resultMap["_err"]
-	if hasErr {
-		errStr, ok := errVal.(string)
-		if ok && errStr != "" {
-			// This is expected for command not found
-			return
-		}
-	}
-
-	// If no _err, check if it's a UDF error result
-	if !hasErr {
-		// Command not found should result in an error
-		t.Logf("Result: %+v", resultMap)
+	if !strings.Contains(qErr.Error(), "exited with code") {
+		t.Errorf("a missing command should report its exit code, got %q", qErr)
 	}
 }
-

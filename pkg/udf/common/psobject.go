@@ -6,114 +6,69 @@ import (
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
 )
 
-// EnsurePSObject wraps a value in a PSObject if it isn't already.
-// This allows UDFs to work with both raw values and PSObject-wrapped values.
+// EnsurePSObject wraps a value in a PSObject if it isn't already, so UDFs can
+// work uniformly with cmdlet output and plain JSON.
 //
-// Behavior:
-//   - If v is already a *PSObject, returns it unchanged
-//   - If v is a map with PSObject shape ({_val, _meta}), converts it (ignoring malformed maps)
-//   - If v is nil, returns nil (caller must handle nil checks)
-//   - Otherwise, wraps v in a new PSObject with automatic type detection
-//
-// Note: This function returns nil for malformed PSObject maps rather than panicking.
-// For error-aware conversion, use TryEnsurePSObject instead.
+// Any JSON object is a valid PSObject - a hand-written {"Name":"x"} binds the
+// same way a cmdlet's output does. Objects carrying PSTypeName keep their type.
 func EnsurePSObject(v any) *psobject.PSObject {
 	if v == nil {
 		return nil
 	}
 
-	// Already a PSObject - return as-is
 	if psobj, ok := v.(*psobject.PSObject); ok {
 		return psobj
 	}
 
-	// Check for PSObject-like map
 	if m, ok := v.(map[string]any); ok {
-		// Validate it has the basic PSObject shape before attempting conversion
-		if psobject.IsPSObject(m) {
-			psobj, err := psobject.FromMap(m)
-			if err == nil {
-				return psobj
-			}
-			// Malformed PSObject map - fall through to wrap as-is
+		if psobj, err := psobject.FromMap(m); err == nil {
+			return psobj
 		}
 	}
 
-	// Wrap raw value in a new PSObject
 	return psobject.NewPSObject(v)
 }
 
-// TryEnsurePSObject is like EnsurePSObject but returns an error for malformed inputs.
-// Use this when you need to handle conversion failures explicitly.
+// TryEnsurePSObject is like EnsurePSObject but reports conversion failures.
 func TryEnsurePSObject(v any) (*psobject.PSObject, error) {
 	if v == nil {
 		return nil, nil
 	}
 
-	// Already a PSObject - return as-is
 	if psobj, ok := v.(*psobject.PSObject); ok {
 		return psobj, nil
 	}
 
-	// Check for PSObject-like map
 	if m, ok := v.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			psobj, err := psobject.FromMap(m)
-			if err != nil {
-				return nil, fmt.Errorf("malformed PSObject map: %w", err)
-			}
-			return psobj, nil
+		psobj, err := psobject.FromMap(m)
+		if err != nil {
+			return nil, fmt.Errorf("malformed PSObject map: %w", err)
 		}
+		return psobj, nil
 	}
 
-	// Wrap raw value in a new PSObject
 	return psobject.NewPSObject(v), nil
 }
 
-// ExtractPSValue extracts the underlying value from a PSObject or PSObject-like map.
-// Falls back to ExtractUDFValue for backward compatibility.
-func ExtractPSValue(v any) any {
-	if psobj, ok := v.(*psobject.PSObject); ok {
-		return psobj.Value
-	}
-	if m, ok := v.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			psobj, _ := psobject.FromMap(m)
-			return psobj.Value
-		}
-	}
-	// Fall back to old UDF extraction
-	return ExtractUDFValue(v)
-}
-
-// MakePSObjectResult creates a UDF result object from a PSObject.
-// Returns {_val: value, _meta: {type: typeName, members: {...}}}
-func MakePSObjectResult(psobj *psobject.PSObject) map[string]any {
+// MakePSObjectResult converts a PSObject to its JSON wire form.
+func MakePSObjectResult(psobj *psobject.PSObject) any {
 	if psobj == nil {
-		return MakeUDFErrorResult(nil, map[string]any{"error": "nil PSObject"})
+		return nil
 	}
-	return psobj.ToMap()
+	return psobj.ToJSON()
 }
 
-// MakePSObjectErrorResult creates a UDF error result with PSObject metadata.
-func MakePSObjectErrorResult(err error, typeName string) map[string]any {
-	meta := map[string]any{
-		"type": typeName,
-		"error": err.Error(),
+// MakePSObjectErrorResult reports a cmdlet failure as a jq error, naming the
+// PowerShell type that was being produced.
+func MakePSObjectErrorResult(err error, typeName string) any {
+	if typeName == "" {
+		return err
 	}
-	return MakeUDFErrorResult(err, meta)
+	return fmt.Errorf("%s: %w", typeName, err)
 }
 
-// GetPSTypeName extracts the type name from a value, handling PSObject wrappers.
+// GetPSTypeName extracts the PowerShell type name from a value.
 func GetPSTypeName(v any) string {
-	if psobj, ok := v.(*psobject.PSObject); ok {
-		return psobj.TypeName
-	}
-	if m, ok := v.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			return psobject.ExtractTypeName(m)
-		}
-	}
 	return psobject.ExtractTypeName(v)
 }
 

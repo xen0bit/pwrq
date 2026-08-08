@@ -10,39 +10,18 @@ import (
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
 )
 
-// getAvailableProperties returns all property names available on an object
+// getAvailableProperties returns all property names available on an object.
+// PSTypeName is excluded: it identifies the object rather than describing it,
+// and PowerShell's own formatters do not show it as a column.
 func getAvailableProperties(value any) []string {
 	names := make([]string, 0)
 
 	switch v := value.(type) {
 	case map[string]any:
-		// Check if it's a PSObject (has _val and _meta)
-		if psobject.IsPSObject(v) {
-			// Get member names from _meta.members
-			if meta, ok := v["_meta"].(map[string]any); ok {
-				if members, ok := meta["members"].(map[string]any); ok {
-					for name := range members {
-						if !containsString(names, name) {
-							names = append(names, name)
-						}
-					}
-				}
-			}
-			// Also get keys from the underlying value if it's a map
-			if val, exists := v["_val"]; exists {
-				if valMap, ok := val.(map[string]any); ok {
-					for k := range valMap {
-						if !containsString(names, k) {
-							names = append(names, k)
-						}
-					}
-				}
-			}
-			return names
-		}
-		// Regular map - get all keys
 		for k := range v {
-			names = append(names, k)
+			if k != psobject.PSTypeNameKey {
+				names = append(names, k)
+			}
 		}
 	case *psobject.PSObject:
 		// Get property names from PSObject members
@@ -104,44 +83,6 @@ func matchProperty(prop, pattern string, caseSensitive bool) bool {
 func getPropertyValue(value any, propertyName string) any {
 	switch v := value.(type) {
 	case map[string]any:
-		// Check if it's a PSObject (has _val and _meta)
-		if psobject.IsPSObject(v) {
-			// Try members first from _meta.members
-			if meta, ok := v["_meta"].(map[string]any); ok {
-				if members, ok := meta["members"].(map[string]any); ok {
-					if memberData, ok := members[propertyName]; ok {
-						if memberMap, ok := memberData.(map[string]any); ok {
-							if memberType, ok := memberMap["type"].(string); ok {
-								switch memberType {
-								case "NoteProperty":
-									if val, exists := memberMap["value"]; exists {
-										return val
-									}
-								case "ScriptProperty":
-									if desc, exists := memberMap["description"]; exists {
-										return fmt.Sprintf("<ScriptProperty: %v>", desc)
-									}
-									return "<ScriptProperty>"
-								case "AliasProperty":
-									if target, exists := memberMap["target"].(string); exists {
-										return getPropertyValue(value, target)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			// Fall back to value map
-			if val, exists := v["_val"]; exists {
-				if valMap, ok := val.(map[string]any); ok {
-					if propVal, exists := valMap[propertyName]; exists {
-						return propVal
-					}
-				}
-			}
-		}
-		// Regular map access
 		if val, exists := v[propertyName]; exists {
 			return val
 		}

@@ -93,11 +93,11 @@ func TestSSDeepWithUDFResult(t *testing.T) {
 	// SSDeep requires at least 4096 bytes
 	longString := strings.Repeat("This is a test string for ssdeep. ", 200)
 	udfResult := map[string]any{
-		"_val": longString,
-		"_meta": map[string]any{},
+		"PSPath":     longString,
+		"PSTypeName": "System.String",
 	}
 
-	inputVal := common.ExtractUDFValue(udfResult)
+	inputVal := common.BindValue(udfResult)
 	inputBytes := []byte(inputVal.(string))
 
 	hash, err := ssdeep.FuzzyBytes(inputBytes)
@@ -113,7 +113,7 @@ func TestSSDeepWithUDFResult(t *testing.T) {
 func TestSSDeepCompareIdentical(t *testing.T) {
 	// SSDeep requires at least 4096 bytes
 	input := strings.Repeat("test string for ssdeep comparison. ", 200)
-	
+
 	hash1, err1 := ssdeep.FuzzyBytes([]byte(input))
 	if err1 != nil {
 		t.Fatalf("failed to hash: %v", err1)
@@ -134,4 +134,3 @@ func TestSSDeepCompareIdentical(t *testing.T) {
 		t.Errorf("identical inputs should have high similarity, got score %v", score)
 	}
 }
-

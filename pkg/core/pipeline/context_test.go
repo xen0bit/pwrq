@@ -242,9 +242,9 @@ func TestInitCmdletBase(t *testing.T) {
 // testCmdlet is a simple cmdlet implementation for testing.
 type testCmdlet struct{}
 
-func (c *testCmdlet) BeginProcessing()                {}
-func (c *testCmdlet) ProcessRecord(input any) any     { return input }
-func (c *testCmdlet) EndProcessing()                  {}
+func (c *testCmdlet) BeginProcessing()            {}
+func (c *testCmdlet) ProcessRecord(input any) any { return input }
+func (c *testCmdlet) EndProcessing()              {}
 
 // testCmdletWithBase implements CmdletWithBase.
 type testCmdletWithBase struct {

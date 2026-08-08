@@ -38,7 +38,7 @@ func parseCopyItemArgs(args []any) (CopyItemOptions, error) {
 
 	stringArgCount := 0
 	for _, arg := range args {
-		argVal := common.ExtractUDFValue(arg)
+		argVal := common.BindValue(arg)
 
 		switch v := argVal.(type) {
 		case string:

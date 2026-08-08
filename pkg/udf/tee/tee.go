@@ -13,7 +13,7 @@ import (
 // RegisterTee registers the tee function with gojq
 func RegisterTee() gojq.CompilerOption {
 	return gojq.WithFunction("tee", 0, 1, func(v any, args []any) any {
-		inputVal := common.ExtractUDFValue(v)
+		inputVal := common.BindValue(v)
 
 		var filePath string
 		writeToFile := false
@@ -101,25 +101,9 @@ func RegisterTee() gojq.CompilerOption {
 			os.Stderr.Write([]byte("\n"))
 		}
 
-		// Return the input unchanged (pass through)
-		// If input was a UDF result, return it as-is, otherwise wrap it
-		if common.IsUDFResult(v) {
-			return v
-		}
-
-		meta := map[string]any{
-			"operation": "tee",
-		}
-		if writeToFile {
-			meta["file_path"] = filePath
-			meta["written"] = true
-			meta["bytes_written"] = len(jsonBytes)
-		} else {
-			meta["written_to"] = "stderr"
-			meta["bytes_written"] = len(jsonBytes)
-		}
-
-		// Return input with metadata
-		return common.MakeUDFSuccessResult(inputVal, meta)
+		// Pass the input through untouched, like tee(1). Reporting how many
+		// bytes were written would change the value flowing down the pipe,
+		// which is the one thing a tee must never do.
+		return v
 	})
 }

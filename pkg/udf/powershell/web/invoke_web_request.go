@@ -67,7 +67,7 @@ func RegisterInvokeWebRequest() gojq.CompilerOption {
 
 		// Parse arguments
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 
 			if uriStr, ok := firstArg.(string); ok {
 				opts.Uri = uriStr
@@ -78,7 +78,7 @@ func RegisterInvokeWebRequest() gojq.CompilerOption {
 
 		// Second argument could be options map
 		if len(args) > 1 {
-			if secondArg := common.ExtractUDFValue(args[1]); secondArg != nil {
+			if secondArg := common.BindValue(args[1]); secondArg != nil {
 				if optsMap, ok := secondArg.(map[string]any); ok {
 					// Merge options (second arg takes precedence)
 					parseInvokeWebRequestOptions(&opts, optsMap)
@@ -88,7 +88,7 @@ func RegisterInvokeWebRequest() gojq.CompilerOption {
 
 		// If URI still empty, try to get from pipeline input
 		if opts.Uri == "" {
-			if pipelineVal := common.ExtractUDFValue(v); pipelineVal != nil {
+			if pipelineVal := common.BindValue(v); pipelineVal != nil {
 				if uriStr, ok := pipelineVal.(string); ok {
 					opts.Uri = uriStr
 				}
@@ -356,7 +356,7 @@ func RegisterInvokeRestMethod() gojq.CompilerOption {
 
 		// Parse arguments (same as invoke_web_request)
 		if len(args) > 0 {
-			firstArg := common.ExtractUDFValue(args[0])
+			firstArg := common.BindValue(args[0])
 
 			if uriStr, ok := firstArg.(string); ok {
 				opts.Uri = uriStr
@@ -366,7 +366,7 @@ func RegisterInvokeRestMethod() gojq.CompilerOption {
 		}
 
 		if len(args) > 1 {
-			if secondArg := common.ExtractUDFValue(args[1]); secondArg != nil {
+			if secondArg := common.BindValue(args[1]); secondArg != nil {
 				if optsMap, ok := secondArg.(map[string]any); ok {
 					parseInvokeWebRequestOptions(&opts, optsMap)
 				}
@@ -375,7 +375,7 @@ func RegisterInvokeRestMethod() gojq.CompilerOption {
 
 		// If URI still empty, try to get from pipeline input
 		if opts.Uri == "" {
-			if pipelineVal := common.ExtractUDFValue(v); pipelineVal != nil {
+			if pipelineVal := common.BindValue(v); pipelineVal != nil {
 				if uriStr, ok := pipelineVal.(string); ok {
 					opts.Uri = uriStr
 				}

@@ -22,7 +22,7 @@ import (
 func parseKey(keyInput any, keyFormat string) ([]byte, error) {
 	var keyBytes []byte
 
-	keyVal := common.ExtractUDFValue(keyInput)
+	keyVal := common.BindValue(keyInput)
 	switch val := keyVal.(type) {
 	case string:
 		keyBytes = []byte(val)
@@ -57,7 +57,7 @@ func parseKey(keyInput any, keyFormat string) ([]byte, error) {
 func parseData(dataInput any, dataFormat string) ([]byte, error) {
 	var dataBytes []byte
 
-	dataVal := common.ExtractUDFValue(dataInput)
+	dataVal := common.BindValue(dataInput)
 	switch val := dataVal.(type) {
 	case string:
 		dataBytes = []byte(val)
@@ -131,7 +131,7 @@ func RegisterAESEncrypt() gojq.CompilerOption {
 		} else {
 			dataInput = v
 		}
-		dataInput = common.ExtractUDFValue(dataInput)
+		dataInput = common.BindValue(dataInput)
 
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("aes_encrypt: requires at least 2 arguments (data, key)"), nil)
@@ -145,7 +145,7 @@ func RegisterAESEncrypt() gojq.CompilerOption {
 			if modeStr, ok := args[2].(string); ok {
 				mode = strings.ToUpper(modeStr)
 			} else {
-				modeVal := common.ExtractUDFValue(args[2])
+				modeVal := common.BindValue(args[2])
 				if modeStr, ok := modeVal.(string); ok {
 					mode = strings.ToUpper(modeStr)
 				}
@@ -262,9 +262,9 @@ func RegisterAESDecrypt() gojq.CompilerOption {
 		}
 
 		// Parse arguments: data, key, mode (default CBC), keyFormat (default raw), dataFormat (default base64)
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		if len(args) > 0 {
-			dataInput = common.ExtractUDFValue(args[0])
+			dataInput = common.BindValue(args[0])
 		}
 
 		keyInput := args[1]
@@ -276,7 +276,7 @@ func RegisterAESDecrypt() gojq.CompilerOption {
 			if modeStr, ok := args[2].(string); ok {
 				mode = strings.ToUpper(modeStr)
 			} else {
-				modeVal := common.ExtractUDFValue(args[2])
+				modeVal := common.BindValue(args[2])
 				if modeStr, ok := modeVal.(string); ok {
 					mode = strings.ToUpper(modeStr)
 				}
@@ -400,7 +400,7 @@ func RegisterXOR() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("xor: requires at least 1 argument (key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		keyInput := args[0]
 		keyFormat := "raw"
 		dataFormat := "raw"
@@ -457,7 +457,7 @@ func RegisterRC4() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("rc4: requires at least 1 argument (key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		keyInput := args[0]
 		keyFormat := "raw"
 		dataFormat := "raw"
@@ -512,7 +512,7 @@ func RegisterChaCha20() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("chacha20: requires at least 1 argument (key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		keyInput := args[0]
 		keyFormat := "raw"
 		dataFormat := "raw"
@@ -598,9 +598,9 @@ func RegisterDESEncrypt() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("des_encrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		if len(args) > 0 {
-			dataInput = common.ExtractUDFValue(args[0])
+			dataInput = common.BindValue(args[0])
 		}
 
 		keyInput := args[1]
@@ -685,9 +685,9 @@ func RegisterDESDecrypt() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("des_decrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		if len(args) > 0 {
-			dataInput = common.ExtractUDFValue(args[0])
+			dataInput = common.BindValue(args[0])
 		}
 
 		keyInput := args[1]
@@ -783,9 +783,9 @@ func Register3DESEncrypt() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("3des_encrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		if len(args) > 0 {
-			dataInput = common.ExtractUDFValue(args[0])
+			dataInput = common.BindValue(args[0])
 		}
 
 		keyInput := args[1]
@@ -871,9 +871,9 @@ func Register3DESDecrypt() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		if len(args) > 0 {
-			dataInput = common.ExtractUDFValue(args[0])
+			dataInput = common.BindValue(args[0])
 		}
 
 		keyInput := args[1]
@@ -969,9 +969,9 @@ func RegisterBlowfishEncrypt() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("blowfish_encrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		if len(args) > 0 {
-			dataInput = common.ExtractUDFValue(args[0])
+			dataInput = common.BindValue(args[0])
 		}
 
 		keyInput := args[1]
@@ -1056,9 +1056,9 @@ func RegisterBlowfishDecrypt() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("blowfish_decrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
-		dataInput := common.ExtractUDFValue(v)
+		dataInput := common.BindValue(v)
 		if len(args) > 0 {
-			dataInput = common.ExtractUDFValue(args[0])
+			dataInput = common.BindValue(args[0])
 		}
 
 		keyInput := args[1]

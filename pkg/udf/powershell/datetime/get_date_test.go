@@ -61,10 +61,10 @@ func TestFormatDateTime(t *testing.T) {
 
 func TestCreateTimeSpan(t *testing.T) {
 	tests := []struct {
-		name     string
-		duration time.Duration
-		wantDays int
-		wantHours int
+		name        string
+		duration    time.Duration
+		wantDays    int
+		wantHours   int
 		wantMinutes int
 		wantSeconds int
 	}{
@@ -139,7 +139,7 @@ func TestGetDateOptionsZeroValues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := GetDateOptions{}
 			parseGetDateOptions(&opts, tt.optsMap)
-			
+
 			if opts.Hour != tt.wantHour {
 				t.Errorf("Hour = %d, want %d", opts.Hour, tt.wantHour)
 			}

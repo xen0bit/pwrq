@@ -1033,4 +1033,3 @@ func TestGenerateGraph_EndToEndComplexQuery(t *testing.T) {
 		t.Error("End node should be connected")
 	}
 }
-

@@ -21,7 +21,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -92,7 +92,7 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -166,7 +166,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -237,7 +237,7 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -311,7 +311,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -385,7 +385,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string

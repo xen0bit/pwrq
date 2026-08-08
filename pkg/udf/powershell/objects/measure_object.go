@@ -171,7 +171,7 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 // extractPropertyForMeasurement extracts a property value from an object for measurement
 func extractPropertyForMeasurement(obj any, property string) (any, error) {
 	// Extract the underlying value from PSObject if present
-	value := common.ExtractPSValue(obj)
+	value := common.BindValue(obj)
 
 	return common.ExtractPropertyByPath(value, property)
 }
@@ -243,7 +243,7 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 
 	// Wrap in PSObject with proper type information
 	psobj := psobject.NewPSObjectWithTypeName(valueMap, "Microsoft.PowerShell.Commands.GenericMeasureInfo")
-	
+
 	// Add NoteProperties for all measurement values
 	psobj.AddNoteProperty("Count", result.Count)
 	if opts.Property != "" {
@@ -276,7 +276,7 @@ func ParseMeasureObjectArgs(args []any) ([]any, MeasureObjectOptions, error) {
 
 	// First argument is objects
 	var objects []any
-	inputVal := common.ExtractUDFValue(args[0])
+	inputVal := common.BindValue(args[0])
 	objects = common.NormalizeToSlice(inputVal)
 
 	// Parse options if present
@@ -321,18 +321,8 @@ func ParseMeasureObjectArgs(args []any) ([]any, MeasureObjectOptions, error) {
 // GetMeasurementCount returns the count from a measurement result
 func GetMeasurementCount(result any) int {
 	if m, ok := result.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			if val, exists := m["_val"]; exists {
-				if inner, ok := val.(map[string]any); ok {
-					if count, ok := inner["Count"].(int); ok {
-						return count
-					}
-				}
-			}
-		} else {
-			if count, ok := m["Count"].(int); ok {
-				return count
-			}
+		if count, ok := m["Count"].(int); ok {
+			return count
 		}
 	}
 	return 0
@@ -341,18 +331,8 @@ func GetMeasurementCount(result any) int {
 // GetMeasurementSum returns the sum from a measurement result
 func GetMeasurementSum(result any) float64 {
 	if m, ok := result.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			if val, exists := m["_val"]; exists {
-				if inner, ok := val.(map[string]any); ok {
-					if sum, ok := inner["Sum"].(float64); ok {
-						return sum
-					}
-				}
-			}
-		} else {
-			if sum, ok := m["Sum"].(float64); ok {
-				return sum
-			}
+		if sum, ok := m["Sum"].(float64); ok {
+			return sum
 		}
 	}
 	return 0
@@ -361,18 +341,8 @@ func GetMeasurementSum(result any) float64 {
 // GetMeasurementAverage returns the average from a measurement result
 func GetMeasurementAverage(result any) float64 {
 	if m, ok := result.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			if val, exists := m["_val"]; exists {
-				if inner, ok := val.(map[string]any); ok {
-					if avg, ok := inner["Average"].(float64); ok {
-						return avg
-					}
-				}
-			}
-		} else {
-			if avg, ok := m["Average"].(float64); ok {
-				return avg
-			}
+		if avg, ok := m["Average"].(float64); ok {
+			return avg
 		}
 	}
 	return 0
@@ -381,15 +351,7 @@ func GetMeasurementAverage(result any) float64 {
 // GetMeasurementMinimum returns the minimum from a measurement result
 func GetMeasurementMinimum(result any) any {
 	if m, ok := result.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			if val, exists := m["_val"]; exists {
-				if inner, ok := val.(map[string]any); ok {
-					return inner["Minimum"]
-				}
-			}
-		} else {
-			return m["Minimum"]
-		}
+		return m["Minimum"]
 	}
 	return nil
 }
@@ -397,15 +359,7 @@ func GetMeasurementMinimum(result any) any {
 // GetMeasurementMaximum returns the maximum from a measurement result
 func GetMeasurementMaximum(result any) any {
 	if m, ok := result.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			if val, exists := m["_val"]; exists {
-				if inner, ok := val.(map[string]any); ok {
-					return inner["Maximum"]
-				}
-			}
-		} else {
-			return m["Maximum"]
-		}
+		return m["Maximum"]
 	}
 	return nil
 }

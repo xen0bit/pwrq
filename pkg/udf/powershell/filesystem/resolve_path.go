@@ -29,7 +29,7 @@ func parseResolvePathArgs(args []any) (ResolvePathOptions, error) {
 	}
 
 	for i, arg := range args {
-		argVal := common.ExtractUDFValue(arg)
+		argVal := common.BindValue(arg)
 
 		switch v := argVal.(type) {
 		case string:

@@ -52,10 +52,10 @@ func RegisterFormatTable() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(err, nil)
 		}
 
-		return common.MakeUDFSuccessResult(formatted, map[string]any{
-			"operation": "format_table",
-			"count":     formatted.RowCount,
-		})
+		// A formatter's output is text. Returning the rendered string keeps it
+		// printable (`pwrq -r 'format_table(.)'`) and pipeable into any jq
+		// string builtin, instead of leaking a Go struct into the value space.
+		return FormatTableToString(formatted)
 	})
 }
 
@@ -151,7 +151,7 @@ func ParseFormatTableArgs(args []any) ([]any, FormatTableOptions, error) {
 
 	// First argument is objects
 	var objects []any
-	inputVal := common.ExtractUDFValue(args[0])
+	inputVal := common.BindValue(args[0])
 	objects = common.NormalizeToSlice(inputVal)
 
 	// Validate input

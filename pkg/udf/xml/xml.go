@@ -17,7 +17,7 @@ func RegisterXMLParse() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -107,7 +107,7 @@ func RegisterXMLStringify() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("xml_stringify: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		// Convert object to XML
 		// This is a simplified implementation

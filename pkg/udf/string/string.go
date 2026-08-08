@@ -16,7 +16,7 @@ func RegisterUpper() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("upper: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -76,7 +76,7 @@ func RegisterLower() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("lower: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -136,7 +136,7 @@ func RegisterReverse() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("reverse: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string
@@ -232,7 +232,7 @@ func RegisterReplace() gojq.CompilerOption {
 			inputVal = v
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var input string
 		var filePath string

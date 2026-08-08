@@ -34,16 +34,14 @@ func TestCat_BasicRead(t *testing.T) {
 	defer cleanup()
 
 	result := cat(tmpFile, []any{})
-	resultMap, ok := result.(map[string]any)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
+	}
+
+	value, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+		t.Fatalf("Expected string result, got %T", result)
 	}
-
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
-	}
-
-	value, _ := resultMap["_val"].(string)
 	if value != content {
 		t.Errorf("Expected content %q, got %q", content, value)
 	}
@@ -51,15 +49,11 @@ func TestCat_BasicRead(t *testing.T) {
 
 func TestCat_FileNotFound(t *testing.T) {
 	result := cat("/nonexistent/path/file.txt", []any{})
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+	err, isErr := result.(error)
+	if !isErr {
+		t.Fatalf("Expected an error, got %T", result)
 	}
-
-	errMsg, hasErr := resultMap["_err"].(string)
-	if !hasErr {
-		t.Fatalf("Expected error for nonexistent file, got success")
-	}
+	errMsg := err.Error()
 
 	if !strings.Contains(errMsg, "does not exist") {
 		t.Errorf("Expected 'does not exist' error, got: %v", errMsg)
@@ -74,15 +68,11 @@ func TestCat_DirectoryError(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	result := cat(tmpDir, []any{})
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+	err, isErr := result.(error)
+	if !isErr {
+		t.Fatalf("Expected an error, got %T", result)
 	}
-
-	errMsg, hasErr := resultMap["_err"].(string)
-	if !hasErr {
-		t.Fatalf("Expected error for directory, got success")
-	}
+	errMsg := err.Error()
 
 	if !strings.Contains(errMsg, "is a directory") {
 		t.Errorf("Expected 'is a directory' error, got: %v", errMsg)
@@ -96,16 +86,14 @@ func TestCat_WithTail(t *testing.T) {
 
 	// cat function: inputPath from pipe (simulated), args[0] is options
 	result := cat(tmpFile, []any{map[string]any{"tail": float64(2)}})
-	resultMap, ok := result.(map[string]any)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
+	}
+
+	value, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+		t.Fatalf("Expected string result, got %T", result)
 	}
-
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
-	}
-
-	value, _ := resultMap["_val"].(string)
 	expected := "line4\nline5\n"
 	if value != expected {
 		t.Errorf("Expected tail output %q, got %q", expected, value)
@@ -118,16 +106,14 @@ func TestCat_WithTotalCount(t *testing.T) {
 	defer cleanup()
 
 	result := cat(tmpFile, []any{map[string]any{"totalcount": float64(3)}})
-	resultMap, ok := result.(map[string]any)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
+	}
+
+	value, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+		t.Fatalf("Expected string result, got %T", result)
 	}
-
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
-	}
-
-	value, _ := resultMap["_val"].(string)
 	expected := "line1\nline2\nline3\n"
 	if value != expected {
 		t.Errorf("Expected totalcount output %q, got %q", expected, value)
@@ -140,16 +126,14 @@ func TestCat_WithTailAndTotalCount(t *testing.T) {
 	defer cleanup()
 
 	result := cat(tmpFile, []any{map[string]any{"totalcount": float64(4), "tail": float64(2)}})
-	resultMap, ok := result.(map[string]any)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
+	}
+
+	value, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+		t.Fatalf("Expected string result, got %T", result)
 	}
-
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
-	}
-
-	value, _ := resultMap["_val"].(string)
 	expected := "line3\nline4\n"
 	if value != expected {
 		t.Errorf("Expected combined output %q, got %q", expected, value)
@@ -162,23 +146,16 @@ func TestCat_WithEncoding(t *testing.T) {
 	defer cleanup()
 
 	result := cat(tmpFile, []any{map[string]any{"encoding": "utf8"}})
-	resultMap, ok := result.(map[string]any)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
+	}
+
+	value, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+		t.Fatalf("Expected string result, got %T", result)
 	}
-
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
-	}
-
-	value, _ := resultMap["_val"].(string)
 	if value != content {
 		t.Errorf("Expected content %q, got %q", content, value)
-	}
-
-	meta, _ := resultMap["_meta"].(map[string]any)
-	if meta["encoding"] != "utf8" {
-		t.Errorf("Expected encoding 'utf8' in metadata, got %v", meta["encoding"])
 	}
 }
 
@@ -189,15 +166,11 @@ func TestCat_InvalidEncoding(t *testing.T) {
 
 	// Invalid encoding should be caught
 	result := cat(tmpFile, []any{map[string]any{"encoding": "invalid"}})
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+	err, isErr := result.(error)
+	if !isErr {
+		t.Fatalf("Expected an error, got %T", result)
 	}
-
-	errMsg, hasErr := resultMap["_err"].(string)
-	if !hasErr {
-		t.Fatalf("Expected error for invalid encoding, got success")
-	}
+	errMsg := err.Error()
 
 	if !strings.Contains(errMsg, "unsupported encoding") {
 		t.Errorf("Expected 'unsupported encoding' error, got: %v", errMsg)
@@ -210,16 +183,14 @@ func TestCat_WithTailAsString(t *testing.T) {
 	defer cleanup()
 
 	result := cat(tmpFile, []any{map[string]any{"tail": "1"}})
-	resultMap, ok := result.(map[string]any)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
+	}
+
+	value, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+		t.Fatalf("Expected string result, got %T", result)
 	}
-
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success, got error: %v", resultMap["_err"])
-	}
-
-	value, _ := resultMap["_val"].(string)
 	expected := "line3\n"
 	if value != expected {
 		t.Errorf("Expected tail output %q, got %q", expected, value)
@@ -232,48 +203,32 @@ func TestCat_EmptyFile(t *testing.T) {
 	defer cleanup()
 
 	result := cat(tmpFile, []any{})
-	resultMap, ok := result.(map[string]any)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
+	}
+
+	value, ok := result.(string)
 	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+		t.Fatalf("Expected string result, got %T", result)
 	}
-
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success for empty file, got error: %v", resultMap["_err"])
-	}
-
-	value, _ := resultMap["_val"].(string)
 	if value != "" {
 		t.Errorf("Expected empty string, got %q", value)
 	}
 }
 
-func TestCat_Metadata(t *testing.T) {
+func TestCat_ReturnsFileContents(t *testing.T) {
 	content := "test content\n"
 	tmpFile, cleanup := setupTestFile(t, content)
 	defer cleanup()
 
 	result := cat(tmpFile, []any{})
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
+	if err, isErr := result.(error); isErr {
+		t.Fatalf("Expected success, got error: %v", err)
 	}
 
-	if _, hasErr := resultMap["_err"]; hasErr {
-		t.Fatalf("Expected success, got error")
-	}
-
-	meta, _ := resultMap["_meta"].(map[string]any)
-
-	if meta["operation"] != "cat" {
-		t.Errorf("Expected operation 'cat', got %v", meta["operation"])
-	}
-
-	if meta["file_path"] != tmpFile {
-		t.Errorf("Expected file_path %q, got %v", tmpFile, meta["file_path"])
-	}
-
-	if meta["file_size"] != len(content) {
-		t.Errorf("Expected file_size %d, got %v", len(content), meta["file_size"])
+	// cat is a transform: it returns the contents, not a description of them.
+	if result != content {
+		t.Errorf("cat = %#v, want %q", result, content)
 	}
 }
 

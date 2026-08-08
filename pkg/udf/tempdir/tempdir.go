@@ -21,7 +21,7 @@ func RegisterTempDir() gojq.CompilerOption {
 			if prefixVal, ok := args[0].(string); ok {
 				prefix = prefixVal
 			} else {
-				prefixVal := common.ExtractUDFValue(args[0])
+				prefixVal := common.BindValue(args[0])
 				if prefixStr, ok := prefixVal.(string); ok {
 					prefix = prefixStr
 				} else {
@@ -35,7 +35,7 @@ func RegisterTempDir() gojq.CompilerOption {
 			if dirVal, ok := args[1].(string); ok {
 				dir = dirVal
 			} else {
-				dirVal := common.ExtractUDFValue(args[1])
+				dirVal := common.BindValue(args[1])
 				if dirStr, ok := dirVal.(string); ok {
 					dir = dirStr
 				} else {

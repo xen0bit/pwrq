@@ -4,7 +4,9 @@
 package psobject
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"reflect"
 	"strconv"
 	"time"
@@ -43,7 +45,7 @@ type PSMember struct {
 	Name         string
 	MemberType   MemberType
 	Value        any
-	Getter       func() (any, error)  `json:"-"` // For ScriptProperty
+	Getter       func() (any, error)   `json:"-"` // For ScriptProperty
 	Invoker      func(args ...any) any `json:"-"` // For Method
 	Description  string
 	Serializable bool // Indicates if this member survives JSON round-trip
@@ -53,8 +55,8 @@ type PSMember struct {
 // This enables the pwrq pipeline to support PowerShell's rich object model
 // while maintaining compatibility with jq's JSON streaming.
 type PSObject struct {
-	Value    any                 // The underlying value
-	TypeName string              // PowerShell type name (e.g., "System.String", "System.Int32")
+	Value    any                  // The underlying value
+	TypeName string               // PowerShell type name (e.g., "System.String", "System.Int32")
 	Members  map[string]*PSMember // Named members (properties, methods, etc.)
 }
 
@@ -103,7 +105,7 @@ func inferTypeName(value any) string {
 		return "System.Object[]"
 	default:
 		t := reflect.TypeOf(value)
-		if t.Kind() == reflect.Ptr {
+		if t.Kind() == reflect.Pointer {
 			t = t.Elem()
 		}
 		return fmt.Sprintf("System.%s", t.Name())
@@ -198,210 +200,222 @@ func (p *PSObject) InvokeMethod(name string, args ...any) (any, error) {
 	return member.Invoker(args...), nil
 }
 
-// ToMap converts the PSObject to a map representation for JSON serialization.
-// This maintains compatibility with the existing {_val, _meta} pattern.
+// PSTypeNameKey is the property under which a PSObject's PowerShell type name
+// travels on the wire. PowerShell's own ConvertTo-Json uses the same idea.
+const PSTypeNameKey = "PSTypeName"
+
+// PSPathKey is the property under which a PSObject's underlying scalar value
+// travels when the object also carries named properties.
+const PSPathKey = "PSPath"
+
+// ToJSON converts the PSObject to its wire representation: ordinary JSON.
+//
+// An object with named properties becomes a flat map whose keys are the
+// PowerShell property names, plus PSTypeName. An object with no properties is
+// just its underlying value - wrapping a scalar in an envelope would make every
+// downstream jq expression pay for metadata it did not ask for.
+//
+// The result contains only JSON types (nil, bool, int, float64, *big.Int,
+// string, []any, map[string]any), so it can be queried by jq and printed by the
+// encoder without special cases.
+func (p *PSObject) ToJSON() any {
+	if len(p.Members) == 0 {
+		return NormalizeJSON(p.Value)
+	}
+	return p.ToMap()
+}
+
+// ToMap converts the PSObject to its flat JSON object form, evaluating
+// ScriptProperty getters and resolving AliasProperties so that computed
+// properties actually reach the output.
+//
+// Methods and events are omitted: they have no JSON representation, and
+// emitting a placeholder for them only adds noise to every query.
 func (p *PSObject) ToMap() map[string]any {
-	result := map[string]any{
-		"_val":  p.serializeValue(p.Value),
-		"_meta": map[string]any{
-			"type":    p.TypeName,
-			"members": p.getMembersMap(),
-		},
-	}
-	return result
-}
+	result := make(map[string]any, len(p.Members)+2)
 
-// serializeValue recursively converts PSObjects to maps for JSON serialization.
-func (p *PSObject) serializeValue(value any) any {
-	switch v := value.(type) {
-	case *PSObject:
-		return v.ToMap()
-	case map[string]any:
-		result := make(map[string]any)
-		for k, val := range v {
-			result[k] = p.serializeValue(val)
+	// A PSObject wrapping a map exposes that map's entries as properties, the
+	// way PowerShell surfaces a hashtable's keys. Without this, wrapping an
+	// object to attach one computed property would discard the object.
+	if underlying, ok := p.Value.(map[string]any); ok {
+		for k, v := range underlying {
+			result[k] = NormalizeJSON(v)
 		}
-		return result
-	case []any:
-		result := make([]any, len(v))
-		for i, item := range v {
-			result[i] = p.serializeValue(item)
-		}
-		return result
-	default:
-		return value
 	}
-}
 
-// getMembersMap returns members in a serializable format.
-func (p *PSObject) getMembersMap() map[string]any {
-	result := make(map[string]any)
+	// Members win over the underlying map: they are what was added on purpose.
 	for name, member := range p.Members {
-		memberData := map[string]any{
-			"type":         member.MemberType.String(),
-			"serializable": member.Serializable,
-		}
-
 		switch member.MemberType {
 		case MemberTypeNoteProperty:
-			// NoteProperty values are always serializable
-			memberData["value"] = p.serializeValue(member.Value)
-			memberData["serializable"] = true
+			result[name] = NormalizeJSON(member.Value)
 		case MemberTypeScriptProperty:
-			// ScriptProperty: serialize the description or a placeholder
-			// The getter function cannot be serialized
-			if member.Description != "" {
-				memberData["description"] = member.Description
+			// Evaluate the getter; a property that errors is reported as null
+			// rather than failing the whole object.
+			if member.Getter != nil {
+				if v, err := member.Getter(); err == nil {
+					result[name] = NormalizeJSON(v)
+				} else {
+					result[name] = nil
+				}
+			} else {
+				result[name] = nil
 			}
-			memberData["serializable"] = false
 		case MemberTypeAliasProperty:
-			// AliasProperty: store the target name
 			if target, ok := member.Value.(string); ok {
-				memberData["target"] = target
-				memberData["serializable"] = true
+				if v, err := p.GetPropertyValue(target); err == nil {
+					result[name] = NormalizeJSON(v)
+				}
 			}
-		case MemberTypeMethod:
-			// Method: the invoker function cannot be serialized
-			if member.Description != "" {
-				memberData["description"] = member.Description
-			}
-			memberData["serializable"] = false
-		case MemberTypeEvent:
-			memberData["serializable"] = false
+		case MemberTypeMethod, MemberTypeEvent:
+			// Not representable as JSON; omitted.
 		}
+	}
 
-		result[name] = memberData
+	// Preserve the underlying scalar so ByValue pipeline binding still works
+	// for objects whose value is meaningful (a path, a name).
+	if _, taken := result[PSPathKey]; !taken {
+		if s, ok := p.Value.(string); ok && s != "" {
+			result[PSPathKey] = s
+		}
+	}
+
+	if p.TypeName != "" {
+		result[PSTypeNameKey] = p.TypeName
 	}
 	return result
 }
 
-// FromMap creates a PSObject from a map representation.
-// Returns an error if the map does not have a valid PSObject shape.
-func FromMap(m map[string]any) (*PSObject, error) {
-	if err := validatePSObjectShape(m); err != nil {
-		return nil, err
-	}
-
-	val := m["_val"]
-	typeName := "System.Object"
-	var members map[string]any
-
-	if meta, ok := m["_meta"].(map[string]any); ok {
-		if t, ok := meta["type"].(string); ok {
-			typeName = t
-		}
-		if mems, ok := meta["members"].(map[string]any); ok {
-			members = mems
-		}
-	}
-
-	psobj := NewPSObjectWithTypeName(val, typeName)
-
-	// Restore members
-	for name, memberData := range members {
-		memberMap, ok := memberData.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		typeStr, _ := memberMap["type"].(string)
-		memberType := parseMemberType(typeStr)
-
-		switch memberType {
-		case MemberTypeNoteProperty:
-			if value, ok := memberMap["value"]; ok {
-				// Handle nested PSObjects recursively
-				value = unwrapNestedPSObject(value)
-				psobj.AddNoteProperty(name, value)
-			}
-		case MemberTypeScriptProperty:
-			// ScriptProperty getters cannot be restored from JSON
-			// Store as NoteProperty with description if available
-			psobj.AddMember(name, MemberTypeScriptProperty, nil)
-			if desc, ok := memberMap["description"].(string); ok {
-				psobj.Members[name].Description = desc
-			}
-		case MemberTypeAliasProperty:
-			if target, ok := memberMap["target"].(string); ok {
-				psobj.AddAliasProperty(name, target)
-			}
-		case MemberTypeMethod:
-			// Method invokers cannot be restored from JSON
-			// Store metadata only
-			psobj.AddMember(name, MemberTypeMethod, nil)
-			if desc, ok := memberMap["description"].(string); ok {
-				psobj.Members[name].Description = desc
-			}
-		case MemberTypeEvent:
-			// Events cannot be restored from JSON
-			psobj.AddMember(name, MemberTypeEvent, nil)
-		}
-	}
-
-	return psobj, nil
-}
-
-// validatePSObjectShape checks if a map has the required PSObject structure.
-func validatePSObjectShape(m map[string]any) error {
-	if m == nil {
-		return fmt.Errorf("cannot create PSObject from nil map")
-	}
-	if _, ok := m["_val"]; !ok {
-		return fmt.Errorf("map missing required '_val' field")
-	}
-	if _, ok := m["_meta"]; !ok {
-		return fmt.Errorf("map missing required '_meta' field")
-	}
-	return nil
-}
-
-// unwrapNestedPSObject recursively converts nested PSObject maps to PSObjects.
-func unwrapNestedPSObject(value any) any {
+// NormalizeJSON converts a Go value into the value space gojq operates on:
+// nil, bool, int, float64, *big.Int, string, []any, map[string]any.
+//
+// Without this, values like time.Time or os.FileMode flow into the pipeline
+// where jq builtins cannot act on them, and then reach the encoder as a query
+// error. Converting at the boundary keeps both usable.
+func NormalizeJSON(value any) any {
 	switch v := value.(type) {
+	case nil, bool, string, int, float64, *big.Int:
+		return v
+	case json.Number:
+		// The CLI decodes with UseNumber, so numbers arrive as json.Number.
+		// It is also a fmt.Stringer, so it must be matched before that case or
+		// every number in the pipeline turns into a string.
+		return v
+	case *PSObject:
+		return v.ToJSON()
+	case time.Time:
+		return v.Format(time.RFC3339)
+	case time.Duration:
+		return v.String()
+	case []byte:
+		return string(v)
+	case fmt.Stringer:
+		return v.String()
+	case error:
+		return v.Error()
+	case int8:
+		return int(v)
+	case int16:
+		return int(v)
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case uint:
+		return int(v)
+	case uint8:
+		return int(v)
+	case uint16:
+		return int(v)
+	case uint32:
+		return int(v)
+	case uint64:
+		return int(v)
+	case float32:
+		return float64(v)
 	case map[string]any:
-		if _, hasVal := v["_val"]; hasVal {
-			if _, hasMeta := v["_meta"]; hasMeta {
-				// This is a nested PSObject map
-				psobj, err := FromMap(v)
-				if err != nil {
-					return v // Return as-is if conversion fails
-				}
-				return psobj
-			}
-		}
-		// Recursively check nested maps and slices
-		result := make(map[string]any)
+		result := make(map[string]any, len(v))
 		for k, val := range v {
-			result[k] = unwrapNestedPSObject(val)
+			result[k] = NormalizeJSON(val)
 		}
 		return result
 	case []any:
 		result := make([]any, len(v))
 		for i, item := range v {
-			result[i] = unwrapNestedPSObject(item)
+			result[i] = NormalizeJSON(item)
 		}
 		return result
+	}
+
+	// Fall back to reflection for named types over JSON-compatible kinds
+	// (os.FileMode, custom string enums) and for typed slices/maps.
+	return normalizeByReflection(value)
+}
+
+func normalizeByReflection(value any) any {
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Bool:
+		return rv.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int(rv.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int(rv.Uint())
+	case reflect.Float32, reflect.Float64:
+		return rv.Float()
+	case reflect.String:
+		return rv.String()
+	case reflect.Slice, reflect.Array:
+		result := make([]any, rv.Len())
+		for i := range result {
+			result[i] = NormalizeJSON(rv.Index(i).Interface())
+		}
+		return result
+	case reflect.Map:
+		result := make(map[string]any, rv.Len())
+		for _, key := range rv.MapKeys() {
+			result[fmt.Sprintf("%v", key.Interface())] = NormalizeJSON(rv.MapIndex(key).Interface())
+		}
+		return result
+	case reflect.Pointer, reflect.Interface:
+		if rv.IsNil() {
+			return nil
+		}
+		return NormalizeJSON(rv.Elem().Interface())
 	default:
-		return value
+		// Structs and anything else: stringify rather than leak a Go value.
+		return fmt.Sprintf("%v", value)
 	}
 }
 
-// parseMemberType converts a string to MemberType.
-func parseMemberType(s string) MemberType {
-	switch s {
-	case "NoteProperty":
-		return MemberTypeNoteProperty
-	case "ScriptProperty":
-		return MemberTypeScriptProperty
-	case "AliasProperty":
-		return MemberTypeAliasProperty
-	case "Method":
-		return MemberTypeMethod
-	case "Event":
-		return MemberTypeEvent
-	default:
-		return MemberTypeNoteProperty
+// FromMap creates a PSObject from its flat JSON wire form. Every key other than
+// PSTypeName becomes a NoteProperty; PSTypeName supplies the type. Any JSON
+// object is therefore a valid PSObject, which is what lets cmdlets accept
+// hand-written JSON as readily as cmdlet output.
+func FromMap(m map[string]any) (*PSObject, error) {
+	if m == nil {
+		return nil, fmt.Errorf("cannot create PSObject from nil map")
 	}
+
+	typeName, _ := m[PSTypeNameKey].(string)
+	if typeName == "" {
+		typeName = "System.Management.Automation.PSCustomObject"
+	}
+
+	// The underlying value is the object's path when it carries one; otherwise
+	// the map itself stands in as the value.
+	var value any = m
+	if s, ok := m[PSPathKey].(string); ok {
+		value = s
+	}
+
+	psobj := NewPSObjectWithTypeName(value, typeName)
+	for name, v := range m {
+		if name == PSTypeNameKey {
+			continue
+		}
+		psobj.AddNoteProperty(name, v)
+	}
+	return psobj, nil
 }
 
 // ConvertValue performs type conversion on a PSObject's value.
@@ -534,42 +548,43 @@ func convertToDateTime(value any) (time.Time, error) {
 	}
 }
 
-// IsPSObject checks if a value is a PSObject or PSObject-like map.
+// IsPSObject reports whether a value is a PSObject or carries a PSTypeName.
+//
+// Note that a plain JSON object is not a PSObject by this test even though
+// FromMap accepts one; the distinction is "was this produced by a cmdlet",
+// which only PSTypeName can answer.
 func IsPSObject(v any) bool {
 	if _, ok := v.(*PSObject); ok {
 		return true
 	}
 	if m, ok := v.(map[string]any); ok {
-		_, hasVal := m["_val"]
-		_, hasMeta := m["_meta"]
-		return hasVal && hasMeta
+		_, ok := m[PSTypeNameKey].(string)
+		return ok
 	}
 	return false
 }
 
-// ExtractValue extracts the underlying value from a PSObject or PSObject-like map.
+// ExtractValue extracts the underlying value from a PSObject or its wire form.
 func ExtractValue(v any) any {
 	switch val := v.(type) {
 	case *PSObject:
 		return val.Value
 	case map[string]any:
-		if v, ok := val["_val"]; ok {
-			return v
+		if s, ok := val[PSPathKey].(string); ok {
+			return s
 		}
 	}
 	return v
 }
 
-// ExtractTypeName extracts the type name from a PSObject or PSObject-like map.
+// ExtractTypeName extracts the type name from a PSObject or its wire form.
 func ExtractTypeName(v any) string {
 	switch val := v.(type) {
 	case *PSObject:
 		return val.TypeName
 	case map[string]any:
-		if meta, ok := val["_meta"].(map[string]any); ok {
-			if t, ok := meta["type"].(string); ok {
-				return t
-			}
+		if t, ok := val[PSTypeNameKey].(string); ok {
+			return t
 		}
 	}
 	return inferTypeName(v)

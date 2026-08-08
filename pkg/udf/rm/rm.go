@@ -26,7 +26,7 @@ func RegisterRm() gojq.CompilerOption {
 			targetPath = path
 		} else {
 			// Try to extract from UDF result
-			pathVal := common.ExtractUDFValue(args[0])
+			pathVal := common.BindValue(args[0])
 			if pathStr, ok := pathVal.(string); ok {
 				targetPath = pathStr
 			} else {
@@ -39,7 +39,7 @@ func RegisterRm() gojq.CompilerOption {
 			targetType = strings.ToLower(typeVal)
 		} else {
 			// Try to extract from UDF result
-			typeVal := common.ExtractUDFValue(args[1])
+			typeVal := common.BindValue(args[1])
 			if typeStr, ok := typeVal.(string); ok {
 				targetType = strings.ToLower(typeStr)
 			} else {

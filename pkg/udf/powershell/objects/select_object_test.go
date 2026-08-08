@@ -205,21 +205,13 @@ func TestSelectObject_PropertiesFromPSObject(t *testing.T) {
 
 	// Verify only Name property is selected
 	for i, obj := range result {
-		// Result is a PSObject-like map with _val containing the actual data
-		m, ok := obj.(map[string]any)
+		valMap, ok := obj.(map[string]any)
 		if !ok {
 			t.Errorf("Object %d is not a map", i)
 			continue
 		}
-		// Extract the actual value from PSObject wrapper
-		val := m["_val"]
-		valMap, ok := val.(map[string]any)
-		if !ok {
-			t.Errorf("Object %d _val is not a map", i)
-			continue
-		}
 		if _, hasName := valMap["Name"]; !hasName {
-			t.Errorf("Object %d missing Name property in _val", i)
+			t.Errorf("Object %d missing Name property", i)
 		}
 		if _, hasAge := valMap["Age"]; hasAge {
 			t.Errorf("Object %d should not have Age property in _val", i)
@@ -388,14 +380,9 @@ func TestSelectObject_PreservesTypeName(t *testing.T) {
 			t.Errorf("Object %d is not a map", i)
 			continue
 		}
-		meta, ok := m["_meta"].(map[string]any)
+		typeName, ok := m[psobject.PSTypeNameKey].(string)
 		if !ok {
-			t.Errorf("Object %d missing _meta", i)
-			continue
-		}
-		typeName, ok := meta["type"].(string)
-		if !ok {
-			t.Errorf("Object %d missing type in _meta", i)
+			t.Errorf("Object %d missing %s", i, psobject.PSTypeNameKey)
 			continue
 		}
 		if typeName != "Custom.MyType" {
@@ -429,15 +416,9 @@ func TestSelectObject_WildcardWithPSObject(t *testing.T) {
 		t.Errorf("Expected 1 object, got %d", len(result))
 	}
 
-	m, ok := result[0].(map[string]any)
+	val, ok := result[0].(map[string]any)
 	if !ok {
 		t.Fatal("Result is not a map")
-	}
-
-	// Check _val for selected properties
-	val, ok := m["_val"].(map[string]any)
-	if !ok {
-		t.Fatal("_val is not a map")
 	}
 
 	// Should have Name, Enabled, Description (all contain 'e')

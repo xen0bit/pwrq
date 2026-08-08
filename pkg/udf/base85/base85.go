@@ -16,7 +16,7 @@ func RegisterBase85Encode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("base85_encode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string
@@ -84,7 +84,7 @@ func RegisterBase85Decode() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string

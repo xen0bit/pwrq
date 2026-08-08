@@ -40,14 +40,14 @@ func RegisterSetVariable() gojq.CompilerOption {
 		}
 
 		// First argument is name or value
-		firstArg := common.ExtractUDFValue(args[0])
+		firstArg := common.BindValue(args[0])
 		
 		// Check if first arg is a string (variable name)
 		if nameStr, isString := firstArg.(string); isString {
 			name = nameStr
 			// Check if second arg is value or options
 			if len(args) > 1 {
-				secondArg := common.ExtractUDFValue(args[1])
+				secondArg := common.BindValue(args[1])
 				if _, ok := secondArg.(map[string]any); ok && len(args) == 2 {
 					// Second arg is options map, value missing
 					return common.MakeUDFErrorResult(fmt.Errorf("set_variable: value is required"), nil)
@@ -55,7 +55,7 @@ func RegisterSetVariable() gojq.CompilerOption {
 				value = secondArg
 			} else {
 				// Only name provided, value from pipe
-				value = common.ExtractUDFValue(v)
+				value = common.BindValue(v)
 			}
 			
 			// Third argument could be options
@@ -83,7 +83,7 @@ func RegisterSetVariable() gojq.CompilerOption {
 				}
 			}
 			if value == nil && len(args) > 2 {
-				value = common.ExtractUDFValue(args[2])
+				value = common.BindValue(args[2])
 			}
 		} else {
 			// First arg is value, name from pipe (unusual but supported)

@@ -17,7 +17,7 @@ func RegisterSHA512_256() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("sha512_256: %v", err), nil)
 		}
 
-		inputVal = common.ExtractUDFValue(inputVal)
+		inputVal = common.BindValue(inputVal)
 
 		var inputBytes []byte
 		var filePath string

@@ -619,7 +619,7 @@ func TestFormatListPSObjectWithAliasAndScript(t *testing.T) {
 	}
 
 	props := GetFormattedProperties(result[0])
-	
+
 	// Should have at least First, Last, FullName (alias), DisplayName (script)
 	if len(props) < 4 {
 		t.Errorf("expected at least 4 properties, got %d: %v", len(props), props)

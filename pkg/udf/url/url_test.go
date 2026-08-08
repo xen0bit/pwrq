@@ -33,10 +33,10 @@ func TestURLEncode(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input",
+			name: "cmdlet output input",
 			input: map[string]any{
-				"_val": "hello world",
-				"_meta": map[string]any{},
+				"PSPath":     "hello world",
+				"PSTypeName": "System.String",
 			},
 			want:    url.QueryEscape("hello world"),
 			wantErr: false,
@@ -45,7 +45,7 @@ func TestURLEncode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			var input string
 			switch val := inputVal.(type) {
@@ -94,10 +94,10 @@ func TestURLDecode(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "UDF result object input",
+			name: "cmdlet output input",
 			input: map[string]any{
-				"_val": url.QueryEscape("hello world"),
-				"_meta": map[string]any{},
+				"PSPath":     url.QueryEscape("hello world"),
+				"PSTypeName": "System.String",
 			},
 			want:    "hello world",
 			wantErr: false,
@@ -106,7 +106,7 @@ func TestURLDecode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inputVal := common.ExtractUDFValue(tt.input)
+			inputVal := common.BindValue(tt.input)
 
 			var input string
 			switch val := inputVal.(type) {
@@ -157,4 +157,3 @@ func TestURLRoundTrip(t *testing.T) {
 		})
 	}
 }
-

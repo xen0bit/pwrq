@@ -21,11 +21,11 @@ func TestHMACSHA256(t *testing.T) {
 
 	// Test with UDF result input
 	udfResult := map[string]any{
-		"_val": message,
-		"_meta": map[string]any{},
+		"PSPath":     message,
+		"PSTypeName": "System.String",
 	}
 
-	inputVal := common.ExtractUDFValue(udfResult)
+	inputVal := common.BindValue(udfResult)
 	if inputVal != message {
 		t.Errorf("extractUDFValue() = %v, want %v", inputVal, message)
 	}
@@ -80,4 +80,3 @@ func TestGetHashFunc(t *testing.T) {
 		})
 	}
 }
-

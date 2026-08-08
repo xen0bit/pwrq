@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/itchyny/go-yaml"
@@ -12,6 +13,17 @@ import (
 
 func init() {
 	addDefaultModulePaths = false
+}
+
+// TestMain pins the timezone so the golden corpus inherited from gojq is
+// hermetic. Several cases (gmtime/localtime, mktime/strftime) encode local-time
+// offsets in their expected output and are documented there as TZ=Etc/GMT+7.
+func TestMain(m *testing.M) {
+	os.Setenv("TZ", "Etc/GMT+7")
+	if loc, err := time.LoadLocation("Etc/GMT+7"); err == nil {
+		time.Local = loc
+	}
+	os.Exit(m.Run())
 }
 
 // This reader does not implement io.Seeker to emulate standard input.

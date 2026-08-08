@@ -9,11 +9,11 @@ import (
 
 func TestEntropy(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantMin  float64
-		wantMax  float64
-		wantErr  bool
+		name    string
+		input   string
+		wantMin float64
+		wantMax float64
+		wantErr bool
 	}{
 		{
 			name:    "empty string",
@@ -94,11 +94,11 @@ func TestEntropy(t *testing.T) {
 
 func TestEntropyWithUDFResult(t *testing.T) {
 	udfResult := map[string]any{
-		"_val": "hello",
-		"_meta": map[string]any{},
+		"PSPath":     "hello",
+		"PSTypeName": "System.String",
 	}
 
-	inputVal := common.ExtractUDFValue(udfResult)
+	inputVal := common.BindValue(udfResult)
 	inputBytes := []byte(inputVal.(string))
 
 	// Calculate entropy
@@ -160,4 +160,3 @@ func TestEntropyProperties(t *testing.T) {
 		})
 	}
 }
-

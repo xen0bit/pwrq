@@ -36,7 +36,7 @@ func TestXMLParse(t *testing.T) {
 				XMLName xml.Name
 				Content []byte `xml:",innerxml"`
 			}
-			
+
 			decoder := xml.NewDecoder(strings.NewReader(tt.input))
 			err := decoder.Decode(&xmlData)
 			if (err != nil) != tt.wantErr {
@@ -76,30 +76,29 @@ func TestXMLStringify(t *testing.T) {
 			if tag, ok := tt.input["_tag"].(string); ok {
 				tagName = tag
 			}
-			
+
 			var attrs []string
 			if attrsMap, ok := tt.input["_attrs"].(map[string]any); ok {
 				for k, v := range attrsMap {
 					attrs = append(attrs, k+"=\""+fmt.Sprintf("%v", v)+"\"")
 				}
 			}
-			
+
 			content := ""
 			if c, ok := tt.input["_content"].(string); ok {
 				content = c
 			}
-			
+
 			attrStr := ""
 			if len(attrs) > 0 {
 				attrStr = " " + strings.Join(attrs, " ")
 			}
-			
+
 			result := fmt.Sprintf("<%s%s>%s</%s>", tagName, attrStr, content, tagName)
-			
+
 			if !strings.Contains(result, tagName) {
 				t.Errorf("xml_stringify() result doesn't contain tag name: %s", result)
 			}
 		})
 	}
 }
-

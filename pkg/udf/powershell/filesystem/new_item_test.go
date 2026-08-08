@@ -8,35 +8,35 @@ import (
 
 func TestParseNewItemArgs(t *testing.T) {
 	tests := []struct {
-		name       string
-		args       []any
-		wantPath   string
+		name         string
+		args         []any
+		wantPath     string
 		wantItemType string
-		wantForce  bool
+		wantForce    bool
 	}{
 		{
-			name:       "no args",
-			args:       []any{},
-			wantPath:   ".",
+			name:         "no args",
+			args:         []any{},
+			wantPath:     ".",
 			wantItemType: "file",
 		},
 		{
-			name:       "path only",
-			args:       []any{"/tmp/test.txt"},
-			wantPath:   "/tmp/test.txt",
+			name:         "path only",
+			args:         []any{"/tmp/test.txt"},
+			wantPath:     "/tmp/test.txt",
 			wantItemType: "file",
 		},
 		{
 			name: "named parameters",
 			args: []any{map[string]any{
-				"Path": "/tmp",
-				"Name": "test.txt",
+				"Path":     "/tmp",
+				"Name":     "test.txt",
 				"ItemType": "file",
-				"Force": true,
+				"Force":    true,
 			}},
-			wantPath:   "/tmp",
+			wantPath:     "/tmp",
 			wantItemType: "file",
-			wantForce:  true,
+			wantForce:    true,
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestNewItem(t *testing.T) {
 		{
 			name: "create file",
 			opts: NewItemOptions{
-				Path: filepath.Join(tmpDir, "test.txt"),
+				Path:     filepath.Join(tmpDir, "test.txt"),
 				ItemType: "file",
 			},
 			wantSuccess: true,
@@ -80,7 +80,7 @@ func TestNewItem(t *testing.T) {
 		{
 			name: "create directory",
 			opts: NewItemOptions{
-				Path: filepath.Join(tmpDir, "testdir"),
+				Path:     filepath.Join(tmpDir, "testdir"),
 				ItemType: "directory",
 			},
 			wantSuccess: true,
@@ -89,9 +89,9 @@ func TestNewItem(t *testing.T) {
 		{
 			name: "create file with content",
 			opts: NewItemOptions{
-				Path: filepath.Join(tmpDir, "content.txt"),
+				Path:     filepath.Join(tmpDir, "content.txt"),
 				ItemType: "file",
-				Value: "Hello, World!",
+				Value:    "Hello, World!",
 			},
 			wantSuccess: true,
 			checkExists: true,
@@ -99,9 +99,9 @@ func TestNewItem(t *testing.T) {
 		{
 			name: "create with force (overwrite)",
 			opts: NewItemOptions{
-				Path: filepath.Join(tmpDir, "test.txt"),
+				Path:     filepath.Join(tmpDir, "test.txt"),
 				ItemType: "file",
-				Force: true,
+				Force:    true,
 			},
 			wantSuccess: true,
 			checkExists: true,
@@ -109,9 +109,9 @@ func TestNewItem(t *testing.T) {
 		{
 			name: "create without force (should fail)",
 			opts: NewItemOptions{
-				Path: filepath.Join(tmpDir, "test.txt"),
+				Path:     filepath.Join(tmpDir, "test.txt"),
 				ItemType: "file",
-				Force: false,
+				Force:    false,
 			},
 			wantSuccess: false,
 			checkExists: false,
@@ -145,9 +145,9 @@ func TestNewItemWithContent(t *testing.T) {
 	content := "Test file content\nLine 2"
 
 	opts := NewItemOptions{
-		Path: filePath,
+		Path:     filePath,
 		ItemType: "file",
-		Value: content,
+		Value:    content,
 	}
 
 	result, err := newItem(opts)
@@ -175,7 +175,7 @@ func TestNewItemDirectory(t *testing.T) {
 	dirPath := filepath.Join(tmpDir, "newdir", "subdir")
 
 	opts := NewItemOptions{
-		Path: dirPath,
+		Path:     dirPath,
 		ItemType: "directory",
 	}
 

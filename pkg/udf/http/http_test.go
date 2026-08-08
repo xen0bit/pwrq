@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +40,33 @@ func runGojqQuery(t *testing.T, query string, input any, options ...gojq.Compile
 	return result
 }
 
+// runGojqQueryErr runs a query that is expected to fail and returns the error.
+// UDF failures now travel on jq's error channel rather than in-band, so a test
+// that wants a failure has to look for one there.
+func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		t.Fatalf("Failed to parse query %q: %v", query, err)
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		t.Fatalf("Failed to compile query %q: %v", query, err)
+	}
+	iter := code.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+	}
+	t.Fatalf("expected query %q to fail, but it succeeded", query)
+	return nil
+}
+
 func TestHTTPGet(t *testing.T) {
 	// Create a test HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,26 +80,26 @@ func TestHTTPGet(t *testing.T) {
 
 	// Test GET request with URL as argument
 	result := runGojqQuery(t, fmt.Sprintf(`http("GET"; "%s")`, server.URL), nil, RegisterHTTP())
-	
+
 	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("Expected map, got %T", result)
+		t.Fatalf("Expected response object, got %T", result)
 	}
 
-	val := resultMap["_val"]
+	val := resultMap["Content"]
 	if valStr, ok := val.(string); !ok || valStr != "Hello, World!" {
 		t.Errorf("Expected response body 'Hello, World!', got %v", val)
 	}
 
-	meta := resultMap["_meta"].(map[string]any)
-	if meta["method"] != "GET" {
-		t.Errorf("Expected method GET, got %v", meta["method"])
+	meta := resultMap
+	if meta["Method"] != "GET" {
+		t.Errorf("Expected method GET, got %v", meta["Method"])
 	}
-	status, ok := meta["status"].(int)
+	status, ok := meta["StatusCode"].(int)
 	if !ok {
-		statusFloat, ok := meta["status"].(float64)
+		statusFloat, ok := meta["StatusCode"].(float64)
 		if !ok {
-			t.Errorf("Expected status to be int or float64, got %T", meta["status"])
+			t.Errorf("Expected status to be int or float64, got %T", meta["StatusCode"])
 		} else {
 			status = int(statusFloat)
 		}
@@ -97,15 +125,15 @@ func TestHTTPPostDefault(t *testing.T) {
 
 	// Test POST request (default method) with URL from pipeline
 	result := runGojqQuery(t, fmt.Sprintf(`"%s" | http`, server.URL), nil, RegisterHTTP())
-	
+
 	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("Expected map, got %T", result)
+		t.Fatalf("Expected response object, got %T", result)
 	}
 
-	meta := resultMap["_meta"].(map[string]any)
-	if meta["method"] != "POST" {
-		t.Errorf("Expected method POST (default), got %v", meta["method"])
+	meta := resultMap
+	if meta["Method"] != "POST" {
+		t.Errorf("Expected method POST (default), got %v", meta["Method"])
 	}
 }
 
@@ -125,23 +153,23 @@ func TestHTTPPostWithBody(t *testing.T) {
 
 	// Test POST request with body from pipeline
 	result := runGojqQuery(t, fmt.Sprintf(`"test body" | http("POST"; "%s")`, server.URL), nil, RegisterHTTP())
-	
+
 	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("Expected map, got %T", result)
+		t.Fatalf("Expected response object, got %T", result)
 	}
 
-	val := resultMap["_val"].(string)
+	val := resultMap["Content"].(string)
 	if val != "Received: test body" {
 		t.Errorf("Expected 'Received: test body', got %q", val)
 	}
 
-	meta := resultMap["_meta"].(map[string]any)
-	if meta["method"] != "POST" {
-		t.Errorf("Expected method POST, got %v", meta["method"])
+	meta := resultMap
+	if meta["Method"] != "POST" {
+		t.Errorf("Expected method POST, got %v", meta["Method"])
 	}
-	if meta["requestBody"] != "test body" {
-		t.Errorf("Expected requestBody 'test body', got %v", meta["requestBody"])
+	if meta["RequestBody"] != "test body" {
+		t.Errorf("Expected requestBody 'test body', got %v", meta["RequestBody"])
 	}
 }
 
@@ -165,20 +193,20 @@ func TestHTTPPostWithJSONBody(t *testing.T) {
 	// Test POST request with JSON body from pipeline
 	testJSON := map[string]any{"key": "value", "number": float64(42)}
 	result := runGojqQuery(t, fmt.Sprintf(`http("POST"; "%s")`, server.URL), testJSON, RegisterHTTP())
-	
+
 	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("Expected map, got %T", result)
+		t.Fatalf("Expected response object, got %T", result)
 	}
 
-	val := resultMap["_val"].(string)
+	val := resultMap["Content"].(string)
 	// Response should contain the JSON string
 	if len(val) == 0 {
 		t.Errorf("Expected non-empty response, got empty")
 	}
 
-	meta := resultMap["_meta"].(map[string]any)
-	requestBody := meta["requestBody"].(string)
+	meta := resultMap
+	requestBody := meta["RequestBody"].(string)
 	var parsedBody map[string]any
 	if err := json.Unmarshal([]byte(requestBody), &parsedBody); err != nil {
 		t.Errorf("Failed to parse request body as JSON: %v", err)
@@ -190,34 +218,16 @@ func TestHTTPPostWithJSONBody(t *testing.T) {
 
 func TestHTTPErrorNoURL(t *testing.T) {
 	// Test error when URL is not provided (null input)
-	result := runGojqQuery(t, `. | http`, nil, RegisterHTTP())
-	
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map, got %T", result)
-	}
-
-	if _, hasErr := resultMap["_err"]; !hasErr {
-		t.Errorf("Expected error when URL is not provided")
-	}
-
-	val := resultMap["_val"]
-	if val != nil {
-		t.Errorf("Expected _val to be null on error, got %v", val)
+	qErr := runGojqQueryErr(t, `. | http`, nil, RegisterHTTP())
+	if !strings.Contains(qErr.Error(), "URL") {
+		t.Errorf("error should say a URL is required, got %q", qErr)
 	}
 }
 
 func TestHTTPErrorInvalidMethod(t *testing.T) {
-	// Test error when method is invalid
-	result := runGojqQuery(t, `http("INVALID"; "https://example.com")`, nil, RegisterHTTP())
-	
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map, got %T", result)
-	}
-
-	if _, hasErr := resultMap["_err"]; !hasErr {
-		t.Errorf("Expected error when method is invalid")
+	qErr := runGojqQueryErr(t, `http("INVALID"; "https://example.com")`, nil, RegisterHTTP())
+	if !strings.Contains(qErr.Error(), "invalid method") {
+		t.Errorf("error should reject the method, got %q", qErr)
 	}
 }
 
@@ -231,18 +241,18 @@ func TestHTTPWithURLFromArg(t *testing.T) {
 
 	// Test with URL as single argument (default POST)
 	result := runGojqQuery(t, fmt.Sprintf(`http("%s")`, server.URL), nil, RegisterHTTP())
-	
+
 	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("Expected map, got %T", result)
+		t.Fatalf("Expected response object, got %T", result)
 	}
 
-	meta := resultMap["_meta"].(map[string]any)
-	if meta["method"] != "POST" {
-		t.Errorf("Expected method POST (default), got %v", meta["method"])
+	meta := resultMap
+	if meta["Method"] != "POST" {
+		t.Errorf("Expected method POST (default), got %v", meta["Method"])
 	}
-	if meta["url"] != server.URL {
-		t.Errorf("Expected URL %s, got %v", server.URL, meta["url"])
+	if meta["Url"] != server.URL {
+		t.Errorf("Expected URL %s, got %v", server.URL, meta["Url"])
 	}
 }
 
@@ -254,9 +264,9 @@ func TestHTTPChaining(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Test chaining: URL from pipeline, then extract _val
-	result := runGojqQuery(t, fmt.Sprintf(`"%s" | http | ._val`, server.URL), nil, RegisterHTTP())
-	
+	// Chaining yields the response object; the body is on .Content
+	result := runGojqQuery(t, fmt.Sprintf(`"%s" | http | .Content`, server.URL), nil, RegisterHTTP())
+
 	if resultStr, ok := result.(string); !ok || resultStr != "test response" {
 		t.Errorf("Expected 'test response', got %v", result)
 	}
@@ -272,18 +282,18 @@ func TestHTTPResponseMetadata(t *testing.T) {
 	defer server.Close()
 
 	result := runGojqQuery(t, fmt.Sprintf(`http("POST"; "%s")`, server.URL), nil, RegisterHTTP())
-	
+
 	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatalf("Expected map, got %T", result)
+		t.Fatalf("Expected response object, got %T", result)
 	}
 
-	meta := resultMap["_meta"].(map[string]any)
-	status, ok := meta["status"].(int)
+	meta := resultMap
+	status, ok := meta["StatusCode"].(int)
 	if !ok {
-		statusFloat, ok := meta["status"].(float64)
+		statusFloat, ok := meta["StatusCode"].(float64)
 		if !ok {
-			t.Errorf("Expected status to be int or float64, got %T", meta["status"])
+			t.Errorf("Expected status to be int or float64, got %T", meta["StatusCode"])
 		} else {
 			status = int(statusFloat)
 		}
@@ -292,7 +302,7 @@ func TestHTTPResponseMetadata(t *testing.T) {
 		t.Errorf("Expected status 201, got %v", status)
 	}
 
-	headers := meta["headers"].(map[string]any)
+	headers := meta["Headers"].(map[string]any)
 	if headers["X-Custom-Header"] != "test-value" {
 		t.Errorf("Expected X-Custom-Header 'test-value', got %v", headers["X-Custom-Header"])
 	}
@@ -300,7 +310,7 @@ func TestHTTPResponseMetadata(t *testing.T) {
 
 func TestHTTPDifferentMethods(t *testing.T) {
 	methods := []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
-	
+
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -313,15 +323,15 @@ func TestHTTPDifferentMethods(t *testing.T) {
 			defer server.Close()
 
 			result := runGojqQuery(t, fmt.Sprintf(`http("%s"; "%s")`, method, server.URL), nil, RegisterHTTP())
-			
+
 			resultMap, ok := result.(map[string]any)
 			if !ok {
-				t.Fatalf("Expected map, got %T", result)
+				t.Fatalf("Expected response object, got %T", result)
 			}
 
-			meta := resultMap["_meta"].(map[string]any)
-			if meta["method"] != method {
-				t.Errorf("Expected method %s, got %v", method, meta["method"])
+			meta := resultMap
+			if meta["Method"] != method {
+				t.Errorf("Expected method %s, got %v", method, meta["Method"])
 			}
 		})
 	}
@@ -361,23 +371,11 @@ func TestHTTPServe(t *testing.T) {
 	// Wait for result
 	select {
 	case result := <-resultChan2:
-		resultMap, ok := result.(map[string]any)
-		if !ok {
-			t.Fatalf("Expected map, got %T", result)
+		// http_serve hands back the served value itself
+		if result != "test-item" {
+			t.Errorf("Expected 'test-item', got %v", result)
 		}
 
-		val := resultMap["_val"]
-		if val != "test-item" {
-			t.Errorf("Expected 'test-item', got %v", val)
-		}
-
-		meta := resultMap["_meta"].(map[string]any)
-		if meta["host"] != "127.0.0.1" {
-			t.Errorf("Expected host '127.0.0.1', got %v", meta["host"])
-		}
-		if meta["status"] != "completed" {
-			t.Errorf("Expected status 'completed', got %v", meta["status"])
-		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for result")
 	}
@@ -387,7 +385,7 @@ func TestHTTPServeWithRequest(t *testing.T) {
 	// Test GET request - server blocks until GET, then returns the input item
 	testInput := map[string]any{"test": "value", "number": float64(42)}
 	testPort := 18083
-	
+
 	resultChan := make(chan any, 1)
 	go func() {
 		result := runGojqQuery(t, fmt.Sprintf(`http_serve("127.0.0.1"; %d)`, testPort), testInput, RegisterHTTPServe())
@@ -422,13 +420,11 @@ func TestHTTPServeWithRequest(t *testing.T) {
 	// Wait for query result
 	select {
 	case result := <-resultChan:
-		resultMap, ok := result.(map[string]any)
-		if !ok {
-			t.Fatalf("Expected map, got %T", result)
-		}
-
 		// The result should be the input item
-		val := resultMap["_val"].(map[string]any)
+		val, ok := result.(map[string]any)
+		if !ok {
+			t.Fatalf("Expected the served object, got %T", result)
+		}
 		if val["test"] != "value" {
 			t.Errorf("Expected result to contain test='value', got %v", val)
 		}
@@ -476,13 +472,11 @@ func TestHTTPServeWithPOSTBody(t *testing.T) {
 	// Wait for query result - should be the POST data
 	select {
 	case result := <-resultChan:
-		resultMap, ok := result.(map[string]any)
-		if !ok {
-			t.Fatalf("Expected map, got %T", result)
-		}
-
 		// The result should be the POST data
-		val := resultMap["_val"].(map[string]any)
+		val, ok := result.(map[string]any)
+		if !ok {
+			t.Fatalf("Expected the posted object, got %T", result)
+		}
 		if val["test"] != "value" {
 			t.Errorf("Expected result to contain test='value', got %v", val)
 		}
@@ -495,30 +489,15 @@ func TestHTTPServeWithPOSTBody(t *testing.T) {
 }
 
 func TestHTTPServeErrorInvalidPort(t *testing.T) {
-	// Test error with invalid port
-	result := runGojqQuery(t, `http_serve("127.0.0.1"; 70000)`, nil, RegisterHTTPServe())
-	
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map, got %T", result)
-	}
-
-	if _, hasErr := resultMap["_err"]; !hasErr {
-		t.Errorf("Expected error when port is out of range")
+	qErr := runGojqQueryErr(t, `http_serve("127.0.0.1"; 70000)`, nil, RegisterHTTPServe())
+	if qErr == nil {
+		t.Error("expected http_serve to reject the argument")
 	}
 }
 
 func TestHTTPServeErrorInvalidHost(t *testing.T) {
-	// Test error with invalid host type
-	result := runGojqQuery(t, `http_serve(123; 8080)`, nil, RegisterHTTPServe())
-	
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map, got %T", result)
-	}
-
-	if _, hasErr := resultMap["_err"]; !hasErr {
-		t.Errorf("Expected error when host is not a string")
+	qErr := runGojqQueryErr(t, `http_serve(123; 8080)`, nil, RegisterHTTPServe())
+	if qErr == nil {
+		t.Error("expected http_serve to reject the argument")
 	}
 }
-
