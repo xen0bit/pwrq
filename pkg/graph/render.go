@@ -7,7 +7,12 @@ import (
 	"github.com/itchyny/gojq"
 )
 
-// RenderD2 turns a parsed query into a D2 script.
+// RenderD2 turns a parsed query into a D2 script with the default options.
+func RenderD2(query *gojq.Query) string {
+	return RenderD2Opts(query, RenderOptions{})
+}
+
+// RenderD2Opts turns a parsed query into a D2 script.
 //
 // The diagram's job is to show where data goes, so the pipeline is the spine:
 // every stage of `a | b | c` becomes a node, left to right. Structure that
@@ -15,13 +20,18 @@ import (
 // a constructed object, the operands of a comparison - expands into a nested
 // container. Structure that does not is inlined as label text, because a
 // diagram in which every `.a` is its own box shows less than the query did.
-func RenderD2(query *gojq.Query) string {
-	b := &builder{}
-	b.line("direction: right")
+//
+// Every node carries a class naming what kind of thing it is, which is what
+// gives the picture its colour. See Classes for the vocabulary.
+func RenderD2Opts(query *gojq.Query, opts RenderOptions) string {
+	b := &builder{opts: opts}
+	b.line("direction: " + opts.direction())
+	b.line("")
+	b.raw(classDecls(opts.palette()))
 	b.line("")
 
 	if query == nil {
-		b.node("empty", "(empty query)", "circle")
+		b.node("empty", "(empty query)", "circle", ClassTerminal)
 		return b.String()
 	}
 
@@ -29,7 +39,7 @@ func RenderD2(query *gojq.Query) string {
 	// above the flow instead of interrupting it.
 	b.emitFuncDefs(query.FuncDefs)
 
-	b.node("start", "Start", "circle")
+	b.node("start", "Start", "circle", ClassTerminal)
 	first, last := b.emitPipeline(query, "")
 	if first == "" {
 		// The query is only definitions; wire start straight to end.
@@ -39,7 +49,7 @@ func RenderD2(query *gojq.Query) string {
 	}
 	_ = last
 
-	b.node("end", "End", "circle")
+	b.node("end", "End", "circle", ClassTerminal)
 	b.edge(last, "end", "")
 	return b.String()
 }
@@ -52,6 +62,10 @@ type builder struct {
 	sb    strings.Builder
 	n     int
 	depth int
+	opts  RenderOptions
+	// defined collects the names of the query's own definitions, so a call to
+	// one is coloured as a definition rather than mistaken for a jq builtin.
+	defined map[string]bool
 }
 
 func (b *builder) String() string { return b.sb.String() }
@@ -71,19 +85,38 @@ func (b *builder) line(s string) {
 	b.sb.WriteByte('\n')
 }
 
-func (b *builder) node(id, label, shape string) {
-	if shape == "" {
+// raw writes an already-formatted block at the current indentation.
+func (b *builder) raw(block string) {
+	for _, line := range strings.Split(strings.TrimRight(block, "\n"), "\n") {
+		b.line(line)
+	}
+}
+
+// node declares a leaf. class names what kind of thing the node is; shape may
+// be empty for D2's default rectangle.
+func (b *builder) node(id, label, shape, class string) {
+	attrs := make([]string, 0, 2)
+	if shape != "" {
+		attrs = append(attrs, "shape: "+shape)
+	}
+	if class != "" {
+		attrs = append(attrs, "class: "+class)
+	}
+	if len(attrs) == 0 {
 		b.line(fmt.Sprintf("%s: %s", id, quote(label)))
 		return
 	}
-	b.line(fmt.Sprintf("%s: %s {shape: %s}", id, quote(label), shape))
+	b.line(fmt.Sprintf("%s: %s {%s}", id, quote(label), strings.Join(attrs, "; ")))
 }
 
 // container opens a node that holds other nodes, and returns a function that
 // closes it.
-func (b *builder) container(id, label string) func() {
+func (b *builder) container(id, label, class string) func() {
 	b.line(fmt.Sprintf("%s: %s {", id, quote(label)))
 	b.depth++
+	if class != "" {
+		b.line("class: " + class)
+	}
 	return func() {
 		b.depth--
 		b.line("}")
@@ -105,17 +138,40 @@ func (b *builder) emitFuncDefs(defs []*gojq.FuncDef) {
 	if len(defs) == 0 {
 		return
 	}
-	close := b.container("defs", fmt.Sprintf("Definitions (%d)", len(defs)))
+	if b.defined == nil {
+		b.defined = make(map[string]bool, len(defs))
+	}
+	close := b.container("defs", fmt.Sprintf("Definitions (%d)", len(defs)), ClassDef)
 	for _, def := range defs {
+		b.defined[def.Name] = true
 		id := b.id("defs")
 		sig := def.Name
 		if len(def.Args) > 0 {
 			sig += "(" + strings.Join(def.Args, "; ") + ")"
 		}
-		b.node(id, sig, "rectangle")
+		b.node(id, sig, "rectangle", ClassDef)
 	}
 	close()
 	b.line("")
+}
+
+// funcClass decides how a call is coloured: a cmdlet, one of the query's own
+// definitions, or a jq builtin. A caller that supplied no cmdlet list gets
+// every call coloured as a builtin, which is honest - without the list there
+// is no way to tell.
+func (b *builder) funcClass(name string) string {
+	// gojq spells a variable reference as a call whose name starts with a
+	// dollar, so `$x` arrives here rather than at a term type of its own.
+	if strings.HasPrefix(name, "$") {
+		return ClassVariable
+	}
+	if b.opts.Cmdlets[name] {
+		return ClassCmdlet
+	}
+	if b.defined[name] {
+		return ClassDef
+	}
+	return ClassBuiltin
 }
 
 // emitPipeline lays out `a | b | c` as a chain and returns the first and last
@@ -180,15 +236,22 @@ func (b *builder) emitStage(q *gojq.Query, scope, bind string) string {
 		return ""
 	}
 
+	// A stage that binds its output is about the binding as much as about what
+	// it computes, so it takes the variable colour.
+	class := ""
+	if bind != "" {
+		class = ClassVariable
+	}
+
 	// A binary operator is a junction: both operands feed it.
 	if q.Op != opNone && q.Op != gojq.OpPipe {
 		if !needsExpansion(q) {
 			id := b.id(scope)
-			b.node(id, q.String()+bind, "rectangle")
+			b.node(id, q.String()+bind, "rectangle", orClass(class, ClassOperator))
 			return id
 		}
 		id := b.id(scope)
-		close := b.container(id, operatorLabel(q.Op)+bind)
+		close := b.container(id, operatorLabel(q.Op)+bind, orClass(class, ClassOperator))
 		leftFirst, leftLast := b.emitOperand(q.Left, id, "left")
 		rightFirst, rightLast := b.emitOperand(q.Right, id, "right")
 		close()
@@ -198,11 +261,11 @@ func (b *builder) emitStage(q *gojq.Query, scope, bind string) string {
 	}
 
 	if q.Term != nil {
-		return b.emitTerm(q.Term, scope, "", bind)
+		return b.emitTerm(q.Term, scope, "", bind, class)
 	}
 
 	id := b.id(scope)
-	b.node(id, q.String()+bind, "rectangle")
+	b.node(id, q.String()+bind, "rectangle", orClass(class, ClassPath))
 	return id
 }
 
@@ -213,14 +276,18 @@ func (b *builder) emitOperand(q *gojq.Query, scope, side string) (string, string
 	}
 	if !needsExpansion(q) {
 		id := b.id(scope)
-		b.node(id, q.String(), "rectangle")
+		b.node(id, q.String(), "rectangle", queryClass(b, q))
 		return id, id
 	}
 	return b.emitPipeline(q, scope)
 }
 
 // emitTerm renders a single term, expanding the ones that contain a pipeline.
-func (b *builder) emitTerm(t *gojq.Term, scope, prefix, bind string) string {
+//
+// class, when non-empty, overrides the colour the term would choose for
+// itself: a stage that binds its result is a binding first and an object
+// construction second.
+func (b *builder) emitTerm(t *gojq.Term, scope, prefix, bind, class string) string {
 	if t == nil {
 		return ""
 	}
@@ -229,39 +296,41 @@ func (b *builder) emitTerm(t *gojq.Term, scope, prefix, bind string) string {
 
 	switch t.Type {
 	case gojq.TermTypeFunc:
-		return b.emitFunc(t, scope, suffix, prefix)
+		return b.emitFunc(t, scope, suffix, prefix, class)
 	case gojq.TermTypeObject:
-		return b.emitObject(t, scope, suffix, prefix)
+		return b.emitObject(t, scope, suffix, prefix, class)
 	case gojq.TermTypeArray:
-		return b.emitArray(t, scope, suffix, prefix)
+		return b.emitArray(t, scope, suffix, prefix, class)
 	case gojq.TermTypeIf:
-		return b.emitIf(t, scope, suffix, prefix)
+		return b.emitIf(t, scope, suffix, prefix, class)
 	case gojq.TermTypeTry:
-		return b.emitTry(t, scope, suffix, prefix)
+		return b.emitTry(t, scope, suffix, prefix, class)
 	case gojq.TermTypeReduce:
-		return b.emitReduce(t, scope, suffix, prefix)
+		return b.emitReduce(t, scope, suffix, prefix, class)
 	case gojq.TermTypeForeach:
-		return b.emitForeach(t, scope, suffix, prefix)
+		return b.emitForeach(t, scope, suffix, prefix, class)
 	case gojq.TermTypeQuery:
-		return b.emitGrouped(t, scope, suffix, prefix)
+		return b.emitGrouped(t, scope, suffix, prefix, class)
 	case gojq.TermTypeUnary:
-		return b.emitUnary(t, scope, suffix, prefix)
+		return b.emitUnary(t, scope, suffix, prefix, class)
 	case gojq.TermTypeLabel:
-		return b.emitLabel(t, scope, suffix, prefix)
+		return b.emitLabel(t, scope, suffix, prefix, class)
 	}
 
 	// A leaf renders as the jq that produced it; Term.String already carries
 	// any suffixes, so only the binding needs appending.
 	id := b.id(scope)
-	b.node(id, withPrefix(prefix, t.String()+bind), "rectangle")
+	b.node(id, withPrefix(prefix, t.String()+bind), "rectangle", orClass(class, termClass(b, t)))
 	return id
 }
 
-func (b *builder) emitFunc(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitFunc(t *gojq.Term, scope, suffix, prefix, class string) string {
 	fn := t.Func
+	class = orClass(class, b.funcClass(fn.Name))
+
 	if len(fn.Args) == 0 {
 		id := b.id(scope)
-		b.node(id, withPrefix(prefix, fn.Name+suffix), "rectangle")
+		b.node(id, withPrefix(prefix, fn.Name+suffix), "rectangle", class)
 		return id
 	}
 
@@ -269,25 +338,26 @@ func (b *builder) emitFunc(t *gojq.Term, scope, suffix, prefix string) string {
 	// boxes, so a call only opens a container when an argument has structure.
 	if !anyNeedsExpansion(fn.Args) {
 		id := b.id(scope)
-		b.node(id, withPrefix(prefix, t.String()), "rectangle")
+		b.node(id, withPrefix(prefix, t.String()), "rectangle", class)
 		return id
 	}
 
 	// A call whose one argument is a single structured term merges with it, so
 	// `map({a, b})` reads "map: Object { }" instead of nesting an unlabelled
-	// object inside a container that holds nothing else.
+	// object inside a container that holds nothing else. The merged node is
+	// still the call, so it keeps the call's colour.
 	if len(fn.Args) == 1 {
 		arg := unwrapParens(fn.Args[0])
 		if stages := flattenPipe(arg); len(stages) == 1 && len(stages[0].bindings) == 0 &&
 			stages[0].query.Op == opNone && stages[0].query.Term != nil &&
 			termNeedsExpansion(stages[0].query.Term) {
 			return b.emitTerm(stages[0].query.Term, scope,
-				withPrefix(prefix, fn.Name+suffix), "")
+				withPrefix(prefix, fn.Name+suffix), "", class)
 		}
 	}
 
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, fn.Name+"( )"+suffix))
+	close := b.container(id, withPrefix(prefix, fn.Name+"( )"+suffix), class)
 	if len(fn.Args) == 1 {
 		// A single argument needs no name; the container already says whose
 		// argument it is.
@@ -316,16 +386,16 @@ func argLabel(fnName string, i, total int) string {
 	return fmt.Sprintf("arg %d", i+1)
 }
 
-func (b *builder) emitObject(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitObject(t *gojq.Term, scope, suffix, prefix, class string) string {
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "Object { }"+suffix))
+	close := b.container(id, withPrefix(prefix, "Object { }"+suffix), orClass(class, ClassConstruct))
 	for _, kv := range t.Object.KeyVals {
 		key := objectKeyLabel(kv)
 		if kv.Val == nil {
 			// Shorthand {Name} takes the value from the input, which the old
 			// renderer dropped entirely.
 			child := b.id(id)
-			b.node(child, key+": ."+key, "rectangle")
+			b.node(child, key+": ."+key, "rectangle", ClassPath)
 			continue
 		}
 		b.emitLabelledBranch(id, key, kv.Val)
@@ -346,15 +416,16 @@ func objectKeyLabel(kv *gojq.ObjectKeyVal) string {
 	return "?"
 }
 
-func (b *builder) emitArray(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitArray(t *gojq.Term, scope, suffix, prefix, class string) string {
+	class = orClass(class, ClassConstruct)
 	if t.Array == nil || t.Array.Query == nil {
 		id := b.id(scope)
-		b.node(id, withPrefix(prefix, "[ ] empty array"+suffix), "rectangle")
+		b.node(id, withPrefix(prefix, "[ ] empty array"+suffix), "rectangle", class)
 		return id
 	}
 	if !needsExpansion(t.Array.Query) {
 		id := b.id(scope)
-		b.node(id, withPrefix(prefix, "Collect "+t.String()+suffix), "rectangle")
+		b.node(id, withPrefix(prefix, "Collect "+t.String()+suffix), "rectangle", class)
 		return id
 	}
 
@@ -362,15 +433,15 @@ func (b *builder) emitArray(t *gojq.Term, scope, suffix, prefix string) string {
 	// only its contents, so the collection step that makes sort_by possible
 	// simply was not in the picture.
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "Collect [ ]"+suffix))
+	close := b.container(id, withPrefix(prefix, "Collect [ ]"+suffix), class)
 	b.emitPipeline(t.Array.Query, id)
 	close()
 	return id
 }
 
-func (b *builder) emitIf(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitIf(t *gojq.Term, scope, suffix, prefix, class string) string {
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "if"+suffix))
+	close := b.container(id, withPrefix(prefix, "if"+suffix), orClass(class, ClassControl))
 	b.emitLabelledBranch(id, "if", t.If.Cond)
 	b.emitLabelledBranch(id, "then", t.If.Then)
 	for i, elif := range t.If.Elif {
@@ -384,9 +455,9 @@ func (b *builder) emitIf(t *gojq.Term, scope, suffix, prefix string) string {
 	return id
 }
 
-func (b *builder) emitTry(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitTry(t *gojq.Term, scope, suffix, prefix, class string) string {
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "try"+suffix))
+	close := b.container(id, withPrefix(prefix, "try"+suffix), orClass(class, ClassControl))
 	b.emitLabelledBranch(id, "try", t.Try.Body)
 	if t.Try.Catch != nil {
 		b.emitLabelledBranch(id, "catch", t.Try.Catch)
@@ -398,17 +469,18 @@ func (b *builder) emitTry(t *gojq.Term, scope, suffix, prefix string) string {
 // emitLabel renders `label $out | body`. The label itself is only meaningful
 // because something inside the body breaks to it, so the body is what the
 // container holds; `break $out` reaches the leaf case and renders as its jq.
-func (b *builder) emitLabel(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitLabel(t *gojq.Term, scope, suffix, prefix, class string) string {
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "label "+t.Label.Ident+suffix))
+	close := b.container(id, withPrefix(prefix, "label "+t.Label.Ident+suffix), orClass(class, ClassControl))
 	b.emitLabelledBranch(id, "body", t.Label.Body)
 	close()
 	return id
 }
 
-func (b *builder) emitReduce(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitReduce(t *gojq.Term, scope, suffix, prefix, class string) string {
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "reduce as "+patternLabel(t.Reduce.Pattern)+suffix))
+	close := b.container(id, withPrefix(prefix, "reduce as "+patternLabel(t.Reduce.Pattern)+suffix),
+		orClass(class, ClassControl))
 	b.emitLabelledBranch(id, "source", t.Reduce.Query)
 	b.emitLabelledBranch(id, "init", t.Reduce.Start)
 	b.emitLabelledBranch(id, "update", t.Reduce.Update)
@@ -416,9 +488,10 @@ func (b *builder) emitReduce(t *gojq.Term, scope, suffix, prefix string) string 
 	return id
 }
 
-func (b *builder) emitForeach(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitForeach(t *gojq.Term, scope, suffix, prefix, class string) string {
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "foreach as "+patternLabel(t.Foreach.Pattern)+suffix))
+	close := b.container(id, withPrefix(prefix, "foreach as "+patternLabel(t.Foreach.Pattern)+suffix),
+		orClass(class, ClassControl))
 	b.emitLabelledBranch(id, "source", t.Foreach.Query)
 	b.emitLabelledBranch(id, "init", t.Foreach.Start)
 	b.emitLabelledBranch(id, "update", t.Foreach.Update)
@@ -429,29 +502,30 @@ func (b *builder) emitForeach(t *gojq.Term, scope, suffix, prefix string) string
 	return id
 }
 
-func (b *builder) emitGrouped(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitGrouped(t *gojq.Term, scope, suffix, prefix, class string) string {
 	if !needsExpansion(t.Query) {
 		id := b.id(scope)
-		b.node(id, withPrefix(prefix, t.String()), "rectangle")
+		b.node(id, withPrefix(prefix, t.String()), "rectangle", orClass(class, queryClass(b, t.Query)))
 		return id
 	}
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, strings.TrimSpace("( )"+suffix)))
+	close := b.container(id, withPrefix(prefix, strings.TrimSpace("( )"+suffix)), orClass(class, ClassOperator))
 	b.emitPipeline(t.Query, id)
 	close()
 	return id
 }
 
-func (b *builder) emitUnary(t *gojq.Term, scope, suffix, prefix string) string {
+func (b *builder) emitUnary(t *gojq.Term, scope, suffix, prefix, class string) string {
 	// The operand used to be dropped, leaving a bare "Unary: -".
+	class = orClass(class, ClassOperator)
 	inner := &gojq.Query{Term: t.Unary.Term}
 	if !needsExpansion(inner) {
 		id := b.id(scope)
-		b.node(id, withPrefix(prefix, t.String()), "rectangle")
+		b.node(id, withPrefix(prefix, t.String()), "rectangle", class)
 		return id
 	}
 	id := b.id(scope)
-	close := b.container(id, withPrefix(prefix, "unary "+t.Unary.Op.String()+suffix))
+	close := b.container(id, withPrefix(prefix, "unary "+t.Unary.Op.String()+suffix), class)
 	b.emitPipeline(inner, id)
 	close()
 	return id
@@ -470,7 +544,7 @@ func (b *builder) emitLabelledBranch(scope, label string, q *gojq.Query) {
 
 	if !needsExpansion(q) {
 		id := b.id(scope)
-		b.node(id, label+": "+q.String(), "rectangle")
+		b.node(id, label+": "+q.String(), "rectangle", queryClass(b, q))
 		return
 	}
 
@@ -479,14 +553,66 @@ func (b *builder) emitLabelledBranch(scope, label string, q *gojq.Query) {
 	// unlabelled container inside a labelled one.
 	if stages := flattenPipe(q); len(stages) == 1 && len(stages[0].bindings) == 0 &&
 		stages[0].query.Op == opNone && stages[0].query.Term != nil {
-		b.emitTerm(stages[0].query.Term, scope, label, "")
+		b.emitTerm(stages[0].query.Term, scope, label, "", "")
 		return
 	}
 
 	id := b.id(scope)
-	close := b.container(id, label)
+	close := b.container(id, label, "")
 	b.emitPipeline(q, id)
 	close()
+}
+
+// orClass picks the override when there is one.
+func orClass(override, natural string) string {
+	if override != "" {
+		return override
+	}
+	return natural
+}
+
+// queryClass classifies a subquery that is being drawn as one node.
+func queryClass(b *builder, q *gojq.Query) string {
+	if q == nil {
+		return ClassPath
+	}
+	if q.Op != opNone && q.Op != gojq.OpPipe {
+		return ClassOperator
+	}
+	if q.Op == gojq.OpPipe {
+		return ClassPath
+	}
+	return termClass(b, q.Term)
+}
+
+// termClass classifies a leaf term by what it does with data: reads it,
+// states it, builds it, or calls something.
+func termClass(b *builder, t *gojq.Term) string {
+	if t == nil {
+		return ClassPath
+	}
+	switch t.Type {
+	case gojq.TermTypeIdentity, gojq.TermTypeRecurse, gojq.TermTypeIndex:
+		return ClassPath
+	case gojq.TermTypeNumber, gojq.TermTypeString, gojq.TermTypeNull,
+		gojq.TermTypeTrue, gojq.TermTypeFalse, gojq.TermTypeFormat:
+		return ClassLiteral
+	case gojq.TermTypeObject, gojq.TermTypeArray:
+		return ClassConstruct
+	case gojq.TermTypeIf, gojq.TermTypeTry, gojq.TermTypeReduce,
+		gojq.TermTypeForeach, gojq.TermTypeLabel, gojq.TermTypeBreak:
+		return ClassControl
+	case gojq.TermTypeUnary:
+		return ClassOperator
+	case gojq.TermTypeFunc:
+		if t.Func == nil {
+			return ClassBuiltin
+		}
+		return b.funcClass(t.Func.Name)
+	case gojq.TermTypeQuery:
+		return queryClass(b, t.Query)
+	}
+	return ClassPath
 }
 
 // unwrapParens strips grouping parentheses that carry no suffix, since they

@@ -9,6 +9,8 @@ coverage.html
 # Web build artifacts
 pkg/web/dist/
 pkg/web/src/wasm/
+pkg/web/src/js/wasm_exec.js
+pkg/web/src/node_modules/
 
 # IDE
 .idea/

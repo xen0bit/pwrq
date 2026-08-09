@@ -3,6 +3,9 @@ VIZ_BIN := pwrq-viz
 VERSION := 0.1.0
 CURRENT_REVISION := $(shell git rev-parse --short HEAD 2>/dev/null || echo "HEAD")
 BUILD_LDFLAGS := -s -w -X github.com/xen0bit/pwrq/cli.revision=$(CURRENT_REVISION)
+# The page reports the revision it was built from, so a shared link's behaviour
+# can be traced back to a commit.
+WEB_LDFLAGS := -X github.com/xen0bit/pwrq/pkg/webapi.Version=$(VERSION)-$(CURRENT_REVISION)
 GOBIN ?= $(shell go env GOPATH)/bin
 SHELL := /bin/bash
 
@@ -41,6 +44,8 @@ test:
 	go test -race ./...
 	@echo "Running tests for the viz build..."
 	go test -race -tags viz ./cli/...
+	@echo "Running the editor's browser-side tests..."
+	@$(MAKE) --no-print-directory web.test
 
 .PHONY: test-short
 test-short:
@@ -73,10 +78,9 @@ fmt:
 web.wasm:
 	@echo "Building web.wasm..."
 	@mkdir -p pkg/web/src/wasm
-	@mkdir -p pkg/web/src
-	GOOS=js GOARCH=wasm go build -tags viz -ldflags="$(BUILD_LDFLAGS)" -o pkg/web/src/wasm/web.wasm ./cmd/web
+	GOOS=js GOARCH=wasm go build -tags viz -ldflags="$(BUILD_LDFLAGS) $(WEB_LDFLAGS)" -o pkg/web/src/wasm/web.wasm ./cmd/web
 	@echo "Copying wasm_exec.js..."
-	@cp $$(go env GOROOT)/lib/wasm/wasm_exec.js pkg/web/src/wasm_exec.js 2>/dev/null || cp $$(go env GOROOT)/misc/wasm/wasm_exec.js pkg/web/src/wasm_exec.js 2>/dev/null || echo "Warning: wasm_exec.js not found, you may need to copy it manually"
+	@cp $$(go env GOROOT)/lib/wasm/wasm_exec.js pkg/web/src/js/wasm_exec.js 2>/dev/null || cp $$(go env GOROOT)/misc/wasm/wasm_exec.js pkg/web/src/js/wasm_exec.js 2>/dev/null || echo "Warning: wasm_exec.js not found, you may need to copy it manually"
 
 .PHONY: web.build
 web.build: web.wasm
@@ -88,10 +92,24 @@ web.build: web.wasm
 	@mkdir -p pkg/web/dist
 	@cd pkg/web/src && bun install --no-save 2>/dev/null || true
 	@cd pkg/web/src && bun run build
-	@echo "Copying CSS and WASM files to dist..."
-	@mkdir -p pkg/web/dist/css
-	@cp pkg/web/src/css/pico.violet.css pkg/web/dist/css/ 2>/dev/null || echo "Warning: pico.violet.css not found"
-	@cp pkg/web/src/wasm/web.wasm pkg/web/dist/web.wasm 2>/dev/null || echo "Warning: web.wasm not found"
+	@echo "Copying the runtime files bundling must not touch..."
+	@# wasm_exec.js and worker.js are loaded by URL rather than imported, so
+	@# they are copied verbatim; the module itself is fetched at runtime.
+	@cp pkg/web/src/js/wasm_exec.js pkg/web/dist/wasm_exec.js
+	@cp pkg/web/src/worker.js pkg/web/dist/worker.js
+	@cp pkg/web/src/wasm/web.wasm pkg/web/dist/web.wasm
+	@echo "Pre-compressing web.wasm (the server prefers it when the browser does)..."
+	@gzip -9 -f -k -c pkg/web/dist/web.wasm > pkg/web/dist/web.wasm.gz 2>/dev/null || echo "Warning: gzip not found; the module will be served uncompressed"
+	@ls -lh pkg/web/dist/web.wasm pkg/web/dist/web.wasm.gz 2>/dev/null | awk '{print "  " $$9 " " $$5}'
+
+.PHONY: web.test
+web.test:
+	@echo "Testing the editor's browser-side code..."
+	@if ! command -v bun >/dev/null 2>&1; then \
+		echo "Error: bun is not installed. Please install it from https://bun.sh"; \
+		exit 1; \
+	fi
+	@cd pkg/web/src && bun test
 
 .PHONY: clean
 clean:
@@ -100,6 +118,7 @@ clean:
 	rm -f web.wasm
 	rm -rf pkg/web/src/wasm
 	rm -rf pkg/web/dist
+	rm -f pkg/web/src/js/wasm_exec.js
 	rm -f coverage.out coverage.html
 	go clean ./...
 
@@ -141,7 +160,8 @@ help:
 	@echo "  make example        - Run a simple example"
 	@echo "  make examples       - Run multiple examples"
 	@echo "  make web.wasm       - Build web.wasm into pkg/web/src/wasm/"
-	@echo "  make web.build      - Copy web files and WASM to pkg/web/dist/"
+	@echo "  make web.build      - Build the browser editor into pkg/web/dist/"
+	@echo "  make web.test       - Run the editor's browser-side tests (needs bun)"
 	@echo "  make build-viz-with-ide - Build $(VIZ_BIN) with embedded web assets"
 	@echo "  make help           - Show this help message"
 

@@ -4,111 +4,237 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <title>pwrq Query Editor</title>
-    <meta name="description" content="Run jq queries against sample JSON and see their structure as a diagram, in real time.">
-
-    <!-- Pico CSS Violet Theme -->
-    <link rel="stylesheet" href="css/pico.violet.css">
-
-    <style>
-        textarea[aria-invalid="true"] {
-            --pico-border-color: var(--pico-form-element-invalid-border-color);
-        }
-        textarea[aria-invalid="false"] {
-            --pico-border-color: var(--pico-form-element-valid-border-color);
-        }
-        #svg-container, #results {
-            margin-top: var(--pico-spacing);
-            padding: var(--pico-spacing);
-            border: var(--pico-border-width) solid var(--pico-muted-border-color);
-            border-radius: var(--pico-border-radius);
-            background: var(--pico-background-color);
-            overflow-x: auto;
-        }
-        #svg-container svg {
-            max-width: 100%;
-            height: auto;
-        }
-        #results {
-            margin: var(--pico-spacing) 0 0;
-            max-height: 24rem;
-            overflow-y: auto;
-            white-space: pre;
-            font-size: 0.875em;
-        }
-        #results.error {
-            --pico-code-background-color: transparent;
-            color: var(--pico-form-element-invalid-border-color);
-        }
-        #results-error {
-            display: block;
-            color: var(--pico-form-element-invalid-border-color);
-        }
-    </style>
+    <title>pwrq — query editor</title>
+    <meta name="description" content="Write jq and PowerShell-style pipelines, run them against sample JSON, and see their structure as a coloured flow diagram. Everything runs in the tab; links carry the query.">
+    <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-    <!-- Header -->
-    <header>
-        <hgroup>
-            <h1>pwrq</h1>
-            <p>Query Editor</p>
-        </hgroup>
+<div class="app" id="app">
+
+    <header class="topbar">
+        <div class="brand">
+            <span class="wordmark">pwrq</span>
+            <span class="tagline">query editor</span>
+        </div>
+
+        <div class="topbar-actions">
+            <button type="button" class="btn primary" id="run" title="Run the query (Ctrl+Enter)">
+                <span class="btn-label">Run</span><kbd>⌃⏎</kbd>
+            </button>
+            <button type="button" class="btn danger hidden" id="cancel" title="Stop the running query">Stop</button>
+            <label class="toggle" title="Run automatically as you type">
+                <input type="checkbox" id="auto-run" checked>
+                <span>Auto</span>
+            </label>
+            <span class="sep" role="separator"></span>
+            <button type="button" class="btn" id="format" title="Tidy the query (Ctrl+Shift+F)">Format</button>
+            <button type="button" class="btn" id="share" title="Copy a link that carries this query (Ctrl+S)">Share</button>
+            <button type="button" class="btn" id="palette-open" title="Command palette (Ctrl+K)">⌘K</button>
+            <span class="sep" role="separator"></span>
+            <select id="theme" class="select" aria-label="Colour theme" title="Colour theme">
+                <option value="system">System</option>
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+            </select>
+            <button type="button" class="btn icon" id="help-open" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
+        </div>
     </header>
-    <!-- ./ Header -->
 
-    <!-- Main -->
-    <main>
-        <section>
-            <h2>Query Editor</h2>
-            <p>
-                Enter a query and some sample JSON. The query is validated as you type, run
-                against the input, and drawn as a flow diagram.
-            </p>
+    <main class="workspace" id="workspace">
 
-            <form>
-                <label for="query">Query</label>
-                <textarea
-                    id="query"
-                    name="query"
-                    placeholder='e.g., .items | sort_object(.; {property: "Name"})'
-                    rows="5"
-                    aria-invalid="false"
-                ></textarea>
-                <small id="query-error"></small>
+        <section class="column editors" id="editor-column">
+            <div class="pane query-pane" id="query-pane">
+                <div class="pane-head">
+                    <h2>Query</h2>
+                    <div class="pane-actions">
+                        <span class="hint" id="query-status">ready</span>
+                        <button type="button" class="btn small" id="copy-query" title="Copy the query">Copy</button>
+                        <button type="button" class="btn small" id="clear-query" title="Clear the query">Clear</button>
+                    </div>
+                </div>
+                <div class="editor-host" id="query-editor"></div>
+                <p class="error-line" id="query-error" role="status" aria-live="polite"></p>
+            </div>
 
-                <label for="input-json">Input JSON</label>
-                <textarea
-                    id="input-json"
-                    name="input-json"
-                    placeholder='e.g., {"items": [{"Name": "b"}, {"Name": "a"}]}&#10;Leave empty to run against null.'
-                    rows="5"
-                    spellcheck="false"
-                ></textarea>
-            </form>
+            <div class="splitter horizontal" id="editor-splitter" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize the query editor"></div>
+
+            <div class="pane input-pane" id="input-pane">
+                <div class="pane-head">
+                    <h2>Input</h2>
+                    <div class="pane-actions">
+                        <span class="hint" id="input-status"></span>
+                        <button type="button" class="btn small" id="format-input" title="Pretty-print the input (Ctrl+Shift+I)">Tidy</button>
+                        <button type="button" class="btn small" id="load-file" title="Load a JSON file">File…</button>
+                        <input type="file" id="file-input" accept=".json,.jsonl,.ndjson,application/json,text/plain" hidden>
+                        <button type="button" class="btn small" id="clear-input" title="Clear the input">Clear</button>
+                    </div>
+                </div>
+                <div class="editor-host" id="input-editor"></div>
+
+                <details class="args" id="args-block">
+                    <summary>Arguments <span class="badge" id="args-count" hidden>0</span></summary>
+                    <p class="hint">
+                        Named values bound as jq variables, the same as <code>--argjson</code>.
+                        They travel in the share link, so one query can be sent with the case that shows the bug.
+                    </p>
+                    <div id="args-list" class="args-list"></div>
+                    <button type="button" class="btn small" id="add-arg">Add argument</button>
+                </details>
+            </div>
         </section>
 
-        <section>
-            <h2>Results</h2>
-            <p>
-                The browser has no filesystem, process table or service manager, so the
-                cmdlets that need one are not available here. Codecs, hashes, ciphers,
-                compression, and the object and formatting cmdlets all are.
-            </p>
-            <small id="results-error"></small>
-            <pre id="results"><code><em>Enter a query above to see its output.</em></code></pre>
-        </section>
+        <div class="splitter vertical" id="column-splitter" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the editor column"></div>
 
-        <section>
-            <h2>Flow Diagram</h2>
-            <div id="svg-container">
-                <p><em>Enter a valid query above to generate a flow diagram.</em></p>
+        <section class="column results" id="results-column">
+            <div class="tabs" role="tablist" aria-label="Results">
+                <button type="button" class="tab" role="tab" data-tab="output" aria-selected="true">Output</button>
+                <button type="button" class="tab" role="tab" data-tab="diagram" aria-selected="false">Diagram</button>
+                <button type="button" class="tab" role="tab" data-tab="catalog" aria-selected="false">Catalog</button>
+                <button type="button" class="tab" role="tab" data-tab="examples" aria-selected="false">Examples</button>
+                <button type="button" class="tab" role="tab" data-tab="history" aria-selected="false">History</button>
+            </div>
+
+            <div class="tab-panels">
+
+                <div class="panel" id="panel-output" role="tabpanel" data-tab="output">
+                    <div class="panel-toolbar">
+                        <div class="group" role="group" aria-label="Output format">
+                            <button type="button" class="chip" data-output="pretty">Pretty</button>
+                            <button type="button" class="chip" data-output="compact">Compact</button>
+                            <button type="button" class="chip" data-output="raw">Raw</button>
+                        </div>
+                        <label class="toggle" title="Read the whole input as one array (jq -s)">
+                            <input type="checkbox" id="slurp"><span>Slurp</span>
+                        </label>
+                        <label class="toggle" title="Run once against null; the input stays readable through inputs (jq -n)">
+                            <input type="checkbox" id="null-input"><span>Null input</span>
+                        </label>
+                        <label class="field" title="Stop after this many results">
+                            <span>Limit</span>
+                            <input type="number" id="limit" min="1" max="1000000" step="100" value="1000">
+                        </label>
+                        <label class="field" title="Stop a query that runs longer than this">
+                            <span>Timeout</span>
+                            <input type="number" id="timeout" min="100" max="120000" step="500" value="5000">
+                            <span class="unit">ms</span>
+                        </label>
+                        <span class="spacer"></span>
+                        <button type="button" class="btn small" id="copy-output">Copy</button>
+                        <button type="button" class="btn small" id="download-output">Download</button>
+                    </div>
+                    <p class="banner hidden" id="output-banner" role="status" aria-live="polite"></p>
+                    <div class="output" id="output" tabindex="0"></div>
+                </div>
+
+                <div class="panel hidden" id="panel-diagram" role="tabpanel" data-tab="diagram">
+                    <div class="panel-toolbar">
+                        <div class="group" role="group" aria-label="Zoom">
+                            <button type="button" class="chip" id="zoom-out" title="Zoom out">−</button>
+                            <button type="button" class="chip" id="zoom-in" title="Zoom in">+</button>
+                            <button type="button" class="chip" id="zoom-fit" title="Fit to the panel">Fit</button>
+                            <span class="zoom-level" id="zoom-level">100%</span>
+                        </div>
+                        <label class="field" title="Layout direction">
+                            <span>Flow</span>
+                            <select id="direction" class="select small">
+                                <option value="right">→ right</option>
+                                <option value="down">↓ down</option>
+                            </select>
+                        </label>
+                        <label class="field" title="Layout engine">
+                            <span>Layout</span>
+                            <select id="layout" class="select small">
+                                <option value="dagre">dagre</option>
+                                <option value="elk">elk</option>
+                            </select>
+                        </label>
+                        <label class="toggle" title="Draw it as if by hand">
+                            <input type="checkbox" id="sketch"><span>Sketch</span>
+                        </label>
+                        <label class="toggle" title="Show what the colours mean">
+                            <input type="checkbox" id="show-legend" checked><span>Legend</span>
+                        </label>
+                        <span class="spacer"></span>
+                        <button type="button" class="btn small" id="download-svg">SVG</button>
+                        <button type="button" class="btn small" id="copy-d2" title="Copy the D2 source of this diagram">D2</button>
+                    </div>
+                    <div class="diagram-stage" id="diagram-stage">
+                        <div class="diagram-canvas" id="diagram-canvas"></div>
+                        <p class="placeholder" id="diagram-placeholder">Write a query to see how it flows.</p>
+                    </div>
+                    <div class="legend" id="legend"></div>
+                </div>
+
+                <div class="panel hidden" id="panel-catalog" role="tabpanel" data-tab="catalog">
+                    <div class="panel-toolbar">
+                        <input type="search" id="catalog-search" class="search" placeholder="Search cmdlets, aliases, descriptions…" aria-label="Search the catalog">
+                        <span class="hint" id="catalog-count"></span>
+                    </div>
+                    <p class="note">
+                        A browser tab has no filesystem, process table or service manager, so the cmdlets that need one
+                        are not here. Everything listed does exactly what it says: codecs, hashes, ciphers, compression,
+                        format conversion, and the object and formatting cmdlets.
+                    </p>
+                    <div class="catalog" id="catalog"></div>
+                </div>
+
+                <div class="panel hidden" id="panel-examples" role="tabpanel" data-tab="examples">
+                    <div class="panel-toolbar">
+                        <input type="search" id="examples-search" class="search" placeholder="Search examples…" aria-label="Search examples">
+                    </div>
+                    <div class="examples" id="examples"></div>
+                </div>
+
+                <div class="panel hidden" id="panel-history" role="tabpanel" data-tab="history">
+                    <div class="panel-toolbar">
+                        <button type="button" class="btn small" id="save-snippet">Save this query</button>
+                        <button type="button" class="btn small" id="export-snippets">Export</button>
+                        <button type="button" class="btn small" id="import-snippets">Import</button>
+                        <input type="file" id="import-file" accept=".json,application/json" hidden>
+                        <span class="spacer"></span>
+                        <button type="button" class="btn small danger" id="clear-history">Clear history</button>
+                    </div>
+                    <div class="history" id="history"></div>
+                </div>
+
             </div>
         </section>
     </main>
-    <!-- ./ Main -->
 
-    <script src="js/wasm_exec.js"></script>
-    <script type="module" src="js/main.js"></script>
+    <footer class="statusbar">
+        <span class="status-engine" id="engine-status">
+            <span class="dot" id="engine-dot"></span><span id="engine-text">loading engine…</span>
+        </span>
+        <span class="status-item" id="run-stats"></span>
+        <span class="spacer"></span>
+        <span class="status-item" id="cursor-position">1:1</span>
+        <span class="status-item" id="version"></span>
+    </footer>
+</div>
+
+<div class="modal hidden" id="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+    <div class="modal-card palette-card">
+        <input type="text" id="palette-input" class="palette-input" placeholder="Type a command, a cmdlet, or an example…" autocomplete="off" spellcheck="false">
+        <ul class="palette-list" id="palette-list" role="listbox"></ul>
+    </div>
+</div>
+
+<div class="modal hidden" id="help" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="modal-card help-card">
+        <h2 id="help-title">Keyboard shortcuts</h2>
+        <dl class="shortcuts" id="shortcuts"></dl>
+        <h3>How this page works</h3>
+        <p>
+            The whole of pwrq is compiled to WebAssembly and runs in a worker thread inside this tab. Nothing you type
+            is uploaded anywhere: the sharing link carries the query and the sample input in its <code>#</code> fragment,
+            which browsers never send to a server.
+        </p>
+        <button type="button" class="btn" id="help-close">Close</button>
+    </div>
+</div>
+
+<div class="toast-stack" id="toasts" aria-live="polite"></div>
+
+<script src="js/main.js" type="module"></script>
 </body>
 </html>
-

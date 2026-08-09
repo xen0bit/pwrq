@@ -4,35 +4,17 @@ package cli
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 )
 
-// launchIDE starts an HTTP server to serve the IDE web interface from filesystem
+// launchIDE serves the editor from the working tree, which is what makes the
+// page editable without rebuilding the binary. The embedded variant, built
+// with -tags embed_web, serves the same files from inside the binary.
 func (cli *cli) launchIDE() error {
-	// Use filesystem (for development)
 	distPath := filepath.Join("pkg", "web", "dist")
 	if _, err := os.Stat(distPath); os.IsNotExist(err) {
-		return fmt.Errorf("pkg/web/dist directory not found. Please run 'make web.build' first, or build with 'make build-with-ide' to embed files")
+		return fmt.Errorf("pkg/web/dist not found: run 'make web.build' first, or build with 'make build-viz-with-ide' to embed the page")
 	}
-
-	fileSystem := http.Dir(distPath)
-	// Strip the /tools/pwrq prefix before serving files
-	http.Handle("/tools/pwrq/", http.StripPrefix("/tools/pwrq", http.FileServer(fileSystem)))
-
-	port := os.Getenv("PWRQ_PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	addr := fmt.Sprintf(":%s", port)
-	fmt.Fprintf(cli.outStream, "Starting IDE server on http://localhost%s\n", addr)
-	fmt.Fprintf(cli.outStream, "Press Ctrl+C to stop\n")
-
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-
-	return nil
+	return serveIDE(cli, os.DirFS(distPath))
 }

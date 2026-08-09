@@ -20,7 +20,13 @@ import (
 
 // GenerateSVG renders a query's structure as an SVG document.
 func GenerateSVG(query *gojq.Query) (string, error) {
-	svg, err := renderSVG(RenderD2(query))
+	return GenerateSVGOpts(query, RenderOptions{})
+}
+
+// GenerateSVGOpts renders a query's structure as an SVG document, with control
+// over colour, layout and direction.
+func GenerateSVGOpts(query *gojq.Query, opts RenderOptions) (string, error) {
+	svg, err := renderSVGOpts(RenderD2Opts(query, opts), opts)
 	if err != nil {
 		return "", err
 	}
@@ -29,19 +35,25 @@ func GenerateSVG(query *gojq.Query) (string, error) {
 
 // GenerateGraph creates a D2 diagram representing the flow of a jq query
 func GenerateGraph(query *gojq.Query, outputPath string) error {
+	return GenerateGraphOpts(query, outputPath, RenderOptions{})
+}
+
+// GenerateGraphOpts writes a query's diagram to a file, in the format the
+// file's extension names.
+func GenerateGraphOpts(query *gojq.Query, outputPath string, opts RenderOptions) error {
 	outputPath, err := filepath.Abs(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve output path: %w", err)
 	}
 
-	script := RenderD2(query)
+	script := RenderD2Opts(query, opts)
 
 	switch ext := strings.ToLower(filepath.Ext(outputPath)); ext {
 	case ".d2":
 		return os.WriteFile(outputPath, []byte(script), 0644)
 
 	case ".svg":
-		svg, err := renderSVG(script)
+		svg, err := renderSVGOpts(script, opts)
 		if err != nil {
 			// Keep the script alongside the failure so the diagram can be
 			// debugged without re-running the query.
@@ -56,8 +68,13 @@ func GenerateGraph(query *gojq.Query, outputPath string) error {
 	}
 }
 
-// renderSVG compiles a D2 script and renders it.
+// renderSVG compiles a D2 script and renders it with the default options.
 func renderSVG(script string) ([]byte, error) {
+	return renderSVGOpts(script, RenderOptions{})
+}
+
+// renderSVGOpts compiles a D2 script and renders it.
+func renderSVGOpts(script string, opts RenderOptions) ([]byte, error) {
 	ctx := d2log.With(context.Background(),
 		slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
 
@@ -66,7 +83,7 @@ func renderSVG(script string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create text ruler: %w", err)
 	}
 
-	layout := "dagre"
+	layout := opts.layout()
 	diagram, _, err := d2lib.Compile(ctx, script, &d2lib.CompileOptions{
 		Layout: &layout,
 		Ruler:  ruler,
@@ -85,8 +102,13 @@ func renderSVG(script string) ([]byte, error) {
 	}
 
 	pad := int64(d2svg.DEFAULT_PADDING)
-	themeID := int64(200) // dark-mauve
-	svg, err := d2svg.Render(diagram, &d2svg.RenderOpts{Pad: &pad, ThemeID: &themeID})
+	theme := themeID(opts.Theme)
+	renderOpts := &d2svg.RenderOpts{Pad: &pad, ThemeID: &theme}
+	if opts.Sketch {
+		sketch := true
+		renderOpts.Sketch = &sketch
+	}
+	svg, err := d2svg.Render(diagram, renderOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render D2 diagram to SVG: %w", err)
 	}

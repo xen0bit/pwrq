@@ -36,6 +36,13 @@ func SetCatalog(commands []Command) {
 	catalog = commands
 }
 
+// Catalog reports the published command catalog. The browser IDE reads it
+// directly rather than through get_command, because completion and help need
+// it as data rather than as a stream of PSObjects.
+func Catalog() []Command {
+	return append([]Command(nil), catalog...)
+}
+
 func (c Command) toObject() map[string]any {
 	aliases := make([]any, len(c.Aliases))
 	for i, a := range c.Aliases {

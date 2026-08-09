@@ -268,6 +268,44 @@ to need them cannot miss `json.Number` again.
       `syscall.Settimeofday`, and `http_serve` used `SO_REUSEADDR` inline.
       Both now have a portable fallback
 
+### Web IDE: a real editor
+
+The page could run a query and draw it. It could not do anything with the
+result: no sharing, no vocabulary, no way to stop a runaway query, and a
+diagram in one colour.
+
+- [x] `pkg/webapi`: the whole engine as JSON-in, JSON-out functions - validate,
+      run, diagram, format, catalog. `cmd/web` is now 50 lines of `syscall/js`
+      glue, and the page's behaviour is covered by ordinary Go tests rather
+      than by clicking around in a browser
+- [x] Runs cannot hang the tab. Three bounds, because each catches what the
+      others miss: a result limit for unbounded streams, a deadline inside the
+      engine for a query that spins without emitting, and terminating the
+      worker for anything that survives both. The deadline reads the clock in
+      `Done()` rather than waiting on a timer - under `GOOS=js` there is one
+      thread and no preemption, so a timer set by `context.WithTimeout` never
+      fires while a query is running
+- [x] The engine moved off the main thread. A worker keeps the editor
+      responsive whatever the engine is doing, and terminating it is the only
+      thing that can interrupt WebAssembly mid-instruction
+- [x] Coloured diagrams. `graph.RenderOptions` carries the cmdlet vocabulary,
+      so the renderer can tell a cmdlet from a jq builtin - which the diagram
+      previously could not show at all - plus a theme, a layout engine, a
+      direction and sketch mode. The legend in the page is generated from the
+      same palette the SVG was drawn with
+- [x] Sharing by URL fragment: query, input and arguments, deflate-compressed.
+      A fragment is never sent to a server, so a link needs no backend and
+      leaks nothing to one
+- [x] The editor: syntax highlighting for pwrq's own vocabulary, completion
+      driven by the registry, the parse error underlined where gojq says it is,
+      bracket matching, comment toggling, a command palette, history, saved
+      snippets, and jq's flags (`-c`, `-r`, `-s`, `-n`) plus `--argjson`-style
+      arguments as controls
+- [x] The gallery lives in Go (`webapi.Examples`), so every example is run and
+      drawn by a test. An example that rots into a broken query fails the build
+- [x] The server pre-compresses the 27MB module and serves the 7MB copy to any
+      browser that will take it
+
 ## Known remaining work
 
 - Object cmdlets (`select_object`, `where_object`, `sort_object`) still

@@ -139,12 +139,40 @@ it — about 35MB that everyday use has no need for.
 ```bash
 make build-viz
 ./pwrq-viz -g query.svg '.a | .b'   # render the query's structure
-./pwrq-viz -i                        # browser IDE on :8080
 ```
 
-The IDE runs your query against sample JSON and draws its structure, both as
-you type. It compiles to WebAssembly, so the query runs in the page — nothing
-is uploaded anywhere.
+The IDE is a full editor, and everything in it runs in the tab: pwrq itself is
+compiled to WebAssembly and evaluated in a worker thread, so nothing you type is
+uploaded anywhere.
+
+```bash
+make web.build          # build the page (needs bun)
+./pwrq-viz -i           # then open http://localhost:8080/tools/pwrq/
+make build-viz-with-ide # or bake the page into the binary
+```
+
+What it does:
+
+- **Runs as you type**, against sample JSON you paste, drop or open. The input
+  pane takes a stream of values the way the CLI reads a file, and the jq flags
+  that matter are switches: `-c`, `-r`, `-s`, `-n`, a result limit and a
+  timeout. Named arguments bind jq variables, as `--argjson` does.
+- **Draws the query**, coloured by what each node *is*: your cmdlets in blue,
+  jq's own builtins in teal, control flow in orange, constructed data in
+  magenta, paths in indigo. The legend under the diagram is generated from the
+  same palette the renderer used. Zoom, pan, switch the layout engine, and
+  export the SVG or the D2 source.
+- **Shares by link.** The `#` fragment carries the query, the input and the
+  arguments, deflate-compressed. Browsers never send a fragment to a server, so
+  a link is readable by whoever you send it to and by nobody in between.
+- **Knows its own vocabulary.** Completion, highlighting and the catalogue are
+  built from the registry the page actually evaluates against, so it can never
+  offer a name it would then fail to run. There is a gallery of worked
+  examples, a command palette on Ctrl+K, and a history of what you have run.
+- **Cannot be hung.** A query that will not stop is ended by a deadline inside
+  the engine, an unbounded stream by a result limit, and anything that survives
+  both by terminating the worker — which is the only thing that can interrupt
+  WebAssembly mid-instruction.
 
 A browser tab has no filesystem, process table or service manager, so the
 cmdlets that need one are not offered there: `get_childitem`, `get_process`,
@@ -159,8 +187,10 @@ are all available. `get_command` in the page lists exactly what the page has.
 make build       # pwrq (9.5MB)
 make build-viz   # pwrq-viz
 make build-all
+make web.build   # the browser editor (needs bun)
 make test        # full suite, including gojq's corpus, for both builds
 make test-short  # skips tests that touch system services
+make web.test    # the editor's browser-side tests
 make help
 ```
 
