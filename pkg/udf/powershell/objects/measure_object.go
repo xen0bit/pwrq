@@ -176,31 +176,16 @@ func extractPropertyForMeasurement(obj any, property string) (any, error) {
 	return common.ExtractPropertyByPath(value, property)
 }
 
-// convertToFloat64 converts various numeric types to float64
+// convertToFloat64 converts various numeric types to float64.
+//
+// The numeric cases live in common.ToFloat64 because they are not obvious:
+// numbers piped in from stdin are json.Number, not float64, so measuring a
+// property of real input used to report a sum of zero.
 func convertToFloat64(v any) (float64, error) {
+	if f, ok := common.ToFloat64(v); ok {
+		return f, nil
+	}
 	switch val := v.(type) {
-	case float64:
-		return val, nil
-	case int:
-		return float64(val), nil
-	case int8:
-		return float64(val), nil
-	case int16:
-		return float64(val), nil
-	case int32:
-		return float64(val), nil
-	case int64:
-		return float64(val), nil
-	case uint:
-		return float64(val), nil
-	case uint8:
-		return float64(val), nil
-	case uint16:
-		return float64(val), nil
-	case uint32:
-		return float64(val), nil
-	case uint64:
-		return float64(val), nil
 	case string:
 		// Try to parse string as number
 		f, err := strconv.ParseFloat(val, 64)

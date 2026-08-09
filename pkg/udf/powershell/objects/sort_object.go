@@ -30,6 +30,7 @@ type SortProperty struct {
 // SortObjectOptions holds options for the sort_object function
 type SortObjectOptions struct {
 	Properties    []SortProperty // Properties to sort by
+	Descending    bool           // -Descending, applied to every property
 	CaseSensitive bool           // Whether sorting is case-sensitive
 	Unique        bool           // Remove duplicates (-Unique)
 }
@@ -190,6 +191,18 @@ func ParseSortObjectArgs(args []any) ([]any, SortObjectOptions, error) {
 				}
 				opts.Properties = props
 			}
+			// PowerShell spells this `Sort-Object Age -Descending`, so a
+			// top-level flag is the form users reach for first; without it the
+			// only way to sort descending was the "Age desc" property suffix,
+			// and {property: "Age", descending: true} silently sorted ascending.
+			if descVal, exists := optsMap["descending"]; exists {
+				if descBool, ok := descVal.(bool); ok && descBool {
+					opts.Descending = true
+					for i := range opts.Properties {
+						opts.Properties[i].Direction = SortDirectionDescending
+					}
+				}
+			}
 			if csVal, exists := optsMap["casesensitive"]; exists {
 				if csBool, ok := csVal.(bool); ok {
 					opts.CaseSensitive = csBool
@@ -219,7 +232,7 @@ func sortObject(objects []any, opts SortObjectOptions) ([]any, error) {
 
 	// If no properties specified, sort by the whole object value
 	if len(opts.Properties) == 0 {
-		return sortByValue(objects, opts.CaseSensitive, opts.Unique)
+		return sortByValue(objects, opts.Descending, opts.CaseSensitive, opts.Unique)
 	}
 
 	// Create a sortable wrapper
@@ -242,9 +255,10 @@ func sortObject(objects []any, opts SortObjectOptions) ([]any, error) {
 }
 
 // sortByValue sorts objects by their raw value
-func sortByValue(objects []any, caseSensitive, unique bool) ([]any, error) {
+func sortByValue(objects []any, descending, caseSensitive, unique bool) ([]any, error) {
 	sorter := &valueSorter{
 		objects:       objects,
+		descending:    descending,
 		caseSensitive: caseSensitive,
 	}
 
@@ -311,6 +325,7 @@ func (s *objectSorter) Less(i, j int) bool {
 // valueSorter implements sort.Interface for sorting by raw value
 type valueSorter struct {
 	objects       []any
+	descending    bool
 	caseSensitive bool
 }
 
@@ -323,7 +338,11 @@ func (s *valueSorter) Swap(i, j int) {
 }
 
 func (s *valueSorter) Less(i, j int) bool {
-	return compareValuesForSort(s.objects[i], s.objects[j], s.caseSensitive) < 0
+	cmp := compareValuesForSort(s.objects[i], s.objects[j], s.caseSensitive)
+	if s.descending {
+		return cmp > 0
+	}
+	return cmp < 0
 }
 
 // compareValuesForSort compares two values for sorting purposes

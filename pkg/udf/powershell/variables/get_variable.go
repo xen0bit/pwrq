@@ -8,17 +8,18 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // GetVariableOptions holds options for the get_variable function
 type GetVariableOptions struct {
-	Name       string // Variable name (supports wildcards)
-	Scope      string // Scope to search: global, script, local
-	ValueOnly  bool   // Return only the value, not variable info
-	Exclude    string // Exclude pattern
-	Include    string // Include pattern
+	Name      string // Variable name (supports wildcards)
+	Scope     string // Scope to search: global, script, local
+	ValueOnly bool   // Return only the value, not variable info
+	Exclude   string // Exclude pattern
+	Include   string // Include pattern
 }
 
 // RegisterGetVariable registers the get_variable function with gojq
@@ -43,7 +44,7 @@ func RegisterGetVariable() gojq.CompilerOption {
 		} else {
 			// First argument is name or options
 			firstArg := common.BindValue(args[0])
-			
+
 			if nameStr, isString := firstArg.(string); isString {
 				name = nameStr
 			} else if optsMap, ok := firstArg.(map[string]any); ok {
@@ -55,7 +56,7 @@ func RegisterGetVariable() gojq.CompilerOption {
 					name = "*"
 				}
 			}
-			
+
 			// Second argument could be options
 			if len(args) > 1 {
 				if optsMap, ok := args[1].(map[string]any); ok {
@@ -117,10 +118,11 @@ func RegisterGetVariable() gojq.CompilerOption {
 
 		// Return variable info with all metadata (PowerShell-compatible format)
 		result := map[string]any{
-			"Name":    entry.Name,
-			"Value":   entry.Value,
-			"Options": variableOptionsToString(entry.Options),
-			"Scope":   scopeTypeToString(entry.Scope),
+			"Name":                 entry.Name,
+			"Value":                entry.Value,
+			"Options":              variableOptionsToString(entry.Options),
+			"Scope":                scopeTypeToString(entry.Scope),
+			psobject.PSTypeNameKey: "System.Management.Automation.PSVariable",
 		}
 		if entry.Description != "" {
 			result["Description"] = entry.Description
@@ -137,7 +139,7 @@ func getVariablesByPattern(ss *sessionstate.SessionState, pattern string, opts G
 	// Use ss.GetVariables() which properly traverses the scope chain
 	// from global down to current, with later scopes shadowing earlier ones
 	allVars := ss.GetVariables()
-	
+
 	var results []any
 	for name, entry := range allVars {
 		// Apply Include filter first (if specified)
@@ -147,7 +149,7 @@ func getVariablesByPattern(ss *sessionstate.SessionState, pattern string, opts G
 				continue
 			}
 		}
-		
+
 		// Apply Exclude filter (if specified)
 		if opts.Exclude != "" {
 			matched, err := filepath.Match(opts.Exclude, name)
@@ -155,13 +157,13 @@ func getVariablesByPattern(ss *sessionstate.SessionState, pattern string, opts G
 				continue // Skip if matches exclude pattern
 			}
 		}
-		
+
 		// Apply wildcard pattern matching
 		matched, err := filepath.Match(pattern, name)
 		if err != nil || !matched {
 			continue
 		}
-		
+
 		// If Scope is specified, filter by scope
 		if opts.Scope != "" {
 			scopePrefix := normalizeScope(opts.Scope)
@@ -169,24 +171,25 @@ func getVariablesByPattern(ss *sessionstate.SessionState, pattern string, opts G
 				continue
 			}
 		}
-		
+
 		// Build variable info
 		result := map[string]any{
-			"Name":    entry.Name,
-			"Value":   entry.Value,
-			"Options": variableOptionsToString(entry.Options),
-			"Scope":   scopeTypeToString(entry.Scope),
+			"Name":                 entry.Name,
+			"Value":                entry.Value,
+			"Options":              variableOptionsToString(entry.Options),
+			"Scope":                scopeTypeToString(entry.Scope),
+			psobject.PSTypeNameKey: "System.Management.Automation.PSVariable",
 		}
 		if entry.Description != "" {
 			result["Description"] = entry.Description
 		}
 		results = append(results, result)
 	}
-	
+
 	if results == nil {
 		results = []any{}
 	}
-	
+
 	return common.MakeUDFSuccessResult(results, map[string]any{
 		"operation": "get_variable",
 		"pattern":   pattern,

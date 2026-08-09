@@ -47,12 +47,12 @@ func RegisterSetVariable() gojq.CompilerOption {
 			name = nameStr
 			// Check if second arg is value or options
 			if len(args) > 1 {
-				secondArg := common.BindValue(args[1])
-				if _, ok := secondArg.(map[string]any); ok && len(args) == 2 {
-					// Second arg is options map, value missing
-					return common.MakeUDFErrorResult(fmt.Errorf("set_variable: value is required"), nil)
-				}
-				value = secondArg
+				// The second argument is the value, whatever its type. It used
+				// to be read as an options map when it was an object, which
+				// meant set_variable("x"; {a: 1}) could only ever fail - there
+				// was no way to store an object in a variable. Options are the
+				// third argument, as the documented signature says.
+				value = common.BindValue(args[1])
 			} else {
 				// Only name provided, value from pipe
 				value = common.BindValue(v)

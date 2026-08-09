@@ -305,33 +305,16 @@ func compareValues(left, right any) int {
 	return 0
 }
 
-// toNumber attempts to convert a value to float64
+// toNumber attempts to convert a value to float64.
+//
+// The numeric cases are common.ToFloat64's, which covers json.Number - the type
+// every number piped in from stdin actually has. Without it, sort_object
+// compared numbers as strings, so 9 sorted after 100.
 func toNumber(v any) (float64, bool) {
+	if f, ok := common.ToFloat64(v); ok {
+		return f, true
+	}
 	switch val := v.(type) {
-	case float64:
-		return val, true
-	case float32:
-		return float64(val), true
-	case int:
-		return float64(val), true
-	case int64:
-		return float64(val), true
-	case int32:
-		return float64(val), true
-	case int16:
-		return float64(val), true
-	case int8:
-		return float64(val), true
-	case uint:
-		return float64(val), true
-	case uint64:
-		return float64(val), true
-	case uint32:
-		return float64(val), true
-	case uint16:
-		return float64(val), true
-	case uint8:
-		return float64(val), true
 	case string:
 		if num, err := strconv.ParseFloat(val, 64); err == nil {
 			return num, true

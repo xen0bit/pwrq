@@ -6,7 +6,6 @@ package objects
 import (
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/itchyny/gojq"
@@ -81,32 +80,16 @@ func RegisterSelectObject() gojq.CompilerOption {
 						}
 					} else if optsMap, ok := argVal.(map[string]any); ok {
 						// It's an options map
-						if firstVal, exists := optsMap["first"]; exists {
-							if firstNum, ok := firstVal.(float64); ok {
-								opts.First = int(firstNum)
-							} else if firstStr, ok := firstVal.(string); ok {
-								if n, err := strconv.Atoi(firstStr); err == nil {
-									opts.First = n
-								}
-							}
+						// gojq represents an integral literal as int, not
+						// float64, so {first: 2} was never read at all.
+						if n, ok := common.ToInt(optsMap["first"]); ok {
+							opts.First = n
 						}
-						if lastVal, exists := optsMap["last"]; exists {
-							if lastNum, ok := lastVal.(float64); ok {
-								opts.Last = int(lastNum)
-							} else if lastStr, ok := lastVal.(string); ok {
-								if n, err := strconv.Atoi(lastStr); err == nil {
-									opts.Last = n
-								}
-							}
+						if n, ok := common.ToInt(optsMap["last"]); ok {
+							opts.Last = n
 						}
-						if skipVal, exists := optsMap["skip"]; exists {
-							if skipNum, ok := skipVal.(float64); ok {
-								opts.Skip = int(skipNum)
-							} else if skipStr, ok := skipVal.(string); ok {
-								if n, err := strconv.Atoi(skipStr); err == nil {
-									opts.Skip = n
-								}
-							}
+						if n, ok := common.ToInt(optsMap["skip"]); ok {
+							opts.Skip = n
 						}
 						if propVal, exists := optsMap["property"]; exists {
 							opts.Properties = parseProperties(propVal)

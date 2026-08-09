@@ -83,6 +83,16 @@ func mustRun(t *testing.T, input string, args ...string) string {
 	return stdout
 }
 
+// writeFile creates a file under dir for a test that needs something on disk.
+func writeFile(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 // TestAliasesResolve covers what the previous stub only claimed to: aliases
 // have to be compiled into the query, because gojq binds function names at
 // compile time and never consults session state.

@@ -1,7 +1,10 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
@@ -93,6 +96,66 @@ func NormalizeToSlice(v any) []any {
 	default:
 		return []any{val}
 	}
+}
+
+// ToFloat64 coerces a JSON-shaped value to a number.
+//
+// A number reaches a UDF as one of three Go types depending on where it came
+// from, and a switch that misses any of them fails silently rather than loudly.
+// The CLI decodes input with UseNumber(), so numbers from stdin arrive as
+// json.Number; gojq represents integral literals in a query as int and
+// everything else as float64. A type switch on float64 alone - which is what
+// the object cmdlets used to do - therefore ignored every number a user
+// actually piped in.
+func ToFloat64(v any) (float64, bool) {
+	switch val := v.(type) {
+	case json.Number:
+		f, err := val.Float64()
+		return f, err == nil
+	case float64:
+		return val, true
+	case float32:
+		return float64(val), true
+	case int:
+		return float64(val), true
+	case int8:
+		return float64(val), true
+	case int16:
+		return float64(val), true
+	case int32:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	case uint:
+		return float64(val), true
+	case uint8:
+		return float64(val), true
+	case uint16:
+		return float64(val), true
+	case uint32:
+		return float64(val), true
+	case uint64:
+		return float64(val), true
+	case *big.Int:
+		f, _ := new(big.Float).SetInt(val).Float64()
+		return f, true
+	}
+	return 0, false
+}
+
+// ToInt coerces a JSON-shaped value to an integer count, for options like
+// -First and -Skip. Strings are accepted because PowerShell's own parameter
+// binding coerces them.
+func ToInt(v any) (int, bool) {
+	if f, ok := ToFloat64(v); ok {
+		return int(f), true
+	}
+	if s, ok := v.(string); ok {
+		if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+			return n, true
+		}
+	}
+	return 0, false
 }
 
 // PreserveTypeName carries the PowerShell type of an input object onto a value

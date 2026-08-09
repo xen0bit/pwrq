@@ -126,13 +126,10 @@ func formatTable(objects []any, opts FormatTableOptions) (*FormattedTable, error
 		table.Rows = append(table.Rows, row)
 	}
 
-	// If AutoSize is not requested, reset widths to header lengths
-	if !opts.AutoSize {
-		for i := range table.Widths {
-			table.Widths[i] = len(table.Headers[i])
-		}
-	}
-
+	// Widths always fit their content. Narrowing them back to the header
+	// length without -AutoSize - which is what this used to do - made any value
+	// longer than its header overflow its column and shift every column after
+	// it, so the header row and the data rows did not line up at all.
 	return table, nil
 }
 
