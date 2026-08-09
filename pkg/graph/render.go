@@ -246,6 +246,8 @@ func (b *builder) emitTerm(t *gojq.Term, scope, prefix, bind string) string {
 		return b.emitGrouped(t, scope, suffix, prefix)
 	case gojq.TermTypeUnary:
 		return b.emitUnary(t, scope, suffix, prefix)
+	case gojq.TermTypeLabel:
+		return b.emitLabel(t, scope, suffix, prefix)
 	}
 
 	// A leaf renders as the jq that produced it; Term.String already carries
@@ -389,6 +391,17 @@ func (b *builder) emitTry(t *gojq.Term, scope, suffix, prefix string) string {
 	if t.Try.Catch != nil {
 		b.emitLabelledBranch(id, "catch", t.Try.Catch)
 	}
+	close()
+	return id
+}
+
+// emitLabel renders `label $out | body`. The label itself is only meaningful
+// because something inside the body breaks to it, so the body is what the
+// container holds; `break $out` reaches the leaf case and renders as its jq.
+func (b *builder) emitLabel(t *gojq.Term, scope, suffix, prefix string) string {
+	id := b.id(scope)
+	close := b.container(id, withPrefix(prefix, "label "+t.Label.Ident+suffix))
+	b.emitLabelledBranch(id, "body", t.Label.Body)
 	close()
 	return id
 }
@@ -562,7 +575,8 @@ func termNeedsExpansion(t *gojq.Term) bool {
 		return false
 	}
 	switch t.Type {
-	case gojq.TermTypeIf, gojq.TermTypeTry, gojq.TermTypeReduce, gojq.TermTypeForeach:
+	case gojq.TermTypeIf, gojq.TermTypeTry, gojq.TermTypeReduce, gojq.TermTypeForeach,
+		gojq.TermTypeLabel:
 		return true
 	case gojq.TermTypeFunc:
 		return anyNeedsExpansion(t.Func.Args)

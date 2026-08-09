@@ -93,6 +93,8 @@ func TestRenderD2_NothingIsLost(t *testing.T) {
 		{`.a[0].b[]?`, []string{".a[0].b[]?"}},
 		{`map(select(.x | endswith(".go")))`, []string{"map", "select", ".x", "endswith"}},
 		{`.[] |= (. * 2)`, []string{"2"}},
+		{`label $found | (.[] | select(.a), break $found)`,
+			[]string{"label", "$found", "break", "select", ".a"}},
 	}
 
 	for _, tc := range cases {
@@ -289,6 +291,7 @@ func TestRenderD2_KitchenSink(t *testing.T) {
 		"where_object", "select_object", "measure_object", "format_table",
 		"get_date", "new_timespan", "get_service", "test_path", "gps",
 		"builtins", "env",
+		"label", "$found", "break",
 	)
 
 	// It has to be a diagram, not a wall: containers nest and stages chain.
