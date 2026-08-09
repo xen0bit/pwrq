@@ -48,6 +48,7 @@ function doValidateQuery() {
         textarea.removeAttribute("aria-invalid");
         errorSmall.textContent = "";
         svgContainer.innerHTML = "<p><em>Enter a valid query above to generate a flow diagram.</em></p>";
+        resetResults();
         return;
     }
 
@@ -68,16 +69,77 @@ function doValidateQuery() {
             errorSmall.textContent = "";
             // Automatically generate SVG for valid queries
             generateSVG();
+            doRunQuery();
         } else {
             textarea.setAttribute("aria-invalid", "true");
             errorSmall.textContent = err || "Query is invalid. Please check your syntax.";
             svgContainer.innerHTML = "<p><em>Query is invalid. Please check your syntax.</em></p>";
+            resetResults();
         }
     } catch (error) {
         textarea.setAttribute("aria-invalid", "true");
         errorSmall.textContent = "Error validating query: " + error.message;
         svgContainer.innerHTML = "<p><em>Error validating query.</em></p>";
+        resetResults();
     }
+}
+
+// Run the query against the sample input and show what it produced.
+//
+// Output and error are not exclusive: a query that emits ten values and then
+// fails has told you something about all eleven, so both are rendered.
+function doRunQuery() {
+    const query = document.getElementById("query").value;
+    const input = document.getElementById("input-json").value;
+    const results = document.getElementById("results");
+    const resultsError = document.getElementById("results-error");
+
+    if (!query) {
+        resetResults();
+        return;
+    }
+
+    if (typeof window.runQuery !== 'function') {
+        return;
+    }
+
+    let result;
+    try {
+        result = window.runQuery(query, input);
+    } catch (error) {
+        resultsError.textContent = "Error running query: " + error.message;
+        setResults("");
+        return;
+    }
+
+    const output = result && result.output ? result.output : "";
+    const err = result && result.err ? result.err : "";
+
+    resultsError.textContent = err;
+    if (output) {
+        setResults(output.replace(/\n$/, ""));
+    } else if (err) {
+        // The error is already shown above; do not also claim there was no output.
+        setResults("");
+    } else {
+        results.innerHTML = "<code><em>The query produced no output.</em></code>";
+    }
+}
+
+// setResults writes output as text rather than markup: a query's results are
+// the user's data, and one containing "<script>" must not become one.
+function setResults(text) {
+    const results = document.getElementById("results");
+    results.textContent = "";
+    const code = document.createElement("code");
+    code.textContent = text;
+    results.appendChild(code);
+}
+
+function resetResults() {
+    document.getElementById("results-error").textContent = "";
+    document.getElementById("results").innerHTML =
+        "<code><em>Enter a query above to see its output.</em></code>";
 }
 
 // Generate SVG
@@ -116,6 +178,7 @@ function generateSVG() {
 
 // Set up real-time validation as user types (attach immediately)
 const queryInput = document.getElementById("query");
+const jsonInput = document.getElementById("input-json");
 let validationTimeout;
 
 queryInput.addEventListener("input", () => {
@@ -126,13 +189,24 @@ queryInput.addEventListener("input", () => {
     }, 300); // Wait 300ms after user stops typing
 });
 
+// Editing the input only changes the results. The query has not changed, so
+// there is nothing to re-validate and no new diagram to draw.
+jsonInput.addEventListener("input", () => {
+    clearTimeout(validationTimeout);
+    validationTimeout = setTimeout(() => {
+        doRunQuery();
+    }, 300);
+});
+
 // Initialize WASM on page load
 (async () => {
     try {
         await initWASM();
 
         // Verify WASM functions are available
-        if (typeof window.validateQuery !== 'function' || typeof window.createSVG !== 'function') {
+        if (typeof window.validateQuery !== 'function' ||
+            typeof window.createSVG !== 'function' ||
+            typeof window.runQuery !== 'function') {
             console.error("WASM functions not available");
             const textarea = document.getElementById("query");
             textarea.setAttribute("aria-invalid", "true");

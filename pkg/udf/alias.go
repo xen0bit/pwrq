@@ -72,6 +72,33 @@ var StandardAliases = []Alias{
 	{"gd", "get_date"},
 }
 
+// KnownAliases narrows an alias table to the ones this registry can actually
+// resolve.
+//
+// AliasFuncDefs deliberately errors on an alias naming a function that is not
+// registered - for the CLI that is a bug worth failing the build over, and
+// TestAliasesResolve enforces it. A curated registry is the case where it is
+// not a bug: WebRegistry leaves out every filesystem and process cmdlet, so
+// `gci` has nothing to name and simply should not exist there.
+func (r *Registry) KnownAliases(aliases []Alias) ([]Alias, error) {
+	sigs, err := r.Signatures()
+	if err != nil {
+		return nil, err
+	}
+	registered := make(map[string]bool, len(sigs))
+	for sig := range sigs {
+		registered[sig.Name] = true
+	}
+
+	known := make([]Alias, 0, len(aliases))
+	for _, alias := range aliases {
+		if registered[alias.Target] {
+			known = append(known, alias)
+		}
+	}
+	return known, nil
+}
+
 // AliasFuncDefs compiles the alias table into jq function definitions, one per
 // arity the target accepts, so that `gci` and `gci("src"; {Recurse: true})` both
 // resolve. The arities come from the registry itself, so an alias cannot fall

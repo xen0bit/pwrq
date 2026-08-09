@@ -17,7 +17,7 @@ $ pwrq -c '[get_service | select(.Status == "Running") | .Name] | length'
 ## It is a strict superset of jq
 
 Any valid jq program produces byte-identical output. That is enforced, not
-aspirational: the test suite runs gojq's own 831-case CLI corpus unchanged, so
+aspirational: the test suite runs gojq's own 839-case CLI corpus unchanged, so
 pwrq cannot drift from jq without a test failing.
 
 Concretely, this means pwrq never quietly reinterprets your data:
@@ -141,6 +141,17 @@ make build-viz
 ./pwrq-viz -g query.svg '.a | .b'   # render the query's structure
 ./pwrq-viz -i                        # browser IDE on :8080
 ```
+
+The IDE runs your query against sample JSON and draws its structure, both as
+you type. It compiles to WebAssembly, so the query runs in the page — nothing
+is uploaded anywhere.
+
+A browser tab has no filesystem, process table or service manager, so the
+cmdlets that need one are not offered there: `get_childitem`, `get_process`,
+`get_service`, `sh` and their aliases are absent, as are the network cmdlets,
+which would work only against origins that allow CORS. Codecs, hashes,
+ciphers, compression, format conversion, and the object and formatting cmdlets
+are all available. `get_command` in the page lists exactly what the page has.
 
 ## Development
 

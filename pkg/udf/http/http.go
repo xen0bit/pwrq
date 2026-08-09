@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/itchyny/gojq"
@@ -282,16 +281,8 @@ func RegisterHTTPServe() gojq.CompilerOption {
 		resultChan := make(chan any, 1)
 		errorChan := make(chan error, 1)
 
-		// Create listener with SO_REUSEADDR
-		lc := net.ListenConfig{
-			Control: func(network, address string, c syscall.RawConn) error {
-				var err error
-				c.Control(func(fd uintptr) {
-					err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-				})
-				return err
-			},
-		}
+		// Create listener with SO_REUSEADDR where the platform has it.
+		lc := reuseAddrConfig()
 
 		// Listen on the address
 		listener, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf("%s:%d", host, port))

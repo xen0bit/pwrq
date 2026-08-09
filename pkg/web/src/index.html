@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <title>pwrq Query Validator and SVG Generator</title>
-    <meta name="description" content="Validate jq queries and generate SVG flow diagrams in real-time.">
-    
+    <title>pwrq Query Editor</title>
+    <meta name="description" content="Run jq queries against sample JSON and see their structure as a diagram, in real time.">
+
     <!-- Pico CSS Violet Theme -->
     <link rel="stylesheet" href="css/pico.violet.css">
-    
+
     <style>
         textarea[aria-invalid="true"] {
             --pico-border-color: var(--pico-form-element-invalid-border-color);
@@ -17,7 +17,7 @@
         textarea[aria-invalid="false"] {
             --pico-border-color: var(--pico-form-element-valid-border-color);
         }
-        #svg-container {
+        #svg-container, #results {
             margin-top: var(--pico-spacing);
             padding: var(--pico-spacing);
             border: var(--pico-border-width) solid var(--pico-muted-border-color);
@@ -29,6 +29,21 @@
             max-width: 100%;
             height: auto;
         }
+        #results {
+            margin: var(--pico-spacing) 0 0;
+            max-height: 24rem;
+            overflow-y: auto;
+            white-space: pre;
+            font-size: 0.875em;
+        }
+        #results.error {
+            --pico-code-background-color: transparent;
+            color: var(--pico-form-element-invalid-border-color);
+        }
+        #results-error {
+            display: block;
+            color: var(--pico-form-element-invalid-border-color);
+        }
     </style>
 </head>
 <body>
@@ -36,7 +51,7 @@
     <header>
         <hgroup>
             <h1>pwrq</h1>
-            <p>Query Validator and SVG Generator</p>
+            <p>Query Editor</p>
         </hgroup>
     </header>
     <!-- ./ Header -->
@@ -45,19 +60,42 @@
     <main>
         <section>
             <h2>Query Editor</h2>
-            <p>Enter a jq query below. The query will be validated in real-time, and a flow diagram will be generated automatically for valid queries.</p>
-            
+            <p>
+                Enter a query and some sample JSON. The query is validated as you type, run
+                against the input, and drawn as a flow diagram.
+            </p>
+
             <form>
-                <label for="query">jq Query</label>
-                <textarea 
-                    id="query" 
+                <label for="query">Query</label>
+                <textarea
+                    id="query"
                     name="query"
-                    placeholder='e.g., md5 | ._val'
+                    placeholder='e.g., .items | sort_object(.; {property: "Name"})'
                     rows="5"
                     aria-invalid="false"
                 ></textarea>
                 <small id="query-error"></small>
+
+                <label for="input-json">Input JSON</label>
+                <textarea
+                    id="input-json"
+                    name="input-json"
+                    placeholder='e.g., {"items": [{"Name": "b"}, {"Name": "a"}]}&#10;Leave empty to run against null.'
+                    rows="5"
+                    spellcheck="false"
+                ></textarea>
             </form>
+        </section>
+
+        <section>
+            <h2>Results</h2>
+            <p>
+                The browser has no filesystem, process table or service manager, so the
+                cmdlets that need one are not available here. Codecs, hashes, ciphers,
+                compression, and the object and formatting cmdlets all are.
+            </p>
+            <small id="results-error"></small>
+            <pre id="results"><code><em>Enter a query above to see its output.</em></code></pre>
         </section>
 
         <section>

@@ -14,6 +14,7 @@ func main() {
 	// Expose functions to JavaScript
 	js.Global().Set("validateQuery", js.FuncOf(validateQuery))
 	js.Global().Set("createSVG", js.FuncOf(createSVG))
+	js.Global().Set("runQuery", js.FuncOf(runQuery))
 
 	// Keep the program running
 	select {}

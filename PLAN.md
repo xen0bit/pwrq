@@ -39,7 +39,7 @@ no Go structs in the output stream. This is what PowerShell's own
 |---|---|---|
 | Transforms | the transformed **scalar** | `base64_encode`, `sha256`, `upper`, `find` |
 | Object producers | flat PascalCase object + `PSTypeName` | `get_childitem`, `get_process`, `get_date`, `http` |
-| Formatters | a **string** | `format_table`, `format_list`, `out_string` |
+| Formatters | a **string** | `format_table`, `format_list` |
 
 Nothing else reaches the encoder.
 
@@ -70,7 +70,7 @@ Nothing else reaches the encoder.
 - [x] `http` returns an `Invoke-WebRequest`-shaped response object
 - [x] ~176 test assertions migrated; fabricated tests rewired to the real UDFs
 
-**Verified:** full suite green, 840 corpus cases.
+**Verified:** full suite green, 839 corpus cases.
 
 Two bugs the tests caught, worth remembering:
 - Binding ByPropertyName through `Name` collapsed *any* object with a `Name`
@@ -144,27 +144,13 @@ Found while writing the docs:
   struct tags then hand-parsed by splitting on newlines
 - `invoke_web_request` reported `ContentLength: -1` for chunked responses
 
-## Phase 4 — Split the visualizer
-
-- [ ] `pkg/graph` behind a build tag; add `cmd/pwrq-viz`
-- [ ] Fix `-g` help text (advertises `.png`, which errors)
-- [ ] Update `Makefile` and `Dockerfile` for two binaries
-- [ ] Target ~8MB core binary, down from 43MB
-
-## Phase 5 — Real tests and honest docs
-
-- [ ] Replace the stub integration tests (`Run()` returns `"", "", 0`)
-- [ ] Rewrite `README.md`, `EXAMPLES.md`, `pkg/udf/README.md` against actual
-      behavior, generating examples by running them
-- [ ] Add `get_command`/`get_help` over the registry
-
 ---
 
 ## All phases complete
 
 | | Before | After |
 |---|---|---|
-| gojq corpus cases | 11 | 840, all passing |
+| gojq corpus cases | 11 | 839, all passing |
 | Default binary | 43MB | 9.5MB |
 | `--udf-list` accuracy | 20 missing, arities wrong | machine-verified |
 | Aliases | none worked | 30, guarded against shadowing |
@@ -188,7 +174,7 @@ go test ./pkg/udf/ -run TestNoBuiltinShadowing
 
 These fail the build rather than relying on anyone remembering:
 
-- `TestCliRun` — gojq's 840-case corpus, byte-identical
+- `TestCliRun` — gojq's 839-case corpus, byte-identical
 - `TestNoBuiltinShadowing` — no UDF or alias shares a builtin's signature
 - `TestUDFListMatchesRegistry` — documented set equals registered set
 - `TestMetadataArityMatches` — documented arities equal registered arities
@@ -212,6 +198,76 @@ container declare that path *under* it (stray `n1`/`n2` boxes), and D2 reads
 `${...}` as a substitution even inside quotes, so any query naming a jq
 variable produced an uncompilable script.
 
+## Phase 6 — Close the four loose ends ✅
+
+### Repo hygiene
+
+- [x] Removed the `PowerShell/` submodule: 54MB of Microsoft's C# source,
+      referenced by zero Go files, distinct from `pkg/udf/powershell/` which is
+      the actual port
+- [x] Deleted the unused two-thirds of `pkg/core/pipeline` — `cmdlet.go`,
+      `context.go`, `output.go` and their tests. `parameter.go`'s
+      `BindParameters` was the only export anything imported (Phase 3's note
+      predicted this; now it is true rather than noted)
+
+### Visualizer: `label`/`break`
+
+- [x] `TermTypeLabel` expands like `if`/`try`/`reduce` do, instead of
+      collapsing the whole labelled body into one opaque text node
+- [x] `TermTypeBreak` needs no case: it carries no sub-query, so the leaf
+      fallback already renders `break $found` correctly
+- [x] The kitchen-sink fixture already exercised both; the test now asserts on
+      them
+
+### Integration tests, and the seven bugs they found
+
+Real-binary tests for the object cmdlets, formatters, session variables, the
+location stack, and the web cmdlets (against an `httptest.Server`, so hermetic
+— no `-short` guard needed). `get_service` gets a `-short`-skipped smoke test.
+
+Everything below was found by writing them, and every one is the same shape:
+**a type switch that only knew `float64`.**
+
+- `measure_object` reported `Sum: 0`, `Average: 0`, `Minimum: null` for any
+  data piped in. The CLI decodes with `UseNumber()`, so property values are
+  `json.Number`, and `convertToFloat64` skipped them as non-numeric.
+- `sort_object` compared numbers as text for the same reason, so `9` sorted
+  after `100`.
+- `select_object`'s `first`/`last`/`skip` were never read: gojq represents an
+  integral literal as `int`, not `float64`, so `{first: 2}` did nothing.
+- `sort_object`'s `{property: "Age", descending: true}` silently sorted
+  ascending — only the `"Age desc"` suffix form was parsed.
+- `format_table` narrowed every column back to its header's width, so any
+  value longer than its header overflowed and pushed every later column out of
+  line. A two-column table did not line up.
+- `set_variable("x"; {a: 1})` could only ever fail: an object second argument
+  was read as an options map, so there was no way to store an object at all.
+- `get_variable` and `invoke_web_request` returned objects with no
+  `PSTypeName`, the one property the object model says every producer carries.
+
+`common.ToFloat64`/`ToInt` now hold the numeric cases once, so the next cmdlet
+to need them cannot miss `json.Number` again.
+
+### Web IDE: evaluate against sample input
+
+- [x] `runQuery(query, inputJSON)` exported from `cmd/web`, compiling with the
+      registry's options and aliases exactly as `cli/cli.go` does, decoding
+      input with `UseNumber()`, and capping output at 10,000 values — a browser
+      tab has no Ctrl-C, so `repeat(1)` would otherwise hang the page
+- [x] `udf.WebRegistry()`: codecs, hashes, ciphers, compression, format
+      conversion, and the object and formatting cmdlets. Everything that needs
+      a filesystem, process table, service manager or shell is excluded,
+      because in a browser it can only fail
+- [x] `Registry.KnownAliases` filters the alias table to what a curated
+      registry can resolve. `AliasFuncDefs` still errors on an unknown target —
+      for the CLI that is a bug worth failing on
+- [x] Input textarea and a results panel in `pkg/web/src`, sharing the existing
+      300ms debounce. Results render as text, not markup
+- [x] The whole UDF library now builds for `js/wasm`. Two files stood in the
+      way: `set_date_unix.go` claimed `!windows` while using
+      `syscall.Settimeofday`, and `http_serve` used `SO_REUSEADDR` inline.
+      Both now have a portable fallback
+
 ## Known remaining work
 
 - Object cmdlets (`select_object`, `where_object`, `sort_object`) still
@@ -219,6 +275,6 @@ variable produced an uncompilable script.
   whether they earn their place is worth revisiting with real usage.
 - `EXAMPLES.md` outputs are verified by hand today; generating them in CI
   would stop them drifting again.
-- Most of `pkg/core/pipeline` remains unused (see the Phase 3 note).
-- The web IDE renders the diagram but still does not evaluate a query against
-  sample input, so it shows structure without results.
+- The bug pattern above suggests an audit: any remaining `case float64:` in a
+  cmdlet's argument parsing is a silent failure waiting for input that came
+  from stdin.
