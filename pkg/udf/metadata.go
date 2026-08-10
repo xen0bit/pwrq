@@ -110,8 +110,11 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"aes_decrypt", 2, 5, "AES decryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=base64])", "Encryption", []string{`aes_decrypt("encrypted"; "key")`, `aes_decrypt("encrypted"; "key"; "CBC")`}},
 		{"des_encrypt", 2, 4, "DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_encrypt("data"; "key")`, `des_encrypt("data"; "key"; "CBC")`}},
 		{"des_decrypt", 2, 4, "DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_decrypt("encrypted"; "key")`, `des_decrypt("encrypted"; "key"; "CBC")`}},
-		{"3des_encrypt", 2, 4, "Triple DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`3des_encrypt("data"; "key")`, `3des_encrypt("data"; "key"; "CBC")`}},
-		{"3des_decrypt", 2, 4, "Triple DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`3des_decrypt("encrypted"; "key")`, `3des_decrypt("encrypted"; "key"; "CBC")`}},
+		// Named triple_des_encrypt rather than 3des_encrypt because jq identifiers
+		// cannot start with a digit; a 3des_encrypt function could never be
+		// called from a query.
+		{"triple_des_encrypt", 2, 4, "Triple DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`triple_des_encrypt("data"; "key")`, `triple_des_encrypt("data"; "key"; "CBC")`}},
+		{"triple_des_decrypt", 2, 4, "Triple DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`triple_des_decrypt("encrypted"; "key")`, `triple_des_decrypt("encrypted"; "key"; "CBC")`}},
 		{"blowfish_encrypt", 2, 4, "Blowfish encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_encrypt("data"; "key")`, `blowfish_encrypt("data"; "key"; "CBC")`}},
 		{"blowfish_decrypt", 2, 4, "Blowfish decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_decrypt("encrypted"; "key")`, `blowfish_decrypt("encrypted"; "key"; "CBC")`}},
 		{"rc4", 1, 3, "RC4 encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`rc4("key")`, `"data" | rc4("key")`}},

@@ -228,18 +228,17 @@ func TestDESEncryptDecrypt_CBC(t *testing.T) {
 	}
 }
 
+// Test3DESEncryptDecrypt_CBC exercises Triple DES under its callable name.
+// The function is triple_des_encrypt/triple_des_decrypt, never 3des_*: a jq identifier
+// cannot start with a digit, and a function that cannot be named in a query is
+// worse than not registered at all.
 func Test3DESEncryptDecrypt_CBC(t *testing.T) {
 	key := "123456789012345678901234" // 24 bytes
 	data := "test message"
 
-	// Encrypt - use quoted function name since it starts with a number
-	encryptResult := runGojqQuery(t, `"3des_encrypt" as $fn | if $fn == "3des_encrypt" then aes_encrypt("`+data+`"; "`+key+`"; "CBC") else null end`, nil,
-		Register3DESEncrypt(), Register3DESDecrypt(), RegisterAESEncrypt())
-
-	// Actually, let's just test with the function directly by using a workaround
-	// Since 3des_encrypt starts with a number, we need to call it differently
-	// Let's skip this test for now and test the function manually
-	t.Skip("3des_encrypt function name starts with number, requires special handling")
+	// Encrypt
+	encryptResult := runGojqQuery(t, `triple_des_encrypt("`+data+`"; "`+key+`"; "CBC")`, nil,
+		Register3DESEncrypt(), Register3DESDecrypt())
 
 	encryptedVal, ok := encryptResult.(string)
 	if !ok {
@@ -247,7 +246,7 @@ func Test3DESEncryptDecrypt_CBC(t *testing.T) {
 	}
 
 	// Decrypt
-	decryptResult := runGojqQuery(t, `3des_decrypt("`+encryptedVal+`"; "`+key+`"; "CBC")`, nil,
+	decryptResult := runGojqQuery(t, `triple_des_decrypt("`+encryptedVal+`"; "`+key+`"; "CBC")`, nil,
 		Register3DESEncrypt(), Register3DESDecrypt())
 
 	decryptedVal, ok := decryptResult.(string)

@@ -775,12 +775,16 @@ func RegisterDESDecrypt() gojq.CompilerOption {
 }
 
 // 3DES Encryption/Decryption
+//
+// The callable names are triple_des_encrypt and triple_des_decrypt rather than 3des_*,
+// because jq identifiers cannot start with a digit and a function that cannot
+// be named in a query is worse than not registered at all.
 
 // Register3DESEncrypt registers 3DES encryption function
 func Register3DESEncrypt() gojq.CompilerOption {
-	return gojq.WithFunction("3des_encrypt", 2, 4, func(v any, args []any) any {
+	return gojq.WithFunction("triple_des_encrypt", 2, 4, func(v any, args []any) any {
 		if len(args) < 2 {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_encrypt: requires at least 2 arguments (data, key)"), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
 		dataInput := common.BindValue(v)
@@ -806,22 +810,22 @@ func Register3DESEncrypt() gojq.CompilerOption {
 
 		key, err := parseKey(keyInput, keyFormat)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_encrypt: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: %v", err), nil)
 		}
 
 		// 3DES key can be 16 or 24 bytes
 		if len(key) != 16 && len(key) != 24 {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_encrypt: key must be 16 or 24 bytes, got %d", len(key)), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: key must be 16 or 24 bytes, got %d", len(key)), nil)
 		}
 
 		data, err := parseData(dataInput, dataFormat)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_encrypt: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: %v", err), nil)
 		}
 
 		block, err := des.NewTripleDESCipher(key)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_encrypt: failed to create cipher: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: failed to create cipher: %v", err), nil)
 		}
 
 		var ciphertext []byte
@@ -845,7 +849,7 @@ func Register3DESEncrypt() gojq.CompilerOption {
 			ciphertext = make([]byte, len(padded))
 			mode.CryptBlocks(ciphertext, padded)
 		default:
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_encrypt: unsupported mode %s (use ECB or CBC)", mode), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: unsupported mode %s (use ECB or CBC)", mode), nil)
 		}
 
 		if iv != nil {
@@ -855,7 +859,7 @@ func Register3DESEncrypt() gojq.CompilerOption {
 		result := base64.StdEncoding.EncodeToString(ciphertext)
 
 		meta := map[string]any{
-			"operation": "3des_encrypt",
+			"operation": "triple_des_encrypt",
 			"mode":      mode,
 			"key_size":  len(key),
 		}
@@ -866,9 +870,9 @@ func Register3DESEncrypt() gojq.CompilerOption {
 
 // Register3DESDecrypt registers 3DES decryption function
 func Register3DESDecrypt() gojq.CompilerOption {
-	return gojq.WithFunction("3des_decrypt", 2, 4, func(v any, args []any) any {
+	return gojq.WithFunction("triple_des_decrypt", 2, 4, func(v any, args []any) any {
 		if len(args) < 2 {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: requires at least 2 arguments (data, key)"), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: requires at least 2 arguments (data, key)"), nil)
 		}
 
 		dataInput := common.BindValue(v)
@@ -894,21 +898,21 @@ func Register3DESDecrypt() gojq.CompilerOption {
 
 		key, err := parseKey(keyInput, keyFormat)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: %v", err), nil)
 		}
 
 		if len(key) != 16 && len(key) != 24 {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: key must be 16 or 24 bytes, got %d", len(key)), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: key must be 16 or 24 bytes, got %d", len(key)), nil)
 		}
 
 		ciphertext, err := parseData(dataInput, dataFormat)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: %v", err), nil)
 		}
 
 		block, err := des.NewTripleDESCipher(key)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: failed to create cipher: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: failed to create cipher: %v", err), nil)
 		}
 
 		var plaintext []byte
@@ -918,7 +922,7 @@ func Register3DESDecrypt() gojq.CompilerOption {
 		case "ECB":
 			blockSize := block.BlockSize()
 			if len(ciphertext)%blockSize != 0 {
-				return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: ciphertext length must be multiple of %d", blockSize), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: ciphertext length must be multiple of %d", blockSize), nil)
 			}
 			plaintext = make([]byte, len(ciphertext))
 			for i := 0; i < len(ciphertext); i += blockSize {
@@ -926,32 +930,32 @@ func Register3DESDecrypt() gojq.CompilerOption {
 			}
 			plaintext, err = pkcs7Unpad(plaintext)
 			if err != nil {
-				return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: failed to unpad: %v", err), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: failed to unpad: %v", err), nil)
 			}
 		case "CBC":
 			if len(ciphertext) < des.BlockSize {
-				return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: ciphertext too short"), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: ciphertext too short"), nil)
 			}
 			iv = ciphertext[:des.BlockSize]
 			ciphertext = ciphertext[des.BlockSize:]
 			if len(ciphertext)%des.BlockSize != 0 {
-				return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: ciphertext length must be multiple of %d", des.BlockSize), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: ciphertext length must be multiple of %d", des.BlockSize), nil)
 			}
 			mode := cipher.NewCBCDecrypter(block, iv)
 			plaintext = make([]byte, len(ciphertext))
 			mode.CryptBlocks(plaintext, ciphertext)
 			plaintext, err = pkcs7Unpad(plaintext)
 			if err != nil {
-				return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: failed to unpad: %v", err), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: failed to unpad: %v", err), nil)
 			}
 		default:
-			return common.MakeUDFErrorResult(fmt.Errorf("3des_decrypt: unsupported mode %s (use ECB or CBC)", mode), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_decrypt: unsupported mode %s (use ECB or CBC)", mode), nil)
 		}
 
 		result := string(plaintext)
 
 		meta := map[string]any{
-			"operation": "3des_decrypt",
+			"operation": "triple_des_decrypt",
 			"mode":      mode,
 			"key_size":  len(key),
 		}

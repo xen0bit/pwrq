@@ -471,6 +471,30 @@ func TestExamplesDrawToo(t *testing.T) {
 	}
 }
 
+// TestExamplesCoverTheGallery pins the gallery's size and sanity. The page's
+// Examples tab is the visitor's first map of what pwrq can do, so there has to
+// be enough of them to be useful, each with a distinct title, and they have to
+// spread across more than one category rather than stack in one corner.
+func TestExamplesCoverTheGallery(t *testing.T) {
+	examples := Examples()
+	if len(examples) < 100 {
+		t.Errorf("the gallery has %d examples; it should hold at least 100", len(examples))
+	}
+
+	seen := make(map[string]bool, len(examples))
+	categories := make(map[string]bool, len(examples))
+	for _, example := range examples {
+		if seen[example.Title] {
+			t.Errorf("two examples share the title %q; the palette cannot tell them apart", example.Title)
+		}
+		seen[example.Title] = true
+		categories[example.Category] = true
+	}
+	if len(categories) < 5 {
+		t.Errorf("the gallery only spans %d categories; a visitor should see the vocabulary is broad", len(categories))
+	}
+}
+
 // TestValidateUnderlinesUnclosedBrackets covers the commonest way a query is
 // broken mid-edit. gojq reports an unexpected EOF, which names no token at
 // all; the editor still needs somewhere to point.
