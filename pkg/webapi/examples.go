@@ -267,6 +267,13 @@ func Examples() []Example {
 			Input:       `null`,
 		},
 		{
+			Title:       "Triple DES round-trip",
+			Description: "triple_des_encrypt runs DES three times with a 16- or 24-byte key; the name avoids jq's no-leading-digit rule.",
+			Category:    "Ciphers",
+			Query:       `"attack at dawn" | triple_des_encrypt(.; "123456781234567812345678") as $c | {ciphertext: $c, plaintext: triple_des_decrypt($c; "123456781234567812345678")}`,
+			Input:       `null`,
+		},
+		{
 			Title:       "Blowfish round-trip",
 			Description: "Blowfish accepts keys of any length, which is why it lingered in password managers.",
 			Category:    "Ciphers",
