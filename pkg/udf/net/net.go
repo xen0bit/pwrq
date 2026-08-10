@@ -27,6 +27,14 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterCidrSize(),
 		RegisterIsMac(),
 		RegisterMacNormalize(),
+		RegisterIPVersion(),
+		RegisterIsPrivateIP(),
+		RegisterIsLoopback(),
+		RegisterCidrNetwork(),
+		RegisterCidrBroadcast(),
+		RegisterIPAdd(),
+		RegisterIPv6Expand(),
+		RegisterReverseIP(),
 	}
 }
 

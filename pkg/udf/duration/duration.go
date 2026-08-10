@@ -19,6 +19,14 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterTimeAgo(),
 		RegisterWeekday(),
 		RegisterIsWeekend(),
+		RegisterDurationBetween(),
+		RegisterAddSeconds(),
+		RegisterAddDays(),
+		RegisterStartOfDay(),
+		RegisterEndOfDay(),
+		RegisterIsLeapYear(),
+		RegisterDaysInMonth(),
+		RegisterMonthName(),
 	}
 }
 

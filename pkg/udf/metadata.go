@@ -235,6 +235,93 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"grep_lines", 1, 2, "The lines of a file matching a pattern (path, pattern)", "File Operations", []string{`grep_lines("app.log"; "error")`}},
 		{"wc_lines", 0, 1, "The number of lines in a file", "File Operations", []string{`wc_lines("app.log")`}},
 
+		// Text predicates and inspection
+		{"is_blank", 0, 2, "Whether a string is empty or whitespace", "String", []string{`"" | is_blank`}},
+		{"is_alphanumeric", 0, 2, "Whether every character is a letter or digit", "String", []string{`"abc123" | is_alphanumeric`}},
+		{"is_alphabetic", 0, 2, "Whether every character is a letter", "String", []string{`"abc" | is_alphabetic`}},
+		{"is_numeric_string", 0, 2, "Whether every character is a digit", "String", []string{`"12345" | is_numeric_string`}},
+		{"is_uppercase", 0, 2, "Whether a string's letters are all uppercase", "String", []string{`"HELLO" | is_uppercase`}},
+		{"is_lowercase", 0, 2, "Whether a string's letters are all lowercase", "String", []string{`"hello" | is_lowercase`}},
+		{"is_ascii", 0, 2, "Whether every byte is in the ASCII range", "String", []string{`"plain" | is_ascii`}},
+		{"word_count", 0, 2, "How many whitespace-separated words a string has", "String", []string{`"the quick brown fox" | word_count`}},
+		{"normalize_whitespace", 0, 2, "Collapse runs of whitespace to single spaces", "String", []string{`"  a   b  " | normalize_whitespace`}},
+		{"acronym", 0, 2, "The uppercase initials of a string's words", "String", []string{`"International Business Machines" | acronym`}},
+		{"escape_regex", 0, 2, "Quote a string so it matches literally in a regex", "String", []string{`"a.b" | escape_regex`}},
+		{"is_regex_valid", 0, 2, "Whether a string compiles as a regular expression", "String", []string{`"^[a-z]+$" | is_regex_valid`}},
+		{"glob_to_regex", 0, 2, "Turn a glob like *.txt into an anchored regex", "String", []string{`"*.txt" | glob_to_regex`}},
+		{"match_glob", 1, 2, "Whether a string matches a glob (pattern)", "String", []string{`"notes.txt" | match_glob("*.txt")`}},
+
+		// Collections
+		{"chunks", 1, 2, "Split an array into chunks of at most n (n)", "Collections", []string{`[1,2,3,4,5] | chunks(2)`}},
+		{"dedupe", 0, 1, "Remove duplicate values keeping first-occurrence order", "Collections", []string{`[3,1,2,1] | dedupe`}},
+		{"deep_merge", 1, 2, "Recursively merge two objects, the second winning", "Collections", []string{`deep_merge({a: {x: 1}}; {a: {y: 2}})`}},
+		{"sort_keys", 0, 1, "Recursively sort an object's keys", "Collections", []string{`{b: 2, a: 1} | sort_keys`}},
+		{"compact", 0, 1, "Drop null, empty and false values from an array", "Collections", []string{`[1, null, "", false, 0] | compact`}},
+		{"prune", 0, 1, "Recursively remove empty values from objects and arrays", "Collections", []string{`{a: 1, b: null, c: {d: ""}} | prune`}},
+		{"flatten_keys", 0, 1, "Turn a nested object into flat dot-and-bracket keys", "Collections", []string{`{a: {b: 1}} | flatten_keys`}},
+		{"unflatten_keys", 0, 1, "The inverse of flatten_keys", "Collections", []string{`{"a.b": 1} | unflatten_keys`}},
+		{"zip_arrays", 1, 2, "Pair two arrays element by element (other)", "Collections", []string{`[1,2,3] | zip_arrays(["a","b"])`}},
+
+		// JSON pointer and query strings
+		{"json_pointer", 1, 1, "Read the value at an RFC 6901 JSON pointer", "JSON", []string{`{a: {b: 1}} | json_pointer("/a/b")`}},
+		{"json_pointer_set", 2, 2, "Return the document with a value at a pointer", "JSON", []string{`{a: 1} | json_pointer_set("/b"; 2)`}},
+		{"query_string_parse", 0, 2, "Parse a URL query string into an object", "JSON", []string{`"a=1&b=two" | query_string_parse`}},
+		{"query_string_build", 0, 1, "The inverse of query_string_parse", "JSON", []string{`{a: "1"} | query_string_build`}},
+
+		// Time and date
+		{"duration_between", 1, 1, "Seconds between two timestamps or dates", "Duration", []string{`"2026-01-01" | duration_between("2026-01-03")`}},
+		{"add_seconds", 1, 1, "A timestamp plus n seconds", "Duration", []string{`0 | add_seconds(3600)`}},
+		{"add_days", 1, 1, "A timestamp plus n days", "Duration", []string{`0 | add_days(1)`}},
+		{"start_of_day", 0, 0, "A timestamp at its local midnight", "Duration", []string{`1700000000 | start_of_day`}},
+		{"end_of_day", 0, 0, "A timestamp at the last second of its local day", "Duration", []string{`1700000000 | end_of_day`}},
+		{"is_leap_year", 0, 0, "Whether a year has 366 days", "Duration", []string{`2024 | is_leap_year`}},
+		{"days_in_month", 1, 1, "Days in a month of a year (year, month)", "Duration", []string{`2024 | days_in_month(2)`}},
+		{"month_name", 0, 0, "The name of a month 1-12", "Duration", []string{`2 | month_name`}},
+
+		// IP and network extras
+		{"ip_version", 0, 2, "v4 or v6 for an address", "IP & Network", []string{`"192.168.1.1" | ip_version`}},
+		{"is_private_ip", 0, 2, "Whether an address is private or loopback", "IP & Network", []string{`"10.0.0.1" | is_private_ip`}},
+		{"is_loopback", 0, 2, "Whether an address is loopback", "IP & Network", []string{`"127.0.0.1" | is_loopback`}},
+		{"cidr_network", 0, 2, "The base address of a CIDR block", "IP & Network", []string{`"192.168.1.55/24" | cidr_network`}},
+		{"cidr_broadcast", 0, 2, "The last address of a CIDR block", "IP & Network", []string{`"192.168.1.55/24" | cidr_broadcast`}},
+		{"ip_add", 1, 1, "An address shifted by n", "IP & Network", []string{`"192.168.1.1" | ip_add(1)`}},
+		{"ipv6_expand", 0, 2, "An IPv6 address in full eight-group form", "IP & Network", []string{`"2001:db8::1" | ipv6_expand`}},
+		{"reverse_ip", 0, 2, "The PTR record name for an address", "IP & Network", []string{`"192.168.1.1" | reverse_ip`}},
+
+		// Hashes and key derivation
+		{"sha3_256", 0, 2, "SHA-3-256 hash", "Checksum", []string{`"hello" | sha3_256`}},
+		{"sha3_512", 0, 2, "SHA-3-512 hash", "Checksum", []string{`"hello" | sha3_512`}},
+		{"keccak_256", 0, 2, "Legacy Keccak-256 hash", "Checksum", []string{`"hello" | keccak_256`}},
+		{"crc16", 0, 2, "CRC-16/CCITT-FALSE checksum", "Checksum", []string{`"hello" | crc16`}},
+		{"pbkdf2_sha256", 1, 3, "PBKDF2-SHA256 derived key as hex (salt, [iterations], [keyLen])", "Checksum", []string{`"password" | pbkdf2_sha256("salt"; 100000; 32)`}},
+		{"argon2id_hash", 1, 3, "Argon2id derived key as hex (salt, [time], [memoryMiB])", "Checksum", []string{`"password" | argon2id_hash("salt"; 1; 8)`}},
+		{"random_hex", 0, 1, "n cryptographically random bytes as hex", "Checksum", []string{`random_hex(16)`}},
+
+		// IDs and tokens extras
+		{"uuid7", 0, 0, "A time-ordered version-7 UUID", "IDs & Tokens", []string{`uuid7`}},
+		{"nanoid", 0, 1, "n URL-safe characters from the nanoid alphabet", "IDs & Tokens", []string{`nanoid(21)`}},
+		{"is_base64", 0, 2, "Whether a string decodes as standard base64", "IDs & Tokens", []string{`"aGVsbG8=" | is_base64`}},
+		{"is_base64url", 0, 2, "Whether a string decodes as URL-safe base64", "IDs & Tokens", []string{`"aGVsbG8_" | is_base64url`}},
+		{"base58_encode", 0, 2, "Encode bytes as base58", "IDs & Tokens", []string{`"hello" | base58_encode`}},
+		{"base58_decode", 0, 2, "Decode base58 to bytes", "IDs & Tokens", []string{`"Cn8eVZg" | base58_decode`}},
+
+		// Number extras
+		{"factorial", 0, 0, "n! for an integer n", "Numbers", []string{`5 | factorial`}},
+		{"is_prime", 0, 0, "Whether an integer is prime", "Numbers", []string{`13 | is_prime`}},
+		{"fibonacci", 0, 0, "The nth Fibonacci number", "Numbers", []string{`10 | fibonacci`}},
+		{"combinations_count", 1, 1, "How many ways to choose k of n (k)", "Numbers", []string{`5 | combinations_count(2)`}},
+		{"permutations_count", 1, 1, "How many ways to order k of n (k)", "Numbers", []string{`5 | permutations_count(2)`}},
+		{"ordinal", 0, 0, "An integer as 1st, 2nd, 3rd, ...", "Numbers", []string{`3 | ordinal`}},
+		{"lerp", 2, 2, "Linear interpolation between a and b at t (b, t)", "Numbers", []string{`0 | lerp(10; 0.5)`}},
+		{"human_number", 0, 0, "A count rendered compactly with k, M, B, T", "Numbers", []string{`1500 | human_number`}},
+		{"is_even", 0, 0, "Whether an integer is even", "Numbers", []string{`4 | is_even`}},
+		{"is_odd", 0, 0, "Whether an integer is odd", "Numbers", []string{`3 | is_odd`}},
+
+		// Sniffing
+		{"file_type", 0, 2, "The kind of file the bytes are, from magic numbers", "Sniff", []string{`"%PDF-1.7" | file_type`}},
+		{"is_binary", 0, 2, "Whether bytes contain NULs or many control characters", "Sniff", []string{`"text" | is_binary`}},
+		{"is_utf8", 0, 2, "Whether bytes are valid UTF-8", "Sniff", []string{`"héllo" | is_utf8`}},
+
 		// PowerShell - File System
 		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
 		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},

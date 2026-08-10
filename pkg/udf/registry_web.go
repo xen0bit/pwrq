@@ -6,6 +6,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
 	"github.com/xen0bit/pwrq/pkg/udf/binary"
 	"github.com/xen0bit/pwrq/pkg/udf/checksum"
+	"github.com/xen0bit/pwrq/pkg/udf/collection"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/crypto"
 	"github.com/xen0bit/pwrq/pkg/udf/csv"
@@ -29,6 +30,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
 	"github.com/xen0bit/pwrq/pkg/udf/similarity"
+	"github.com/xen0bit/pwrq/pkg/udf/sniff"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/stats"
@@ -90,8 +92,9 @@ func WebRegistry() *Registry {
 	}
 
 	// Format conversion
-	reg.Register(json.RegisterJSONParse())
-	reg.Register(json.RegisterJSONStringify())
+	for _, opt := range json.RegisterAll() {
+		reg.Register(opt)
+	}
 	reg.Register(csv.RegisterCSVParse())
 	reg.Register(csv.RegisterCSVStringify())
 	reg.Register(xml.RegisterXMLParse())
@@ -172,6 +175,12 @@ func WebRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range similarity.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range collection.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range sniff.RegisterAll() {
 		reg.Register(opt)
 	}
 	for _, opt := range yamllib.RegisterAll() {
