@@ -62,6 +62,8 @@ func TestWebRegistryExcludesTheUnavailable(t *testing.T) {
 		"get_service", "start_service", "stop_service",
 		// Shell
 		"sh",
+		// Line-oriented log readers
+		"head", "tail", "grep_lines", "wc_lines",
 		// Network: these would work only where CORS allows, which is a failure
 		// mode with nothing to do with the query.
 		"http", "http_serve", "invoke_web_request", "invoke_rest_method",
@@ -97,6 +99,9 @@ func TestWebRegistryOffersTheTransforms(t *testing.T) {
 		"select_object", "sort_object", "group_object", "measure_object",
 		"where_object", "format_table", "format_list",
 		"get_command", "get_help",
+		"slugify", "human_bytes", "mean", "is_ip", "uuid4", "jwt_decode",
+		"yaml_parse", "crc32", "bcrypt_verify", "levenshtein", "basename",
+		"human_duration", "random_string",
 	} {
 		if !registered[name] {
 			t.Errorf("web registry is missing %q", name)

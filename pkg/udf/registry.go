@@ -7,10 +7,12 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
 	"github.com/xen0bit/pwrq/pkg/udf/binary"
 	"github.com/xen0bit/pwrq/pkg/udf/cat"
+	"github.com/xen0bit/pwrq/pkg/udf/checksum"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/crypto"
 	"github.com/xen0bit/pwrq/pkg/udf/csv"
 	"github.com/xen0bit/pwrq/pkg/udf/discovery"
+	"github.com/xen0bit/pwrq/pkg/udf/duration"
 	"github.com/xen0bit/pwrq/pkg/udf/entropy"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
@@ -18,8 +20,13 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/html"
 	"github.com/xen0bit/pwrq/pkg/udf/http"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
+	"github.com/xen0bit/pwrq/pkg/udf/logfile"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
 	"github.com/xen0bit/pwrq/pkg/udf/mkdir"
+	"github.com/xen0bit/pwrq/pkg/udf/net"
+	"github.com/xen0bit/pwrq/pkg/udf/number"
+	"github.com/xen0bit/pwrq/pkg/udf/path"
+	"github.com/xen0bit/pwrq/pkg/udf/random"
 	"github.com/xen0bit/pwrq/pkg/udf/rm"
 	"github.com/xen0bit/pwrq/pkg/udf/sh"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
@@ -29,13 +36,18 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
+	"github.com/xen0bit/pwrq/pkg/udf/similarity"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
+	"github.com/xen0bit/pwrq/pkg/udf/stats"
 	"github.com/xen0bit/pwrq/pkg/udf/tee"
 	"github.com/xen0bit/pwrq/pkg/udf/tempdir"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
+	"github.com/xen0bit/pwrq/pkg/udf/token"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
+	"github.com/xen0bit/pwrq/pkg/udf/validate"
 	"github.com/xen0bit/pwrq/pkg/udf/xml"
+	yamllib "github.com/xen0bit/pwrq/pkg/udf/yaml"
 	// PowerShell cmdlets
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/datetime"
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/filesystem"
@@ -107,10 +119,9 @@ func DefaultRegistry() *Registry {
 	reg.Register(compress.RegisterDeflateDecompress())
 
 	// String operations
-	reg.Register(stringudf.RegisterUpper())
-	reg.Register(stringudf.RegisterLower())
-	reg.Register(stringudf.RegisterReverse())
-	reg.Register(stringudf.RegisterReplace())
+	for _, opt := range stringudf.RegisterAll() {
+		reg.Register(opt)
+	}
 	// split, join and trim are jq builtins. Registering them here had no
 	// effect - gojq resolves builtins first - so pwrq's versions never ran.
 	// Use jq's, and `cat("f") | split(",")` for the file case pwrq's took a
@@ -188,6 +199,51 @@ func DefaultRegistry() *Registry {
 	// Command discovery, over the catalog assembled below
 	reg.Register(discovery.RegisterGetCommand())
 	reg.Register(discovery.RegisterGetHelp())
+
+	// Utilitarian cmdlets: text, numbers, paths, statistics, durations,
+	// randomness, IP and network, identifiers and tokens, validation, text
+	// similarity, YAML and checksums. Each is a pure transform, so the whole
+	// set also appears in WebRegistry.
+	for _, opt := range number.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range path.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range stats.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range duration.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range random.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range net.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range token.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range validate.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range similarity.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range yamllib.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range checksum.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Line-oriented log readers. They touch the filesystem, so they exist in
+	// the CLI only; WebRegistry leaves them out and the IDE marks them
+	// unavailable.
+	for _, opt := range logfile.RegisterAll() {
+		reg.Register(opt)
+	}
 
 	// PowerShell cmdlets
 	for _, opt := range filesystem.RegisterAll() {

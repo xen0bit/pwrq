@@ -5,16 +5,22 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
 	"github.com/xen0bit/pwrq/pkg/udf/binary"
+	"github.com/xen0bit/pwrq/pkg/udf/checksum"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/crypto"
 	"github.com/xen0bit/pwrq/pkg/udf/csv"
 	"github.com/xen0bit/pwrq/pkg/udf/discovery"
+	"github.com/xen0bit/pwrq/pkg/udf/duration"
 	"github.com/xen0bit/pwrq/pkg/udf/entropy"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
 	"github.com/xen0bit/pwrq/pkg/udf/hmac"
 	"github.com/xen0bit/pwrq/pkg/udf/html"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
+	"github.com/xen0bit/pwrq/pkg/udf/net"
+	"github.com/xen0bit/pwrq/pkg/udf/number"
+	"github.com/xen0bit/pwrq/pkg/udf/path"
+	"github.com/xen0bit/pwrq/pkg/udf/random"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha256"
@@ -22,11 +28,16 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
+	"github.com/xen0bit/pwrq/pkg/udf/similarity"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
+	"github.com/xen0bit/pwrq/pkg/udf/stats"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
+	"github.com/xen0bit/pwrq/pkg/udf/token"
 	"github.com/xen0bit/pwrq/pkg/udf/url"
+	"github.com/xen0bit/pwrq/pkg/udf/validate"
 	"github.com/xen0bit/pwrq/pkg/udf/xml"
+	yamllib "github.com/xen0bit/pwrq/pkg/udf/yaml"
 
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/formatting"
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/objects"
@@ -74,10 +85,9 @@ func WebRegistry() *Registry {
 	reg.Register(compress.RegisterDeflateDecompress())
 
 	// String operations
-	reg.Register(stringudf.RegisterUpper())
-	reg.Register(stringudf.RegisterLower())
-	reg.Register(stringudf.RegisterReverse())
-	reg.Register(stringudf.RegisterReplace())
+	for _, opt := range stringudf.RegisterAll() {
+		reg.Register(opt)
+	}
 
 	// Format conversion
 	reg.Register(json.RegisterJSONParse())
@@ -131,6 +141,43 @@ func WebRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range formatting.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Utilitarian cmdlets. Each is a pure in-memory transform, so everything
+	// here is available in the browser; the CLI registers the same set plus
+	// the filesystem-bound logfile cmdlets.
+	for _, opt := range number.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range path.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range stats.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range duration.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range random.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range net.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range token.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range validate.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range similarity.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range yamllib.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range checksum.RegisterAll() {
 		reg.Register(opt)
 	}
 

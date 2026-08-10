@@ -306,6 +306,91 @@ diagram in one colour.
 - [x] The server pre-compresses the 27MB module and serves the 7MB copy to any
       browser that will take it
 
+## Utilitarian cmdlets — plan
+
+A round of pure, single-purpose cmdlets for common data work, landed in five
+reviewable phases. Everything is a pure transform, so each cmdlet is registered
+in both `DefaultRegistry` (CLI) and `WebRegistry` (browser) and is
+automatically flagged available in the IDE catalog. One exception: the
+file-log helpers at the end are CLI-only, like `cat`/`find`.
+
+Conventions, same as every package in `pkg/udf/`:
+- One `Register*()` per cmdlet returning `gojq.CompilerOption`, a
+  `RegisterAll()` per package, input via `common.BindValue`/`common.ToFloat64`,
+  results via `common.MakeUDFSuccessResult`/`MakeUDFErrorResult`.
+- `metadata.go` entry for every cmdlet — pinned by `TestUDFListMatchesRegistry`
+  and `TestMetadataArityMatches` — plus a table-driven test and a
+  "through the registered function" test per package.
+- Names are checked against jq builtins (no shadowing) and against existing
+  cmdlets. None of the names below collide.
+
+No new dependencies: YAML uses the already-direct `itchyny/go-yaml`
+(`Unmarshal`/`Marshal` produce `map[string]any`/`[]any`), bcrypt and blake2 use
+the already-present `golang.org/x/crypto`, checksums/IP/radix are stdlib, and
+UUIDs/random use `crypto/rand`, which works under `GOOS=js`.
+
+### Phase 1 — Data-wrangling base
+
+- `string` package extended (category **String**): `slugify`, `snake_case`,
+  `kebab_case`, `camel_case`, `pascal_case`, `title_case`, `truncate(s; n; [suffix])`,
+  `pad_left(s; n; [pad])`, `pad_right(s; n; [pad])`, `mask(s; [visible])`,
+  `count_occurrences(s; sub)`
+- `number` package (category **Numbers**): `to_base(n; base)`,
+  `from_base(s; base)`, `to_hex_number`, `from_hex_number`, `clamp(n; lo; hi)`,
+  `gcd`, `lcm`, `round_to(n; places)`, `human_bytes` (binary MiB units),
+  `percentage(part; whole)`
+- `path` package (category **Paths**): `basename`, `dirname`,
+  `file_extension`, `is_absolute`
+
+### Phase 2 — Numeric and temporal analysis
+
+- `stats` package (category **Statistics**): `mean`, `median`, `mode`,
+  `variance`, `stdev`, `percentile(arr; p)`, `summary(arr)`. `variance`/`stdev`
+  are sample statistics (n-1)
+- `duration` package (category **Duration**): `human_duration(seconds)`,
+  `parse_duration("2h30m")`, `time_ago(ts)`, `weekday(date)`, `is_weekend(date)`
+- `random` package (category **Random**): `random_int`, `random_float`,
+  `random_string(n; [alphabet])`, `random_choice(arr)`, `shuffle(arr)`,
+  `sample(arr; n)`
+
+### Phase 3 — Analyst and forensics core
+
+- `net` package (category **IP & Network**): `is_ip`, `is_ipv4`, `is_ipv6`,
+  `ip_to_int`, `int_to_ip`, `in_cidr(ip; cidr)`, `cidr_size(cidr)`, `is_mac`,
+  `mac_normalize`
+- `token` package (category **IDs & Tokens**): `uuid4`, `is_uuid`,
+  `uuid_version`, `jwt_decode` → `{header, payload, signature}`, `is_jwt`,
+  `base64url_encode`, `base64url_decode`, `rot13`, `rot(s; n)`
+- `validate` package (category **Validation**): `is_email`, `is_url`,
+  `is_domain`, `is_json`, `extract_emails`, `extract_urls`, `extract_ips`,
+  `strip_tags`
+
+### Phase 4 — Clustering, config and integrity
+
+- `similarity` package (category **Similarity**): `levenshtein(a; b)`,
+  `hamming_distance(a; b)`, `jaccard(a; b)`, `deep_diff(a; b)` →
+  `{added, removed, changed}` summary
+- `yaml` package (category **YAML**): `yaml_parse`, `yaml_stringify`
+- `checksum` package (category **Checksum**): `crc32`, `crc32c`, `crc64`,
+  `fnv1a`, `adler32`, `blake2b_256`, `blake2b_512`, `bcrypt_hash(s; [cost])`,
+  `bcrypt_verify(s; hash)`
+
+### Phase 5 — CLI-only file logs
+
+- `logfile` package (category **File Operations**): `head(path; [n])`,
+  `tail(path; [n])`, `grep_lines(path; pattern)`, `wc_lines(path)`.
+  Registered in `DefaultRegistry` only; added to
+  `TestWebRegistryExcludesTheUnavailable` so they are documented but flagged
+  unavailable in the browser.
+
+### Wiring and docs
+
+- Both registries get one `RegisterAll()` line per new package; `metadata.go`
+  gains the entries; `cli/udf_list.go` `categoryOrder` slots the new
+  categories into the CLI listing; the gallery (`webapi/examples.go`) gains a
+  few representative examples per category, so `TestExamplesAllRun` and
+  `TestExamplesDrawToo` cover them.
+
 ## Known remaining work
 
 - Object cmdlets (`select_object`, `where_object`, `sort_object`) still

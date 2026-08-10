@@ -1201,5 +1201,175 @@ func Examples() []Example {
 			Query:       `.text | split(" ") | map(length) | group_by(.) | map({len: .[0], count: length}) | sort_by(.len)`,
 			Input:       `{"text":"the quick brown fox jumps over the lazy dog"}`,
 		},
+
+		// ------------------------------------------------------------------
+		// Text, numbers and paths
+		// ------------------------------------------------------------------
+		{
+			Title:       "Slugify a name",
+			Description: "slugify turns any heading into a URL-safe identifier.",
+			Category:    "String",
+			Query:       `"Production API Server v2" | slugify`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Case converters",
+			Description: "snake_case, kebab_case and camel_case transpose between naming styles.",
+			Category:    "String",
+			Query:       `"BuildConfig" | {snake: snake_case, kebab: kebab_case, camel: camel_case, pascal: pascal_case}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Human-readable byte sizes",
+			Description: "human_bytes renders binary units (KiB, MiB, GiB) for file and memory sizes.",
+			Category:    "Numbers",
+			Query:       `[0, 1024, 1048576, 3221225472] | map(human_bytes)`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Radix conversion",
+			Description: "to_base and to_hex_number render a number in another base.",
+			Category:    "Numbers",
+			Query:       `255 | {hex: to_hex_number, binary: to_base(2), octal: to_base(8)}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Path parts",
+			Description: "basename, dirname and file_extension pull a path apart without touching disk.",
+			Category:    "Paths",
+			Query:       `"/var/log/app.log" | {dir: dirname, name: basename, ext: file_extension}`,
+			Input:       `null`,
+		},
+
+		// ------------------------------------------------------------------
+		// Statistics, duration and random
+		// ------------------------------------------------------------------
+		{
+			Title:       "Response-time statistics",
+			Description: "mean, median, percentile and stdev summarise a batch of measurements.",
+			Category:    "Statistics",
+			Query:       `[120, 340, 40, 812, 65, 90] | {mean: mean, median: median, p95: percentile(95), stdev: stdev}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "One-call summary",
+			Description: "summary reports count, min, max, mean, median and stdev together.",
+			Category:    "Statistics",
+			Query:       `[3,1,4,1,5,9,2,6] | summary`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Human durations",
+			Description: "human_duration renders seconds as days, hours, minutes and seconds.",
+			Category:    "Duration",
+			Query:       `[45, 3661, 90061] | map(human_duration)`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Parse a duration",
+			Description: "parse_duration turns a string like 2h30m into seconds.",
+			Category:    "Duration",
+			Query:       `"2h30m" | parse_duration`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Roll a die",
+			Description: "random_int draws a uniform integer; the range is inclusive.",
+			Category:    "Random",
+			Query:       `[range(0; 5)] | map(random_int(1; 6))`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Generate a token",
+			Description: "random_string draws cryptographically random characters.",
+			Category:    "Random",
+			Query:       `{token: random_string(32), die: random_int(1; 6)}`,
+			Input:       `null`,
+		},
+
+		// ------------------------------------------------------------------
+		// IP, tokens and validation
+		// ------------------------------------------------------------------
+		{
+			Title:       "Which IPs are internal?",
+			Description: "in_cidr answers whether an address belongs to a block; select keeps the internal ones.",
+			Category:    "IP & Network",
+			Query:       `map(select(in_cidr("10.0.0.0/8") or in_cidr("192.168.0.0/16")))`,
+			Input:       `["10.0.0.5", "8.8.8.8", "192.168.1.20", "172.16.0.9"]`,
+		},
+		{
+			Title:       "CIDR sizes",
+			Description: "cidr_size counts the addresses a block holds.",
+			Category:    "IP & Network",
+			Query:       `["10.0.0.0/8", "10.0.0.0/24", "10.0.0.0/32"] | map({cidr: ., hosts: cidr_size})`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Generate and inspect a UUID",
+			Description: "uuid4 makes a version-4 UUID; is_uuid and uuid_version read it back.",
+			Category:    "IDs & Tokens",
+			Query:       `uuid4 as $u | {uuid: $u, version: ($u | uuid_version), valid: ($u | is_uuid)}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Decode a JWT",
+			Description: "jwt_decode splits a token into its header, payload and signature.",
+			Category:    "IDs & Tokens",
+			Query:       `"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" | jwt_decode | {alg: .header.alg, name: .payload.name}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Extract indicators from a log line",
+			Description: "extract_emails, extract_urls and extract_ips pull the useful bits out of free text.",
+			Category:    "Validation",
+			Query:       `.line | {emails: extract_emails, urls: extract_urls, ips: extract_ips}`,
+			Input:       `{"line":"failed login from 10.0.0.7 as alice@example.com (https://intranet/login)"}`,
+		},
+		{
+			Title:       "Validate a form",
+			Description: "is_email, is_domain and is_json say whether a value has the right shape.",
+			Category:    "Validation",
+			Query:       `{email: ("ada@example.com" | is_email), domain: ("example.com" | is_domain), json: ("{\"a\":1}" | is_json)}`,
+			Input:       `null`,
+		},
+
+		// ------------------------------------------------------------------
+		// Similarity, YAML and checksums
+		// ------------------------------------------------------------------
+		{
+			Title:       "Edit distance",
+			Description: "levenshtein and hamming_distance measure how far two strings are apart.",
+			Category:    "Similarity",
+			Query:       `{edit: levenshtein("kitten"; "sitting"), hamming: hamming_distance("abc"; "abd")}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "What changed in the config?",
+			Description: "deep_diff summarises a structural change as added, removed and changed paths.",
+			Category:    "Similarity",
+			Query:       `deep_diff({host: "a", port: 80, user: "ada"}; {host: "b", port: 80, role: "admin"})`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Parse a YAML config",
+			Description: "yaml_parse turns config files into JSON you can query.",
+			Category:    "YAML",
+			Query:       `"host: db-01\nport: 5432\nreplicas: [a, b]\n" | yaml_parse`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Checksum a value",
+			Description: "crc32, blake2b_256 and sha256 are all one call away.",
+			Category:    "Checksum",
+			Query:       `"hello" | {crc32: crc32, blake2: blake2b_256, sha256: sha256}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Verify a bcrypt password",
+			Description: "bcrypt_hash and bcrypt_verify handle password hashes without a database.",
+			Category:    "Checksum",
+			Query:       `"hunter2" | bcrypt_hash(4) as $h | {hash: $h, matches: ("hunter2" | bcrypt_verify($h))}`,
+			Input:       `null`,
+		},
 	}
 }

@@ -121,6 +121,120 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"chacha20", 1, 4, "ChaCha20 encryption/decryption (key, [nonce], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`chacha20("key")`, `"data" | chacha20("key")`}},
 		{"xor", 1, 3, "XOR encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`xor("key")`, `"data" | xor("key")`}},
 
+		// Text utilities
+		{"slugify", 0, 2, "Lowercase string with words joined by hyphens (URL/file safe)", "String", []string{`"Hello World!" | slugify`}},
+		{"snake_case", 0, 2, "Join words with underscores", "String", []string{`"FooBar baz" | snake_case`}},
+		{"kebab_case", 0, 2, "Join words with hyphens", "String", []string{`"FooBar baz" | kebab_case`}},
+		{"camel_case", 0, 2, "Join words with the first lower and the rest capitalized", "String", []string{`"hello world" | camel_case`}},
+		{"pascal_case", 0, 2, "Join words each capitalized", "String", []string{`"hello world" | pascal_case`}},
+		{"title_case", 0, 2, "Capitalize the first letter of every word", "String", []string{`"the quick brown fox" | title_case`}},
+		{"truncate", 1, 3, "Cut a string to a length, appending a suffix (n, [suffix], [file])", "String", []string{`"hello world" | truncate(5)`, `"hello world" | truncate(5; "...")`}},
+		{"pad_left", 1, 3, "Left-pad a string to a width with a repeated character (width, [pad], [file])", "String", []string{`"5" | pad_left(3; "0")`}},
+		{"pad_right", 1, 3, "Right-pad a string to a width with a repeated character (width, [pad], [file])", "String", []string{`"5" | pad_right(3; "0")`}},
+		{"mask", 0, 2, "Hide the middle of a string, keeping the first and last visible characters", "String", []string{`"hunter2" | mask`, `"hunter2" | mask(2)`}},
+		{"count_occurrences", 1, 2, "Count non-overlapping occurrences of a substring (sub, [file])", "String", []string{`"banana" | count_occurrences("an")`}},
+
+		// Numbers and radix
+		{"to_base", 1, 1, "Render a number in a base from 2 to 36", "Numbers", []string{`42 | to_base(16)`, `255 | to_base(2)`}},
+		{"from_base", 1, 1, "Parse a number written in a base from 2 to 36", "Numbers", []string{`"2a" | from_base(16)`}},
+		{"to_hex_number", 0, 0, "A number as a hex string", "Numbers", []string{`255 | to_hex_number`}},
+		{"from_hex_number", 0, 0, "A hex string as a number", "Numbers", []string{`"ff" | from_hex_number`}},
+		{"clamp", 2, 2, "Bound a number to a range (lo, hi)", "Numbers", []string{`99 | clamp(0; 10)`}},
+		{"gcd", 1, 1, "Greatest common divisor (a, b)", "Numbers", []string{`12 | gcd(18)`}},
+		{"lcm", 1, 1, "Least common multiple (a, b)", "Numbers", []string{`4 | lcm(6)`}},
+		{"round_to", 1, 1, "Round a number to decimal places (places)", "Numbers", []string{`3.14159 | round_to(2)`, `1234 | round_to(-2)`}},
+		{"human_bytes", 0, 0, "A byte count as binary units (KiB, MiB, GiB, ...)", "Numbers", []string{`1048576 | human_bytes`}},
+		{"percentage", 1, 1, "Part as a percentage of whole (part, whole)", "Numbers", []string{`40 | percentage(200)`}},
+
+		// Paths
+		{"basename", 0, 1, "The last component of a path", "Paths", []string{`"/tmp/data/file.txt" | basename`}},
+		{"dirname", 0, 1, "A path minus its last component", "Paths", []string{`"/tmp/data/file.txt" | dirname`}},
+		{"file_extension", 0, 1, "The suffix after the final dot, or empty", "Paths", []string{`"/tmp/data/file.txt" | file_extension`}},
+		{"is_absolute", 0, 1, "Whether a path is absolute", "Paths", []string{`"/tmp/x" | is_absolute`}},
+
+		// Statistics
+		{"mean", 0, 1, "Arithmetic mean of an array", "Statistics", []string{`[1,2,3,4] | mean`}},
+		{"median", 0, 1, "Middle value of an array", "Statistics", []string{`[1,2,3,4] | median`}},
+		{"mode", 0, 1, "Most frequent value of an array", "Statistics", []string{`["a","b","a"] | mode`}},
+		{"variance", 0, 1, "Sample variance of an array (n-1)", "Statistics", []string{`[2,4,4,4,5,5,7,9] | variance`}},
+		{"stdev", 0, 1, "Sample standard deviation of an array", "Statistics", []string{`[2,4,4,4,5,5,7,9] | stdev`}},
+		{"percentile", 1, 2, "Value below which p percent of an array falls (p)", "Statistics", []string{`[1,2,3,4] | percentile(50)`}},
+		{"summary", 0, 1, "count, min, max, mean, median and stdev of an array", "Statistics", []string{`[1,2,3,4] | summary`}},
+
+		// Duration and time
+		{"human_duration", 0, 0, "Seconds as a compact 1d 2h 3m 4s string", "Duration", []string{`3661 | human_duration`}},
+		{"parse_duration", 0, 0, "A duration string like 2h30m to seconds", "Duration", []string{`"2h30m" | parse_duration`}},
+		{"time_ago", 0, 0, "A timestamp rendered relative to now", "Duration", []string{`1700000000 | time_ago`}},
+		{"weekday", 0, 0, "The day name for a timestamp or date", "Duration", []string{`"2026-08-10" | weekday`}},
+		{"is_weekend", 0, 0, "Whether a date is Saturday or Sunday", "Duration", []string{`"2026-08-08" | is_weekend`}},
+
+		// Random
+		{"random_int", 0, 2, "A uniform integer in [min, max] (one arg: 0..max)", "Random", []string{`random_int(1; 6)`, `random_int(100)`}},
+		{"random_float", 0, 2, "A uniform float in [0,1) or a range", "Random", []string{`random_float`, `random_float(10; 20)`}},
+		{"random_string", 1, 2, "n random characters from an alphabet (n, [alphabet])", "Random", []string{`random_string(16)`, `random_string(8; "01")`}},
+		{"random_choice", 0, 1, "A uniformly chosen element of an array", "Random", []string{`[10,20,30] | random_choice`}},
+		{"shuffle", 0, 1, "A random permutation of an array", "Random", []string{`[1,2,3,4,5] | shuffle`}},
+		{"sample", 1, 2, "n distinct elements chosen at random (n)", "Random", []string{`[1,2,3,4,5] | sample(3)`}},
+
+		// IP and network
+		{"is_ip", 0, 2, "Whether a string is an IPv4 or IPv6 address", "IP & Network", []string{`"192.168.1.1" | is_ip`}},
+		{"is_ipv4", 0, 2, "Whether a string is an IPv4 address", "IP & Network", []string{`"192.168.1.1" | is_ipv4`}},
+		{"is_ipv6", 0, 2, "Whether a string is an IPv6 address", "IP & Network", []string{`"2001:db8::1" | is_ipv6`}},
+		{"ip_to_int", 0, 2, "An address as a decimal integer (IPv6 as a decimal string)", "IP & Network", []string{`"192.168.1.1" | ip_to_int`}},
+		{"int_to_ip", 0, 1, "A decimal integer back to an address", "IP & Network", []string{`3232235777 | int_to_ip`}},
+		{"in_cidr", 1, 1, "Whether an address falls inside a CIDR block (ip, cidr)", "IP & Network", []string{`"10.1.2.3" | in_cidr("10.0.0.0/8")`}},
+		{"cidr_size", 0, 2, "How many addresses a CIDR block holds", "IP & Network", []string{`"10.0.0.0/24" | cidr_size`}},
+		{"is_mac", 0, 2, "Whether a string is a MAC address", "IP & Network", []string{`"00:11:22:33:44:55" | is_mac`}},
+		{"mac_normalize", 0, 2, "A MAC address lowercased and colon-separated", "IP & Network", []string{`"00-11-22-33-44-55" | mac_normalize`}},
+
+		// IDs and tokens
+		{"uuid4", 0, 0, "A freshly generated version-4 UUID", "IDs & Tokens", []string{`uuid4`}},
+		{"is_uuid", 0, 2, "Whether a string is a UUID", "IDs & Tokens", []string{`"550e8400-e29b-41d4-a716-446655440000" | is_uuid`}},
+		{"uuid_version", 0, 2, "The version nibble of a UUID, or null", "IDs & Tokens", []string{`"550e8400-e29b-41d4-a716-446655440000" | uuid_version`}},
+		{"jwt_decode", 0, 2, "Split a JWT into decoded header, payload and signature", "IDs & Tokens", []string{`"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.sig" | jwt_decode`}},
+		{"is_jwt", 0, 2, "Whether a string is three base64url segments", "IDs & Tokens", []string{`"a.b.c" | is_jwt`}},
+		{"base64url_encode", 0, 2, "Unpadded URL-safe base64", "IDs & Tokens", []string{`"hello?" | base64url_encode`}},
+		{"base64url_decode", 0, 2, "Decode unpadded URL-safe base64", "IDs & Tokens", []string{`"aGVsbG8_" | base64url_decode`}},
+		{"rot13", 0, 2, "ROT-13 over ASCII letters", "IDs & Tokens", []string{`"hello" | rot13`}},
+		{"rot", 1, 2, "A Caesar cipher with a shift (shift)", "IDs & Tokens", []string{`"hello" | rot(1)`}},
+
+		// Validation and extraction
+		{"is_email", 0, 2, "Whether a string looks like an email", "Validation", []string{`"ada@example.com" | is_email`}},
+		{"is_url", 0, 2, "Whether a string is an http(s) URL", "Validation", []string{`"https://example.com/x" | is_url`}},
+		{"is_domain", 0, 2, "Whether a string looks like a hostname", "Validation", []string{`"example.com" | is_domain`}},
+		{"is_json", 0, 2, "Whether a string parses as JSON", "Validation", []string{`"{\"a\":1}" | is_json`}},
+		{"extract_emails", 0, 2, "Every email-looking token in a string", "Validation", []string{`"mail ada@example.com" | extract_emails`}},
+		{"extract_urls", 0, 2, "Every http(s) URL in a string", "Validation", []string{`"see https://a.com/x" | extract_urls`}},
+		{"extract_ips", 0, 2, "Every IPv4 address in a string", "Validation", []string{`"from 10.0.0.1" | extract_ips`}},
+		{"strip_tags", 0, 2, "HTML tags removed from a string", "Validation", []string{`"<b>hi</b>" | strip_tags`}},
+
+		// Similarity
+		{"levenshtein", 2, 2, "Edit distance between two strings", "Similarity", []string{`levenshtein("kitten"; "sitting")`}},
+		{"hamming_distance", 2, 2, "Positions at which two equal-length strings differ", "Similarity", []string{`hamming_distance("karolin"; "kathrin")`}},
+		{"jaccard", 2, 2, "Jaccard similarity of two strings or arrays, 0 to 1", "Similarity", []string{`jaccard([1,2,3]; [2,3,4])`}},
+		{"deep_diff", 2, 2, "Structural JSON diff as {added, removed, changed}", "Similarity", []string{`deep_diff({a:1}; {a:2, b:3})`}},
+
+		// YAML
+		{"yaml_parse", 0, 2, "A YAML document to a JSON value", "YAML", []string{`"name: ada\nrole: engineer\n" | yaml_parse`}},
+		{"yaml_stringify", 0, 1, "A value to a YAML document", "YAML", []string{`{name: "ada"} | yaml_stringify`}},
+
+		// Checksums
+		{"crc32", 0, 2, "IEEE CRC-32 checksum", "Checksum", []string{`"hello" | crc32`}},
+		{"crc32c", 0, 2, "Castagnoli CRC-32 checksum", "Checksum", []string{`"hello" | crc32c`}},
+		{"crc64", 0, 2, "ECMA CRC-64 checksum", "Checksum", []string{`"hello" | crc64`}},
+		{"fnv1a", 0, 2, "64-bit FNV-1a hash", "Checksum", []string{`"hello" | fnv1a`}},
+		{"adler32", 0, 2, "Adler-32 checksum", "Checksum", []string{`"hello" | adler32`}},
+		{"blake2b_256", 0, 2, "BLAKE2b truncated to 256 bits", "Checksum", []string{`"hello" | blake2b_256`}},
+		{"blake2b_512", 0, 2, "BLAKE2b-512 hash", "Checksum", []string{`"hello" | blake2b_512`}},
+		{"bcrypt_hash", 0, 2, "A bcrypt password hash (optional cost)", "Checksum", []string{`"hunter2" | bcrypt_hash`}},
+		{"bcrypt_verify", 1, 2, "Whether a password matches a bcrypt hash (hash)", "Checksum", []string{`"hunter2" | bcrypt_verify("$2a$...")`}},
+
+		// Line-oriented log readers (CLI only)
+		{"head", 0, 2, "The first n lines of a file (path, [n])", "File Operations", []string{`head("app.log")`, `head("app.log"; 5)`}},
+		{"tail", 0, 2, "The last n lines of a file (path, [n])", "File Operations", []string{`tail("app.log"; 5)`}},
+		{"grep_lines", 1, 2, "The lines of a file matching a pattern (path, pattern)", "File Operations", []string{`grep_lines("app.log"; "error")`}},
+		{"wc_lines", 0, 1, "The number of lines in a file", "File Operations", []string{`wc_lines("app.log")`}},
+
 		// PowerShell - File System
 		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
 		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},
