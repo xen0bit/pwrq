@@ -511,8 +511,10 @@ function renderCatalog(filter = "") {
     const container = $("catalog");
     const commands = state.catalog?.commands || [];
     const needle = filter.trim().toLowerCase();
+    const hereOnly = $("catalog-here-only").checked;
 
     const matching = commands.filter((command) => {
+        if (hereOnly && !command.available) return false;
         if (!needle) return true;
         return (
             command.name.includes(needle) ||
@@ -522,7 +524,8 @@ function renderCatalog(filter = "") {
         );
     });
 
-    $("catalog-count").textContent = `${matching.length} of ${commands.length}`;
+    const available = commands.filter((command) => command.available).length;
+    $("catalog-count").textContent = `${matching.length} of ${commands.length} (${available} run here)`;
 
     if (matching.length === 0) {
         container.innerHTML = `<p class="empty-note">Nothing matches “${escapeHTML(filter)}”.</p>`;
@@ -564,12 +567,16 @@ function renderCatalog(filter = "") {
 function commandCard(command) {
     const arity = command.maxArgs === command.minArgs ? `${command.minArgs}` : `${command.minArgs}–${command.maxArgs}`;
     const aliases = (command.aliases || []).length ? `<span class="card-aliases">${command.aliases.map(escapeHTML).join(", ")}</span>` : "";
+    const availability = command.available
+        ? ""
+        : `<span class="badge unavail" title="This cmdlet needs a filesystem, process table, service manager or the network, which a browser tab does not have. It runs in the pwrq CLI.">not in the browser</span>`;
 
     return `
     <article class="card">
         <div class="card-head">
             <span class="card-name">${escapeHTML(command.name)}</span>
             <span class="card-arity">${arity} arg${arity === "0" ? "" : "s"}</span>
+            ${availability}
             ${aliases}
             <span class="card-actions">
                 <button type="button" class="btn small" data-insert="${escapeHTML(command.name)}">Insert</button>
@@ -938,6 +945,7 @@ function wireControls() {
     });
 
     $("catalog-search").addEventListener("input", (event) => renderCatalog(event.target.value));
+    $("catalog-here-only").addEventListener("change", () => renderCatalog($("catalog-search").value));
     $("examples-search").addEventListener("input", (event) => renderExamples(event.target.value));
 
     $("save-snippet").addEventListener("click", () => {
@@ -1275,7 +1283,7 @@ function paletteItems() {
 
     for (const command of state.catalog?.commands || []) {
         items.push({
-            kind: "cmdlet",
+            kind: command.available ? "cmdlet" : "cmdlet (CLI)",
             title: command.name,
             detail: command.description,
             run: () => {

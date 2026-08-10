@@ -283,7 +283,8 @@ func TestFormatLeavesBrokenQueriesAlone(t *testing.T) {
 }
 
 // TestCatalogDescribesOnlyWhatRuns is the honesty property the web registry
-// exists for: every name offered has to be a name the page can evaluate.
+// exists for: every name offered as runnable has to be a name the page can
+// evaluate, and every name that cannot run must be marked, not hidden.
 func TestCatalogDescribesOnlyWhatRuns(t *testing.T) {
 	catalog := call[CatalogResponse](t, "catalog", struct{}{})
 
@@ -295,17 +296,29 @@ func TestCatalogDescribesOnlyWhatRuns(t *testing.T) {
 	for _, name := range catalog.Cmdlets {
 		cmdlets[name] = true
 	}
+	commands := make(map[string]Command, len(catalog.Commands))
 	for _, cmd := range catalog.Commands {
-		if !cmdlets[cmd.Name] {
-			t.Errorf("the catalog offers %q, which this registry never registered", cmd.Name)
+		if _, dup := commands[cmd.Name]; dup {
+			t.Errorf("the catalog lists %q twice", cmd.Name)
+		}
+		commands[cmd.Name] = cmd
+		if cmd.Available != cmdlets[cmd.Name] {
+			t.Errorf("the catalog marks %q available=%v but the registry has it=%v",
+				cmd.Name, cmd.Available, cmdlets[cmd.Name])
 		}
 	}
 
 	// The cmdlets that need a filesystem or a process table cannot work in a
-	// tab, so the page must not advertise them.
-	for _, absent := range []string{"get_childitem", "get_process", "sh", "invoke_web_request"} {
-		if cmdlets[absent] {
-			t.Errorf("%q cannot work in a browser and should not be offered", absent)
+	// tab, so the page must not run them - but they must still be documented,
+	// so a reader can see the CLI's whole vocabulary.
+	for _, name := range []string{"get_childitem", "get_process", "sh", "invoke_web_request"} {
+		cmd, ok := commands[name]
+		if !ok {
+			t.Errorf("%q should be documented even though it cannot run in a browser", name)
+			continue
+		}
+		if cmd.Available {
+			t.Errorf("%q cannot work in a browser and must be marked unavailable", name)
 		}
 	}
 
