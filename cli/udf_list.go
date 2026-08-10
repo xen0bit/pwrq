@@ -44,6 +44,7 @@ func (cli *cli) printUDFList() {
 		"XML",
 		"Entropy",
 		"SSDeep",
+		"System",
 	}
 	
 	// Collect all categories

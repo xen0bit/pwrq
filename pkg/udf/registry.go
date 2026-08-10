@@ -42,6 +42,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/stats"
+	"github.com/xen0bit/pwrq/pkg/udf/system"
 	"github.com/xen0bit/pwrq/pkg/udf/tee"
 	"github.com/xen0bit/pwrq/pkg/udf/tempdir"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
@@ -251,6 +252,12 @@ func DefaultRegistry() *Registry {
 	// the CLI only; WebRegistry leaves them out and the IDE marks them
 	// unavailable.
 	for _, opt := range logfile.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Host lookups and PATH searches. They need the network or the
+	// filesystem, so they are CLI-only like the log readers.
+	for _, opt := range system.RegisterAll() {
 		reg.Register(opt)
 	}
 

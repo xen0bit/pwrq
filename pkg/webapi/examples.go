@@ -1519,5 +1519,93 @@ func Examples() []Example {
 			Query:       `[{"name": "report", "bytes": "%PDF-1.7"}, {"name": "log", "bytes": "hello world"}] | map({name, type: (.bytes | file_type)})`,
 			Input:       `null`,
 		},
+
+		// ------------------------------------------------------------------
+		// Third round: log text, time series, network math, structured data
+		// ------------------------------------------------------------------
+		{
+			Title:       "Strip ANSI from a log line",
+			Description: "strip_ansi removes terminal colour codes, leaving the plain text.",
+			Category:    "String",
+			Query:       `"\u001b[32mOK\u001b[0m 200 \u001b[1mGET /health\u001b[0m" | strip_ansi`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Template a message",
+			Description: "template fills {{placeholders}} from an object.",
+			Category:    "String",
+			Query:       `"server {{host}} is {{status}}" | template({host: "db-01", status: "up"})`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Rolling average",
+			Description: "moving_average smooths a time series into a rolling mean.",
+			Category:    "Statistics",
+			Query:       `[12, 14, 13, 40, 42] | moving_average(3)`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Rescale to a percentage",
+			Description: "rescale maps a value between ranges, e.g. sensors to 0-100.",
+			Category:    "Numbers",
+			Query:       `[0, 5, 10] | map(rescale(0; 10; 0; 100))`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Rotate a list",
+			Description: "rotate shifts an array, wrapping around.",
+			Category:    "Collections",
+			Query:       `[1, 2, 3, 4, 5] | rotate(2)`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Merge a config patch",
+			Description: "json_merge_patch applies an RFC 7386 merge: null deletes, objects merge.",
+			Category:    "JSON",
+			Query:       `json_merge_patch({host: "a", tls: {on: true}, db: "old"}; {tls: {port: 443}, db: null})`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Parse JSON lines",
+			Description: "jsonl_parse reads newline-delimited JSON into an array.",
+			Category:    "JSON",
+			Query:       `"{\"a\":1}\n{\"a\":2}\n{\"a\":3}" | jsonl_parse | map(.a) | add`,
+			Input:       `null`,
+		},
+		{
+			Title:       "CIDR subnet math",
+			Description: "cidr_first_host, cidr_last_host and subnet_of answer block-boundary questions.",
+			Category:    "IP & Network",
+			Query:       `"10.0.0.0/24" | {first: cidr_first_host, last: cidr_last_host, inside_10_8: subnet_of("10.0.0.0/8")}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Name a port",
+			Description: "port_name maps common service ports to their well-known names.",
+			Category:    "IP & Network",
+			Query:       `[22, 80, 443, 5432] | map({port: ., service: port_name})`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Similarity for matching",
+			Description: "similarity_percent and jaro_winkler score how close two strings are.",
+			Category:    "Similarity",
+			Query:       `{lev: similarity_percent("kitten"; "sitting"), jaro: jaro_winkler("MARTHA"; "MARHTA")}`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Luhn-check a card number",
+			Description: "is_credit_card runs the Luhn checksum over the digits.",
+			Category:    "Validation",
+			Query:       `["4111111111111111", "4111111111111112"] | map({number: ., valid: is_credit_card})`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Punycode a domain",
+			Description: "punycode_encode turns an internationalized domain into ASCII for DNS.",
+			Category:    "IDs & Tokens",
+			Query:       `"münchen.example" | punycode_encode`,
+			Input:       `null`,
+		},
 	}
 }

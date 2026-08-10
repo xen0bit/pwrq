@@ -35,7 +35,39 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterIPAdd(),
 		RegisterIPv6Expand(),
 		RegisterReverseIP(),
+		RegisterSubnetOf(),
+		RegisterCidrFirstHost(),
+		RegisterCidrLastHost(),
+		RegisterIsPublicIP(),
+		RegisterPortName(),
 	}
+}
+
+// addToAddr shifts an address by n positions, wrapping within its family.
+func addToAddr(addr netip.Addr, n int64) netip.Addr {
+	bitLen := addr.BitLen()
+	value := newBigFromAddr(addr)
+	value.Add(value, big.NewInt(n))
+	mod := new(big.Int).Lsh(big.NewInt(1), uint(bitLen))
+	value.Mod(value, mod)
+	bytes := value.Bytes()
+	if bitLen == 32 {
+		var b [4]byte
+		copy(b[4-len(bytes):], bytes)
+		return netip.AddrFrom4(b)
+	}
+	var b [16]byte
+	copy(b[16-len(bytes):], bytes)
+	return netip.AddrFrom16(b)
+}
+
+func newBigFromAddr(addr netip.Addr) *big.Int {
+	if addr.Is4() {
+		bytes := addr.As4()
+		return new(big.Int).SetUint64(uint64(bytes[0])<<24 | uint64(bytes[1])<<16 | uint64(bytes[2])<<8 | uint64(bytes[3]))
+	}
+	bytes := addr.As16()
+	return new(big.Int).SetBytes(bytes[:])
 }
 
 // strInput resolves a string from the pipeline or first argument.

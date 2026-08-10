@@ -33,6 +33,8 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterIsBase64URL(),
 		RegisterBase58Encode(),
 		RegisterBase58Decode(),
+		RegisterPunycodeEncode(),
+		RegisterPunycodeDecode(),
 	}
 }
 

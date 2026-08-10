@@ -35,5 +35,10 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterIsRegexValid(),
 		RegisterGlobToRegex(),
 		RegisterMatchGlob(),
+		RegisterStripANSI(),
+		RegisterTemplate(),
+		RegisterWrapText(),
+		RegisterIndent(),
+		RegisterPluralize(),
 	}
 }

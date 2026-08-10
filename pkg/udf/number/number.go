@@ -36,6 +36,10 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterHumanNumber(),
 		RegisterIsEven(),
 		RegisterIsOdd(),
+		RegisterRescale(),
+		RegisterPctChange(),
+		RegisterDigitSum(),
+		RegisterHammingWeight(),
 	}
 }
 

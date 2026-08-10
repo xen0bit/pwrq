@@ -25,6 +25,9 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterFlattenKeys(),
 		RegisterUnflattenKeys(),
 		RegisterZipArrays(),
+		RegisterRotate(),
+		RegisterTopN(),
+		RegisterInterleave(),
 	}
 }
 

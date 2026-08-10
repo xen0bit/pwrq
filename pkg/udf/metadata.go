@@ -322,6 +322,59 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"is_binary", 0, 2, "Whether bytes contain NULs or many control characters", "Sniff", []string{`"text" | is_binary`}},
 		{"is_utf8", 0, 2, "Whether bytes are valid UTF-8", "Sniff", []string{`"héllo" | is_utf8`}},
 
+		// Text tools
+		{"strip_ansi", 0, 2, "Remove ANSI terminal escape sequences", "String", []string{`"\\u001b[31mred\\u001b[0m" | strip_ansi`}},
+		{"template", 1, 1, "Replace {{key}} placeholders with object values (vars)", "String", []string{`"hello {{name}}" | template({name: "ada"})`}},
+		{"wrap_text", 1, 2, "Word-wrap a string to a width, as lines (width)", "String", []string{`"the quick brown fox" | wrap_text(10)`}},
+		{"indent", 1, 2, "Prefix every line with n spaces (width)", "String", []string{`"a\\nb" | indent(2)`}},
+		{"pluralize", 1, 2, "A count with a pluralized noun (noun, [plural])", "String", []string{`3 | pluralize("item")`, `2 | pluralize("goose"; "geese")`}},
+
+		// Statistics tools
+		{"moving_average", 1, 2, "Rolling mean over a window of n (window)", "Statistics", []string{`[1,2,3,4,5] | moving_average(3)`}},
+		{"geomean", 0, 1, "Geometric mean of positive numbers", "Statistics", []string{`[1,4,16] | geomean`}},
+		{"normalize", 0, 1, "Min-max scale an array to [0,1]", "Statistics", []string{`[2,4,6] | normalize`}},
+
+		// Number tools
+		{"rescale", 4, 4, "Map a value between ranges (fromLo, fromHi, toLo, toHi)", "Numbers", []string{`5 | rescale(0; 10; 0; 100)`}},
+		{"pct_change", 1, 1, "Percentage change from one value to another (b)", "Numbers", []string{`100 | pct_change(120)`}},
+		{"digit_sum", 0, 0, "Sum of an integer's digits", "Numbers", []string{`1234 | digit_sum`}},
+		{"hamming_weight", 0, 0, "Number of set bits in an integer", "Numbers", []string{`255 | hamming_weight`}},
+
+		// Collection tools
+		{"rotate", 1, 2, "Rotate an array left by n (negative rotates right)", "Collections", []string{`[1,2,3,4,5] | rotate(2)`}},
+		{"top_n", 1, 2, "The n largest values, descending (n)", "Collections", []string{`[1,9,3,7,5] | top_n(2)`}},
+		{"interleave", 1, 2, "Alternate two arrays' elements (other)", "Collections", []string{`[1,2,3] | interleave(["a","b","c"])`}},
+
+		// JSON tools
+		{"json_merge_patch", 1, 2, "Apply an RFC 7386 merge patch", "JSON", []string{`json_merge_patch({a: 1}; {a: 2, b: null})`}},
+		{"jsonl_parse", 0, 2, "Parse newline-delimited JSON into an array", "JSON", []string{`"{\\"a\\":1}\\n{\\"a\\":2}" | jsonl_parse`}},
+		{"get_path", 1, 1, "Read the value at a dot-and-bracket path", "JSON", []string{`{a: {b: [1, 2]}} | get_path("a.b[1]")`}},
+
+		// Network tools
+		{"subnet_of", 1, 1, "Whether one CIDR block is inside another (supernet)", "IP & Network", []string{`"10.0.0.0/24" | subnet_of("10.0.0.0/8")`}},
+		{"cidr_first_host", 0, 2, "The first usable host of a CIDR block", "IP & Network", []string{`"10.0.0.0/24" | cidr_first_host`}},
+		{"cidr_last_host", 0, 2, "The last usable host of a CIDR block", "IP & Network", []string{`"10.0.0.0/24" | cidr_last_host`}},
+		{"is_public_ip", 0, 2, "Whether an address is not private or reserved", "IP & Network", []string{`"8.8.8.8" | is_public_ip`}},
+		{"port_name", 0, 0, "The common service name for a port", "IP & Network", []string{`443 | port_name`}},
+
+		// Similarity tools
+		{"similarity_percent", 2, 2, "1 minus normalized Levenshtein distance", "Similarity", []string{`similarity_percent("kitten"; "sitting")`}},
+		{"n_grams", 1, 2, "The n-character substrings of a string (n)", "Similarity", []string{`"hello" | n_grams(2)`}},
+		{"jaro_winkler", 2, 2, "Jaro-Winkler similarity, favoring shared prefixes", "Similarity", []string{`jaro_winkler("MARTHA"; "MARHTA")`}},
+
+		// Validation tools
+		{"is_semver", 0, 2, "Whether a string is a semantic version", "Validation", []string{`"1.2.3" | is_semver`}},
+		{"is_credit_card", 0, 2, "Whether digits pass the Luhn checksum", "Validation", []string{`"4111111111111111" | is_credit_card`}},
+
+		// IDNA
+		{"punycode_encode", 0, 2, "An internationalized domain to its ASCII (punycode) form", "IDs & Tokens", []string{`"bücher.example" | punycode_encode`}},
+		{"punycode_decode", 0, 2, "A punycode domain back to internationalized form", "IDs & Tokens", []string{`"xn--bcher-kva.example" | punycode_decode`}},
+
+		// System lookups (CLI only)
+		{"resolve_host", 0, 1, "The addresses a hostname resolves to", "System", []string{`resolve_host("example.com")`}},
+		{"reverse_dns", 0, 1, "The hostnames an address points back to", "System", []string{`reverse_dns("8.8.8.8")`}},
+		{"which", 0, 1, "The path to an executable on PATH", "System", []string{`which("go")`}},
+
 		// PowerShell - File System
 		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
 		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},
