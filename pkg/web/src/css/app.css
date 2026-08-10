@@ -295,6 +295,15 @@ input[type="number"] { width: 5.5em; }
     color: var(--accent);
 }
 
+/* A cmdlet the browser registry cannot run: documented, but only callable in
+ * the CLI. Kept muted so it reads as "not here" rather than an error. */
+.badge.unavail {
+    background: var(--bg-sunken);
+    color: var(--text-faint);
+    border: 1px solid var(--border);
+    font-weight: 400;
+}
+
 .hint { font-size: 12px; color: var(--text-faint); }
 .note {
     margin: 0;

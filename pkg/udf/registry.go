@@ -243,6 +243,9 @@ func buildCatalog() []discovery.Command {
 			Category:    meta.Category,
 			Description: meta.Description,
 			Examples:    meta.Examples,
+			// The CLI registers every documented command, so its catalog marks
+			// them all runnable. browserCatalog overrides this per command.
+			Available: true,
 		})
 	}
 	return commands

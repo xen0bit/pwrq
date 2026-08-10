@@ -335,6 +335,11 @@ type Command struct {
 	Category    string   `json:"category"`
 	Description string   `json:"description"`
 	Examples    []string `json:"examples,omitempty"`
+	// Available reports whether this registry can actually evaluate the name.
+	// The catalog lists the CLI's full vocabulary, so the cmdlets that need a
+	// filesystem, process table or service manager are present but marked
+	// unavailable rather than hidden.
+	Available bool `json:"available"`
 }
 
 // AliasInfo is a short name and what it stands for.
@@ -367,8 +372,10 @@ type CatalogResponse struct {
 // Catalog reports what can be called here.
 //
 // It is derived from the registry the page actually evaluates against, not
-// from a hand-kept list, so the page cannot offer a completion for a function
-// it would then fail to run.
+// from a hand-kept list. Commands the browser cannot run - those that need a
+// filesystem, process table or service manager - are still listed, because the
+// Catalog tab should show the CLI's whole vocabulary, but each one is marked
+// unavailable so completion never offers a function the page would fail to run.
 func Catalog(string) string {
 	e := getEngine()
 
@@ -388,6 +395,7 @@ func Catalog(string) string {
 			Category:    cmd.Category,
 			Description: cmd.Description,
 			Examples:    cmd.Examples,
+			Available:   cmd.Available,
 		})
 	}
 	sort.Slice(resp.Commands, func(i, j int) bool { return resp.Commands[i].Name < resp.Commands[j].Name })

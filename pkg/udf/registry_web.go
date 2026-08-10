@@ -142,16 +142,22 @@ func WebRegistry() *Registry {
 	// DefaultRegistry, the browser builds this.
 	reg.Register(discovery.RegisterGetCommand())
 	reg.Register(discovery.RegisterGetHelp())
-	discovery.SetCatalog(webCatalog(reg))
+	discovery.SetCatalog(browserCatalog(reg))
 
 	return reg
 }
 
-// webCatalog narrows the documented command list to what this registry
-// actually registered. Membership is decided by asking the registry which
-// names it added, the same source of truth --udf-list uses, so the page cannot
-// advertise a function it excluded.
-func webCatalog(reg *Registry) []discovery.Command {
+// browserCatalog is the command list the page's get_command and get_help
+// report on, and the one the IDE's Catalog tab reads.
+//
+// Unlike the CLI's catalog, it documents the whole vocabulary, including the
+// commands this registry excluded: a browser tab has no filesystem, process
+// table or service manager, so get_childitem and get_process can only fail,
+// and a reader should be able to see that they exist rather than wonder why
+// they are missing. Each command carries its own answer - Available is decided
+// by asking the registry which names it added, the same source of truth
+// --udf-list uses, so the flag cannot drift from what the page can run.
+func browserCatalog(reg *Registry) []discovery.Command {
 	signatures, err := reg.Signatures()
 	if err != nil {
 		// Signature discovery compiles a trivial program; if that fails there
@@ -163,12 +169,9 @@ func webCatalog(reg *Registry) []discovery.Command {
 		registered[sig.Name] = true
 	}
 
-	full := buildCatalog()
-	commands := make([]discovery.Command, 0, len(registered))
-	for _, cmd := range full {
-		if registered[cmd.Name] {
-			commands = append(commands, cmd)
-		}
+	commands := buildCatalog()
+	for i := range commands {
+		commands[i].Available = registered[commands[i].Name]
 	}
 	return commands
 }

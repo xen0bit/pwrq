@@ -25,6 +25,11 @@ type Command struct {
 	Category    string
 	Description string
 	Examples    []string
+	// Available reports whether this command is registered in the registry
+	// that published the catalog. A browser tab has no filesystem, process
+	// table or service manager, so the commands that need one are documented
+	// but marked unavailable rather than hidden.
+	Available bool
 }
 
 // catalog is supplied by the registry at startup. It is a hook rather than a
@@ -60,6 +65,7 @@ func (c Command) toObject() map[string]any {
 		"Category":             c.Category,
 		"Description":          c.Description,
 		"Examples":             examples,
+		"Available":            c.Available,
 		psobject.PSTypeNameKey: "System.Management.Automation.CommandInfo",
 	}
 }

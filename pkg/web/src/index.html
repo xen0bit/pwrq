@@ -168,12 +168,16 @@
                 <div class="panel hidden" id="panel-catalog" role="tabpanel" data-tab="catalog">
                     <div class="panel-toolbar">
                         <input type="search" id="catalog-search" class="search" placeholder="Search cmdlets, aliases, descriptions…" aria-label="Search the catalog">
+                        <label class="toggle" title="Only list the cmdlets that can run in this tab">
+                            <input type="checkbox" id="catalog-here-only"><span>Only here</span>
+                        </label>
                         <span class="hint" id="catalog-count"></span>
                     </div>
                     <p class="note">
-                        A browser tab has no filesystem, process table or service manager, so the cmdlets that need one
-                        are not here. Everything listed does exactly what it says: codecs, hashes, ciphers, compression,
-                        format conversion, and the object and formatting cmdlets.
+                        Everything the CLI can do is listed here. A browser tab has no filesystem, process table or
+                        service manager, so the cmdlets that need one are marked “not in the browser” — they run in
+                        the pwrq CLI, not in this tab. Everything else does exactly what it says: codecs, hashes,
+                        ciphers, compression, format conversion, and the object and formatting cmdlets.
                     </p>
                     <div class="catalog" id="catalog"></div>
                 </div>

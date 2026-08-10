@@ -144,7 +144,8 @@ func TestWebAliasesResolve(t *testing.T) {
 }
 
 // TestWebRegistryCatalogMatchesItself keeps get_help honest inside the page:
-// it must describe the vocabulary the page has, not the CLI's.
+// it must describe the vocabulary the page can run, and mark everything else
+// unavailable rather than hide it.
 func TestWebRegistryCatalogMatchesItself(t *testing.T) {
 	reg := WebRegistry()
 	names, err := reg.Names()
@@ -156,18 +157,35 @@ func TestWebRegistryCatalogMatchesItself(t *testing.T) {
 		registered[name] = true
 	}
 
-	catalog := webCatalog(reg)
+	catalog := browserCatalog(reg)
 	if len(catalog) == 0 {
 		t.Fatal("the web catalog is empty; get_command would report nothing")
 	}
+
+	// The catalog is the full CLI vocabulary, so it has to cover more than the
+	// registry registered, but the Available flag must be exact: every command
+	// that can run here says so, and every one that cannot is marked.
+	seen := make(map[string]bool, len(catalog))
 	for _, cmd := range catalog {
-		if !registered[cmd.Name] {
-			t.Errorf("the web catalog lists %q, which is not registered there", cmd.Name)
+		if seen[cmd.Name] {
+			t.Errorf("%s appears twice in the catalog", cmd.Name)
+		}
+		seen[cmd.Name] = true
+		if cmd.Available != registered[cmd.Name] {
+			t.Errorf("catalog marks %s available=%v but the registry has it=%v",
+				cmd.Name, cmd.Available, registered[cmd.Name])
 		}
 		for _, alias := range cmd.Aliases {
 			if strings.TrimSpace(alias) == "" {
 				t.Errorf("%s has a blank alias", cmd.Name)
 			}
+		}
+	}
+
+	// The whole point of the flag: the excluded cmdlets are still documented.
+	for _, name := range []string{"get_childitem", "get_process", "sh", "invoke_web_request"} {
+		if !seen[name] {
+			t.Errorf("the catalog should document %q even though the page cannot run it", name)
 		}
 	}
 }
