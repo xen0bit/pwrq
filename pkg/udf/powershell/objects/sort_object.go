@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -457,41 +456,6 @@ func buildDedupKey(obj any, properties []SortProperty) string {
 // newSortErrorObject reports a sort failure as a jq error.
 func newSortErrorObject(message string) any {
 	return common.MakeUDFErrorResult(fmt.Errorf("sort_object: %s", message), nil)
-}
-
-// preservePSObjectInSort preserves PSObject metadata when sorting.
-// After sorting, wraps results to maintain TypeName and Members from original objects.
-func preservePSObjectInSort(original, sorted any) any {
-	if !psobject.IsPSObject(original) {
-		return sorted
-	}
-
-	// Extract TypeName from original
-	var typeName string
-	if psobj, ok := original.(*psobject.PSObject); ok {
-		typeName = psobj.TypeName
-	} else if m, ok := original.(map[string]any); ok {
-		if psobject.IsPSObject(m) {
-			typeName = psobject.ExtractTypeName(m)
-		}
-	}
-
-	if typeName == "" {
-		return sorted
-	}
-
-	// Preserve the sorted value with original TypeName
-	if sortedMap, ok := sorted.(map[string]any); ok {
-		psobj := psobject.NewPSObjectWithTypeName(sortedMap, typeName)
-		return psobj.ToMap()
-	}
-
-	return sorted
-}
-
-// sortObjectInternal is the internal implementation for testing
-func sortObjectInternal(objects []any, opts SortObjectOptions) ([]any, error) {
-	return sortObject(objects, opts)
 }
 
 // GetSortDirection is a helper for tests to create sort directions

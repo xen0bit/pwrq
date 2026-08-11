@@ -51,7 +51,7 @@ func parseSetContentArgs(args []any) (SetContentOptions, error) {
 			if path, ok := v["Path"].(string); ok {
 				opts.Path = path
 			}
-			if value, ok := v["Value"].(any); ok {
+			if value := v["Value"]; value != nil {
 				opts.Value = value
 			}
 			if encoding, ok := v["Encoding"].(string); ok {

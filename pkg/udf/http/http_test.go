@@ -74,7 +74,7 @@ func TestHTTPGet(t *testing.T) {
 			t.Errorf("Expected GET, got %s", r.Method)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello, World!"))
+		_, _ = w.Write([]byte("Hello, World!"))
 	}))
 	defer server.Close()
 
@@ -117,9 +117,9 @@ func TestHTTPPostDefault(t *testing.T) {
 		}
 		// Read request body
 		body := make([]byte, r.ContentLength)
-		r.Body.Read(body)
+		_, _ = r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Received: %s", string(body))))
+		_, _ = fmt.Fprintf(w, "Received: %s", string(body))
 	}))
 	defer server.Close()
 
@@ -145,9 +145,9 @@ func TestHTTPPostWithBody(t *testing.T) {
 		}
 		// Read request body
 		body := make([]byte, r.ContentLength)
-		r.Body.Read(body)
+		_, _ = r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Received: %s", string(body))))
+		_, _ = fmt.Fprintf(w, "Received: %s", string(body))
 	}))
 	defer server.Close()
 
@@ -184,9 +184,9 @@ func TestHTTPPostWithJSONBody(t *testing.T) {
 		}
 		// Read request body
 		body := make([]byte, r.ContentLength)
-		r.Body.Read(body)
+		_, _ = r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Received: %s", string(body))))
+		_, _ = fmt.Fprintf(w, "Received: %s", string(body))
 	}))
 	defer server.Close()
 
@@ -235,7 +235,7 @@ func TestHTTPWithURLFromArg(t *testing.T) {
 	// Create a test HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Success"))
+		_, _ = w.Write([]byte("Success"))
 	}))
 	defer server.Close()
 
@@ -260,7 +260,7 @@ func TestHTTPChaining(t *testing.T) {
 	// Create a test HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	}))
 	defer server.Close()
 
@@ -277,7 +277,7 @@ func TestHTTPResponseMetadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Custom-Header", "test-value")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("Created"))
+		_, _ = w.Write([]byte("Created"))
 	}))
 	defer server.Close()
 
@@ -318,7 +318,7 @@ func TestHTTPDifferentMethods(t *testing.T) {
 					t.Errorf("Expected %s, got %s", method, r.Method)
 				}
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("OK"))
+				_, _ = w.Write([]byte("OK"))
 			}))
 			defer server.Close()
 
@@ -366,7 +366,7 @@ func TestHTTPServe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Wait for result
 	select {
@@ -401,7 +401,7 @@ func TestHTTPServeWithRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -453,7 +453,7 @@ func TestHTTPServeWithPOSTBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)

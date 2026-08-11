@@ -19,24 +19,24 @@ func testServer(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Header().Set("X-Test-Header", "present")
-		io.WriteString(w, "hello world")
+		_, _ = io.WriteString(w, "hello world")
 	})
 	mux.HandleFunc("/data.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"items":[1,2,3],"ok":true}`)
+		_, _ = io.WriteString(w, `{"items":[1,2,3],"ok":true}`)
 	})
 	mux.HandleFunc("/chunked", func(w http.ResponseWriter, r *http.Request) {
 		// No Content-Length: this is the shape that used to report -1.
 		w.Header().Set("Content-Type", "text/plain")
 		flusher := w.(http.Flusher)
-		io.WriteString(w, "part one ")
+		_, _ = io.WriteString(w, "part one ")
 		flusher.Flush()
-		io.WriteString(w, "part two")
+		_, _ = io.WriteString(w, "part two")
 	})
 	mux.HandleFunc("/echo-method", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"method": r.Method,
 			"body":   string(body),
 		})

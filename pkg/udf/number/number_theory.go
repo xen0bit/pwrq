@@ -114,19 +114,6 @@ func RegisterPrimeFactors() gojq.CompilerOption {
 	})
 }
 
-func sortInts(arr []any) {
-	for i := 1; i < len(arr); i++ {
-		for j := i; j > 0; j-- {
-			aj, okJ := arr[j].(int64)
-			ap, okP := arr[j-1].(int64)
-			if !okJ || !okP || aj >= ap {
-				break
-			}
-			arr[j], arr[j-1] = arr[j-1], arr[j]
-		}
-	}
-}
-
 // RegisterFibonacci registers fibonacci, the nth Fibonacci number (0-indexed).
 func RegisterFibonacci() gojq.CompilerOption {
 	return gojq.WithFunction("fibonacci", 0, 0, func(v any, args []any) any {
@@ -236,27 +223,6 @@ func RegisterLcm() gojq.CompilerOption {
 		}
 		return common.MakeUDFSuccessResult((origX/x)*origY, nil)
 	})
-}
-
-func gcd64(a, b int64) int64 {
-	for b != 0 {
-		a, b = b, a%b
-	}
-	return a
-}
-
-// integerSqrt returns the floor of the square root, via Newton's method.
-func integerSqrt(n int64) int64 {
-	if n < 2 {
-		return n
-	}
-	x := n
-	y := (x + 1) / 2
-	for y < x {
-		x = y
-		y = (x + n/x) / 2
-	}
-	return x
 }
 
 // RegisterDigitSum registers digit_sum, the sum of an integer's digits.

@@ -78,7 +78,7 @@ func RegisterGetProcess() gojq.CompilerOption {
 		// Update $? automatic variable (last command success)
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// Convert to []any for iterator
@@ -473,22 +473,6 @@ func getProcessPathWindows(pid int) string {
 	return ""
 }
 
-// getProcess is the internal implementation for testing
-// Note: sessionstate parameter removed as it was unused
-func getProcess(opts GetProcessOptions) ([]ProcessInfo, error) {
-	// Use OS-specific method to get process info
-	var procInfos []ProcessInfo
-	var err error
-
-	if runtime.GOOS == "windows" {
-		procInfos, err = getProcessesWindows(opts)
-	} else {
-		procInfos, err = getProcessesUnix(opts)
-	}
-
-	return procInfos, err
-}
-
 // RegisterStopProcess registers the stop_process function with gojq
 // Supports PowerShell-style parameters: -Name, -Id, -Force
 // Usage:
@@ -524,7 +508,7 @@ func RegisterStopProcess() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", len(failed) == 0, sessionstate.None)
+			_ = ss.SetVariable("?", len(failed) == 0, sessionstate.None)
 		}
 
 		result := map[string]any{
@@ -678,7 +662,7 @@ func RegisterStartProcess() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		if opts.PassThru {

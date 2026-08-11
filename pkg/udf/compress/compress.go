@@ -134,7 +134,7 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to create reader: %v", err), nil)
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
@@ -279,7 +279,7 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to create reader: %v", err), nil)
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
@@ -424,7 +424,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 
 		// Decompress with deflate
 		reader := flate.NewReader(bytes.NewReader(inputBytes))
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {

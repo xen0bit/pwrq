@@ -42,9 +42,10 @@ func parseCopyItemArgs(args []any) (CopyItemOptions, error) {
 
 		switch v := argVal.(type) {
 		case string:
-			if stringArgCount == 0 {
+			switch stringArgCount {
+			case 0:
 				opts.Path = v
-			} else if stringArgCount == 1 {
+			case 1:
 				opts.Destination = v
 			}
 			stringArgCount++
@@ -208,7 +209,7 @@ func copyFile(src, dst string, opts CopyItemOptions) error {
 	if err != nil {
 		return fmt.Errorf("cannot open source file: %v", err)
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	// Get source file info for timestamp preservation
 	srcInfo, err := srcFile.Stat()
@@ -221,7 +222,7 @@ func copyFile(src, dst string, opts CopyItemOptions) error {
 	if err != nil {
 		return fmt.Errorf("cannot create destination file: %v", err)
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	// Copy contents
 	if _, err := io.Copy(dstFile, srcFile); err != nil {

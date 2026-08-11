@@ -10,13 +10,13 @@ import (
 
 func (cli *cli) printUDFList() {
 	metadata := udf.GetFunctionMetadata()
-	
+
 	// Group by category
 	categories := make(map[string][]udf.FunctionMetadata)
 	for _, meta := range metadata {
 		categories[meta.Category] = append(categories[meta.Category], meta)
 	}
-	
+
 	// Sort categories
 	categoryOrder := []string{
 		"File Operations",
@@ -48,13 +48,13 @@ func (cli *cli) printUDFList() {
 		"SSDeep",
 		"System",
 	}
-	
+
 	// Collect all categories
 	allCategories := make(map[string]bool)
 	for _, meta := range metadata {
 		allCategories[meta.Category] = true
 	}
-	
+
 	// Add any categories not in the predefined order
 	for cat := range allCategories {
 		found := false
@@ -68,53 +68,53 @@ func (cli *cli) printUDFList() {
 			categoryOrder = append(categoryOrder, cat)
 		}
 	}
-	
-	fmt.Fprintf(cli.outStream, "Available User-Defined Functions (UDFs)\n\n")
-	fmt.Fprintf(cli.outStream, "Total: %d functions\n\n", len(metadata))
-	
+
+	_, _ = fmt.Fprintf(cli.outStream, "Available User-Defined Functions (UDFs)\n\n")
+	_, _ = fmt.Fprintf(cli.outStream, "Total: %d functions\n\n", len(metadata))
+
 	for _, category := range categoryOrder {
 		funcs, ok := categories[category]
 		if !ok {
 			continue
 		}
-		
+
 		// Sort functions within category by name
 		sort.Slice(funcs, func(i, j int) bool {
 			return funcs[i].Name < funcs[j].Name
 		})
-		
-		fmt.Fprintf(cli.outStream, "%s:\n", category)
-		fmt.Fprintf(cli.outStream, "%s\n", strings.Repeat("-", len(category)+1))
-		
+
+		_, _ = fmt.Fprintf(cli.outStream, "%s:\n", category)
+		_, _ = fmt.Fprintf(cli.outStream, "%s\n", strings.Repeat("-", len(category)+1))
+
 		for _, meta := range funcs {
 			// Build argument signature
 			var argSig strings.Builder
 			if meta.MinArgs == 0 && meta.MaxArgs == 0 {
 				argSig.WriteString("()")
 			} else if meta.MinArgs == meta.MaxArgs {
-				argSig.WriteString(fmt.Sprintf("(%d args)", meta.MinArgs))
+				fmt.Fprintf(&argSig, "(%d args)", meta.MinArgs)
 			} else {
-				argSig.WriteString(fmt.Sprintf("(%d-%d args)", meta.MinArgs, meta.MaxArgs))
+				fmt.Fprintf(&argSig, "(%d-%d args)", meta.MinArgs, meta.MaxArgs)
 			}
-			
-			fmt.Fprintf(cli.outStream, "  %-25s %-15s %s\n", meta.Name, argSig.String(), meta.Description)
-			
+
+			_, _ = fmt.Fprintf(cli.outStream, "  %-25s %-15s %s\n", meta.Name, argSig.String(), meta.Description)
+
 			// Print examples if available
 			if len(meta.Examples) > 0 {
 				for _, example := range meta.Examples {
-					fmt.Fprintf(cli.outStream, "    Example: %s\n", example)
+					_, _ = fmt.Fprintf(cli.outStream, "    Example: %s\n", example)
 				}
 			}
 		}
-		
-		fmt.Fprintf(cli.outStream, "\n")
+
+		_, _ = fmt.Fprintf(cli.outStream, "\n")
 	}
-	
+
 	cli.printAliases()
 
-	fmt.Fprintf(cli.outStream, "Note: Most functions support an optional 'file' boolean argument.\n")
-	fmt.Fprintf(cli.outStream, "      When true, the input is treated as a file path to operate on.\n")
-	fmt.Fprintf(cli.outStream, "      Example: base64_encode(true) reads from a file.\n")
+	_, _ = fmt.Fprintf(cli.outStream, "Note: Most functions support an optional 'file' boolean argument.\n")
+	_, _ = fmt.Fprintf(cli.outStream, "      When true, the input is treated as a file path to operate on.\n")
+	_, _ = fmt.Fprintf(cli.outStream, "      Example: base64_encode(true) reads from a file.\n")
 }
 
 // printAliases lists the PowerShell aliases, grouped by the cmdlet they name.
@@ -132,13 +132,12 @@ func (cli *cli) printAliases() {
 	}
 	sort.Strings(targets)
 
-	fmt.Fprintf(cli.outStream, "Aliases:\n")
-	fmt.Fprintf(cli.outStream, "%s\n", strings.Repeat("-", 8))
+	_, _ = fmt.Fprintf(cli.outStream, "Aliases:\n")
+	_, _ = fmt.Fprintf(cli.outStream, "%s\n", strings.Repeat("-", 8))
 	for _, target := range targets {
 		names := byTarget[target]
 		sort.Strings(names)
-		fmt.Fprintf(cli.outStream, "  %-25s %s\n", strings.Join(names, ", "), target)
+		_, _ = fmt.Fprintf(cli.outStream, "  %-25s %s\n", strings.Join(names, ", "), target)
 	}
-	fmt.Fprintf(cli.outStream, "\n")
+	_, _ = fmt.Fprintf(cli.outStream, "\n")
 }
-

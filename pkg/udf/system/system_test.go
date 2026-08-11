@@ -43,7 +43,7 @@ func TestWhich(t *testing.T) {
 	if got != exe {
 		t.Errorf("which(%s) = %s, want %s", name, got, exe)
 	}
-	os.Setenv("PATH", oldPath)
+	_ = os.Setenv("PATH", oldPath)
 }
 
 func TestResolveHost(t *testing.T) {

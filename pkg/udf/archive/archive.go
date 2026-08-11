@@ -131,7 +131,7 @@ func listArchive(path string) ([]entry, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer zr.Close()
+		defer func() { _ = zr.Close() }()
 		out := make([]entry, 0, len(zr.File))
 		for _, f := range zr.File {
 			out = append(out, entry{
@@ -150,7 +150,7 @@ func listArchive(path string) ([]entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	tr, err := tarReader(f, k)
 	if err != nil {
 		return nil, err
@@ -224,7 +224,7 @@ func expand(path, dest string) ([]string, error) {
 	}
 	var written []string
 
-	writeFile := func(target string, mode os.FileMode, r io.Reader) error {
+	writeFile := func(target string, mode os.FileMode, r io.Reader) (err error) {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
@@ -232,7 +232,13 @@ func expand(path, dest string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		defer out.Close()
+		// Close is where a short write finally surfaces. Dropping its error
+		// lets extraction report success over a truncated file.
+		defer func() {
+			if cerr := out.Close(); cerr != nil && err == nil {
+				err = cerr
+			}
+		}()
 		if _, err := io.Copy(out, r); err != nil {
 			return err
 		}
@@ -245,7 +251,7 @@ func expand(path, dest string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer zr.Close()
+		defer func() { _ = zr.Close() }()
 		for _, f := range zr.File {
 			target, err := safeJoin(dest, f.Name)
 			if err != nil {
@@ -262,7 +268,7 @@ func expand(path, dest string) ([]string, error) {
 				return nil, err
 			}
 			err = writeFile(target, f.Mode(), rc)
-			rc.Close()
+			_ = rc.Close()
 			if err != nil {
 				return nil, err
 			}
@@ -274,7 +280,7 @@ func expand(path, dest string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	tr, err := tarReader(f, k)
 	if err != nil {
 		return nil, err
@@ -364,7 +370,7 @@ func sourcePaths(in any) ([]string, error) {
 	return []string{p}, nil
 }
 
-func compressArchive(sources []string, dest string) error {
+func compressArchive(sources []string, dest string) (err error) {
 	k, err := kindOf(dest)
 	if err != nil {
 		return err
@@ -373,7 +379,19 @@ func compressArchive(sources []string, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	// The archive writers buffer, so Close is what flushes the central
+	// directory or the tar trailer. An unchecked Close here hands back a
+	// truncated archive that reports success, so close them innermost-first
+	// and keep the first failure.
+	var closers []io.Closer
+	defer func() {
+		for i := len(closers) - 1; i >= 0; i-- {
+			if cerr := closers[i].Close(); cerr != nil && err == nil {
+				err = cerr
+			}
+		}
+	}()
+	closers = append(closers, out)
 
 	// walk yields each file to add, with the name it should carry inside the
 	// archive: relative to the source's parent, so archiving "src" produces
@@ -410,7 +428,7 @@ func compressArchive(sources []string, dest string) error {
 	switch k {
 	case kindZip:
 		zw := zip.NewWriter(out)
-		defer zw.Close()
+		closers = append(closers, zw)
 		return walk(func(path, name string, info os.FileInfo) error {
 			if info.IsDir() {
 				_, err := zw.Create(name + "/")
@@ -433,12 +451,12 @@ func compressArchive(sources []string, dest string) error {
 		var tw *tar.Writer
 		if k == kindTarGz {
 			gz := gzip.NewWriter(out)
-			defer gz.Close()
+			closers = append(closers, gz)
 			tw = tar.NewWriter(gz)
 		} else {
 			tw = tar.NewWriter(out)
 		}
-		defer tw.Close()
+		closers = append(closers, tw)
 		return walk(func(path, name string, info os.FileInfo) error {
 			h, err := tar.FileInfoHeader(info, "")
 			if err != nil {
@@ -464,7 +482,7 @@ func copyInto(w io.Writer, path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_, err = io.Copy(w, f)
 	return err
 }

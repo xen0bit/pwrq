@@ -28,7 +28,7 @@ func TestGetVariable(t *testing.T) {
 	sessionStateMu.Unlock()
 
 	ss := sessionstate.NewSessionState()
-	ss.SetVariable("testVar", "testValue", 0)
+	_ = ss.SetVariable("testVar", "testValue", 0)
 	SetGlobalSessionState(ss)
 
 	// Test getting existing variable
@@ -166,7 +166,7 @@ func TestGetPreferenceVariable(t *testing.T) {
 	sessionStateMu.Unlock()
 
 	ss := sessionstate.NewSessionState()
-	ss.SetVariable("TestPreference", "TestValue", 0)
+	_ = ss.SetVariable("TestPreference", "TestValue", 0)
 	SetGlobalSessionState(ss)
 
 	// Test getting existing preference
@@ -189,7 +189,7 @@ func TestGetErrorActionPreference(t *testing.T) {
 	sessionStateMu.Unlock()
 
 	ss := sessionstate.NewSessionState()
-	ss.SetVariable("ErrorActionPreference", "Stop", 0)
+	_ = ss.SetVariable("ErrorActionPreference", "Stop", 0)
 	SetGlobalSessionState(ss)
 
 	val := GetErrorActionPreference()
@@ -214,7 +214,7 @@ func TestGetVerbosePreference(t *testing.T) {
 	sessionStateMu.Unlock()
 
 	ss := sessionstate.NewSessionState()
-	ss.SetVariable("VerbosePreference", "SilentlyContinue", 0)
+	_ = ss.SetVariable("VerbosePreference", "SilentlyContinue", 0)
 	SetGlobalSessionState(ss)
 
 	val := GetVerbosePreference()
@@ -230,7 +230,7 @@ func TestGetDebugPreference(t *testing.T) {
 	sessionStateMu.Unlock()
 
 	ss := sessionstate.NewSessionState()
-	ss.SetVariable("DebugPreference", "Inquire", 0)
+	_ = ss.SetVariable("DebugPreference", "Inquire", 0)
 	SetGlobalSessionState(ss)
 
 	val := GetDebugPreference()
@@ -246,7 +246,7 @@ func TestGetWarningPreference(t *testing.T) {
 	sessionStateMu.Unlock()
 
 	ss := sessionstate.NewSessionState()
-	ss.SetVariable("WarningPreference", "Ignore", 0)
+	_ = ss.SetVariable("WarningPreference", "Ignore", 0)
 	SetGlobalSessionState(ss)
 
 	val := GetWarningPreference()

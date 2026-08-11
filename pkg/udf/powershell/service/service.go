@@ -74,7 +74,7 @@ func RegisterGetService() gojq.CompilerOption {
 		// Update $? automatic variable (last command success)
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// Convert to []any for iterator
@@ -235,9 +235,10 @@ func getServicesUnix(opts GetServiceOptions) ([]ServiceInfo, error) {
 
 		// Map active state to PowerShell Status
 		status := "Stopped"
-		if unit.Active == "active" {
+		switch unit.Active {
+		case "active":
 			status = "Running"
-		} else if unit.Active == "failed" {
+		case "failed":
 			status = "Failed"
 		}
 
@@ -296,7 +297,7 @@ func getServicesUnixText(opts GetServiceOptions) ([]ServiceInfo, error) {
 		}
 
 		// Skip header and footer lines
-		if strings.Contains(fields[0], ".service") == false {
+		if !strings.Contains(fields[0], ".service") {
 			continue
 		}
 
@@ -339,51 +340,6 @@ func getServicesUnixText(opts GetServiceOptions) ([]ServiceInfo, error) {
 	}
 
 	return services, nil
-}
-
-// getServiceDetailsUnix gets detailed service information
-func getServiceDetailsUnix(name string) *ServiceInfo {
-	cmd := exec.Command("systemctl", "show", name, "--no-pager",
-		"-p", "Description", "-p", "MainPID", "-p", "After", "-p", "Requires")
-	output, err := cmd.Output()
-	if err != nil {
-		return nil
-	}
-
-	info := &ServiceInfo{}
-	lines := strings.Split(string(output), "\n")
-
-	for _, line := range lines {
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := parts[0]
-		value := parts[1]
-
-		switch key {
-		case "Description":
-			info.DisplayName = value
-		case "MainPID":
-			if pid, err := strconv.Atoi(value); err == nil {
-				info.ProcessId = pid
-			}
-		case "Requires", "After":
-			// Parse dependencies
-			if value != "" {
-				deps := strings.Fields(value)
-				for i, dep := range deps {
-					deps[i] = strings.TrimSuffix(dep, ".service")
-				}
-				if key == "Requires" {
-					info.ServicesDependedOn = deps
-				}
-			}
-		}
-	}
-
-	return info
 }
 
 // getServicesWindows gets service information on Windows
@@ -447,10 +403,8 @@ func getServicesWindows(opts GetServiceOptions) ([]ServiceInfo, error) {
 				currentService.CanPause = currentService.Status == "Running"
 				currentService.CanShutdown = currentService.Status == "Running"
 			case "WIN32_EXIT_CODE":
-				// Could be used for error handling
-				if value != "0" && value != "NO_ERROR" {
-					// Service may have exited with error
-				}
+				// Not surfaced yet. A value other than "0"/"NO_ERROR" would
+				// say the service exited with an error.
 			case "WAIT_HINT":
 				// Time estimate for operation completion
 			case "PID":
@@ -563,7 +517,7 @@ func RegisterStartService() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", result["Status"] == "Running", sessionstate.None)
+			_ = ss.SetVariable("?", result["Status"] == "Running", sessionstate.None)
 		}
 
 		if opts.PassThru {
@@ -679,7 +633,7 @@ func RegisterStopService() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", result["Status"] == "Stopped", sessionstate.None)
+			_ = ss.SetVariable("?", result["Status"] == "Stopped", sessionstate.None)
 		}
 
 		if opts.PassThru {

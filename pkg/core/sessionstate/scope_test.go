@@ -158,7 +158,7 @@ func TestSetVariable_ScopePrefix_Local(t *testing.T) {
 	ss := NewSessionState()
 
 	// Set in global first
-	ss.SetVariable("testVar", "global", None)
+	_ = ss.SetVariable("testVar", "global", None)
 
 	// Create a local scope
 	ss.NewLocalScope()
@@ -370,5 +370,25 @@ func TestSetVariable_CombinedOptions(t *testing.T) {
 	err = ss.SetVariable("combinedVar", "modified", None)
 	if err == nil {
 		t.Error("Expected error when overwriting read-only variable, got nil")
+	}
+}
+
+// $? is a PowerShell automatic variable holding whether the last command
+// succeeded. Its name is not an identifier, so it needs an explicit exemption
+// from the identifier rules - without one, the twenty-odd cmdlets that set it
+// were all failing validation silently.
+func TestSetVariable_AutomaticQuestionMark(t *testing.T) {
+	ss := NewSessionState()
+
+	if err := ss.SetVariable("?", true, None); err != nil {
+		t.Fatalf("SetVariable(%q) returned %v, want nil", "?", err)
+	}
+
+	got, err := ss.GetVariable("?")
+	if err != nil {
+		t.Fatalf("GetVariable(%q) returned %v, want nil", "?", err)
+	}
+	if got != true {
+		t.Errorf("$? = %v, want true", got)
 	}
 }

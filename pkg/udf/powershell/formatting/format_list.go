@@ -196,7 +196,7 @@ func FormatListToStringWithDepth(formattedList any, maxDepth int) string {
 			if i > 0 {
 				sb.WriteString("\n")
 			}
-			sb.WriteString(fmt.Sprintf("%s : %s", prop.Name, formatValue(prop.Value, maxDepth, 0)))
+			fmt.Fprintf(&sb, "%s : %s", prop.Name, formatValue(prop.Value, maxDepth, 0))
 		}
 		return sb.String()
 	}

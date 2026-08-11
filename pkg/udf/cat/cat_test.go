@@ -17,12 +17,12 @@ func setupTestFile(t *testing.T, content string) (string, func()) {
 	tmpFile := filepath.Join(tmpDir, "test.txt")
 	err = os.WriteFile(tmpFile, []byte(content), 0644)
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	}
 
 	return tmpFile, cleanup
@@ -65,7 +65,7 @@ func TestCat_DirectoryError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	result := cat(tmpDir, []any{})
 	err, isErr := result.(error)

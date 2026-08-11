@@ -112,7 +112,7 @@ func RegisterInvokeWebRequest() gojq.CompilerOption {
 			// Update $? automatic variable
 			ss := common.GetSessionState()
 			if ss != nil {
-				ss.SetVariable("?", false, sessionstate.None)
+				_ = ss.SetVariable("?", false, sessionstate.None)
 			}
 
 			return common.MakeUDFErrorResult(err, map[string]any{
@@ -125,7 +125,7 @@ func RegisterInvokeWebRequest() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// If OutFile is specified, write content to file
@@ -295,7 +295,7 @@ func invokeWebRequest(opts InvokeWebRequestOptions) (*WebResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)
@@ -395,7 +395,7 @@ func RegisterInvokeRestMethod() gojq.CompilerOption {
 		if err != nil {
 			ss := common.GetSessionState()
 			if ss != nil {
-				ss.SetVariable("?", false, sessionstate.None)
+				_ = ss.SetVariable("?", false, sessionstate.None)
 			}
 
 			return common.MakeUDFErrorResult(err, map[string]any{
@@ -406,7 +406,7 @@ func RegisterInvokeRestMethod() gojq.CompilerOption {
 
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// Parse response based on content type

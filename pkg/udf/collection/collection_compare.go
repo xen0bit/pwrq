@@ -163,7 +163,7 @@ func compareOptions(args []any) (includeEqual, excludeDifferent bool, property s
 		case "property":
 			s, ok := val.(string)
 			if !ok {
-				return false, false, "", fmt.Errorf("Property must be a string")
+				return false, false, "", fmt.Errorf("expected a string for Property")
 			}
 			property = s
 		default:

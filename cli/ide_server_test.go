@@ -54,7 +54,7 @@ func get(t *testing.T, dist fstest.MapFS, path string, headers map[string]string
 func TestWasmIsServedCompressed(t *testing.T) {
 	dist := testDist(t)
 	resp := get(t, dist, "/web.wasm", map[string]string{"Accept-Encoding": "gzip, deflate"})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if got := resp.Header.Get("Content-Encoding"); got != "gzip" {
 		t.Errorf("Content-Encoding = %q, want gzip", got)
@@ -85,7 +85,7 @@ func TestWasmIsServedCompressed(t *testing.T) {
 func TestWasmFallsBackWhenGzipIsNotAccepted(t *testing.T) {
 	dist := testDist(t)
 	resp := get(t, dist, "/web.wasm", nil)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if got := resp.Header.Get("Content-Encoding"); got != "" {
 		t.Errorf("Content-Encoding = %q, want none", got)
@@ -103,7 +103,7 @@ func TestWasmWithoutAPrecompressedCopy(t *testing.T) {
 	delete(dist, "web.wasm.gz")
 
 	resp := get(t, dist, "/web.wasm", map[string]string{"Accept-Encoding": "gzip"})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if got := resp.Header.Get("Content-Encoding"); got != "" {
 		t.Errorf("Content-Encoding = %q, want none when there is nothing pre-compressed", got)
@@ -121,14 +121,14 @@ func TestCaching(t *testing.T) {
 	dist := testDist(t)
 
 	hashed := get(t, dist, "/index-abc123.js", nil)
-	defer hashed.Body.Close()
+	defer func() { _ = hashed.Body.Close() }()
 	if got := hashed.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
 		t.Errorf("hashed asset Cache-Control = %q", got)
 	}
 
 	for _, path := range []string{"/", "/index.html", "/worker.js", "/web.wasm"} {
 		resp := get(t, dist, path, nil)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if got := resp.Header.Get("Cache-Control"); got != "no-cache" {
 			t.Errorf("%s Cache-Control = %q, want no-cache", path, got)
 		}
@@ -138,7 +138,7 @@ func TestCaching(t *testing.T) {
 func TestIndexIsServedAtTheRoot(t *testing.T) {
 	dist := testDist(t)
 	resp := get(t, dist, "/", nil)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d", resp.StatusCode)

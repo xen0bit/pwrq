@@ -220,10 +220,10 @@ func dotTokens(path string) ([]string, error) {
 	var tokens []string
 	i := 0
 	for i < len(path) {
-		switch {
-		case path[i] == '.':
+		switch path[i] {
+		case '.':
 			i++
-		case path[i] == '[':
+		case '[':
 			j := i + 1
 			for j < len(path) && path[j] != ']' {
 				j++

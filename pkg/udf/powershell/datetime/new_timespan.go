@@ -125,7 +125,7 @@ func RegisterNewTimeSpan() gojq.CompilerOption {
 			duration = time.Since(startTime)
 		} else if !hasStart && hasEnd {
 			// TimeSpan from now to End
-			duration = endTime.Sub(time.Now())
+			duration = time.Until(endTime)
 		} else {
 			// No dates specified, use duration components
 			duration = time.Duration(opts.Days)*24*time.Hour +
@@ -141,7 +141,7 @@ func RegisterNewTimeSpan() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		return common.MakeUDFSuccessResult(timeSpanToMap(timeSpan), map[string]any{

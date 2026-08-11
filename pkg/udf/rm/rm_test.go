@@ -69,7 +69,7 @@ func TestRm_File(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testFile := filepath.Join(parentDir, "testfile.txt")
 	err = os.WriteFile(testFile, []byte("test content"), 0644)
@@ -104,7 +104,7 @@ func TestRm_Folder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testDir := filepath.Join(parentDir, "testdir")
 	err = os.MkdirAll(testDir, 0755)
@@ -146,7 +146,7 @@ func TestRm_NestedFolder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	nestedDir := filepath.Join(parentDir, "level1", "level2", "level3")
 	err = os.MkdirAll(nestedDir, 0755)
@@ -155,9 +155,9 @@ func TestRm_NestedFolder(t *testing.T) {
 	}
 
 	// Create files in nested directories
-	os.WriteFile(filepath.Join(parentDir, "level1", "file1.txt"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(parentDir, "level1", "level2", "file2.txt"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(nestedDir, "file3.txt"), []byte("test"), 0644)
+	_ = os.WriteFile(filepath.Join(parentDir, "level1", "file1.txt"), []byte("test"), 0644)
+	_ = os.WriteFile(filepath.Join(parentDir, "level1", "level2", "file2.txt"), []byte("test"), 0644)
+	_ = os.WriteFile(filepath.Join(nestedDir, "file3.txt"), []byte("test"), 0644)
 
 	topLevelDir := filepath.Join(parentDir, "level1")
 	_ = runGojqQuery(t, `rm("`+topLevelDir+`"; "folder")`, nil, RegisterRm())
@@ -175,7 +175,7 @@ func TestRm_FileNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	nonexistentFile := filepath.Join(parentDir, "nonexistent.txt")
 
@@ -192,7 +192,7 @@ func TestRm_TypeMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testFile := filepath.Join(parentDir, "testfile.txt")
 	err = os.WriteFile(testFile, []byte("test"), 0644)
@@ -219,14 +219,14 @@ func TestRm_InvalidType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testFile := filepath.Join(parentDir, "testfile.txt")
 	err = os.WriteFile(testFile, []byte("test"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	defer os.Remove(testFile)
+	defer func() { _ = os.Remove(testFile) }()
 
 	qErr := runGojqQueryErr(t, `rm("`+testFile+`"; "invalid")`, nil, RegisterRm())
 	errStr := qErr.Error()
@@ -277,7 +277,7 @@ func TestRm_Chaining(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testFile := filepath.Join(parentDir, "testfile.txt")
 	err = os.WriteFile(testFile, []byte("test"), 0644)
@@ -304,7 +304,7 @@ func TestRm_WithUDFResultInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testFile := filepath.Join(parentDir, "testfile.txt")
 	err = os.WriteFile(testFile, []byte("test"), 0644)
@@ -335,7 +335,7 @@ func TestRm_CaseInsensitiveType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testFile := filepath.Join(parentDir, "testfile.txt")
 	err = os.WriteFile(testFile, []byte("test"), 0644)

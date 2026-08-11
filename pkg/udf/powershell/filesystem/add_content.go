@@ -180,7 +180,7 @@ func appendContent(o appendOptions) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if _, err := f.Write(encoded); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
@@ -198,7 +198,7 @@ func needsSeparator(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	last := make([]byte, 1)
 	if _, err := f.ReadAt(last, fi.Size()-1); err != nil {
 		return false

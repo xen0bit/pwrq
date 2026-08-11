@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -126,12 +125,6 @@ func RegisterCharFrequencies() gojq.CompilerOption {
 		}
 		return out
 	})
-}
-
-func sortString(s string) string {
-	runes := []rune(s)
-	sort.Slice(runes, func(i, j int) bool { return runes[i] < runes[j] })
-	return string(runes)
 }
 
 // RegisterCountVowels registers count_vowels, how many vowel letters a string

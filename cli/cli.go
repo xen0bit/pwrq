@@ -94,7 +94,7 @@ var addDefaultModulePaths = true
 func (cli *cli) run(args []string) int {
 	if err := cli.runInternal(args); err != nil {
 		if _, ok := err.(interface{ isEmptyError() }); !ok {
-			fmt.Fprintf(cli.errStream, "%s: %s\n", name, err)
+			_, _ = fmt.Fprintf(cli.errStream, "%s: %s\n", name, err)
 		}
 		if err, ok := err.(interface{ ExitCode() int }); ok {
 			return err.ExitCode()
@@ -111,7 +111,7 @@ func (cli *cli) runInternal(args []string) (err error) {
 		return &flagParseError{err}
 	}
 	if opts.Help {
-		fmt.Fprintf(cli.outStream, `%[1]s - Enhanced Go implementation of jq
+		_, _ = fmt.Fprintf(cli.outStream, `%[1]s - Enhanced Go implementation of jq
 
 Version: %s (rev: %s/%s)
 
@@ -123,11 +123,11 @@ Usage:
 
 `,
 			name, version, revision, runtime.Version())
-		fmt.Fprintln(cli.outStream, formatFlags(&opts))
+		_, _ = fmt.Fprintln(cli.outStream, formatFlags(&opts))
 		return nil
 	}
 	if opts.Version {
-		fmt.Fprintf(cli.outStream, "%s %s (rev: %s/%s)\n", name, version, revision, runtime.Version())
+		_, _ = fmt.Fprintf(cli.outStream, "%s %s (rev: %s/%s)\n", name, version, revision, runtime.Version())
 		return nil
 	}
 	if opts.UDFList {
@@ -267,7 +267,7 @@ Usage:
 		if err != nil {
 			return fmt.Errorf("failed to generate graph: %w", err)
 		}
-		fmt.Fprintf(cli.outStream, "Graph generated: %s\n", opts.Graph)
+		_, _ = fmt.Fprintf(cli.outStream, "Graph generated: %s\n", opts.Graph)
 		return nil
 	}
 
@@ -276,7 +276,9 @@ Usage:
 		modulePaths = []string{"~/.jq", "$ORIGIN/../lib/pwrq", "$ORIGIN/../lib"}
 	}
 	iter := cli.createInputIter(args)
-	defer iter.Close()
+	// Bound as an argument, not captured: --null-input reassigns iter below,
+	// and this has to close the input iterator that was actually opened here.
+	defer func(iter inputIter) { _ = iter.Close() }(iter)
 
 	// Get UDF registry and apply all registered functions
 	udfRegistry := udf.DefaultRegistry()
@@ -345,7 +347,7 @@ func slurpFile(name string) (any, error) {
 	iter := newSlurpInputIter(
 		newFilesInputIter(newJSONInputIter, []string{name}, nil),
 	)
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	val, _ := iter.Next()
 	if err, ok := val.(error); ok {
 		return nil, err
@@ -392,7 +394,7 @@ func (cli *cli) process(iter inputIter, code *gojq.Code) error {
 			break
 		}
 		if e, ok := v.(error); ok {
-			fmt.Fprintf(cli.errStream, "%s: %s\n", name, e)
+			_, _ = fmt.Fprintf(cli.errStream, "%s: %s\n", name, e)
 			err = e
 			continue
 		}
@@ -400,17 +402,17 @@ func (cli *cli) process(iter inputIter, code *gojq.Code) error {
 			if e, ok := e.(*gojq.HaltError); ok {
 				if v := e.Value(); v != nil {
 					if str, ok := v.(string); ok {
-						cli.errStream.Write([]byte(str))
+						_, _ = cli.errStream.Write([]byte(str))
 					} else {
 						bs, _ := gojq.Marshal(v)
-						cli.errStream.Write(bs)
-						cli.errStream.Write([]byte{'\n'})
+						_, _ = cli.errStream.Write(bs)
+						_, _ = cli.errStream.Write([]byte{'\n'})
 					}
 				}
 				err = e
 				break
 			}
-			fmt.Fprintf(cli.errStream, "%s: %s\n", name, e)
+			_, _ = fmt.Fprintf(cli.errStream, "%s: %s\n", name, e)
 			err = e
 		}
 	}
@@ -431,7 +433,7 @@ func (cli *cli) printValues(iter gojq.Iter) error {
 			return err
 		}
 		if cli.outputYAMLSeparator {
-			cli.outStream.Write([]byte("---\n"))
+			_, _ = cli.outStream.Write([]byte("---\n"))
 		} else {
 			cli.outputYAMLSeparator = cli.outputYAML
 		}
@@ -447,9 +449,9 @@ func (cli *cli) printValues(iter gojq.Iter) error {
 		}
 		if !cli.outputYAML {
 			if cli.outputRaw0 {
-				cli.outStream.Write([]byte{'\x00'})
+				_, _ = cli.outStream.Write([]byte{'\x00'})
 			} else if !cli.outputJoin {
-				cli.outStream.Write([]byte{'\n'})
+				_, _ = cli.outStream.Write([]byte{'\n'})
 			}
 		}
 	}
@@ -502,20 +504,20 @@ func (cli *cli) loadStandardAliases() {
 
 	// Initialize preference variables (PowerShell standard)
 	// These control how cmdlets handle verbose, debug, warning, and error output
-	cli.sessionState.SetVariable("VerbosePreference", "Continue", 0)
-	cli.sessionState.SetVariable("DebugPreference", "Continue", 0)
-	cli.sessionState.SetVariable("WarningPreference", "Continue", 0)
-	cli.sessionState.SetVariable("ErrorActionPreference", "Continue", 0)
-	cli.sessionState.SetVariable("InformationPreference", "Continue", 0)
-	cli.sessionState.SetVariable("ProgressPreference", "Continue", 0)
-	cli.sessionState.SetVariable("ConfirmPreference", "High", 0)
-	cli.sessionState.SetVariable("WhatIfPreference", false, 0)
+	_ = cli.sessionState.SetVariable("VerbosePreference", "Continue", 0)
+	_ = cli.sessionState.SetVariable("DebugPreference", "Continue", 0)
+	_ = cli.sessionState.SetVariable("WarningPreference", "Continue", 0)
+	_ = cli.sessionState.SetVariable("ErrorActionPreference", "Continue", 0)
+	_ = cli.sessionState.SetVariable("InformationPreference", "Continue", 0)
+	_ = cli.sessionState.SetVariable("ProgressPreference", "Continue", 0)
+	_ = cli.sessionState.SetVariable("ConfirmPreference", "High", 0)
+	_ = cli.sessionState.SetVariable("WhatIfPreference", false, 0)
 
 	// Initialize automatic variables
-	cli.sessionState.SetVariable("?", true, 0)          // Last command success status
-	cli.sessionState.SetVariable("LASTEXITCODE", 0, 0)  // Last native command exit code
-	cli.sessionState.SetVariable("PID", os.Getpid(), 0) // Current process ID
-	cli.sessionState.SetVariable("PWD", "", 0)          // Current working directory (updated by Set-Location)
+	_ = cli.sessionState.SetVariable("?", true, 0)          // Last command success status
+	_ = cli.sessionState.SetVariable("LASTEXITCODE", 0, 0)  // Last native command exit code
+	_ = cli.sessionState.SetVariable("PID", os.Getpid(), 0) // Current process ID
+	_ = cli.sessionState.SetVariable("PWD", "", 0)          // Current working directory (updated by Set-Location)
 
 	// FileSystem aliases
 	cli.sessionState.SetAlias("gci", "get_childitem")

@@ -140,7 +140,7 @@ func RegisterGetDate() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// Format the output if Format is specified

@@ -81,25 +81,25 @@ func selectStringOptions(args []any) (selectOpts, error) {
 		case "include":
 			s, ok := val.(string)
 			if !ok {
-				return o, fmt.Errorf("Include must be a string")
+				return o, fmt.Errorf("expected a string for Include")
 			}
 			o.include = s
 		case "context":
 			f, ok := common.ToInt(val)
 			if !ok || f < 0 {
-				return o, fmt.Errorf("Context must be a non-negative integer")
+				return o, fmt.Errorf("expected a non-negative integer for Context")
 			}
 			o.context = f
 		case "casesensitive":
 			b, ok := val.(bool)
 			if !ok {
-				return o, fmt.Errorf("CaseSensitive must be a boolean")
+				return o, fmt.Errorf("expected a boolean for CaseSensitive")
 			}
 			o.caseSensitive = b
 		case "list":
 			b, ok := val.(bool)
 			if !ok {
-				return o, fmt.Errorf("List must be a boolean")
+				return o, fmt.Errorf("expected a boolean for List")
 			}
 			o.listOnly = b
 		default:
@@ -153,7 +153,7 @@ func searchFile(path string, re *regexp.Regexp, o selectOpts) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var lines []string
 	sc := bufio.NewScanner(f)

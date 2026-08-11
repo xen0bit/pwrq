@@ -8,9 +8,6 @@ import (
 	"github.com/itchyny/gojq"
 )
 
-// vizEnabled reports whether this build can render diagrams.
-const vizEnabled = false
-
 // generateGraph is unavailable in the default build.
 //
 // Diagram rendering pulls in d2, which brings a JavaScript engine, a syntax

@@ -100,7 +100,7 @@ func RegisterSetDate() gojq.CompilerOption {
 			// Update $? automatic variable
 			ss := common.GetSessionState()
 			if ss != nil {
-				ss.SetVariable("?", false, sessionstate.None)
+				_ = ss.SetVariable("?", false, sessionstate.None)
 			}
 
 			return common.MakeUDFErrorResult(fmt.Errorf("set_date: failed to set system time: %w", err), map[string]any{
@@ -112,7 +112,7 @@ func RegisterSetDate() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// Return the new system time

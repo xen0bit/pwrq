@@ -13,7 +13,7 @@ import (
 func RegisterCSVParse() gojq.CompilerOption {
 	return gojq.WithFunction("csv_parse", 0, 3, func(v any, args []any) any {
 		// Parse arguments: optional delimiter, optional file flag
-		var delimiter rune = ','
+		var delimiter = ','
 		var inputVal any
 		var isFile bool
 
@@ -122,7 +122,7 @@ func RegisterCSVParse() gojq.CompilerOption {
 func RegisterCSVStringify() gojq.CompilerOption {
 	return gojq.WithFunction("csv_stringify", 0, 3, func(v any, args []any) any {
 		// Parse arguments: optional delimiter, optional file flag
-		var delimiter rune = ','
+		var delimiter = ','
 		var inputVal any
 		var isFile bool
 

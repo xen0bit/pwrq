@@ -111,7 +111,7 @@ func RegisterRemoveVariable() gojq.CompilerOption {
 		}
 
 		// Update $? automatic variable
-		ss.SetVariable("?", true, sessionstate.None)
+		_ = ss.SetVariable("?", true, sessionstate.None)
 
 		return common.MakeUDFSuccessResult(nil, map[string]any{
 			"operation": "remove_variable",

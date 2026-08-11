@@ -218,38 +218,9 @@ func getChildItems(opts GetChildItemOptions) ([]any, error) {
 	return results, nil
 }
 
-// countPathDepth counts the number of path segments
-func countPathDepth(path string) int {
-	path = filepath.Clean(path)
-	if path == "." || path == "/" {
-		return 0
-	}
-	return strings.Count(path, string(filepath.Separator)) + 1
-}
-
 // matchPattern performs PowerShell-style wildcard matching
 // Supports * (any chars), ? (single char), and character ranges [abc]
 func matchPattern(pattern, name string) bool {
-	// Convert PowerShell wildcard pattern to regex
-	regexPattern := "^"
-	for _, r := range pattern {
-		switch r {
-		case '*':
-			regexPattern += ".*"
-		case '?':
-			regexPattern += "."
-		case '[':
-			regexPattern += "["
-		case ']':
-			regexPattern += "]"
-		case '.':
-			regexPattern += "\\."
-		default:
-			regexPattern += string(r)
-		}
-	}
-	regexPattern += "$"
-
 	matched, _ := filepath.Match(pattern, name)
 	return matched
 }

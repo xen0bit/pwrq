@@ -177,10 +177,10 @@ func TestGetVariable(t *testing.T) {
 	defer common.SetGlobalSessionState(nil)
 
 	// Setup test variables
-	ss.SetVariable("testVar", "testValue", sessionstate.None)
-	ss.SetVariable("numVar", 123, sessionstate.None)
-	ss.SetVariable("globalVar", "global", sessionstate.None)
-	ss.SetVariable("readOnlyVar", "readonly", sessionstate.ReadOnly)
+	_ = ss.SetVariable("testVar", "testValue", sessionstate.None)
+	_ = ss.SetVariable("numVar", 123, sessionstate.None)
+	_ = ss.SetVariable("globalVar", "global", sessionstate.None)
+	_ = ss.SetVariable("readOnlyVar", "readonly", sessionstate.ReadOnly)
 
 	tests := []struct {
 		name      string
@@ -268,9 +268,9 @@ func TestGetVariableWildcard(t *testing.T) {
 	defer common.SetGlobalSessionState(nil)
 
 	// Setup test variables
-	ss.SetVariable("testVar1", "value1", sessionstate.None)
-	ss.SetVariable("testVar2", "value2", sessionstate.None)
-	ss.SetVariable("otherVar", "other", sessionstate.None)
+	_ = ss.SetVariable("testVar1", "value1", sessionstate.None)
+	_ = ss.SetVariable("testVar2", "value2", sessionstate.None)
+	_ = ss.SetVariable("otherVar", "other", sessionstate.None)
 
 	// Test wildcard matching using filepath.Match
 	allVars := ss.GetVariables()
@@ -299,9 +299,9 @@ func TestGetVariableExcludeInclude(t *testing.T) {
 	defer common.SetGlobalSessionState(nil)
 
 	// Setup test variables
-	ss.SetVariable("include1", "val1", sessionstate.None)
-	ss.SetVariable("include2", "val2", sessionstate.None)
-	ss.SetVariable("exclude1", "val3", sessionstate.None)
+	_ = ss.SetVariable("include1", "val1", sessionstate.None)
+	_ = ss.SetVariable("include2", "val2", sessionstate.None)
+	_ = ss.SetVariable("exclude1", "val3", sessionstate.None)
 
 	opts := GetVariableOptions{
 		Include: "include*",
@@ -344,8 +344,8 @@ func TestRemoveVariable(t *testing.T) {
 	defer common.SetGlobalSessionState(nil)
 
 	// Setup test variables
-	ss.SetVariable("toRemove", "value", sessionstate.None)
-	ss.SetVariable("toKeep", "value", sessionstate.None)
+	_ = ss.SetVariable("toRemove", "value", sessionstate.None)
+	_ = ss.SetVariable("toKeep", "value", sessionstate.None)
 
 	tests := []struct {
 		name      string
@@ -395,8 +395,8 @@ func TestRemoveVariable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset state
-			ss.SetVariable("toRemove", "value", sessionstate.None)
-			ss.SetVariable("toKeep", "value", sessionstate.None)
+			_ = ss.SetVariable("toRemove", "value", sessionstate.None)
+			_ = ss.SetVariable("toKeep", "value", sessionstate.None)
 
 			err := removeVariable(ss, tt.varName, tt.opts)
 			if (err != nil) != tt.wantErr {
@@ -439,9 +439,9 @@ func TestRemoveVariableWildcard(t *testing.T) {
 	defer common.SetGlobalSessionState(nil)
 
 	// Setup test variables
-	ss.SetVariable("test1", "value1", sessionstate.None)
-	ss.SetVariable("test2", "value2", sessionstate.None)
-	ss.SetVariable("keep", "value", sessionstate.None)
+	_ = ss.SetVariable("test1", "value1", sessionstate.None)
+	_ = ss.SetVariable("test2", "value2", sessionstate.None)
+	_ = ss.SetVariable("keep", "value", sessionstate.None)
 
 	// Remove all variables matching "test*"
 	removedCount, err := removeVariablesByPattern(ss, "test*", RemoveVariableOptions{})
@@ -478,9 +478,9 @@ func TestRemoveVariableWithExclude(t *testing.T) {
 	defer common.SetGlobalSessionState(nil)
 
 	// Setup test variables
-	ss.SetVariable("test1", "value1", sessionstate.None)
-	ss.SetVariable("test2", "value2", sessionstate.None)
-	ss.SetVariable("test3", "value3", sessionstate.None)
+	_ = ss.SetVariable("test1", "value1", sessionstate.None)
+	_ = ss.SetVariable("test2", "value2", sessionstate.None)
+	_ = ss.SetVariable("test3", "value3", sessionstate.None)
 
 	// Remove all test* variables except test2
 	removedCount, err := removeVariablesByPattern(ss, "test*", RemoveVariableOptions{

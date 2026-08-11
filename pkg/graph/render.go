@@ -43,11 +43,10 @@ func RenderD2Opts(query *gojq.Query, opts RenderOptions) string {
 	first, last := b.emitPipeline(query, "")
 	if first == "" {
 		// The query is only definitions; wire start straight to end.
-		first, last = "start", "start"
+		last = "start"
 	} else {
 		b.edge("start", first, "")
 	}
-	_ = last
 
 	b.node("end", "End", "circle", ClassTerminal)
 	b.edge(last, "end", "")

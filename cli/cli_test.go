@@ -19,7 +19,7 @@ func init() {
 // hermetic. Several cases (gmtime/localtime, mktime/strftime) encode local-time
 // offsets in their expected output and are documented there as TZ=Etc/GMT+7.
 func TestMain(m *testing.M) {
-	os.Setenv("TZ", "Etc/GMT+7")
+	_ = os.Setenv("TZ", "Etc/GMT+7")
 	if loc, err := time.LoadLocation("Etc/GMT+7"); err == nil {
 		time.Local = loc
 	}
@@ -57,7 +57,7 @@ func TestCliRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	errorReplacer := strings.NewReplacer(
 		name+": ", "",
 		"testdata\\", "testdata/",

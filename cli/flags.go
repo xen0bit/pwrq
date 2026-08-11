@@ -95,7 +95,7 @@ func parseFlags(args []string, opts any) ([]string, error) {
 				return nil, fmt.Errorf("expected argument for flag `%s'", arg)
 			}
 			val.SetString(args[i])
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if val.Type().Elem().Kind() == reflect.Int {
 				if i++; i >= len(args) {
 					return nil, fmt.Errorf("expected argument for flag `%s'", arg)

@@ -375,11 +375,6 @@ func ParseGroupObjectArgs(args []any) ([]any, GroupObjectOptions, error) {
 	return objects, opts, nil
 }
 
-// groupObjectInternal is the internal implementation for testing
-func groupObjectInternal(objects []any, opts GroupObjectOptions) ([]any, error) {
-	return groupObject(objects, opts)
-}
-
 // GetGroupCount returns the count of groups for testing
 func GetGroupCount(groups []any) int {
 	return len(groups)

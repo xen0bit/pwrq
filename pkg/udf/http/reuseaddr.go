@@ -13,7 +13,7 @@ func reuseAddrConfig() net.ListenConfig {
 	return net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
 			var err error
-			c.Control(func(fd uintptr) {
+			_ = c.Control(func(fd uintptr) {
 				err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 			})
 			return err

@@ -62,7 +62,7 @@ func TestGetLocationWithStackName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 
@@ -101,7 +101,7 @@ func TestSetLocation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	// Create a temporary directory for testing
 	tmpDir := t.TempDir()
@@ -142,7 +142,7 @@ func TestSetLocationWithStackName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	tmpDir := t.TempDir()
 	ss := createTestSessionState()
@@ -185,7 +185,7 @@ func TestPushLocation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 
@@ -231,7 +231,7 @@ func TestPushLocationNoPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 
@@ -262,7 +262,7 @@ func TestPushLocationNamedStack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 	testStack := "testStack"
@@ -296,7 +296,7 @@ func TestPopLocation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 
@@ -305,7 +305,7 @@ func TestPopLocation(t *testing.T) {
 	ss.PushLocationStack("default", original)
 
 	// Change to a different directory first
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 
 	// Pop location
 	resultPath, err := popLocation(PopLocationOptions{}, ss)
@@ -355,7 +355,7 @@ func TestPopLocationNamedStack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 	testStack := "testStack"
@@ -365,7 +365,7 @@ func TestPopLocationNamedStack(t *testing.T) {
 	ss.PushLocationStack("default", "/some/other/path")
 
 	tmpDir := t.TempDir()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 
 	// Pop from named stack
 	resultPath, err := popLocation(PopLocationOptions{StackName: testStack}, ss)
@@ -397,7 +397,7 @@ func TestPushPopSequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 
@@ -453,7 +453,7 @@ func TestPopLocationNonExistentDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	ss := createTestSessionState()
 
@@ -462,7 +462,7 @@ func TestPopLocationNonExistentDirectory(t *testing.T) {
 	ss.PushLocationStack("default", tmpDir)
 
 	// Remove the directory
-	os.RemoveAll(tmpDir)
+	_ = os.RemoveAll(tmpDir)
 
 	// Try to pop to the non-existent directory
 	_, err = popLocation(PopLocationOptions{}, ss)
@@ -477,7 +477,7 @@ func TestSessionIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(original)
+	defer func() { _ = os.Chdir(original) }()
 
 	// Create two separate session states
 	ss1 := createTestSessionState()

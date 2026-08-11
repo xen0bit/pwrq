@@ -75,7 +75,7 @@ func RegisterTee() gojq.CompilerOption {
 				}
 				return common.MakeUDFErrorResult(fmt.Errorf("tee: failed to open file %q: %v", filePath, err), meta)
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			_, err = file.Write(jsonBytes)
 			if err != nil {
@@ -97,8 +97,8 @@ func RegisterTee() gojq.CompilerOption {
 			}
 		} else {
 			// Write to stderr
-			os.Stderr.Write(jsonBytes)
-			os.Stderr.Write([]byte("\n"))
+			_, _ = os.Stderr.Write(jsonBytes)
+			_, _ = os.Stderr.Write([]byte("\n"))
 		}
 
 		// Pass the input through untouched, like tee(1). Reporting how many

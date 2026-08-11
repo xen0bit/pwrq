@@ -35,9 +35,10 @@ func parseMoveItemArgs(args []any) (MoveItemOptions, error) {
 
 		switch v := argVal.(type) {
 		case string:
-			if stringArgCount == 0 {
+			switch stringArgCount {
+			case 0:
 				opts.Path = v
-			} else if stringArgCount == 1 {
+			case 1:
 				opts.Destination = v
 			}
 			stringArgCount++
@@ -108,7 +109,7 @@ func moveItem(opts MoveItemOptions) (any, error) {
 	}
 
 	// If destination exists and is not a directory, and we're moving a directory, fail
-	if dstExists && dstInfo.IsDir() == false && srcInfo.IsDir() {
+	if dstExists && !dstInfo.IsDir() && srcInfo.IsDir() {
 		return nil, fmt.Errorf("cannot move directory to a file: %s", dstPath)
 	}
 
