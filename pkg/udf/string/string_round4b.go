@@ -111,24 +111,6 @@ func soundex(s string) string {
 	return string(out[:4])
 }
 
-// RegisterIsIsogram registers is_isogram, whether no letter repeats in a
-// string.
-func RegisterIsIsogram() gojq.CompilerOption {
-	return registerTextFn("is_isogram", func(s string) any {
-		seen := make(map[rune]bool)
-		for _, r := range strings.ToLower(s) {
-			if !unicode.IsLetter(r) {
-				continue
-			}
-			if seen[r] {
-				return false
-			}
-			seen[r] = true
-		}
-		return true
-	})
-}
-
 // RegisterCountVowels registers count_vowels, how many vowel letters a string
 // has.
 func RegisterCountVowels() gojq.CompilerOption {
@@ -175,32 +157,6 @@ func RegisterCapitalizeFirst() gojq.CompilerOption {
 			}
 		}
 		return s
-	})
-}
-
-// RegisterRegexGroups registers regex_groups, the capture-group strings of
-// every match as an array of arrays: regex_groups(s; pattern).
-func RegisterRegexGroups() gojq.CompilerOption {
-	return gojq.WithFunction("regex_groups", 1, 1, func(v any, args []any) any {
-		input, err := strFromPipeline(v, "regex_groups")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		re, err := compilePattern(args, "regex_groups")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		matches := re.FindAllStringSubmatch(input, -1)
-		out := make([]any, len(matches))
-		for i, m := range matches {
-			// Skip the whole match at index 0; only capture groups.
-			groups := make([]any, 0, len(m)-1)
-			for _, g := range m[1:] {
-				groups = append(groups, g)
-			}
-			out[i] = groups
-		}
-		return common.MakeUDFSuccessResult(out, nil)
 	})
 }
 

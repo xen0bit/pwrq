@@ -82,27 +82,6 @@ func RegisterMAD() gojq.CompilerOption {
 	})
 }
 
-// RegisterSpread registers spread, the difference between the largest and
-// smallest values (jq's range is a generator, so this uses its own name).
-func RegisterSpread() gojq.CompilerOption {
-	return gojq.WithFunction("spread", 0, 1, func(v any, args []any) any {
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("spread: %v", err), nil)
-		}
-		lo, hi := values[0], values[0]
-		for _, f := range values {
-			if f < lo {
-				lo = f
-			}
-			if f > hi {
-				hi = f
-			}
-		}
-		return common.MakeUDFSuccessResult(hi-lo, nil)
-	})
-}
-
 // RegisterMovingStdev registers moving_stdev, the rolling sample standard
 // deviation over a window of n values.
 func RegisterMovingStdev() gojq.CompilerOption {

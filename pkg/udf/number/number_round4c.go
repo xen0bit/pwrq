@@ -8,18 +8,6 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
-// RegisterToWords registers to_words, an integer as English words:
-// 1234 | to_words -> "one thousand two hundred thirty-four".
-func RegisterToWords() gojq.CompilerOption {
-	return gojq.WithFunction("to_words", 0, 1, func(v any, args []any) any {
-		n, err := intIn(v, args, "to_words")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		return common.MakeUDFSuccessResult(numberToWords(n), nil)
-	})
-}
-
 var (
 	smallWords = []string{"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
 		"ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
@@ -64,21 +52,6 @@ func numberToWords(n int64) string {
 		out = append(out, groups[i]+scale[i])
 	}
 	return strings.Join(out, " ")
-}
-
-// RegisterRomanNumeral registers roman_numeral, an integer in classical Roman
-// numerals (1-3999).
-func RegisterRomanNumeral() gojq.CompilerOption {
-	return gojq.WithFunction("roman_numeral", 0, 1, func(v any, args []any) any {
-		n, err := intIn(v, args, "roman_numeral")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		if n < 1 || n > 3999 {
-			return common.MakeUDFErrorResult(fmt.Errorf("roman_numeral: n must be 1-3999, got %d", n), nil)
-		}
-		return common.MakeUDFSuccessResult(toRoman(n), nil)
-	})
 }
 
 func toRoman(n int64) string {
@@ -195,28 +168,4 @@ func groupDigits(n int64) string {
 		b.WriteString(s[i : i+3])
 	}
 	return b.String()
-}
-
-// RegisterCollatzSteps registers collatz_steps, how many steps a number takes
-// to reach 1 by the Collatz rule (odd: 3n+1, even: n/2).
-func RegisterCollatzSteps() gojq.CompilerOption {
-	return gojq.WithFunction("collatz_steps", 0, 1, func(v any, args []any) any {
-		n, err := intIn(v, args, "collatz_steps")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		steps := 0
-		for n != 1 {
-			if n%2 == 0 {
-				n /= 2
-			} else {
-				n = 3*n + 1
-			}
-			steps++
-			if steps > 1_000_000 {
-				return common.MakeUDFErrorResult(fmt.Errorf("collatz_steps: did not converge"), nil)
-			}
-		}
-		return common.MakeUDFSuccessResult(steps, nil)
-	})
 }

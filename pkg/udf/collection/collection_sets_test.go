@@ -32,10 +32,6 @@ func TestSlicingAndCombining(t *testing.T) {
 		query string
 		want  string
 	}{
-		{`[1,2,3,4] | take(2)`, "[1 2]"},
-		{`[1,2,3,4] | take(9)`, "[1 2 3 4]"},
-		{`[1,2,3,4] | drop(2)`, "[3 4]"},
-		{`[1,2,3,4] | drop(9)`, "[]"},
 		{`[[1,2],[3,4]] | column(1)`, "[2 4]"},
 		{`[[1,2],[3]] | column(5)`, "[<nil> <nil>]"},
 		{`[{"name":"ada"},{"name":"bob"}] | lookup("name"; "bob").name`, "bob"},

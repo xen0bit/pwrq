@@ -302,24 +302,3 @@ func RegisterProduct() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(out, nil)
 	})
 }
-
-// RegisterMidrange registers midrange, the mean of the smallest and largest
-// values.
-func RegisterMidrange() gojq.CompilerOption {
-	return gojq.WithFunction("midrange", 0, 1, func(v any, args []any) any {
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("midrange: %v", err), nil)
-		}
-		lo, hi := values[0], values[0]
-		for _, f := range values {
-			if f < lo {
-				lo = f
-			}
-			if f > hi {
-				hi = f
-			}
-		}
-		return common.MakeUDFSuccessResult((lo+hi)/2, nil)
-	})
-}

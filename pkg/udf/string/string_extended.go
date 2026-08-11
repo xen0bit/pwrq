@@ -65,7 +65,7 @@ func RegisterTrim() gojq.CompilerOption {
 			meta["trimmed_length"] = len(result)
 		}
 
-  return common.MakeUDFSuccessResult(result, meta)
+		return common.MakeUDFSuccessResult(result, meta)
 	})
 }
 
@@ -205,7 +205,6 @@ func RegisterJoin() gojq.CompilerOption {
 			"count":     len(parts),
 		}
 
-  return common.MakeUDFSuccessResult(result, meta)
+		return common.MakeUDFSuccessResult(result, meta)
 	})
 }
-

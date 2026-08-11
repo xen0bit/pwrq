@@ -119,34 +119,3 @@ func RegisterSimpleInterest() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(principal*rate*years, nil)
 	})
 }
-
-// RegisterRuleOf72 registers rule_of_72, the years for a value to double at an
-// annual rate, by the rule-of-72 approximation.
-func RegisterRuleOf72() gojq.CompilerOption {
-	return gojq.WithFunction("rule_of_72", 1, 1, func(v any, args []any) any {
-		rate, err := numArg(args, 0, "rule_of_72")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		if rate <= 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("rule_of_72: rate must be positive"), nil)
-		}
-		return common.MakeUDFSuccessResult(72/(rate*100), nil)
-	})
-}
-
-// RegisterAnnualYield registers annual_yield, the effective annual rate when a
-// nominal annual rate is compounded compoundingPerYear times a year.
-func RegisterAnnualYield() gojq.CompilerOption {
-	return gojq.WithFunction("annual_yield", 2, 2, func(v any, args []any) any {
-		nominal, err1 := numArg(args, 0, "annual_yield")
-		perYear, err2 := numArg(args, 1, "annual_yield")
-		if err1 != nil || err2 != nil {
-			return common.MakeUDFErrorResult(firstErr(err1, err2), nil)
-		}
-		if perYear <= 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("annual_yield: compounding periods must be positive"), nil)
-		}
-		return common.MakeUDFSuccessResult(math.Pow(1+nominal/perYear, perYear)-1, nil)
-	})
-}

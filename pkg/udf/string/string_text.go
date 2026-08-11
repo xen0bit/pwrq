@@ -27,27 +27,6 @@ func registerTextFn(name string, fn func(string) any) gojq.CompilerOption {
 	})
 }
 
-// RegisterIsPalindrome registers is_palindrome, whether a string reads the
-// same forwards and backwards, ignoring case and non-letter characters.
-func RegisterIsPalindrome() gojq.CompilerOption {
-	return registerTextFn("is_palindrome", func(s string) any {
-		var cleaned strings.Builder
-		for _, r := range strings.ToLower(s) {
-			if unicode.IsLetter(r) || unicode.IsDigit(r) {
-				cleaned.WriteRune(r)
-			}
-		}
-		text := cleaned.String()
-		runes := []rune(text)
-		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-			if runes[i] != runes[j] {
-				return false
-			}
-		}
-		return true
-	})
-}
-
 // RegisterReverseWords registers reverse_words, the words of a string in
 // reverse order: "the quick brown" -> "brown quick the".
 func RegisterReverseWords() gojq.CompilerOption {
@@ -193,22 +172,6 @@ func RegisterCharFrequencies() gojq.CompilerOption {
 	})
 }
 
-// RegisterAnagram registers anagram, whether two strings use the same letters:
-// "listen" is an anagram of "silent".
-func RegisterAnagram() gojq.CompilerOption {
-	return gojq.WithFunction("anagram", 1, 2, func(v any, args []any) any {
-		other, ok := common.BindValue(args[len(args)-1]).(string)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("anagram: the other string must be a string, got %T", args[len(args)-1]), nil)
-		}
-		input, err := strFromPipeline(v, "anagram")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		return common.MakeUDFSuccessResult(sortString(input) == sortString(other), nil)
-	})
-}
-
 func sortString(s string) string {
 	runes := []rune(s)
 	sort.Slice(runes, func(i, j int) bool { return runes[i] < runes[j] })
@@ -219,27 +182,6 @@ func sortString(s string) string {
 // empty final line.
 func linesOf(s string) []string {
 	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
-}
-
-// RegisterFirstLine registers first_line, the first line of a string.
-func RegisterFirstLine() gojq.CompilerOption {
-	return registerTextFn("first_line", func(s string) any {
-		if s == "" {
-			return ""
-		}
-		return linesOf(s)[0]
-	})
-}
-
-// RegisterLastLine registers last_line, the last line of a string.
-func RegisterLastLine() gojq.CompilerOption {
-	return registerTextFn("last_line", func(s string) any {
-		if s == "" {
-			return ""
-		}
-		lines := linesOf(s)
-		return lines[len(lines)-1]
-	})
 }
 
 // RegisterReverseLines registers reverse_lines, the lines of a string reversed.

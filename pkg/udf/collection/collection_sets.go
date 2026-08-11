@@ -187,42 +187,6 @@ func RegisterContainsDuplicates() gojq.CompilerOption {
 	})
 }
 
-// RegisterTake registers take, the first n elements of an array.
-func RegisterTake() gojq.CompilerOption {
-	return gojq.WithFunction("take", 1, 2, func(v any, args []any) any {
-		arr, rest, err := arrInput(v, args, 1, "take")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		n, ok := common.ToInt(rest[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("take: count must be a non-negative integer, got %v", rest[0]), nil)
-		}
-		if n > len(arr) {
-			n = len(arr)
-		}
-		return common.MakeUDFSuccessResult(append([]any{}, arr[:n]...), nil)
-	})
-}
-
-// RegisterDrop registers drop, an array without its first n elements.
-func RegisterDrop() gojq.CompilerOption {
-	return gojq.WithFunction("drop", 1, 2, func(v any, args []any) any {
-		arr, rest, err := arrInput(v, args, 1, "drop")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		n, ok := common.ToInt(rest[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("drop: count must be a non-negative integer, got %v", rest[0]), nil)
-		}
-		if n > len(arr) {
-			n = len(arr)
-		}
-		return common.MakeUDFSuccessResult(append([]any{}, arr[n:]...), nil)
-	})
-}
-
 // RegisterCartesian registers cartesian, the array of [a, b] pairs from two
 // arrays.
 func RegisterCartesian() gojq.CompilerOption {

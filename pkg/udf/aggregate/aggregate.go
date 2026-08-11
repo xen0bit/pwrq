@@ -28,7 +28,6 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterUnpivot(),
 		RegisterTopBy(),
 		RegisterBottomBy(),
-		RegisterDistinctCount(),
 	}
 }
 
@@ -550,17 +549,4 @@ func rankedBy(fn string, v any, args []any, ascending bool) any {
 		out[i] = scoredList[i].row
 	}
 	return common.MakeUDFSuccessResult(out, nil)
-}
-
-// RegisterDistinctCount registers distinct_count, how many distinct values an
-// array holds.
-func RegisterDistinctCount() gojq.CompilerOption {
-	return gojq.WithFunction("distinct_count", 0, 1, func(v any, args []any) any {
-		arr, _ := rowsInput(v, args, 0)
-		seen := make(map[string]bool, len(arr))
-		for _, item := range arr {
-			seen[keyString(common.BindValue(item))] = true
-		}
-		return common.MakeUDFSuccessResult(len(seen), nil)
-	})
 }

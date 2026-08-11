@@ -148,28 +148,3 @@ func RegisterIndent() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(strings.Join(lines, "\n"), nil)
 	})
 }
-
-// RegisterPluralize registers pluralize, an integer with a pluralized noun:
-// 2 | pluralize("item") is "2 items".
-func RegisterPluralize() gojq.CompilerOption {
-	return gojq.WithFunction("pluralize", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(v)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("pluralize: expected a number, got %T", v), nil)
-		}
-		singular, ok := common.BindValue(args[0]).(string)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("pluralize: noun must be a string, got %T", args[0]), nil)
-		}
-		if n == 1 {
-			return common.MakeUDFSuccessResult(fmt.Sprintf("1 %s", singular), nil)
-		}
-		plural := singular + "s"
-		if len(args) > 1 {
-			if p, ok := common.BindValue(args[1]).(string); ok && p != "" {
-				plural = p
-			}
-		}
-		return common.MakeUDFSuccessResult(fmt.Sprintf("%d %s", n, plural), nil)
-	})
-}

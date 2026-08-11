@@ -150,23 +150,3 @@ func RegisterIsBalanced() gojq.CompilerOption {
 		return len(stack) == 0
 	})
 }
-
-// RegisterRegexLastMatch registers regex_last_match, the final match of a
-// pattern in a string, or null.
-func RegisterRegexLastMatch() gojq.CompilerOption {
-	return gojq.WithFunction("regex_last_match", 1, 1, func(v any, args []any) any {
-		input, err := strFromPipeline(v, "regex_last_match")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		re, err := compilePattern(args, "regex_last_match")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		all := re.FindAllString(input, -1)
-		if len(all) == 0 {
-			return common.MakeUDFSuccessResult(nil, nil)
-		}
-		return common.MakeUDFSuccessResult(all[len(all)-1], nil)
-	})
-}

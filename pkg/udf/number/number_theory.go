@@ -38,19 +38,6 @@ func RegisterSign() gojq.CompilerOption {
 	})
 }
 
-// RegisterIsPerfectSquare registers is_perfect_square, whether an integer is a
-// perfect square.
-func RegisterIsPerfectSquare() gojq.CompilerOption {
-	return gojq.WithFunction("is_perfect_square", 0, 1, func(v any, args []any) any {
-		n, err := intIn(v, args, "is_perfect_square")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		root := integerSqrt(n)
-		return common.MakeUDFSuccessResult(root*root == n, nil)
-	})
-}
-
 // integerSqrt returns the floor of the square root, via Newton's method.
 func integerSqrt(n int64) int64 {
 	if n < 2 {
@@ -63,22 +50,6 @@ func integerSqrt(n int64) int64 {
 		y = (x + n/x) / 2
 	}
 	return x
-}
-
-// RegisterIsCoprime registers is_coprime, whether two integers share no prime
-// factor.
-func RegisterIsCoprime() gojq.CompilerOption {
-	return gojq.WithFunction("is_coprime", 1, 1, func(v any, args []any) any {
-		a, err := intIn(v, nil, "is_coprime")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		b, err := intIn(args[0], nil, "is_coprime")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		return common.MakeUDFSuccessResult(gcd64(a, b) == 1, nil)
-	})
 }
 
 func gcd64(a, b int64) int64 {
@@ -145,31 +116,6 @@ func RegisterPrimeFactors() gojq.CompilerOption {
 	})
 }
 
-// RegisterProperDivisors registers proper_divisors, the positive divisors of an
-// integer below itself: 12 -> [1, 2, 3, 4, 6].
-func RegisterProperDivisors() gojq.CompilerOption {
-	return gojq.WithFunction("proper_divisors", 0, 1, func(v any, args []any) any {
-		n, err := intIn(v, args, "proper_divisors")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		if n < 2 {
-			return common.MakeUDFSuccessResult([]any{}, nil)
-		}
-		out := []any{int64(1)}
-		for d := int64(2); d*d <= n; d++ {
-			if n%d == 0 {
-				out = append(out, d)
-				if d != n/d {
-					out = append(out, n/d)
-				}
-			}
-		}
-		sortInts(out)
-		return common.MakeUDFSuccessResult(out, nil)
-	})
-}
-
 func sortInts(arr []any) {
 	for i := 1; i < len(arr); i++ {
 		for j := i; j > 0; j-- {
@@ -181,53 +127,4 @@ func sortInts(arr []any) {
 			arr[j], arr[j-1] = arr[j-1], arr[j]
 		}
 	}
-}
-
-// RegisterIsPerfectNumber registers is_perfect_number, whether an integer
-// equals the sum of its proper divisors (6 = 1+2+3).
-func RegisterIsPerfectNumber() gojq.CompilerOption {
-	return gojq.WithFunction("is_perfect_number", 0, 1, func(v any, args []any) any {
-		n, err := intIn(v, args, "is_perfect_number")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		if n < 2 {
-			return common.MakeUDFSuccessResult(false, nil)
-		}
-		sum := int64(1)
-		for d := int64(2); d*d <= n; d++ {
-			if n%d == 0 {
-				sum += d
-				if d != n/d {
-					sum += n / d
-				}
-			}
-		}
-		return common.MakeUDFSuccessResult(sum == n, nil)
-	})
-}
-
-// RegisterEulerTotient registers euler_totient, how many integers below n are
-// coprime to n.
-func RegisterEulerTotient() gojq.CompilerOption {
-	return gojq.WithFunction("euler_totient", 0, 1, func(v any, args []any) any {
-		n, err := intIn(v, args, "euler_totient")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		result := n
-		remaining := n
-		for p := int64(2); p*p <= remaining; p++ {
-			if remaining%p == 0 {
-				for remaining%p == 0 {
-					remaining /= p
-				}
-				result -= result / p
-			}
-		}
-		if remaining > 1 {
-			result -= result / remaining
-		}
-		return common.MakeUDFSuccessResult(result, nil)
-	})
 }

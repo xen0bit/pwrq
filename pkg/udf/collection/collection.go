@@ -18,7 +18,6 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterChunks(),
 		RegisterDedupe(),
 		RegisterDeepMerge(),
-		RegisterCompact(),
 		RegisterPrune(),
 		RegisterFlattenKeys(),
 		RegisterUnflattenKeys(),
@@ -33,18 +32,12 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterSymmetricDifference(),
 		RegisterAllEqual(),
 		RegisterContainsDuplicates(),
-		RegisterTake(),
-		RegisterDrop(),
 		RegisterCartesian(),
 		RegisterColumn(),
 		RegisterLookup(),
 		RegisterNaturalSort(),
 		RegisterRenameKeys(),
-		RegisterInvertObject(),
-		RegisterPluck(),
 		RegisterWindows(),
-		RegisterPairs(),
-		RegisterIsSubset(),
 	}
 }
 
@@ -146,24 +139,6 @@ func isEmpty(v any) bool {
 		return !val
 	}
 	return false
-}
-
-// RegisterCompact registers compact, dropping null, empty and false values
-// from an array (one level deep).
-func RegisterCompact() gojq.CompilerOption {
-	return gojq.WithFunction("compact", 0, 1, func(v any, args []any) any {
-		arr, _, err := arrInput(v, args, 0, "compact")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		out := make([]any, 0, len(arr))
-		for _, item := range arr {
-			if !isEmpty(common.BindValue(item)) {
-				out = append(out, item)
-			}
-		}
-		return common.MakeUDFSuccessResult(out, nil)
-	})
 }
 
 // RegisterPrune registers prune, recursively removing empty values from

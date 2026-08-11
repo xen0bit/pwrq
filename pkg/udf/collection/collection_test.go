@@ -54,10 +54,7 @@ func TestDeepMerge(t *testing.T) {
 	}
 }
 
-func TestCompactPrune(t *testing.T) {
-	if got := run(t, `[1, null, "", [], false, 0, "x"] | compact`); fmt.Sprint(got) != "[1 0 x]" {
-		t.Errorf("compact = %v", got)
-	}
+func TestPrune(t *testing.T) {
 	got := run(t, `{a: 1, b: null, c: {d: "", e: 0}, f: [null, 2]} | prune`)
 	if fmt.Sprint(got) != "map[a:1 c:map[e:0] f:[2]]" {
 		t.Errorf("prune = %v", got)

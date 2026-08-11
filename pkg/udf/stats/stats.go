@@ -48,11 +48,9 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterStandardize(),
 		RegisterRMS(),
 		RegisterProduct(),
-		RegisterMidrange(),
 		RegisterAutocorrelation(),
 		RegisterIQR(),
 		RegisterMAD(),
-		RegisterSpread(),
 		RegisterMovingStdev(),
 		RegisterPercentileRank(),
 	}

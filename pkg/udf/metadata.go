@@ -44,9 +44,6 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"deflate_decompress", 0, 2, "Decompress deflate (optional file arg)", "Compression", []string{`deflate_decompress`, `deflate_decompress(true)`}},
 
 		// String operations
-		{"upper", 0, 2, "Convert to uppercase (optional file arg)", "String", []string{`upper`, `upper(true)`}},
-		{"lower", 0, 2, "Convert to lowercase (optional file arg)", "String", []string{`lower`, `lower(true)`}},
-		{"reverse_string", 0, 2, "Reverse string (optional file arg)", "String", []string{`reverse_string`, `reverse_string(true)`}},
 		{"replace", 2, 4, "Replace substring (old, new, [input], [file])", "String", []string{`replace("old"; "new")`, `replace("old"; "new"; "text")`}},
 
 		// Hash functions
@@ -255,7 +252,6 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"chunks", 1, 2, "Split an array into chunks of at most n (n)", "Collections", []string{`[1,2,3,4,5] | chunks(2)`}},
 		{"dedupe", 0, 1, "Remove duplicate values keeping first-occurrence order", "Collections", []string{`[3,1,2,1] | dedupe`}},
 		{"deep_merge", 1, 2, "Recursively merge two objects, the second winning", "Collections", []string{`deep_merge({a: {x: 1}}; {a: {y: 2}})`}},
-		{"compact", 0, 1, "Drop null, empty and false values from an array", "Collections", []string{`[1, null, "", false, 0] | compact`}},
 		{"prune", 0, 1, "Recursively remove empty values from objects and arrays", "Collections", []string{`{a: 1, b: null, c: {d: ""}} | prune`}},
 		{"flatten_keys", 0, 1, "Turn a nested object into flat dot-and-bracket keys", "Collections", []string{`{a: {b: 1}} | flatten_keys`}},
 		{"unflatten_keys", 0, 1, "The inverse of flatten_keys", "Collections", []string{`{"a.b": 1} | unflatten_keys`}},
@@ -326,7 +322,6 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"template", 1, 1, "Replace {{key}} placeholders with object values (vars)", "String", []string{`"hello {{name}}" | template({name: "ada"})`}},
 		{"wrap_text", 1, 2, "Word-wrap a string to a width, as lines (width)", "String", []string{`"the quick brown fox" | wrap_text(10)`}},
 		{"indent", 1, 2, "Prefix every line with n spaces (width)", "String", []string{`"a\\nb" | indent(2)`}},
-		{"pluralize", 1, 2, "A count with a pluralized noun (noun, [plural])", "String", []string{`3 | pluralize("item")`, `2 | pluralize("goose"; "geese")`}},
 
 		// Statistics tools
 		{"moving_average", 1, 2, "Rolling mean over a window of n (window)", "Statistics", []string{`[1,2,3,4,5] | moving_average(3)`}},
@@ -359,6 +354,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		// Similarity tools
 		{"similarity_percent", 2, 2, "1 minus normalized Levenshtein distance", "Similarity", []string{`similarity_percent("kitten"; "sitting")`}},
 		{"n_grams", 1, 2, "The n-character substrings of a string (n)", "Similarity", []string{`"hello" | n_grams(2)`}},
+		{"soundex", 0, 2, "The four-character Soundex code of a word, for matching names that sound alike", "Similarity", []string{`"Robert" | soundex`}},
 		{"jaro_winkler", 2, 2, "Jaro-Winkler similarity, favoring shared prefixes", "Similarity", []string{`jaro_winkler("MARTHA"; "MARHTA")`}},
 
 		// Validation tools
@@ -444,31 +440,9 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"unpivot", 1, 2, "Melt value columns into {key, value} rows: {cols, [id]}", "Collections", []string{`[{"dept":"eng","y2020":10}] | unpivot({cols: ["y2020"], id: "dept"})`}},
 		{"top_by", 1, 3, "The n rows with the largest value of a numeric property", "Collections", []string{`[{"d":"a","s":1},{"d":"b","s":9}] | top_by("s"; 1)`}},
 		{"bottom_by", 1, 3, "The n rows with the smallest value of a numeric property", "Collections", []string{`[{"d":"a","s":1},{"d":"b","s":9}] | bottom_by("s"; 1)`}},
-		{"distinct_count", 0, 1, "How many distinct values an array holds", "Collections", []string{`[1,2,1,3] | distinct_count`}},
 
 		// Units (fourth round)
-		{"c_to_f", 0, 1, "Celsius to Fahrenheit", "Domain", []string{`100 | c_to_f`}},
-		{"f_to_c", 0, 1, "Fahrenheit to Celsius", "Domain", []string{`212 | f_to_c`}},
-		{"c_to_k", 0, 1, "Celsius to Kelvin", "Domain", []string{`0 | c_to_k`}},
-		{"k_to_c", 0, 1, "Kelvin to Celsius", "Domain", []string{`273.15 | k_to_c`}},
-		{"f_to_k", 0, 1, "Fahrenheit to Kelvin", "Domain", []string{`32 | f_to_k`}},
-		{"k_to_f", 0, 1, "Kelvin to Fahrenheit", "Domain", []string{`300 | k_to_f`}},
-		{"km_to_mi", 0, 1, "Kilometres to miles", "Domain", []string{`1 | km_to_mi`}},
-		{"mi_to_km", 0, 1, "Miles to kilometres", "Domain", []string{`1 | mi_to_km`}},
-		{"m_to_ft", 0, 1, "Metres to feet", "Domain", []string{`1 | m_to_ft`}},
-		{"ft_to_m", 0, 1, "Feet to metres", "Domain", []string{`1 | ft_to_m`}},
-		{"cm_to_in", 0, 1, "Centimetres to inches", "Domain", []string{`1 | cm_to_in`}},
-		{"in_to_cm", 0, 1, "Inches to centimetres", "Domain", []string{`1 | in_to_cm`}},
-		{"kg_to_lb", 0, 1, "Kilograms to pounds", "Domain", []string{`1 | kg_to_lb`}},
-		{"lb_to_kg", 0, 1, "Pounds to kilograms", "Domain", []string{`1 | lb_to_kg`}},
-		{"g_to_oz", 0, 1, "Grams to ounces", "Domain", []string{`1 | g_to_oz`}},
-		{"oz_to_g", 0, 1, "Ounces to grams", "Domain", []string{`1 | oz_to_g`}},
-		{"l_to_gal", 0, 1, "Litres to US gallons", "Domain", []string{`1 | l_to_gal`}},
-		{"gal_to_l", 0, 1, "US gallons to litres", "Domain", []string{`1 | gal_to_l`}},
-		{"mph_to_kph", 0, 1, "Miles per hour to kilometres per hour", "Domain", []string{`1 | mph_to_kph`}},
-		{"kph_to_mph", 0, 1, "Kilometres per hour to miles per hour", "Domain", []string{`1 | kph_to_mph`}},
-		{"mpg_to_l100km", 0, 1, "US mpg to litres per 100 km", "Domain", []string{`30 | mpg_to_l100km`}},
-		{"l100km_to_mpg", 0, 1, "Litres per 100 km to US mpg", "Domain", []string{`7.8 | l100km_to_mpg`}},
+		{"convert_unit", 2, 3, "Convert a number between two units of the same quantity (from, to)", "Domain", []string{`20 | convert_unit("C"; "F")`, `convert_unit(5; "mi"; "km")`, `90 | convert_unit("min"; "h")`}},
 		{"parse_size", 0, 1, "A size string like 1.5 MiB to its byte count (binary units)", "Domain", []string{`"1.5 MiB" | parse_size`}},
 
 		// Geo (fourth round)
@@ -487,8 +461,6 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"monthly_payment", 3, 3, "Fixed monthly payment amortizing a loan (principal, annualRate, months)", "Domain", []string{`monthly_payment(10000; 0.06; 36)`}},
 		{"compound_interest", 3, 3, "Interest earned over periods at a rate (principal, rate, periods)", "Domain", []string{`compound_interest(100; 0.1; 10)`}},
 		{"simple_interest", 3, 3, "Interest on the principal only (principal, rate, years)", "Domain", []string{`simple_interest(100; 0.1; 3)`}},
-		{"rule_of_72", 1, 1, "Years to double at an annual rate, by the rule of 72", "Domain", []string{`rule_of_72(0.08)`}},
-		{"annual_yield", 2, 2, "Effective annual rate from a nominal rate and compounding periods", "Domain", []string{`annual_yield(0.06; 12)`}},
 
 		// Time series and relations (fourth round)
 		{"cumsum", 0, 1, "The running total of an array", "Statistics", []string{`[1,2,3] | cumsum`}},
@@ -511,17 +483,10 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"standardize", 0, 1, "Each value as its z-score", "Statistics", []string{`[1,2,3] | standardize`}},
 		{"rms", 0, 1, "Root mean square of an array", "Statistics", []string{`[1,2,3,4] | rms`}},
 		{"product", 0, 1, "The product of an array's numbers", "Statistics", []string{`[1,2,3] | product`}},
-		{"midrange", 0, 1, "The mean of the smallest and largest values", "Statistics", []string{`[1,2,10] | midrange`}},
 
 		// Regex (fourth round)
-		{"regex_find_all", 1, 2, "Every non-overlapping match of a pattern, as an array (pattern, [limit])", "String", []string{`"a1 b22" | regex_find_all("[0-9]+")`}},
-		{"regex_extract_first", 1, 2, "The first match, or a capture group (pattern, [group])", "String", []string{`"user=42" | regex_extract_first("user=(\\d+)"; 1)`}},
-		{"regex_replace_first", 2, 2, "Replace the first match of a pattern (pattern, replacement)", "String", []string{`"foo-1 foo-2" | regex_replace_first("foo-([0-9]+)"; "bar-$1")`}},
-		{"regex_split", 1, 1, "Split a string on every match of a regex", "String", []string{`"a,b;c" | regex_split("[,;]")`}},
-		{"regex_count", 1, 1, "How many non-overlapping matches a pattern has", "String", []string{`"aa bb aa" | regex_count("aa")`}},
 
 		// Text tools (fourth round)
-		{"is_palindrome", 0, 2, "Whether a string reads the same forwards and backwards", "String", []string{`"A man a plan a canal panama" | is_palindrome`}},
 		{"reverse_words", 0, 2, "The words of a string in reverse order", "String", []string{`"the quick brown" | reverse_words`}},
 		{"truncate_words", 1, 2, "A string cut to at most n words (n)", "String", []string{`"the quick brown" | truncate_words(2)`}},
 		{"remove_accents", 0, 2, "Diacritics stripped from a string", "String", []string{`"café" | remove_accents`}},
@@ -530,9 +495,6 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"dedent", 0, 2, "Common leading whitespace removed from every line", "String", []string{`"  a\n    b" | dedent`}},
 		{"swap_case", 0, 2, "Uppercase and lowercase letters exchanged", "String", []string{`"HeLLo" | swap_case`}},
 		{"char_frequencies", 0, 2, "How often each character appears, as {char: count}", "String", []string{`"aab" | char_frequencies`}},
-		{"anagram", 1, 2, "Whether two strings use the same letters", "String", []string{`"listen" | anagram("silent")`}},
-		{"first_line", 0, 2, "The first line of a string", "String", []string{`"a\nb" | first_line`}},
-		{"last_line", 0, 2, "The last line of a string", "String", []string{`"a\nb" | last_line`}},
 		{"reverse_lines", 0, 2, "The lines of a string reversed", "String", []string{`"a\nb\nc" | reverse_lines`}},
 		{"unique_lines", 0, 2, "Duplicate lines removed keeping first-occurrence order", "String", []string{`"b\na\nb" | unique_lines`}},
 		{"sort_lines", 0, 2, "The lines of a string sorted", "String", []string{`"b\na\nc" | sort_lines`}},
@@ -568,8 +530,6 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"symmetric_difference", 1, 2, "The elements in exactly one of two arrays", "Collections", []string{`[1,2] | symmetric_difference([2,3])`}},
 		{"all_equal", 0, 1, "Whether every element of an array is the same value", "Collections", []string{`[1,1,1] | all_equal`}},
 		{"contains_duplicates", 0, 1, "Whether any value appears more than once", "Collections", []string{`[1,2,1] | contains_duplicates`}},
-		{"take", 1, 2, "The first n elements of an array (n)", "Collections", []string{`[1,2,3,4] | take(2)`}},
-		{"drop", 1, 2, "An array without its first n elements (n)", "Collections", []string{`[1,2,3,4] | drop(2)`}},
 		{"cartesian", 1, 2, "The array of [a, b] pairs from two arrays", "Collections", []string{`cartesian([1,2]; ["a","b"])`}},
 		{"column", 1, 2, "The nth element of every row (n)", "Collections", []string{`[[1,2],[3,4]] | column(1)`}},
 		{"lookup", 2, 3, "The first row whose property equals a value (key, value)", "Collections", []string{`[{"name":"ada"}] | lookup("name"; "ada")`}},
@@ -577,13 +537,8 @@ func GetFunctionMetadata() []FunctionMetadata {
 
 		// Number theory (fourth round)
 		{"sign", 0, 1, "-1, 0 or 1 for a number", "Numbers", []string{`-5 | sign`}},
-		{"is_perfect_square", 0, 1, "Whether an integer is a perfect square", "Numbers", []string{`16 | is_perfect_square`}},
-		{"is_coprime", 1, 1, "Whether two integers share no prime factor", "Numbers", []string{`8 | is_coprime(15)`}},
 		{"next_prime", 0, 1, "The smallest prime at least n", "Numbers", []string{`14 | next_prime`}},
 		{"prime_factors", 0, 1, "The prime factors of an integer with multiplicity", "Numbers", []string{`60 | prime_factors`}},
-		{"proper_divisors", 0, 1, "The positive divisors below an integer", "Numbers", []string{`12 | proper_divisors`}},
-		{"is_perfect_number", 0, 1, "Whether an integer equals the sum of its proper divisors", "Numbers", []string{`28 | is_perfect_number`}},
-		{"euler_totient", 0, 1, "How many integers below n are coprime to n", "Numbers", []string{`10 | euler_totient`}},
 
 		// Config formats (fourth round, part two)
 		{"ini_parse", 0, 1, "An INI document to an object of sections", "Config", []string{`"[server]\nhost=10.0.0.1" | ini_parse`}},
@@ -597,26 +552,20 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"before_first", 1, 1, "The part of a string before the first separator (sep)", "String", []string{`"user@example.com" | before_first("@")`}},
 		{"after_first", 1, 1, "The part of a string after the first separator (sep)", "String", []string{`"user@example.com" | after_first("@")`}},
 		{"surround", 2, 2, "A string wrapped in a prefix and suffix", "String", []string{`"x" | surround("[ "; " ]")`}},
-		{"soundex", 0, 2, "The four-character Soundex code of a word", "String", []string{`"Robert" | soundex`}},
-		{"is_isogram", 0, 2, "Whether no letter repeats in a string", "String", []string{`"abcde" | is_isogram`}},
 		{"count_vowels", 0, 2, "How many vowel letters a string has", "String", []string{`"hello" | count_vowels`}},
 		{"count_consonants", 0, 2, "How many consonant letters a string has", "String", []string{`"hello" | count_consonants`}},
 		{"capitalize_first", 0, 2, "The first letter uppercased, the rest untouched", "String", []string{`"hELLO" | capitalize_first`}},
-		{"regex_groups", 1, 1, "The capture groups of every match as an array of arrays", "String", []string{`"a=1 b=2" | regex_groups("(\\w+)=(\\d+)")`}},
 		{"unicode_escape", 0, 2, "Non-ASCII and control characters as \\uXXXX", "String", []string{`"héllo" | unicode_escape`}},
 		{"unicode_unescape", 0, 2, "\\uXXXX escapes rendered back into characters", "String", []string{`"h\\u00e9llo" | unicode_unescape`}},
 		{"diff_lines", 1, 2, "Which lines are in only one of two texts: {added, removed}", "String", []string{`"a\nb" | diff_lines("b\nc")`}},
 
 		// Object helpers (fourth round, part two)
 		{"rename_keys", 1, 2, "An object's keys renamed by a {old: new} mapping", "Collections", []string{`{"a":1} | rename_keys({"a": "x"})`}},
-		{"invert_object", 0, 1, "An object with its keys and scalar values swapped", "Collections", []string{`{"1": "a"} | invert_object`}},
-		{"pluck", 1, 2, "A property's value from every row of an array of objects", "Collections", []string{`[{"n":"ada"},{"n":"bob"}] | pluck("n")`}},
 
 		// Statistics extras (fourth round, part two)
 		{"autocorrelation", 0, 2, "Correlation of an array with itself lag steps back", "Statistics", []string{`[1,2,3,4,5] | autocorrelation`, `[1,2,3,4,5] | autocorrelation(2)`}},
 		{"iqr", 0, 1, "The interquartile range (q3 - q1)", "Statistics", []string{`[1,2,3,4,5,6,7,8] | iqr`}},
 		{"mad", 0, 1, "Median absolute deviation", "Statistics", []string{`[1,2,3,4,5] | mad`}},
-		{"spread", 0, 1, "The difference between the largest and smallest values", "Statistics", []string{`[3,1,9] | spread`}},
 		{"moving_stdev", 1, 2, "The rolling sample standard deviation over a window of n", "Statistics", []string{`[1,2,3,4,5] | moving_stdev(2)`}},
 
 		// Duration extras (fourth round, part two)
@@ -639,20 +588,14 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"first_lines", 1, 1, "The first n lines of a string (n)", "String", []string{`"a\nb\nc" | first_lines(2)`}},
 		{"last_lines", 1, 1, "The last n lines of a string (n)", "String", []string{`"a\nb\nc" | last_lines(2)`}},
 		{"is_balanced", 0, 2, "Whether () [] {} nest without mismatching", "String", []string{`"(a[b])" | is_balanced`}},
-		{"regex_last_match", 1, 1, "The final match of a pattern, or null", "String", []string{`"a1 b2" | regex_last_match("[0-9]+")`}},
 		{"tsv_parse", 0, 1, "A tab-separated document to an array of rows", "CSV", []string{`"a\tb\n1\t2" | tsv_parse`}},
 		{"tsv_stringify", 0, 1, "An array of rows to a tab-separated document", "CSV", []string{`[["a","b"],["1","2"]] | tsv_stringify`}},
 		{"windows", 1, 2, "The rolling n-element windows of an array (n)", "Collections", []string{`[1,2,3,4] | windows(3)`}},
-		{"pairs", 0, 1, "The adjacent pairs of an array", "Collections", []string{`[1,2,3] | pairs`}},
-		{"is_subset", 1, 2, "Whether every element of one array is in another", "Collections", []string{`[1,2] | is_subset([1,2,3])`}},
 		{"set_path", 2, 3, "The document with a value written at a dot-and-bracket path", "JSON", []string{`{a: 1} | set_path("a"; 2)`, `{a: {b: [1,2]}} | set_path("a.b[1]"; 9)`}},
 		{"has_path", 1, 2, "Whether a dot-and-bracket path exists in a document", "JSON", []string{`{a: 1} | has_path("a")`}},
 		{"del_path", 1, 2, "The document with a value removed at a dot-and-bracket path", "JSON", []string{`{a: {b: 1, c: 2}} | del_path("a.b")`}},
-		{"to_words", 0, 1, "An integer as English words", "Numbers", []string{`1234 | to_words`}},
-		{"roman_numeral", 0, 1, "An integer (1-3999) in Roman numerals", "Numbers", []string{`2026 | roman_numeral`}},
 		{"group_digits", 0, 1, "An integer with thousands separators", "Numbers", []string{`1234567 | group_digits`}},
 		{"format_currency", 0, 1, "A number as a currency string (symbol)", "Numbers", []string{`1234.5 | format_currency`, `1234.5 | format_currency("€")`}},
-		{"collatz_steps", 0, 1, "How many Collatz steps to reach 1", "Numbers", []string{`6 | collatz_steps`}},
 		{"is_numeric", 0, 2, "Whether a string parses as a number", "Validation", []string{`"-1.5e3" | is_numeric`}},
 		{"percentile_rank", 1, 2, "The percentage of an array's values at or below a value", "Statistics", []string{`[1,2,3,4,5] | percentile_rank(3)`}},
 		{"net_present_value", 2, 2, "Present value of cash flows at a rate (flows, rate)", "Domain", []string{`net_present_value([-100, 50, 60]; 0.1)`}},

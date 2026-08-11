@@ -42,20 +42,12 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterHammingWeight(),
 		// Number theory
 		RegisterSign(),
-		RegisterIsPerfectSquare(),
-		RegisterIsCoprime(),
 		RegisterNextPrime(),
 		RegisterPrimeFactors(),
-		RegisterProperDivisors(),
-		RegisterIsPerfectNumber(),
-		RegisterEulerTotient(),
 		RegisterToFixed(),
 		RegisterIsPowerOfTwo(),
-		RegisterToWords(),
-		RegisterRomanNumeral(),
 		RegisterGroupDigits(),
 		RegisterFormatCurrency(),
-		RegisterCollatzSteps(),
 	}
 }
 

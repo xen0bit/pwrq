@@ -102,7 +102,7 @@ func RegisterJSONStringify() gojq.CompilerOption {
 		result := string(jsonBytes)
 
 		meta := map[string]any{
-			"operation": "json_stringify",
+			"operation":     "json_stringify",
 			"output_length": len(result),
 		}
 
@@ -117,7 +117,6 @@ func RegisterJSONStringify() gojq.CompilerOption {
 			}
 		}
 
-  return common.MakeUDFSuccessResult(result, meta)
+		return common.MakeUDFSuccessResult(result, meta)
 	})
 }
-
