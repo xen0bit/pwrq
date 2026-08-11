@@ -19,6 +19,11 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"mkdir", 1, 1, "Create a directory (creates parent directories if needed)", "File Operations", []string{`mkdir("/tmp/mydir")`, `mkdir("nested/path/to/dir")`}},
 		{"rm", 2, 2, "Remove a file or folder (path, type: 'file' or 'folder')", "File Operations", []string{`rm("/tmp/file.txt"; "file")`, `rm("/tmp/mydir"; "folder")`}},
 
+		// Archives
+		{"read_archive", 0, 1, "One object per entry in a .zip or .tar archive, without extracting", "Archives", []string{`read_archive("release.zip")`, `"backup.tar.gz" | read_archive | map(.Name)`}},
+		{"expand_archive", 1, 2, "Extract an archive into a directory, returning the paths written (destination)", "Archives", []string{`expand_archive("release.zip"; "./out")`, `"backup.tar.gz" | expand_archive("./restore")`}},
+		{"compress_archive", 1, 2, "Build a .zip, .tar or .tar.gz from a path or list of paths (destination)", "Archives", []string{`compress_archive("src"; "src.zip")`, `["a.txt","b.txt"] | compress_archive("pair.tar.gz")`}},
+
 		// Encoding/Decoding
 		{"base64_encode", 0, 2, "Encode to base64 (optional file arg)", "Encoding", []string{`base64_encode`, `base64_encode(true)`}},
 		{"base64_decode", 0, 2, "Decode from base64 (optional file arg)", "Encoding", []string{`base64_decode`, `base64_decode(true)`}},
@@ -195,6 +200,11 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"rot13", 0, 2, "ROT-13 over ASCII letters", "IDs & Tokens", []string{`"hello" | rot13`}},
 		{"rot", 1, 2, "A Caesar cipher with a shift (shift)", "IDs & Tokens", []string{`"hello" | rot(1)`}},
 
+		{"to_timezone", 1, 2, "The same instant in another IANA time zone, with its offset (zone)", "Duration", []string{`"2026-08-11T12:00:00Z" | to_timezone("Europe/London")`, `to_timezone(1770000000; "Asia/Tokyo")`}},
+		{"format_date", 1, 3, "Write an instant in a layout, optionally in a zone (layout, [zone])", "Duration", []string{`"2026-08-11T12:00:00Z" | format_date("date")`, `format_date(1770000000; "rfc1123"; "UTC")`}},
+		{"parse_date", 1, 3, "Read a date string with an explicit layout (layout, [zone])", "Duration", []string{`"11/08/2026" | parse_date("02/01/2006")`, `parse_date("2026-08-11 09:30:00"; "datetime"; "Europe/Berlin")`}},
+		{"list_timezones", 0, 1, "The IANA zone names this build can resolve, filtered by a substring", "Duration", []string{`list_timezones("Europe")`, `"Tokyo" | list_timezones`}},
+
 		// Validation and extraction
 		{"is_email", 0, 2, "Whether a string looks like an email", "Validation", []string{`"ada@example.com" | is_email`}},
 		{"is_url", 0, 2, "Whether a string is an http(s) URL", "Validation", []string{`"https://example.com/x" | is_url`}},
@@ -230,6 +240,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"head", 0, 2, "The first n lines of a file (path, [n])", "File Operations", []string{`head("app.log")`, `head("app.log"; 5)`}},
 		{"tail", 0, 2, "The last n lines of a file (path, [n])", "File Operations", []string{`tail("app.log"; 5)`}},
 		{"grep_lines", 1, 2, "The lines of a file matching a pattern (path, pattern)", "File Operations", []string{`grep_lines("app.log"; "error")`}},
+		{"select_string", 1, 3, "Matching lines across a file or tree, with path, line number and context (pattern, [options])", "File Operations", []string{`select_string("src"; "TODO")`, `select_string("src"; "panic"; {Include: "*.go", Context: 2})`}},
 		{"wc_lines", 0, 1, "The number of lines in a file", "File Operations", []string{`wc_lines("app.log")`}},
 
 		// Text predicates and inspection
@@ -373,6 +384,8 @@ func GetFunctionMetadata() []FunctionMetadata {
 		// PowerShell - File System
 		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
 		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},
+		{"add_content", 1, 3, "Append a value to a file, creating it if absent (path, [value], [options])", "PowerShell", []string{`"a line" | add_content("out.log")`, `add_content("out.log"; "a line")`}},
+		{"out_file", 1, 3, "Write a value to a file and pass it on (path, [value], [options])", "PowerShell", []string{`out_file("report.txt")`, `out_file("run.log"; {Append: true})`}},
 		{"test_path", 1, 1, "Test if a path exists", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp")`}},
 		{"join_path", 2, 2, "Join path segments", "PowerShell", []string{`join_path("/tmp"; "file.txt")`}},
 		{"split_path", 1, 1, "Split a path into components", "PowerShell", []string{`split_path("/tmp/file.txt")`}},
@@ -533,6 +546,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"cartesian", 1, 2, "The array of [a, b] pairs from two arrays", "Collections", []string{`cartesian([1,2]; ["a","b"])`}},
 		{"column", 1, 2, "The nth element of every row (n)", "Collections", []string{`[[1,2],[3,4]] | column(1)`}},
 		{"lookup", 2, 3, "The first row whose property equals a value (key, value)", "Collections", []string{`[{"name":"ada"}] | lookup("name"; "ada")`}},
+		{"compare_object", 1, 3, "What differs between two collections, each value tagged with its side (difference, [options])", "Collections", []string{`compare_object(["a","b"]; ["b","c"])`, `compare_object($old; $new; {Property: "id", IncludeEqual: true})`}},
 		{"natural_sort", 0, 1, "An array in human order, file2 before file10", "Collections", []string{`["file2","file10","file1"] | natural_sort`}},
 
 		// Number theory (fourth round)

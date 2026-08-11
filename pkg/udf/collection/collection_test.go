@@ -28,6 +28,28 @@ func run(t *testing.T, query string) any {
 	return v
 }
 
+// runErr is run for queries expected to fail: it returns the error rather than
+// ending the test with it.
+func runErr(t *testing.T, query string) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		return err
+	}
+	code, err := gojq.Compile(q, RegisterAll()...)
+	if err != nil {
+		return err
+	}
+	v, ok := code.Run(nil).Next()
+	if !ok {
+		t.Fatalf("%q produced no result", query)
+	}
+	if e, isErr := v.(error); isErr {
+		return e
+	}
+	return nil
+}
+
 func TestChunks(t *testing.T) {
 	got := run(t, `[1,2,3,4,5,6,7] | chunks(3)`)
 	arr := got.([]any)

@@ -288,29 +288,7 @@ func setContent(opts SetContentOptions) (string, error) {
 		return "", err
 	}
 
-	// Extract actual value from PSObject if needed
-	value := extractPSObjectValue(opts.Value)
-
-	// Platform-aware line endings
-	newline := getNewLine()
-
-	// Convert value to content string
-	var content string
-	switch v := value.(type) {
-	case string:
-		content = v
-	case []any:
-		// Join array elements with platform-appropriate newlines
-		parts := make([]string, len(v))
-		for i, item := range v {
-			// Unwrap PSObject from each array element too
-			item = extractPSObjectValue(item)
-			parts[i] = fmt.Sprintf("%v", item)
-		}
-		content = strings.Join(parts, newline)
-	default:
-		content = fmt.Sprintf("%v", v)
-	}
+	content := renderContent(opts.Value)
 
 	// Get the encoding
 	enc, err := getEncoding(opts.Encoding)
@@ -386,4 +364,24 @@ func RegisterSetContent() gojq.CompilerOption {
 
 		return psobj.ToMap()
 	})
+}
+
+// renderContent turns a value into the text to write. A string goes as-is, an
+// array becomes one line per element, and anything else is formatted. Every
+// element is unwrapped first, so a stream of cmdlet output writes its values
+// rather than its object representation.
+func renderContent(value any) string {
+	value = extractPSObjectValue(value)
+	switch v := value.(type) {
+	case string:
+		return v
+	case []any:
+		parts := make([]string, len(v))
+		for i, item := range v {
+			parts[i] = fmt.Sprintf("%v", extractPSObjectValue(item))
+		}
+		return strings.Join(parts, getNewLine())
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }

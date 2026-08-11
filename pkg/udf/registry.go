@@ -3,6 +3,7 @@ package udf
 import (
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/aggregate"
+	"github.com/xen0bit/pwrq/pkg/udf/archive"
 	"github.com/xen0bit/pwrq/pkg/udf/base32"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
@@ -261,6 +262,12 @@ func DefaultRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range domain.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Archives. They read and write files, so like the log readers they are a
+	// CLI-only capability and WebRegistry leaves them out.
+	for _, opt := range archive.RegisterAll() {
 		reg.Register(opt)
 	}
 

@@ -30,6 +30,7 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterCartesian(),
 		RegisterColumn(),
 		RegisterLookup(),
+		RegisterCompareObject(),
 		RegisterNaturalSort(),
 		RegisterRenameKeys(),
 		RegisterWindows(),

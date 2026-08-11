@@ -20,6 +20,7 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterTail(),
 		RegisterGrepLines(),
 		RegisterWcLines(),
+		RegisterSelectString(),
 	}
 }
 
