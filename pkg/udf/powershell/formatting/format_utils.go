@@ -181,7 +181,7 @@ func formatNestedObject(obj map[string]any, maxDepth int, currentDepth int) stri
 			if i > 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(fmt.Sprintf("%s: %s", prop.Name, formatValue(prop.Value, maxDepth, currentDepth)))
+			fmt.Fprintf(&sb, "%s: %s", prop.Name, formatValue(prop.Value, maxDepth, currentDepth))
 		}
 		sb.WriteString("}")
 		return sb.String()
@@ -207,7 +207,7 @@ func formatMap(m map[string]any, maxDepth int, currentDepth int) string {
 			sb.WriteString(", ")
 		}
 		first = false
-		sb.WriteString(fmt.Sprintf("%s: %s", k, formatValue(v, maxDepth, currentDepth)))
+		fmt.Fprintf(&sb, "%s: %s", k, formatValue(v, maxDepth, currentDepth))
 	}
 	sb.WriteString("}")
 	return sb.String()

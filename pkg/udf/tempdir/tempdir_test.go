@@ -3,6 +3,7 @@ package tempdir
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/itchyny/gojq"
@@ -138,7 +139,7 @@ func TestTempDir_WithDir(t *testing.T) {
 	// Verify it's in the parent directory
 	parentAbs, _ := filepath.Abs(parentDir)
 	valAbs, _ := filepath.Abs(val)
-	if !filepath.HasPrefix(valAbs, parentAbs) {
+	if rel, err := filepath.Rel(parentAbs, valAbs); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		t.Errorf("Created directory %q is not in parent directory %q", valAbs, parentAbs)
 	}
 
@@ -175,7 +176,7 @@ func TestTempDir_WithPrefixAndDir(t *testing.T) {
 	// Verify it's in the parent directory
 	parentAbs, _ := filepath.Abs(parentDir)
 	valAbs, _ := filepath.Abs(val)
-	if !filepath.HasPrefix(valAbs, parentAbs) {
+	if rel, err := filepath.Rel(parentAbs, valAbs); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		t.Errorf("Created directory %q is not in parent directory %q", valAbs, parentAbs)
 	}
 

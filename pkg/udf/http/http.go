@@ -19,7 +19,7 @@ import (
 // RegisterHTTP registers the http function with gojq
 func RegisterHTTP() gojq.CompilerOption {
 	return gojq.WithFunction("http", 0, 2, func(v any, args []any) any {
-		var method string = "POST" // default method
+		var method = "POST" // default method
 		var url string
 
 		// Parse arguments
@@ -298,7 +298,8 @@ func RegisterHTTPServe() gojq.CompilerOption {
 		// Create HTTP server with handlers for GET and POST
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				// GET: Return the current pipeline item
 				w.Header().Set("Content-Type", "application/json")
 
@@ -314,7 +315,7 @@ func RegisterHTTPServe() gojq.CompilerOption {
 					})
 					errorChan <- fmt.Errorf("no item available")
 				}
-			} else if r.Method == "POST" {
+			case "POST":
 				// POST: Insert an object into the pipeline
 				bodyBytes, err := io.ReadAll(r.Body)
 				r.Body.Close()
@@ -346,7 +347,7 @@ func RegisterHTTPServe() gojq.CompilerOption {
 					"status": "accepted",
 				})
 				resultChan <- postData
-			} else {
+			default:
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				json.NewEncoder(w).Encode(map[string]any{
 					"error": "method not allowed, use GET or POST",

@@ -119,7 +119,7 @@ func TestHTTPPostDefault(t *testing.T) {
 		body := make([]byte, r.ContentLength)
 		r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Received: %s", string(body))))
+		fmt.Fprintf(w, "Received: %s", string(body))
 	}))
 	defer server.Close()
 
@@ -147,7 +147,7 @@ func TestHTTPPostWithBody(t *testing.T) {
 		body := make([]byte, r.ContentLength)
 		r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Received: %s", string(body))))
+		fmt.Fprintf(w, "Received: %s", string(body))
 	}))
 	defer server.Close()
 
@@ -186,7 +186,7 @@ func TestHTTPPostWithJSONBody(t *testing.T) {
 		body := make([]byte, r.ContentLength)
 		r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf("Received: %s", string(body))))
+		fmt.Fprintf(w, "Received: %s", string(body))
 	}))
 	defer server.Close()
 

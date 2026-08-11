@@ -92,9 +92,9 @@ func (cli *cli) printUDFList() {
 			if meta.MinArgs == 0 && meta.MaxArgs == 0 {
 				argSig.WriteString("()")
 			} else if meta.MinArgs == meta.MaxArgs {
-				argSig.WriteString(fmt.Sprintf("(%d args)", meta.MinArgs))
+				fmt.Fprintf(&argSig, "(%d args)", meta.MinArgs)
 			} else {
-				argSig.WriteString(fmt.Sprintf("(%d-%d args)", meta.MinArgs, meta.MaxArgs))
+				fmt.Fprintf(&argSig, "(%d-%d args)", meta.MinArgs, meta.MaxArgs)
 			}
 
 			fmt.Fprintf(cli.outStream, "  %-25s %-15s %s\n", meta.Name, argSig.String(), meta.Description)

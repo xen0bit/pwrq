@@ -339,8 +339,7 @@ func (ss *SessionState) findOrCreateScope(targetType ScopeType) *Scope {
 // propagateAllScopeVariable propagates an AllScope variable to all child scopes.
 func (ss *SessionState) propagateAllScopeVariable(name string, entry *VariableEntry) {
 	// Walk through all scopes and add this variable if not already present
-	var walkScopes func(*Scope)
-	walkScopes = func(scope *Scope) {
+	walkScopes := func(scope *Scope) {
 		if scope == nil {
 			return
 		}

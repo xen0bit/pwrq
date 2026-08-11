@@ -235,9 +235,10 @@ func getServicesUnix(opts GetServiceOptions) ([]ServiceInfo, error) {
 
 		// Map active state to PowerShell Status
 		status := "Stopped"
-		if unit.Active == "active" {
+		switch unit.Active {
+		case "active":
 			status = "Running"
-		} else if unit.Active == "failed" {
+		case "failed":
 			status = "Failed"
 		}
 
@@ -296,7 +297,7 @@ func getServicesUnixText(opts GetServiceOptions) ([]ServiceInfo, error) {
 		}
 
 		// Skip header and footer lines
-		if strings.Contains(fields[0], ".service") == false {
+		if !strings.Contains(fields[0], ".service") {
 			continue
 		}
 
@@ -402,10 +403,8 @@ func getServicesWindows(opts GetServiceOptions) ([]ServiceInfo, error) {
 				currentService.CanPause = currentService.Status == "Running"
 				currentService.CanShutdown = currentService.Status == "Running"
 			case "WIN32_EXIT_CODE":
-				// Could be used for error handling
-				if value != "0" && value != "NO_ERROR" {
-					// Service may have exited with error
-				}
+				// Not surfaced yet. A value other than "0"/"NO_ERROR" would
+				// say the service exited with an error.
 			case "WAIT_HINT":
 				// Time estimate for operation completion
 			case "PID":

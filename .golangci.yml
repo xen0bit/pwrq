@@ -1,0 +1,29 @@
+version: "2"
+
+# `make lint` should be reproducible, so the defaults that hide findings are
+# turned off: golangci-lint otherwise stops at 50 issues per linter and 3 per
+# check, which quietly under-reports how much is actually outstanding.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  settings:
+    staticcheck:
+      # golangci-lint's default set, plus one subtraction. The ST-prefixed
+      # entries are the defaults repeated verbatim; naming `checks` at all
+      # replaces the default list rather than adding to it, so dropping them
+      # here would silently switch on a package-comment lint for every file.
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        # QF1001 rewrites `!(a || b)` into `!a && !b`. Where this repo writes
+        # the negated form it is reading as a single predicate - "not a
+        # letter", "not a terminal", "not a public address" - and distributing
+        # the negation over six clauses makes that harder to see, not easier.
+        - -QF1001

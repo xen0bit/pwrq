@@ -42,9 +42,10 @@ func parseCopyItemArgs(args []any) (CopyItemOptions, error) {
 
 		switch v := argVal.(type) {
 		case string:
-			if stringArgCount == 0 {
+			switch stringArgCount {
+			case 0:
 				opts.Path = v
-			} else if stringArgCount == 1 {
+			case 1:
 				opts.Destination = v
 			}
 			stringArgCount++

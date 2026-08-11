@@ -44,9 +44,9 @@ func getEncoding(encodingName string) (encoding.Encoding, error) {
 func RegisterCat() gojq.CompilerOption {
 	return gojq.WithFunction("cat", 0, 2, func(v any, args []any) any {
 		var filePath string
-		var tailLines int = -1  // -1 means no tail limit
-		var totalCount int = -1 // -1 means no total count limit
-		var encoding string = "utf8"
+		var tailLines = -1  // -1 means no tail limit
+		var totalCount = -1 // -1 means no total count limit
+		var encoding = "utf8"
 
 		// Parse arguments: file path can come from pipe or as argument
 		if len(args) > 0 {
@@ -256,9 +256,9 @@ func RegisterCat() gojq.CompilerOption {
 // cat is the internal implementation for testing
 func cat(inputPath string, args []any) any {
 	var filePath string
-	var tailLines int = -1
-	var totalCount int = -1
-	var encoding string = "utf8"
+	var tailLines = -1
+	var totalCount = -1
+	var encoding = "utf8"
 
 	if len(args) > 0 {
 		// Check if args[0] is a path string or options map

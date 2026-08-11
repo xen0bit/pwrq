@@ -12,6 +12,8 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
+	//nolint:staticcheck // Blowfish is exposed on purpose: these cmdlets exist
+	// to read data other systems already wrote, not to encrypt anything new.
 	"golang.org/x/crypto/blowfish"
 	"golang.org/x/crypto/chacha20"
 )
@@ -210,7 +212,7 @@ func RegisterAESEncrypt() gojq.CompilerOption {
 			for i := range iv {
 				iv[i] = byte(i)
 			}
-			stream := cipher.NewCFBEncrypter(block, iv)
+			stream := cipher.NewCFBEncrypter(block, iv) //nolint:staticcheck // legacy mode, kept to read existing ciphertext
 			ciphertext = make([]byte, len(data))
 			stream.XORKeyStream(ciphertext, data)
 		case "OFB":
@@ -218,7 +220,7 @@ func RegisterAESEncrypt() gojq.CompilerOption {
 			for i := range iv {
 				iv[i] = byte(i)
 			}
-			stream := cipher.NewOFB(block, iv)
+			stream := cipher.NewOFB(block, iv) //nolint:staticcheck // legacy mode, kept to read existing ciphertext
 			ciphertext = make([]byte, len(data))
 			stream.XORKeyStream(ciphertext, data)
 		case "CTR":
@@ -354,7 +356,7 @@ func RegisterAESDecrypt() gojq.CompilerOption {
 			}
 			iv = ciphertext[:aes.BlockSize]
 			ciphertext = ciphertext[aes.BlockSize:]
-			stream := cipher.NewCFBDecrypter(block, iv)
+			stream := cipher.NewCFBDecrypter(block, iv) //nolint:staticcheck // legacy mode, kept to read existing ciphertext
 			plaintext = make([]byte, len(ciphertext))
 			stream.XORKeyStream(plaintext, ciphertext)
 		case "OFB":
@@ -363,7 +365,7 @@ func RegisterAESDecrypt() gojq.CompilerOption {
 			}
 			iv = ciphertext[:aes.BlockSize]
 			ciphertext = ciphertext[aes.BlockSize:]
-			stream := cipher.NewOFB(block, iv)
+			stream := cipher.NewOFB(block, iv) //nolint:staticcheck // legacy mode, kept to read existing ciphertext
 			plaintext = make([]byte, len(ciphertext))
 			stream.XORKeyStream(plaintext, ciphertext)
 		case "CTR":

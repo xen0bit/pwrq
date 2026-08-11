@@ -68,7 +68,7 @@ func intInput(v any, name string) (int64, error) {
 
 // intIn resolves a non-negative integer from the pipeline or first argument.
 func intIn(v any, args []any, name string) (int64, error) {
-	var input any = v
+	var input = v
 	if len(args) > 0 {
 		input = args[0]
 	}

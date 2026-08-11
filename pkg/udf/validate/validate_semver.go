@@ -98,9 +98,7 @@ func parseSemver(s string) ([4]int, error) {
 func comparePrerelease(a, b string) int {
 	prereleaseOf := func(s string) string {
 		rest := strings.TrimPrefix(s, s[:strings.IndexAny(s, "-+")])
-		if strings.HasPrefix(rest, "-") {
-			rest = rest[1:]
-		}
+		rest = strings.TrimPrefix(rest, "-")
 		if i := strings.Index(rest, "+"); i >= 0 {
 			rest = rest[:i]
 		}

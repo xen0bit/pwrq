@@ -145,12 +145,14 @@ func TestStopProcess(t *testing.T) {
 	opts := StopProcessOptions{Name: "nonexistent_process_xyz"}
 	stopped, failed, err := stopProcesses(opts)
 
-	// Should get an error or empty results
-	if err == nil && len(stopped) == 0 && len(failed) == 0 {
-		// This is acceptable - no processes found
+	// Either outcome is acceptable: the process does not exist, so the call may
+	// report an error or simply find nothing to stop. What it must not do is
+	// claim to have stopped something.
+	if len(stopped) != 0 {
+		t.Errorf("stopped %d processes that do not exist: %v", len(stopped), stopped)
 	}
-	if err != nil {
-		// Error is acceptable for non-existent process
+	if err == nil && len(failed) != 0 {
+		t.Errorf("reported %d failures but no error: %v", len(failed), failed)
 	}
 }
 

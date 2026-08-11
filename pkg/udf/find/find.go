@@ -147,11 +147,12 @@ func parseFindArgs(args []any) (FindOptions, error) {
 		switch v := arg.(type) {
 		case string:
 			// String argument could be type specification
-			if v == "file" || v == "files" {
+			switch v {
+			case "file", "files":
 				opts.Type = "file"
-			} else if v == "dir" || v == "dirs" || v == "directory" || v == "directories" {
+			case "dir", "dirs", "directory", "directories":
 				opts.Type = "dir"
-			} else {
+			default:
 				return opts, fmt.Errorf("find: unknown string option %q (expected 'file' or 'dir')", v)
 			}
 		case float64:
@@ -162,9 +163,10 @@ func parseFindArgs(args []any) (FindOptions, error) {
 		case map[string]any:
 			// Object with options
 			if t, ok := v["type"].(string); ok {
-				if t == "file" || t == "files" {
+				switch t {
+				case "file", "files":
 					opts.Type = "file"
-				} else if t == "dir" || t == "dirs" || t == "directory" || t == "directories" {
+				case "dir", "dirs", "directory", "directories":
 					opts.Type = "dir"
 				}
 			}
