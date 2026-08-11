@@ -62,8 +62,8 @@ func serveIDE(cli *cli, dist fs.FS) error {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
 
-	fmt.Fprintf(cli.outStream, "pwrq editor: http://localhost:%s%s/\n", port, routePrefix)
-	fmt.Fprintf(cli.outStream, "Press Ctrl+C to stop\n")
+	_, _ = fmt.Fprintf(cli.outStream, "pwrq editor: http://localhost:%s%s/\n", port, routePrefix)
+	_, _ = fmt.Fprintf(cli.outStream, "Press Ctrl+C to stop\n")
 
 	server := &http.Server{
 		Handler:           mux,
@@ -118,7 +118,7 @@ func serveCompressed(w http.ResponseWriter, r *http.Request, dist fs.FS, name st
 	if err != nil {
 		return false
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()
 	if err != nil {
