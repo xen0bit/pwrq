@@ -26,6 +26,20 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterRoundTo(),
 		RegisterHumanBytes(),
 		RegisterPercentage(),
+		RegisterFactorial(),
+		RegisterIsPrime(),
+		RegisterFibonacci(),
+		RegisterCombinationsCount(),
+		RegisterPermutationsCount(),
+		RegisterOrdinal(),
+		RegisterLerp(),
+		RegisterHumanNumber(),
+		RegisterIsEven(),
+		RegisterIsOdd(),
+		RegisterRescale(),
+		RegisterPctChange(),
+		RegisterDigitSum(),
+		RegisterHammingWeight(),
 	}
 }
 

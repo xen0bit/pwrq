@@ -25,6 +25,8 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterExtractURLs(),
 		RegisterExtractIPs(),
 		RegisterStripTags(),
+		RegisterIsSemver(),
+		RegisterIsCreditCard(),
 	}
 }
 

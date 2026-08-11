@@ -28,6 +28,13 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterBlake2b512(),
 		RegisterBcryptHash(),
 		RegisterBcryptVerify(),
+		RegisterSHA3_256(),
+		RegisterSHA3_512(),
+		RegisterKeccak256(),
+		RegisterCRC16(),
+		RegisterPBKDF2SHA256(),
+		RegisterArgon2ID(),
+		RegisterRandomHex(),
 	}
 }
 

@@ -27,6 +27,14 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterBase64URLDecode(),
 		RegisterRot13(),
 		RegisterRot(),
+		RegisterUUID7(),
+		RegisterNanoID(),
+		RegisterIsBase64(),
+		RegisterIsBase64URL(),
+		RegisterBase58Encode(),
+		RegisterBase58Decode(),
+		RegisterPunycodeEncode(),
+		RegisterPunycodeDecode(),
 	}
 }
 

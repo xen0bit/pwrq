@@ -23,6 +23,9 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterStdev(),
 		RegisterPercentile(),
 		RegisterSummary(),
+		RegisterMovingAverage(),
+		RegisterGeomean(),
+		RegisterNormalize(),
 	}
 }
 

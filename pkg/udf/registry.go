@@ -8,6 +8,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/binary"
 	"github.com/xen0bit/pwrq/pkg/udf/cat"
 	"github.com/xen0bit/pwrq/pkg/udf/checksum"
+	"github.com/xen0bit/pwrq/pkg/udf/collection"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/crypto"
 	"github.com/xen0bit/pwrq/pkg/udf/csv"
@@ -37,9 +38,11 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
 	"github.com/xen0bit/pwrq/pkg/udf/similarity"
+	"github.com/xen0bit/pwrq/pkg/udf/sniff"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/stats"
+	"github.com/xen0bit/pwrq/pkg/udf/system"
 	"github.com/xen0bit/pwrq/pkg/udf/tee"
 	"github.com/xen0bit/pwrq/pkg/udf/tempdir"
 	"github.com/xen0bit/pwrq/pkg/udf/timestamp"
@@ -132,8 +135,9 @@ func DefaultRegistry() *Registry {
 	reg.Register(timestamp.RegisterDateToTimestamp())
 
 	// JSON operations
-	reg.Register(json.RegisterJSONParse())
-	reg.Register(json.RegisterJSONStringify())
+	for _, opt := range json.RegisterAll() {
+		reg.Register(opt)
+	}
 
 	// CSV operations
 	reg.Register(csv.RegisterCSVParse())
@@ -231,6 +235,12 @@ func DefaultRegistry() *Registry {
 	for _, opt := range similarity.RegisterAll() {
 		reg.Register(opt)
 	}
+	for _, opt := range collection.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range sniff.RegisterAll() {
+		reg.Register(opt)
+	}
 	for _, opt := range yamllib.RegisterAll() {
 		reg.Register(opt)
 	}
@@ -242,6 +252,12 @@ func DefaultRegistry() *Registry {
 	// the CLI only; WebRegistry leaves them out and the IDE marks them
 	// unavailable.
 	for _, opt := range logfile.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Host lookups and PATH searches. They need the network or the
+	// filesystem, so they are CLI-only like the log readers.
+	for _, opt := range system.RegisterAll() {
 		reg.Register(opt)
 	}
 

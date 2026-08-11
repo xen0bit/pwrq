@@ -19,6 +19,9 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterHammingDistance(),
 		RegisterJaccard(),
 		RegisterDeepDiff(),
+		RegisterSimilarityPercent(),
+		RegisterNGrams(),
+		RegisterJaroWinkler(),
 	}
 }
 

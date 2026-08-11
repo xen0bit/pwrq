@@ -391,6 +391,85 @@ UUIDs/random use `crypto/rand`, which works under `GOOS=js`.
   few representative examples per category, so `TestExamplesAllRun` and
   `TestExamplesDrawToo` cover them.
 
+## More utilitarian cmdlets — plan
+
+A second round of pure, browser-safe cmdlets to close the gaps the first round
+left open. Same conventions and guards; nothing here touches a filesystem or
+the network, so every cmdlet is registered in both registries and available in
+the browser. No new dependencies: SHA-3/Keccak come from the Go 1.24+ stdlib
+`crypto/sha3`, Argon2 and PBKDF2 from the already-present `x/crypto`, and
+everything else is stdlib.
+
+### Text predicates and inspection (extend `string`)
+
+`is_blank` (empty or whitespace), `is_alphanumeric`, `is_alphabetic`,
+`is_numeric_string`, `is_uppercase`, `is_lowercase`, `is_ascii`,
+`word_count`, `normalize_whitespace`, `acronym`
+("International Business Machines" → "IBM")
+
+### Patterns and globs (extend `string`)
+
+`escape_regex` (regex.QuoteMeta), `glob_to_regex` ("*.txt" → anchored regex),
+`match_glob(s; glob)`, `is_regex_valid(pattern)`
+
+### Collections (new package `collection`)
+
+`chunks(arr; n)`, `dedupe` (preserve-order unique), `deep_merge(a; b)`,
+`sort_keys` (recursive), `compact` (drop null/empty/false),
+`prune` (recursively remove empties), `flatten_keys` / `unflatten_keys`
+(dot-path keys), `zip_arrays(a; b)`
+
+### JSON pointer and query strings (extend `json`)
+
+`json_pointer(obj; "/a/b/0")` (RFC 6901, with `~0`/`~1` escapes),
+`json_pointer_set(obj; pointer; value)`, `query_string_parse("a=1&b=two")`,
+`query_string_build(obj)`
+
+### Time and date (extend `duration`)
+
+`duration_between(a; b)`, `add_seconds(ts; n)`, `add_days(ts; n)`,
+`start_of_day(ts)`, `end_of_day(ts)`, `is_leap_year(y)`,
+`days_in_month(y; m)`, `month_name(m)`
+
+### IP and network (extend `net`)
+
+`ip_version(s)` ("v4"/"v6"), `is_private_ip(s)`, `is_loopback(s)`,
+`cidr_network(cidr)`, `cidr_broadcast(cidr)`, `ip_add(ip; n)`,
+`ipv6_expand(ip)`, `reverse_ip(ip)` (PTR name)
+
+### Hashes, key derivation and sniffing (extend `checksum`)
+
+`sha3_256`, `sha3_512`, `keccak_256`, `crc16` (CRC-16/CCITT),
+`pbkdf2_sha256(password; salt; [iterations]; [keyLen])`,
+`argon2id_hash(password; salt; [time]; [memory]; [keyLen])`,
+`random_hex(n)`
+
+### IDs and tokens (extend `token`)
+
+`uuid7` (time-ordered), `nanoid(n)`, `is_base64(s)` (incl. `is_base64url`),
+`base58_encode` / `base58_decode`
+
+### Numbers (extend `number`)
+
+`factorial(n)`, `is_prime(n)`, `fibonacci(n)`, `combinations_count(n; k)`,
+`permutations_count(n; k)`, `ordinal(n)` ("1st", "2nd"), `lerp(a; b; t)`,
+`human_number(n)` (1.2k, 3.4M), `is_even(n)`, `is_odd(n)`
+
+### Forensics sniffing (new package `sniff`)
+
+`file_type(data)` — magic-byte detection (PNG, JPEG, GIF, PDF, ZIP, gzip, ELF,
+PE, ...), `is_binary(data)`, `is_utf8(data)` — all pure string/byte checks
+
+That is ~60 new cmdlets across ten categories, each with metadata, table-driven
+tests, a through-the-registered-function test, and a few gallery examples, all
+pinned by the same registry guards as the first round.
+
+**Status: implemented.** ~70 new cmdlets landed across the ten categories above
+(text predicates and patterns, collections, JSON pointers and query strings,
+time and date, IP extras, SHA-3/Keccak/CRC-16/PBKDF2/Argon2/random hex, UUID v7
+and nanoid, number theory and formatting, and file sniffing), all registered in
+both the CLI and the browser.
+
 ## Known remaining work
 
 - Object cmdlets (`select_object`, `where_object`, `sort_object`) still

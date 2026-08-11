@@ -25,6 +25,7 @@ func (cli *cli) printUDFList() {
 		"String",
 		"Numbers",
 		"Paths",
+		"Collections",
 		"Statistics",
 		"Duration",
 		"Random",
@@ -34,6 +35,7 @@ func (cli *cli) printUDFList() {
 		"Similarity",
 		"YAML",
 		"Checksum",
+		"Sniff",
 		"Hash",
 		"HMAC",
 		"Timestamp",
@@ -42,6 +44,7 @@ func (cli *cli) printUDFList() {
 		"XML",
 		"Entropy",
 		"SSDeep",
+		"System",
 	}
 	
 	// Collect all categories
