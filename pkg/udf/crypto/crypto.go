@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/des"
+	"crypto/rand"
 	"crypto/rc4"
 	"encoding/base64"
 	"encoding/hex"
@@ -88,6 +89,25 @@ func parseData(dataInput any, dataFormat string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported data format: %s (use 'hex', 'base64', or 'raw')", dataFormat)
 	}
+}
+
+// randomIV returns size cryptographically random bytes, for use as a CBC/CFB/OFB
+// IV, a CTR starting counter, or a ChaCha20 nonce.
+//
+// Every one of those uses carries the same requirement: the value must never
+// repeat across two messages encrypted under one key. The stream modes are the
+// unforgiving ones — reusing a keystream leaks the XOR of the two plaintexts —
+// but CBC leaks equality of leading blocks under a predictable IV, so all of
+// them draw from here rather than from a counter.
+//
+// The IV is not a secret and every mode here prepends it to the ciphertext for
+// the decrypt side to read back.
+func randomIV(size int) ([]byte, error) {
+	iv := make([]byte, size)
+	if _, err := rand.Read(iv); err != nil {
+		return nil, fmt.Errorf("failed to generate random IV: %v", err)
+	}
+	return iv, nil
 }
 
 // pkcs7Pad adds PKCS7 padding
@@ -198,35 +218,34 @@ func RegisterAESEncrypt() gojq.CompilerOption {
 				block.Encrypt(ciphertext[i:i+blockSize], padded[i:i+blockSize])
 			}
 		case "CBC":
-			// Generate random IV
-			iv = make([]byte, aes.BlockSize)
-			for i := range iv {
-				iv[i] = byte(i) // Simple IV for demo - in production use crypto/rand
+			iv, err = randomIV(aes.BlockSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("aes_encrypt: %v", err), nil)
 			}
 			mode := cipher.NewCBCEncrypter(block, iv)
 			padded := pkcs7Pad(data, aes.BlockSize)
 			ciphertext = make([]byte, len(padded))
 			mode.CryptBlocks(ciphertext, padded)
 		case "CFB":
-			iv = make([]byte, aes.BlockSize)
-			for i := range iv {
-				iv[i] = byte(i)
+			iv, err = randomIV(aes.BlockSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("aes_encrypt: %v", err), nil)
 			}
 			stream := cipher.NewCFBEncrypter(block, iv) //nolint:staticcheck // legacy mode, kept to read existing ciphertext
 			ciphertext = make([]byte, len(data))
 			stream.XORKeyStream(ciphertext, data)
 		case "OFB":
-			iv = make([]byte, aes.BlockSize)
-			for i := range iv {
-				iv[i] = byte(i)
+			iv, err = randomIV(aes.BlockSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("aes_encrypt: %v", err), nil)
 			}
 			stream := cipher.NewOFB(block, iv) //nolint:staticcheck // legacy mode, kept to read existing ciphertext
 			ciphertext = make([]byte, len(data))
 			stream.XORKeyStream(ciphertext, data)
 		case "CTR":
-			iv = make([]byte, aes.BlockSize)
-			for i := range iv {
-				iv[i] = byte(i)
+			iv, err = randomIV(aes.BlockSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("aes_encrypt: %v", err), nil)
 			}
 			stream := cipher.NewCTR(block, iv)
 			ciphertext = make([]byte, len(data))
@@ -561,11 +580,12 @@ func RegisterChaCha20() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("chacha20: %v", err), nil)
 		}
 
-		// Generate nonce if not provided
+		// Generate nonce if not provided. A caller decrypting an existing blob
+		// passes the nonce it was written with; anyone encrypting gets a fresh one.
 		if nonce == nil {
-			nonce = make([]byte, 12)
-			for i := range nonce {
-				nonce[i] = byte(i) // Simple nonce for demo
+			nonce, err = randomIV(chacha20.NonceSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("chacha20: %v", err), nil)
 			}
 		}
 
@@ -652,9 +672,9 @@ func RegisterDESEncrypt() gojq.CompilerOption {
 				block.Encrypt(ciphertext[i:i+blockSize], padded[i:i+blockSize])
 			}
 		case "CBC":
-			iv = make([]byte, des.BlockSize)
-			for i := range iv {
-				iv[i] = byte(i)
+			iv, err = randomIV(des.BlockSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("des_encrypt: %v", err), nil)
 			}
 			mode := cipher.NewCBCEncrypter(block, iv)
 			padded := pkcs7Pad(data, des.BlockSize)
@@ -842,9 +862,9 @@ func Register3DESEncrypt() gojq.CompilerOption {
 				block.Encrypt(ciphertext[i:i+blockSize], padded[i:i+blockSize])
 			}
 		case "CBC":
-			iv = make([]byte, des.BlockSize)
-			for i := range iv {
-				iv[i] = byte(i)
+			iv, err = randomIV(des.BlockSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: %v", err), nil)
 			}
 			mode := cipher.NewCBCEncrypter(block, iv)
 			padded := pkcs7Pad(data, des.BlockSize)
@@ -1027,9 +1047,9 @@ func RegisterBlowfishEncrypt() gojq.CompilerOption {
 				block.Encrypt(ciphertext[i:i+blockSize], padded[i:i+blockSize])
 			}
 		case "CBC":
-			iv = make([]byte, blowfish.BlockSize)
-			for i := range iv {
-				iv[i] = byte(i)
+			iv, err = randomIV(blowfish.BlockSize)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("blowfish_encrypt: %v", err), nil)
 			}
 			mode := cipher.NewCBCEncrypter(block, iv)
 			padded := pkcs7Pad(data, blowfish.BlockSize)
