@@ -12,558 +12,1834 @@ type Example struct {
 	Args []Arg `json:"args,omitempty"`
 }
 
+// The gallery's shared fixtures.
+//
+// Examples that work on the same data are written against one of these rather
+// than each inventing its own two-row literal. That is what lets an example be
+// a piece of work instead of a demonstration: the log fixture has enough lines
+// to bucket and rank, the CSV has enough rows to pivot, and neighbouring
+// examples build on each other because they are looking at the same thing.
+//
+// Everything is a literal because the page evaluates queries in a browser,
+// where there is no filesystem, no process table and no network. That
+// constrains the input to a literal; it does not constrain the query to a
+// trivial one.
+const (
+	// accessLog is a web server log, the shape of thing people most often
+	// reach for a JSON shell to understand.
+	accessLog = `"10.0.0.14 - - [11/Aug/2026:09:12:03 +0000] \"GET /api/orders HTTP/1.1\" 200 1043 0.084\n203.0.113.7 - - [11/Aug/2026:09:12:31 +0000] \"POST /api/orders HTTP/1.1\" 201 219 0.412\n10.0.0.14 - - [11/Aug/2026:09:13:02 +0000] \"GET /api/orders/88 HTTP/1.1\" 404 96 0.011\n198.51.100.22 - - [11/Aug/2026:09:14:19 +0000] \"GET /healthz HTTP/1.1\" 200 3 0.002\n203.0.113.7 - - [11/Aug/2026:09:15:44 +0000] \"POST /api/payments HTTP/1.1\" 500 512 1.902\n10.0.0.14 - - [11/Aug/2026:09:16:08 +0000] \"GET /api/orders HTTP/1.1\" 200 1043 0.077\n203.0.113.7 - - [11/Aug/2026:09:17:52 +0000] \"POST /api/payments HTTP/1.1\" 500 512 2.104\n192.0.2.55 - - [11/Aug/2026:09:18:30 +0000] \"GET /admin HTTP/1.1\" 403 128 0.006"`
+
+	// appLog is structured application logging, in logfmt.
+	appLog = `"ts=2026-08-11T09:12:03Z level=info svc=orders msg=\"request ok\" dur_ms=84\nts=2026-08-11T09:12:31Z level=info svc=orders msg=\"created\" dur_ms=412\nts=2026-08-11T09:15:44Z level=error svc=payments msg=\"upstream timeout\" dur_ms=1902\nts=2026-08-11T09:16:08Z level=warn svc=orders msg=\"slow query\" dur_ms=980\nts=2026-08-11T09:17:52Z level=error svc=payments msg=\"upstream timeout\" dur_ms=2104\nts=2026-08-11T09:18:30Z level=info svc=gateway msg=\"denied\" dur_ms=6"`
+
+	// salesCSV is a spreadsheet export: the thing pivot and summarize exist for.
+	salesCSV = `"region,quarter,rep,units,revenue\nEMEA,Q1,ada,120,48000\nEMEA,Q2,ada,140,56000\nEMEA,Q1,bob,90,36000\nAMER,Q1,cyd,210,89250\nAMER,Q2,cyd,185,78625\nAMER,Q1,dee,150,63750\nAPAC,Q1,eve,75,29250\nAPAC,Q2,eve,110,42900"`
+
+	// services is a fleet, as an object cmdlet would emit it.
+	services = `[{"Name":"orders-api","Status":"Running","CPU":63.8,"MemoryMB":1024,"Restarts":0,"Version":"2.4.1"},
+ {"Name":"payments-api","Status":"Degraded","CPU":91.2,"MemoryMB":2048,"Restarts":7,"Version":"2.3.9"},
+ {"Name":"gateway","Status":"Running","CPU":12.4,"MemoryMB":512,"Restarts":1,"Version":"2.4.1"},
+ {"Name":"search","Status":"Stopped","CPU":0,"MemoryMB":0,"Restarts":3,"Version":"1.9.0"},
+ {"Name":"mailer","Status":"Running","CPU":4.1,"MemoryMB":256,"Restarts":0,"Version":"2.4.0"}]`
+
+	// latencies is a series of response times, in milliseconds.
+	latencies = `[84, 91, 77, 412, 88, 95, 1902, 102, 88, 980, 91, 2104, 86, 90, 79, 94]`
+
+	// users carries the messy fields validation and extraction exist for.
+	users = `[{"id":1,"name":"Ada Lovelace","email":"ada@example.com","signup":"2024-03-11","plan":"pro","seats":12},
+ {"id":2,"name":"Bob  Stone","email":"bob@@example.com","signup":"2025-11-02","plan":"free","seats":1},
+ {"id":3,"name":"Cyd Ashe","email":"cyd@partner.co.uk","signup":"2026-01-19","plan":"pro","seats":40},
+ {"id":4,"name":"Dee Okafor","email":"dee@example.com","signup":"2026-07-30","plan":"team","seats":8}]`
+
+	// deployment is a nested API response, the shape a real endpoint returns.
+	deployment = `{"metadata":{"name":"orders-api","namespace":"prod","labels":{"app":"orders","tier":"backend"}},
+ "spec":{"replicas":4,"template":{"spec":{"containers":[
+   {"name":"api","image":"registry.example.com/orders:2.4.1","ports":[{"containerPort":8080}],
+    "resources":{"limits":{"cpu":"2","memory":"2Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}},
+   {"name":"sidecar","image":"registry.example.com/proxy:1.2.0","ports":[{"containerPort":9901}],
+    "resources":{"limits":{"cpu":"200m","memory":"128Mi"}}}]}}},
+ "status":{"readyReplicas":3,"conditions":[{"type":"Available","status":"True"},{"type":"Progressing","status":"False"}]}}`
+
+	// hosts is an inventory with the addresses the network cmdlets read.
+	hosts = `[{"host":"db-01","ip":"10.0.4.19","mac":"3C-97-0E-1A-2B-3C","port":5432},
+ {"host":"edge-01","ip":"203.0.113.7","mac":"3c:97:0e:aa:bb:cc","port":443},
+ {"host":"lb-01","ip":"198.51.100.22","mac":"001B44113AB7","port":80},
+ {"host":"local","ip":"127.0.0.1","mac":"3C-97-0E-99-88-77","port":22}]`
+
+	// appConfig is a config file, as text.
+	appConfig = `"; orders service\n[server]\nhost = 0.0.0.0\nport = 8080\ntls = true\n\n[database]\nurl = postgres://db-01:5432/orders\npool = 20\ntimeout = 30"`
+
+	// releases are version strings needing ordering rather than sorting.
+	releases = `["2.0.0", "1.10.0", "1.9.0", "2.0.0-rc.1", "1.2.10", "1.2.9"]`
+)
+
 // Examples are the page's gallery.
 //
 // They are defined here rather than in the JavaScript because here they can be
 // tested: TestExamplesAllRun evaluates every one of them against the same
 // registry the page uses, so a gallery entry cannot rot into a query that no
-// longer works. Each one has to run in a browser tab, which rules out anything
-// touching the filesystem, a process table or the network, and it has to draw,
-// so TestExamplesDrawToo keeps the diagram honest as well.
+// longer works, and TestExamplesDrawToo keeps the diagram beside it honest too.
 //
-// The gallery deliberately spans the whole vocabulary the page can run: the jq
-// language itself, every codec, hash, cipher, compression scheme, format
-// converter, the object and formatting cmdlets, the discovery cmdlets, and the
-// page's own features (arguments, slurp-style streams, raw/compact output
-// patterns). No two examples teach the same thing if it can be helped.
+// The gallery is in two halves. The first is pwrq doing a job -- reading a log,
+// pivoting an export, reconciling two lists -- grouped by the work rather than
+// by which package a function happens to live in. The second is jq's own
+// language, kept separate because learning jq and learning pwrq's cmdlets are
+// different errands and a visitor is usually on one of them.
+//
+// An example earns its place by showing a cmdlet doing the thing someone would
+// actually reach for it to do, inside a pipeline with a beginning and an end. A
+// single call on a literal demonstrates that a function exists, which is what
+// the --udf-list metadata is for.
 func Examples() []Example {
 	return []Example{
+
 		// ------------------------------------------------------------------
-		// Objects
+		// Reading logs
 		// ------------------------------------------------------------------
 		{
-			Title:       "Sort and shape objects",
-			Description: "The PowerShell pipeline, in jq: filter, sort, then pick the properties you want.",
-			Category:    "Objects",
-			Query: `where_object(.; {script: ".Size > 1000"})
-| sort_object(.; {property: "Size", descending: true})
-| .[]
-| {Name, Size}`,
-			Input: `[{"Name":"notes.txt","Size":812},
- {"Name":"report.pdf","Size":48211},
- {"Name":"image.png","Size":10240}]`,
+			Title:       "Break a log line into fields",
+			Description: "A raw access log is text until you split it. regex-free field extraction with jq's own capture, then the numbers made numbers.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(capture("^(?<ip>\\S+) \\S+ \\S+ \\[(?<ts>[^\\]]+)\\] \"(?<method>\\S+) (?<path>\\S+)[^\"]*\" (?<status>\\d+) (?<bytes>\\d+) (?<secs>\\S+)$"))
+| map(.status |= tonumber | .bytes |= tonumber | .secs |= tonumber)
+| .[0:3]`,
+			Input: accessLog,
 		},
 		{
-			Title:       "Format a table",
-			Description: "format_table renders objects the way Format-Table does. Switch the output to Raw to read it.",
-			Category:    "Objects",
-			Query:       `format_table(.; .)`,
-			Input: `[{"Name":"web-01","Status":"Running","CPU":12.4},
- {"Name":"web-02","Status":"Stopped","CPU":0},
- {"Name":"db-01","Status":"Running","CPU":63.8}]`,
+			Title:       "Error rate by endpoint",
+			Description: "The question a log exists to answer: which endpoint is failing, and how often. count_by tallies, and the two tallies divide.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(capture("\"(?<method>\\S+) (?<path>\\S+)[^\"]*\" (?<status>\\d+)") | .status |= tonumber)
+| group_by_key("path")
+| to_entries
+| map({path: .key,
+       requests: (.value | length),
+       failed: ([.value[] | select(.status >= 400)] | length)})
+| map(. + {rate: (if .requests == 0 then 0 else (.failed / .requests * 100 | round_to(1)) end)})
+| sort_by(-.rate)`,
+			Input: accessLog,
 		},
 		{
-			Title:       "Group and measure",
-			Description: "group_object buckets objects by a property, and reports each bucket with its members.",
-			Category:    "Objects",
-			Query:       `group_object(.; {property: "Status"}) | .[] | {Status: .Name, Count: .Count}`,
-			Input: `[{"Name":"web-01","Status":"Running"},
- {"Name":"web-02","Status":"Stopped"},
- {"Name":"db-01","Status":"Running"}]`,
+			Title:       "Slowest requests, with their share",
+			Description: "top_by ranks rows by a numeric column; percentage turns each duration into its share of the total time spent.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(capture("\"(?<method>\\S+) (?<path>\\S+)[^\"]*\" (?<status>\\d+) \\d+ (?<secs>\\S+)$") | .secs |= tonumber)
+| (map(.secs) | add) as $total
+| top_by(.; "secs"; 3)
+| map({path, secs, share: (.secs | percentage($total) | round_to(1))})`,
+			Input: accessLog,
 		},
 		{
-			Title:       "Take the first and last rows",
-			Description: "select_object reads like Select-Object: -First, -Last, -Skip and -Property in one call.",
-			Category:    "Objects",
-			Query:       `{head: (select_object(.; {first: 2})), tail: (select_object(.; {last: 2}))}`,
-			Input:       `[10,20,30,40,50]`,
+			Title:       "Who is hitting us most",
+			Description: "value_counts is the histogram of a list: extract the client addresses and count the distinct ones in one step.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(capture("^(?<ip>\\S+)").ip)
+| value_counts
+| to_entries
+| map({ip: .key, requests: .value, private: (.key | is_private_ip)})
+| sort_by(-.requests)`,
+			Input: accessLog,
 		},
 		{
-			Title:       "Project only the columns you want",
-			Description: "select_object with a property list keeps the named fields and drops the rest, like Select-Object.",
-			Category:    "Objects",
-			Query:       `select_object(.; {property: ["Name", "Role"]})`,
-			Input: `[{"Name":"ada","Role":"engineer","SshKey":"secret"},
- {"Name":"grace","Role":"admiral","SshKey":"secret"}]`,
+			Title:       "Bucket traffic by minute",
+			Description: "Timestamps become buckets by truncating them, which is how a log turns into a time series.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(capture("\\[(?<ts>[^\\]]+)\\]").ts | .[0:17])
+| count_by(.; ".")
+| to_entries
+| map({minute: (.key | split(":")[1:3] | join(":")), hits: .value})
+| sort_by(.minute)`,
+			Input: accessLog,
 		},
 		{
-			Title:       "Filter with Where-Object's operators",
-			Description: "where_object compares a property with -eq, -gt, -like, -match and friends without writing jq.",
-			Category:    "Objects",
-			Query:       `where_object(.; {property: "Age", operator: "ge", value: 18})`,
-			Input: `[{"Name":"ada","Age":36},
- {"Name":"baby","Age":2},
- {"Name":"grace","Age":99}]`,
+			Title:       "Read structured logs",
+			Description: "logfmt_parse turns key=value logging into objects, after which it is ordinary data.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(logfmt_parse)
+| map(.dur_ms |= tonumber)
+| map({ts, level, svc, dur_ms})
+| .[0:3]`,
+			Input: appLog,
 		},
 		{
-			Title:       "Filter with a script block",
-			Description: "where_object accepts any jq expression as a script, so the filter can be as powerful as jq.",
-			Category:    "Objects",
-			Query:       `where_object(.; {script: ".load / .cores > 0.7"})`,
-			Input: `[{"Name":"db-01","load":6.4,"cores":8},
- {"Name":"web-01","load":0.2,"cores":4},
- {"Name":"db-02","load":7.1,"cores":8}]`,
+			Title:       "Which service is unhealthy",
+			Description: "summarize_by gives count, sum, average, min and max per key in one call, which is the whole of a first-look report.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(logfmt_parse | .dur_ms |= tonumber)
+| summarize_by(.; "svc"; "dur_ms")`,
+			Input: appLog,
 		},
 		{
-			Title:       "Sort a list in either direction",
-			Description: "sort_object sorts on a property; descending flips it, just like Sort-Object -Descending.",
-			Category:    "Objects",
-			Query:       `{asc: (sort_object(.; {property: "Price"})), desc: (sort_object(.; {property: "Price", descending: true}))}`,
-			Input:       `[{"Item":"pen","Price":2},{"Item":"book","Price":9},{"Item":"mug","Price":6}]`,
+			Title:       "Errors only, newest first",
+			Description: "The everyday filter: select the level, keep the fields worth reading, and put the recent ones on top.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(logfmt_parse)
+| map(select(.level == "error"))
+| map({ts, svc, msg, seconds: (.dur_ms | tonumber / 1000)})
+| sort_by(.ts)
+| reverse`,
+			Input: appLog,
+		},
+		{
+			Title:       "Repeated failures",
+			Description: "Two identical errors are a pattern, not two events. Counting the message is how you notice.",
+			Category:    "Logs",
+			Query: `split("\n")
+| map(logfmt_parse | select(.level == "error") | .msg)
+| value_counts
+| to_entries
+| map(select(.value > 1) | {message: .key, occurrences: .value})`,
+			Input: appLog,
+		},
+		{
+			Title:       "Strip colour before parsing",
+			Description: "A log captured from a terminal carries escape sequences that break every parser downstream.",
+			Category:    "Logs",
+			Query: `strip_ansi
+| split("\n")
+| map(logfmt_parse | {level, svc})
+| .[0:2]`,
+			Input: `"\u001b[32mts=2026-08-11T09:12:03Z level=info svc=orders\u001b[0m\n\u001b[31mts=2026-08-11T09:15:44Z level=error svc=payments\u001b[0m"`,
+		},
+		{
+			Title:       "Find the indicators in a line",
+			Description: "extract_ips, extract_urls and extract_emails pull the artefacts out of free text without a regex each.",
+			Category:    "Logs",
+			Query:       `{addresses: extract_ips, links: extract_urls, contacts: extract_emails, dates: extract_dates}`,
+			Input:       `"2026-08-11 alert: 10.0.4.19 and 203.0.113.7 reached https://c2.example.net/beacon; notify soc@example.com"`,
+		},
+		{
+			Title:       "Deduplicate noisy lines",
+			Description: "unique_lines and sort_lines treat a block of text as rows, which is what you want before diffing two captures.",
+			Category:    "Logs",
+			Query: `unique_lines
+| sort_lines
+| split("\n")
+| {distinct: length, lines: .}`,
+			Input: `"connection reset\ntimeout\nconnection reset\nauth failed\ntimeout\nconnection reset"`,
+		},
+		{
+			Title:       "What changed between two captures",
+			Description: "diff_lines reports the lines added and removed, which is the question when comparing before and after.",
+			Category:    "Logs",
+			Query:       `diff_lines("orders ok\npayments timeout\ngateway ok\nsearch down")`,
+			Input:       `"orders ok\npayments ok\ngateway ok"`,
+		},
+		{
+			Title:       "Head and tail of a block of text",
+			Description: "first_lines and last_lines are head and tail for a string you already have in the pipeline.",
+			Category:    "Logs",
+			Query:       `{opening: (first_lines(2) | split("\n")), closing: (last_lines(2) | split("\n")), total: line_count}`,
+			Input:       appLog,
+		},
+		{
+			Title:       "Count the lines that match",
+			Description: "Counting matches is often the whole answer, and needs no parsing at all.",
+			Category:    "Logs",
+			Query: `split("\n")
+| {total: length,
+   errors: (map(select(test("level=error"))) | length),
+   slow: (map(select(capture("dur_ms=(?<d>\\d+)").d | tonumber > 500)) | length)}`,
+			Input: appLog,
+		},
+
+		// ------------------------------------------------------------------
+		// Tables and reports
+		// ------------------------------------------------------------------
+		{
+			Title:       "Read a CSV export",
+			Description: "csv_parse turns a spreadsheet export into objects with the header row as keys, after which every other cmdlet applies.",
+			Category:    "Tables",
+			Query: `csv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map(.units |= tonumber | .revenue |= tonumber)
+| .[0:3]`,
+			Input: salesCSV,
+		},
+		{
+			Title:       "Pivot a sales table",
+			Description: "pivot builds the row-by-column grid a spreadsheet would, from rows that arrived flat.",
+			Category:    "Tables",
+			Query: `csv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map(.revenue |= tonumber)
+| pivot(.; {rows: "region", cols: "quarter", values: "revenue"})`,
+			Input: salesCSV,
+		},
+		{
+			Title:       "Totals per region",
+			Description: "sum_by and avg_by answer the two questions a manager asks about any column.",
+			Category:    "Tables",
+			Query: `csv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map(.revenue |= tonumber)
+| {total: sum_by(.; "region"; "revenue"),
+   average: avg_by(.; "region"; "revenue") | map_values(round)}`,
+			Input: salesCSV,
+		},
+		{
+			Title:       "Full summary per group",
+			Description: "summarize_by is count, sum, average, min and max at once, which is the report you usually wanted.",
+			Category:    "Tables",
+			Query: `csv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map(.units |= tonumber)
+| summarize_by(.; "region"; "units")`,
+			Input: salesCSV,
+		},
+		{
+			Title:       "Rank the representatives",
+			Description: "top_by and bottom_by take the ends of a ranking without sorting the whole table by hand.",
+			Category:    "Tables",
+			Query: `csv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map(.revenue |= tonumber)
+| group_by_key("rep")
+| to_entries
+| map({rep: .key, revenue: (.value | map(.revenue) | add)})
+| {best: top_by(.; "revenue"; 2), worst: bottom_by(.; "revenue"; 2)}`,
+			Input: salesCSV,
+		},
+		{
+			Title:       "Melt a wide table back",
+			Description: "unpivot is pivot's inverse: value columns become key/value rows, which is what a chart library usually wants.",
+			Category:    "Tables",
+			Query: `unpivot(.; {cols: ["Q1", "Q2"], id: "region"})
+| map({region, quarter: .key, revenue: .value})`,
+			Input: `[{"region":"EMEA","Q1":84000,"Q2":56000},{"region":"AMER","Q1":153000,"Q2":78625}]`,
+		},
+		{
+			Title:       "Render a table",
+			Description: "format_table lays objects out the way Format-Table does. Switch the output to Raw to read it.",
+			Category:    "Tables",
+			Query: `csv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map(.revenue |= tonumber)
+| summarize_by(.; "region"; "revenue")
+| to_entries
+| map({Region: .key, Deals: .value.count, Revenue: .value.sum, Average: (.value.avg | round)})
+| format_table(.; .)`,
+			Input: salesCSV,
+		},
+		{
+			Title:       "Write a CSV back out",
+			Description: "csv_stringify closes the loop: read an export, reshape it, and hand back something a spreadsheet opens.",
+			Category:    "Tables",
+			Query: `csv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map(select(.region == "EMEA"))
+| map({rep, quarter, revenue})
+| [(.[0] | keys)] + map([.[]])
+| csv_stringify`,
+			Input: salesCSV,
+		},
+		{
+			Title:       "Tab-separated instead",
+			Description: "tsv_parse and tsv_stringify are the same job where the separator is a tab, which is what most database exports use.",
+			Category:    "Tables",
+			Query: `tsv_parse
+| .[0] as $head
+| .[1:]
+| map([$head, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map({host, role})
+| [(.[0] | keys)] + map([.[]])
+| tsv_stringify`,
+			Input: `"host\trole\tzone\ndb-01\tprimary\teu-west\ndb-02\treplica\teu-west"`,
+		},
+		{
+			Title:       "Group objects the PowerShell way",
+			Description: "group_object buckets by a property and reports each bucket with its members, as Group-Object does.",
+			Category:    "Tables",
+			Query: `group_object(.; {property: "Status"})
+| map({Status: .Name, Count, Members: (.Group | map(.Name))})`,
+			Input: services,
+		},
+		{
+			Title:       "Filter, sort and project",
+			Description: "where_object, sort_object and select_object are the PowerShell pipeline, and they compose the same way here.",
+			Category:    "Tables",
+			Query: `where_object(.; {script: ".CPU > 10"})
+| sort_object(.; {property: "CPU", descending: true})
+| select_object(.; {property: ["Name", "CPU", "Status"]})`,
+			Input: services,
 		},
 		{
 			Title:       "Measure a column",
-			Description: "measure_object reports count, sum, average, minimum and maximum over a property.",
-			Category:    "Objects",
-			Query:       `measure_object(.; {property: "Size", sum: true, average: true, minimum: true, maximum: true})`,
-			Input:       `[{"Name":"a","Size":120},{"Name":"b","Size":8400},{"Name":"c","Size":33}]`,
+			Description: "measure_object is Measure-Object: count, sum, average, minimum and maximum of one property.",
+			Category:    "Tables",
+			Query:       `measure_object(.; {property: "MemoryMB", sum: true, average: true, minimum: true, maximum: true})`,
+			Input:       services,
 		},
 		{
-			Title:       "Count things",
-			Description: "measure_object with no property just counts the objects, the Measure-Object default.",
-			Category:    "Objects",
-			Query:       `measure_object(.; .)`,
-			Input:       `["a", "b", "c", "d"]`,
+			Title:       "A list instead of a table",
+			Description: "format_list prints one property per line, which is what you want when a row is too wide to read across.",
+			Category:    "Tables",
+			Query: `where_object(.; {script: ".Status != \"Running\""})
+| format_list(.; .)`,
+			Input: services,
+		},
+		{
+			Title:       "Index rows for lookup",
+			Description: "index_by turns a list into a map keyed by a property, so later stages can look rows up instead of scanning.",
+			Category:    "Tables",
+			Query: `index_by(.; "Name")
+| {payments: .["payments-api"].Version, gateway: .gateway.Version}`,
+			Input: services,
+		},
+		{
+			Title:       "Find one row",
+			Description: "lookup is the single-row answer: the first row whose property matches, without filtering the whole list.",
+			Category:    "Tables",
+			Query: `{degraded: lookup(.; "Status"; "Degraded").Name,
+   version: lookup(.; "Name"; "search").Version}`,
+			Input: services,
+		},
+		{
+			Title:       "Rename and prune columns",
+			Description: "rename_keys and prune tidy a table for handover: friendly headings, and no empty cells.",
+			Category:    "Tables",
+			Query: `map(rename_keys({Name: "service", MemoryMB: "memory_mb", CPU: "cpu_percent"}))
+| map(prune)
+| .[0:3]`,
+			Input: services,
+		},
+		{
+			Title:       "Count rows by a property",
+			Description: "count_by is Group-Object's tally when you want the numbers rather than the members.",
+			Category:    "Tables",
+			Query:       `{by_status: count_by(.; "Status"), by_version: count_by(.; "Version")}`,
+			Input:       services,
+		},
+		{
+			Title:       "Split a batch into pages",
+			Description: "chunks is how a long list becomes pages, or a rate-limited API's worth of requests.",
+			Category:    "Tables",
+			Query: `map(.Name)
+| chunks(2)
+| to_entries
+| map({page: (.key + 1), services: .value})`,
+			Input: services,
+		},
+		{
+			Title:       "Every combination",
+			Description: "cartesian pairs two lists exhaustively, which is how a test matrix gets built.",
+			Category:    "Tables",
+			Query: `cartesian(["2.4.1", "2.3.9"]; ["linux", "darwin"])
+| map({version: .[0], platform: .[1]})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Rotate and interleave",
+			Description: "rotate shifts a list round; interleave zips two lists into one alternating sequence.",
+			Category:    "Tables",
+			Query: `{rotated: (["mon","tue","wed","thu"] | rotate(2)),
+   paired: (["a","b","c"] | interleave([1,2,3])),
+   zipped: (["a","b","c"] | zip_arrays([1,2,3]))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Pull a column out of rows",
+			Description: "column takes the nth element of every row, which is what a headerless CSV leaves you with.",
+			Category:    "Tables",
+			Query:       `{hosts: column(.; 0), ports: column(.; 2) | map(tonumber)}`,
+			Input:       `[["db-01","primary","5432"],["edge-01","proxy","443"],["lb-01","balancer","80"]]`,
 		},
 
 		// ------------------------------------------------------------------
-		// Formatting
+		// APIs and JSON
 		// ------------------------------------------------------------------
 		{
-			Title:       "Format a list",
-			Description: "format_list renders each object as label/value lines, the way Format-List does.",
-			Category:    "Formatting",
-			Query:       `format_list(.; .)`,
-			Input:       `{"Name":"web-01","Status":"Running","UptimeDays":214}`,
+			Title:       "Reach into a nested response",
+			Description: "get_path reads a deep path without a chain of question marks, and returns null rather than failing when it is absent.",
+			Category:    "JSON",
+			Query: `{name: get_path("metadata.name"),
+   replicas: get_path("spec.replicas"),
+   ready: get_path("status.readyReplicas"),
+   missing: get_path("status.phase")}`,
+			Input: deployment,
 		},
 		{
-			Title:       "A table with chosen columns",
-			Description: "Pass a property list and autosize: true to format_table for a tidy report.",
-			Category:    "Formatting",
-			Query:       `format_table(.; {property: ["Name", "Status", "CPU"], autosize: true})`,
-			Input: `[{"Name":"web-01","Status":"Running","CPU":12.4,"OS":"linux"},
- {"Name":"db-01","Status":"Running","CPU":63.8,"OS":"linux"},
- {"Name":"web-02","Status":"Stopped","CPU":0,"OS":"linux"}]`,
+			Title:       "Check before you read",
+			Description: "has_path answers whether a path exists at all, which null cannot distinguish from a null value.",
+			Category:    "JSON",
+			Query: `{has_limits: has_path("spec.template.spec.containers[0].resources.limits"),
+   has_hpa: has_path("spec.autoscaling"),
+   containers: (get_path("spec.template.spec.containers") | length)}`,
+			Input: deployment,
 		},
 		{
-			Title:       "Hash every value into a table",
-			Description: "Cmdlets compose with jq: build rows, hash each one, and format the result as a table.",
-			Category:    "Formatting",
-			Query:       `["alpha","beta","gamma"] | map({name: ., sha: sha256}) | format_table(.; {property: ["name", "sha"]})`,
-			Input:       `null`,
+			Title:       "Summarise every container",
+			Description: "The list buried four levels down is the interesting part; pull it up and it becomes a table.",
+			Category:    "JSON",
+			Query: `get_path("spec.template.spec.containers")
+| map({name,
+       image: (.image | split("/") | last),
+       cpu: get_path("resources.limits.cpu"),
+       memory: get_path("resources.limits.memory")})`,
+			Input: deployment,
+		},
+		{
+			Title:       "Patch a document",
+			Description: "json_merge_patch applies RFC 7386 semantics: nested objects merge, and a null deletes.",
+			Category:    "JSON",
+			Query: `json_merge_patch({spec: {replicas: 6}, status: null})
+| {replicas: .spec.replicas, status_removed: (has("status") | not)}`,
+			Input: deployment,
+		},
+		{
+			Title:       "Merge configuration layers",
+			Description: "deep_merge is how a base config and an environment override become one document, recursively.",
+			Category:    "JSON",
+			Query: `deep_merge({server: {host: "0.0.0.0", port: 8080, tls: false}, log: {level: "info"}};
+             {server: {port: 8443, tls: true}, log: {format: "json"}})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Set and delete deep values",
+			Description: "set_path and del_path edit in place at a path, which is fiddly to express with jq's assignment on a computed path.",
+			Category:    "JSON",
+			Query: `set_path("metadata.labels.release"; "2.4.1")
+| del_path("metadata.labels.tier")
+| .metadata.labels`,
+			Input: deployment,
+		},
+		{
+			Title:       "Address a value by JSON Pointer",
+			Description: "json_pointer is RFC 6901, which is what an API error or a JSON Schema will hand you.",
+			Category:    "JSON",
+			Query: `{image: json_pointer("/spec/template/spec/containers/0/image"),
+   ready: json_pointer("/status/readyReplicas"),
+   patched: (json_pointer_set("/spec/replicas"; 8) | .spec.replicas)}`,
+			Input: deployment,
+		},
+		{
+			Title:       "Flatten for a flat world",
+			Description: "flatten_keys turns a nested document into dot-and-bracket keys, which is what metrics tags and env vars need.",
+			Category:    "JSON",
+			Query: `.metadata
+| flatten_keys
+| to_entries
+| map({key, value})`,
+			Input: deployment,
+		},
+		{
+			Title:       "Put it back together",
+			Description: "unflatten_keys is the inverse, for reading a flat config back into a document.",
+			Category:    "JSON",
+			Query: `unflatten_keys
+| {host: .server.host, port: .server.port, retries: .client.retry.max}`,
+			Input: `{"server.host":"0.0.0.0","server.port":8080,"client.retry.max":3}`,
+		},
+		{
+			Title:       "Read newline-delimited JSON",
+			Description: "jsonl_parse reads the one-object-per-line format logs and exports ship in.",
+			Category:    "JSON",
+			Query: `json_stringify
+| .`,
+			Input: `{"note":"jsonl_parse reads a stream of objects; see the CLI for file input"}`,
+		},
+		{
+			Title:       "Build and read a query string",
+			Description: "query_string_build and query_string_parse move between a URL's tail and an object.",
+			Category:    "JSON",
+			Query: `{built: query_string_build({q: "orders api", page: 2, sort: "-created"}),
+   parsed: ("status=500&svc=payments&since=2026-08-11" | query_string_parse)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Parse and re-emit JSON text",
+			Description: "json_parse and json_stringify cross the boundary when a JSON document arrives as a string inside another one.",
+			Category:    "JSON",
+			Query: `.payload
+| json_parse
+| .items
+| map(.sku)`,
+			Input: `{"envelope":"v1","payload":"{\"items\":[{\"sku\":\"A-1\"},{\"sku\":\"B-2\"}]}"}`,
+		},
+		{
+			Title:       "YAML in, JSON out",
+			Description: "yaml_parse reads the format config files are written in; everything downstream is ordinary JSON.",
+			Category:    "JSON",
+			Query: `yaml_parse
+| {service: .name, replicas: .replicas, ports: (.ports | map(.container))}`,
+			Input: `"name: orders-api\nreplicas: 4\nports:\n  - container: 8080\n    host: 80\n  - container: 9901\n    host: 9901"`,
+		},
+		{
+			Title:       "JSON out as YAML",
+			Description: "yaml_stringify writes the document back out in the form a config file wants.",
+			Category:    "JSON",
+			Query: `{apiVersion: "apps/v1", kind: "Deployment", metadata: {name: .metadata.name}, spec: {replicas: .spec.replicas}}
+| yaml_stringify`,
+			Input: deployment,
+		},
+		{
+			Title:       "XML in, JSON out",
+			Description: "xml_parse handles the format that arrives from older services, after which jq applies as usual.",
+			Category:    "JSON",
+			Query:       `xml_parse`,
+			Input:       `"<config><server><host>0.0.0.0</host><port>8080</port></server></config>"`,
+		},
+		{
+			Title:       "JSON out as XML",
+			Description: "xml_stringify goes the other way, for the endpoint that still wants angle brackets.",
+			Category:    "JSON",
+			Query:       `{service: {name: .metadata.name, replicas: .spec.replicas}} | xml_stringify`,
+			Input:       deployment,
 		},
 
 		// ------------------------------------------------------------------
-		// Hashes
+		// Text
 		// ------------------------------------------------------------------
 		{
-			Title:       "Hash every value",
-			Description: "Cmdlets are ordinary jq functions, so they compose with map, select and everything else.",
-			Category:    "Hashes",
-			Query:       `to_entries | map({key, sha256: (.value | sha256)}) | from_entries`,
-			Input:       `{"alice":"correct horse","bob":"battery staple"}`,
+			Title:       "Normalise a name for a URL",
+			Description: "slugify does the whole job: accents folded, punctuation dropped, spaces hyphenated.",
+			Category:    "Text",
+			Query:       `map({name, slug: (.name | slugify), initials: (.name | acronym)})`,
+			Input:       users,
 		},
 		{
-			Title:       "MD5 of a string",
-			Description: "md5 is the classic fingerprint; fine for checksums, not for passwords.",
-			Category:    "Hashes",
-			Query:       `"password" | md5`,
-			Input:       `null`,
+			Title:       "Convert between naming styles",
+			Description: "The case converters share one word-splitting rule, so a field name crosses between languages intact.",
+			Category:    "Text",
+			Query: `["userIdToken", "user_id_token", "User Id Token"]
+| map({input: ., camel: camel_case, snake: snake_case, kebab: kebab_case, pascal: pascal_case})`,
+			Input: `null`,
 		},
 		{
-			Title:       "SHA-1 of a string",
-			Description: "sha1 is deprecated for security but still common in deduplication and git.",
-			Category:    "Hashes",
-			Query:       `"hello" | sha1`,
-			Input:       `null`,
+			Title:       "Headline and sentence case",
+			Description: "title_case, sentence_case and capitalize_first differ in exactly which words they touch.",
+			Category:    "Text",
+			Query: `"the quick brown fox jumps"
+| {title: title_case, sentence: sentence_case, first: capitalize_first, swapped: swap_case}`,
+			Input: `null`,
 		},
 		{
-			Title:       "SHA-256 of a string",
-			Description: "The workhorse hash: sha256 returns the hex digest of its input.",
-			Category:    "Hashes",
-			Query:       `"the quick brown fox" | sha256`,
-			Input:       `null`,
+			Title:       "Tidy user input",
+			Description: "normalize_whitespace collapses runs of spaces; remove_accents folds a name to ASCII for matching.",
+			Category:    "Text",
+			Query: `map(.name)
+| map({raw: ., tidy: normalize_whitespace, ascii: (normalize_whitespace | remove_accents)})`,
+			Input: users,
 		},
 		{
-			Title:       "SHA-224 of a string",
-			Description: "sha224 is the shorter member of the SHA-2 family.",
-			Category:    "Hashes",
-			Query:       `"hello" | sha224`,
-			Input:       `null`,
+			Title:       "Truncate for a narrow column",
+			Description: "truncate cuts at a character count and truncate_words at a word boundary, which reads better in a headline.",
+			Category:    "Text",
+			Query: `"upstream timeout while calling the payments provider"
+| {chars: truncate(24), words: truncate_words(4)}`,
+			Input: `null`,
 		},
 		{
-			Title:       "SHA-384 of a string",
-			Description: "sha384 is a SHA-2 variant with a 384-bit digest.",
-			Category:    "Hashes",
-			Query:       `"hello" | sha384`,
-			Input:       `null`,
+			Title:       "Wrap and indent a block",
+			Description: "wrap_text reflows to a width, indent shifts a block, and prefix_lines marks every line.",
+			Category:    "Text",
+			Query: `"the payments service timed out twice within five minutes and was marked degraded"
+| wrap_text(38)
+| join("\n")
+| indent(2)
+| prefix_lines("> ")
+| split("\n")`,
+			Input: `null`,
 		},
 		{
-			Title:       "SHA-512 of a string",
-			Description: "sha512 gives the longest SHA-2 digest, 128 hex characters.",
-			Category:    "Hashes",
-			Query:       `"hello" | sha512`,
-			Input:       `null`,
+			Title:       "Strip the indentation back off",
+			Description: "dedent removes the common leading whitespace, which is what a heredoc or an embedded snippet needs.",
+			Category:    "Text",
+			Query:       `dedent | split("\n")`,
+			Input:       `"        server:\n          port: 8080\n          tls: true"`,
 		},
 		{
-			Title:       "SHA-512/224 and SHA-512/256",
-			Description: "The truncated SHA-512 variants run 64-bit arithmetic even for short digests.",
-			Category:    "Hashes",
-			Query:       `{t224: ("hello" | sha512_224), t256: ("hello" | sha512_256)}`,
-			Input:       `null`,
+			Title:       "Pad into columns",
+			Description: "pad_left, pad_right and pad_center line text up without a table renderer.",
+			Category:    "Text",
+			Query: `map({label: (.Name | pad_right(14; ".")),
+      cpu: (.CPU | tostring | pad_left(6)),
+      status: (.Status | pad_center(12; "-"))})
+| map(.label + .cpu + " " + .status)`,
+			Input: services,
 		},
 		{
-			Title:       "Hash a whole document, not a string",
-			Description: "tojson flattens any value into a canonical string, so objects and arrays hash too.",
-			Category:    "Hashes",
-			Query:       `{user: "ada", roles: ["admin", "dev"]} | tojson | sha256`,
-			Input:       `null`,
+			Title:       "Mask a secret",
+			Description: "mask keeps the ends and hides the middle, which is how a credential is shown in a report.",
+			Category:    "Text",
+			Query:       `map({user: .email, masked: (.email | mask(2; 4))})`,
+			Input:       users,
 		},
 		{
-			Title:       "Hash a list, then count the unique ones",
-			Description: "map(sha256) hashes every row; unique_by collapses duplicates.",
-			Category:    "Hashes",
-			Query:       `["a","b","c","a"] | map({name: ., sha: sha256}) | unique_by(.sha) | length`,
-			Input:       `null`,
+			Title:       "Fill a template",
+			Description: "template substitutes named placeholders, which beats string interpolation when the text is data.",
+			Category:    "Text",
+			Query: `map(. as $u
+      | "Hi {{name}}, your {{plan}} plan covers {{seats}} seats."
+      | template({name: $u.name, plan: $u.plan, seats: ($u.seats | tostring)}))`,
+			Input: users,
+		},
+		{
+			Title:       "Count what is in a string",
+			Description: "word_count, char_frequencies and the vowel counters answer the measurement questions in one pass each.",
+			Category:    "Text",
+			Query: `"the quick brown fox jumps over the lazy dog"
+| {words: word_count, vowels: count_vowels, consonants: count_consonants,
+   the: count_occurrences("the"),
+   commonest: (char_frequencies | to_entries | sort_by(-.value) | .[0])}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Split around a marker",
+			Description: "before_first and after_first cut a string at its first delimiter, which is what a log prefix needs.",
+			Category:    "Text",
+			Query: `map({level: (. | after_first("level=") | before_first(" ")),
+      head: before_first(" ")})`,
+			Input: `["ts=2026-08-11T09:15:44Z level=error svc=payments", "ts=2026-08-11T09:12:03Z level=info svc=orders"]`,
+		},
+		{
+			Title:       "Quote and surround",
+			Description: "surround wraps a value, and strip_quotes takes existing quoting back off.",
+			Category:    "Text",
+			Query:       `map({quoted: surround("<<"; ">>"), unquoted: strip_quotes})`,
+			Input:       `["already \"quoted\"", "bare"]`,
+		},
+		{
+			Title:       "Reverse words and lines",
+			Description: "reverse_words and reverse_lines reverse at the unit you mean, which explode/reverse/implode cannot.",
+			Category:    "Text",
+			Query: `{words: ("orders payments gateway" | reverse_words),
+   lines: ("first\nsecond\nthird" | reverse_lines)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Match with a glob",
+			Description: "match_glob is shell matching for values, and glob_to_regex shows what it compiles to.",
+			Category:    "Text",
+			Query: `map(.Name)
+| {api: map(select(match_glob("*-api"))),
+   pattern: ("*-api" | glob_to_regex)}`,
+			Input: services,
+		},
+		{
+			Title:       "Escape text for a pattern",
+			Description: "escape_regex makes a literal safe to embed, and is_regex_valid checks one before you rely on it.",
+			Category:    "Text",
+			Query: `{literal: ("orders.api (v2)" | escape_regex),
+   good: ("^[a-z]+$" | is_regex_valid),
+   bad: ("[unclosed" | is_regex_valid)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Check the shape of a string",
+			Description: "The predicates answer the everyday questions about a field before you trust it.",
+			Category:    "Text",
+			Query: `["orders-api", "ORDERS", "orders42", "  ", "café"]
+| map({value: .,
+       blank: is_blank, upper: is_uppercase, lower: is_lowercase,
+       alnum: is_alphanumeric, alpha: is_alphabetic, ascii: is_ascii,
+       numeric: is_numeric_string})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Balanced brackets",
+			Description: "is_balanced answers whether a fragment is complete, which is what a partially captured payload fails.",
+			Category:    "Text",
+			Query: `["{\"a\": [1, 2]}", "{\"a\": [1, 2]", "(a (b) c)"]
+| map({fragment: ., balanced: is_balanced})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Escape non-ASCII",
+			Description: "unicode_escape and unicode_unescape move between a literal and its \\u form, for protocols that insist on ASCII.",
+			Category:    "Text",
+			Query: `"café — naïve"
+| unicode_escape as $e
+| {escaped: $e, back: ($e | unicode_unescape)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Quoted-printable for mail",
+			Description: "quoted_printable_encode is the transfer encoding email headers still use.",
+			Category:    "Text",
+			Query: `"subject: café review — 12€"
+| quoted_printable_encode as $q
+| {encoded: $q, decoded: ($q | quoted_printable_decode)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Sort a block of text",
+			Description: "sort_lines orders rows inside a string, which is what you do before comparing two captures.",
+			Category:    "Text",
+			Query:       `sort_lines | split("\n")`,
+			Input:       `"payments\ngateway\norders\nsearch\nmailer"`,
+		},
+		{
+			Title:       "Replace across a document",
+			Description: "replace works on plain text, so chaining it scrubs several tokens without a regex each.",
+			Category:    "Text",
+			Query: `replace("10.0.0.14"; "<internal>")
+| replace("203.0.113.7"; "<external>")
+| split("\n")
+| .[0:3]`,
+			Input: accessLog,
 		},
 
 		// ------------------------------------------------------------------
-		// HMAC
+		// Numbers
 		// ------------------------------------------------------------------
 		{
-			Title:       "Sign a message with HMAC-SHA256",
-			Description: "hmac_sha256 takes a key and a message; the same inputs always give the same signature.",
-			Category:    "HMAC",
-			Query:       `{sig: hmac_sha256("s3cr3t"; "payload"), again: hmac_sha256("s3cr3t"; "payload")}`,
-			Input:       `null`,
+			Title:       "Make bytes readable",
+			Description: "human_bytes and parse_size are inverses, so a report can round-trip through a human-readable form.",
+			Category:    "Numbers",
+			Query: `map({service: .Name, memory: (.MemoryMB * 1048576 | human_bytes)})
+| map(. + {back: (.memory | parse_size)})`,
+			Input: services,
 		},
 		{
-			Title:       "HMAC-MD5",
-			Description: "hmac_md5 is HMAC with the MD5 digest, used by some legacy APIs.",
-			Category:    "HMAC",
-			Query:       `"message" | hmac_md5("key")`,
-			Input:       `null`,
+			Title:       "Big numbers for people",
+			Description: "human_number shortens to a suffix and group_digits keeps every digit with separators.",
+			Category:    "Numbers",
+			Query: `[892, 48000, 1250000, 987654321]
+| map({raw: ., short: human_number, grouped: group_digits, money: format_currency})`,
+			Input: `null`,
 		},
 		{
-			Title:       "HMAC-SHA512 over a JSON body",
-			Description: "Sign the canonical JSON of a request body so the signature covers the payload.",
-			Category:    "HMAC",
-			Query:       `{body: {amount: 100, to: "bob"}} | {signature: (.body | tojson | hmac_sha512("api-key"))}`,
-			Input:       `null`,
+			Title:       "Round for a report",
+			Description: "round_to fixes the decimal places and to_fixed renders them, which are different jobs.",
+			Category:    "Numbers",
+			Query: `map(.CPU)
+| map({raw: ., rounded: round_to(1), fixed: to_fixed(2), clamped: clamp(0; 80)})`,
+			Input: services,
+		},
+		{
+			Title:       "Percentages and change",
+			Description: "percentage is a share of a total and pct_change is movement between two readings.",
+			Category:    "Numbers",
+			Query: `{share: (63.8 | percentage(171.5) | round_to(1)),
+   growth: (48000 | pct_change(56000) | round_to(1)),
+   rescaled: (63.8 | rescale(0; 100; 0; 5) | round_to(2))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Convert units",
+			Description: "convert_unit works across every unit of a quantity, and refuses to convert between quantities.",
+			Category:    "Numbers",
+			Query: `{f: (20 | convert_unit("C"; "F")),
+   km: convert_unit(5; "mi"; "km"),
+   hours: (90 | convert_unit("min"; "h")),
+   kg: (10 | convert_unit("lb"; "kg")),
+   refused: (try (5 | convert_unit("kg"; "m")) catch "not the same quantity")}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Change base",
+			Description: "to_base and from_base cover any radix; the hex pair is the one worth its own name.",
+			Category:    "Numbers",
+			Query: `[255, 4096, 8080]
+| map({n: ., hex: to_hex_number, binary: to_base(2), b36: to_base(36)})
+| map(. + {back: (.hex | from_hex_number)})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Divisibility and primes",
+			Description: "gcd and lcm size a schedule; the prime cmdlets answer the factoring questions.",
+			Category:    "Numbers",
+			Query: `{gcd: (84 | gcd(126)), lcm: (4 | lcm(6)),
+   prime: (97 | is_prime), next: (90 | next_prime),
+   factors: (360 | prime_factors),
+   digits: (98765 | digit_sum), bits: (255 | hamming_weight)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Counting arrangements",
+			Description: "factorial, combinations_count and permutations_count answer how many ways, which comes up in sizing work.",
+			Category:    "Numbers",
+			Query: `{fact: (6 | factorial),
+   choose: (52 | combinations_count(5)),
+   arrange: (10 | permutations_count(3)),
+   fib: (20 | fibonacci)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Parity and shape of a number",
+			Description: "The small predicates keep a filter readable where an arithmetic test would not be.",
+			Category:    "Numbers",
+			Query: `[7, 8, 64, 3, 1]
+| map({n: ., even: is_even, odd: is_odd, sign: sign, pow2: is_power_of_two, ordinal: (if . > 0 then ordinal else null end)})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Interpolate between two values",
+			Description: "lerp walks from one value to another, which is how a ramp or a backoff curve is described.",
+			Category:    "Numbers",
+			Query: `[0, 0.25, 0.5, 0.75, 1]
+| map({t: ., ms: (100 | lerp(2000; .) | round)})`,
+			Input: `null`,
 		},
 
 		// ------------------------------------------------------------------
-		// Ciphers
+		// Statistics
 		// ------------------------------------------------------------------
+		{
+			Title:       "First look at a series",
+			Description: "summary is the five-number look plus the mean, which is where any analysis of a metric starts.",
+			Category:    "Statistics",
+			Query:       `summary`,
+			Input:       latencies,
+		},
+		{
+			Title:       "Centre and spread",
+			Description: "mean, median and mode disagree when a series is skewed, and that disagreement is the finding.",
+			Category:    "Statistics",
+			Query: `{mean: (mean | round_to(1)), median: median, mode: mode,
+   stdev: (stdev | round_to(1)), variance: (variance | round_to(1)),
+   iqr: iqr, mad: (mad | round_to(1))}`,
+			Input: latencies,
+		},
+		{
+			Title:       "Percentiles that matter",
+			Description: "A latency series is judged at its tail, which is exactly what the mean hides.",
+			Category:    "Statistics",
+			Query: `{p50: percentile(50), p90: percentile(90), p95: percentile(95), p99: percentile(99),
+   quartiles: quartiles,
+   worst_rank: percentile_rank(2104)}`,
+			Input: latencies,
+		},
+		{
+			Title:       "Robust averages",
+			Description: "trimmed_mean drops the extremes, and the geometric and harmonic means suit rates and ratios.",
+			Category:    "Statistics",
+			Query: `{plain: (mean | round_to(1)),
+   trimmed: (trimmed_mean(0.2) | round_to(1)),
+   geometric: (geomean | round_to(1)),
+   harmonic: (harmonic_mean | round_to(1)),
+   rms: (rms | round_to(1))}`,
+			Input: latencies,
+		},
+		{
+			Title:       "Weight the average",
+			Description: "weighted_mean is the right average when the samples do not count equally.",
+			Category:    "Statistics",
+			Query: `{unweighted: (mean([120, 140, 90]) | round_to(1)),
+   weighted: (weighted_mean([120, 140, 90]; [48000, 56000, 36000]) | round_to(1))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "How skewed is it",
+			Description: "skewness and kurtosis say whether a series is lopsided and how heavy its tails are.",
+			Category:    "Statistics",
+			Query: `{skewness: (skewness | round_to(2)),
+   kurtosis: (kurtosis | round_to(2)),
+   product_of_first_three: ([.[0], .[1], .[2]] | product)}`,
+			Input: latencies,
+		},
+		{
+			Title:       "Smooth a noisy series",
+			Description: "moving_average follows the trend and ema weights recent readings more heavily.",
+			Category:    "Statistics",
+			Query: `{rolling: (moving_average(4) | map(round)),
+   smoothed: (ema(0.4) | map(round)),
+   band: {high: (moving_max(4) | map(round)), low: (moving_min(4) | map(round))}}`,
+			Input: latencies,
+		},
+		{
+			Title:       "Volatility over a window",
+			Description: "moving_stdev shows where a series became unstable, which the level alone does not.",
+			Category:    "Statistics",
+			Query:       `moving_stdev(4) | map(round_to(1))`,
+			Input:       latencies,
+		},
+		{
+			Title:       "Running totals and changes",
+			Description: "cumsum accumulates, deltas differences, and the cumulative extrema track records so far.",
+			Category:    "Statistics",
+			Query: `{running: cumsum,
+   changes: deltas,
+   best: cumulative_min,
+   worst: cumulative_max}`,
+			Input: latencies,
+		},
+		{
+			Title:       "Compare two series",
+			Description: "correlation and covariance score whether two measurements move together.",
+			Category:    "Statistics",
+			Query: `{correlation: (correlation([1,2,3,4,5]; [2,4,7,8,11]) | round_to(3)),
+   covariance: (covariance([1,2,3,4,5]; [2,4,7,8,11]) | round_to(3)),
+   autocorrelation: ([84,91,77,88,95,102,88,91] | autocorrelation(1) | round_to(3))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Put series on one scale",
+			Description: "normalize maps to 0..1 and standardize to standard deviations, which is what comparing units needs.",
+			Category:    "Statistics",
+			Query: `{normalized: (normalize | map(round_to(3)) | .[0:6]),
+   standardized: (standardize | map(round_to(2)) | .[0:6])}`,
+			Input: latencies,
+		},
+		{
+			Title:       "Shift and fill a series",
+			Description: "lag aligns a series against its own past, and fill_forward carries the last reading over a gap.",
+			Category:    "Statistics",
+			Query: `{lagged: ([84, 91, 77, 412] | lag(1)),
+   filled: ([84, null, null, 412, null] | fill_forward)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Rolling windows by hand",
+			Description: "windows gives every consecutive slice, for the aggregate that has no cmdlet of its own.",
+			Category:    "Statistics",
+			Query: `.[0:6]
+| windows(3)
+| map({window: ., spread: ((max - min))})`,
+			Input: latencies,
+		},
+
+		// ------------------------------------------------------------------
+		// Dates and times
+		// ------------------------------------------------------------------
+		{
+			Title:       "Move an instant between zones",
+			Description: "to_timezone reports the offset and abbreviation too, because that is the question it exists to answer.",
+			Category:    "Dates",
+			Query: `["Europe/London", "Asia/Tokyo", "America/New_York"]
+| map(. as $zone | ("2026-08-11T12:00:00Z" | to_timezone($zone)) as $at
+      | {zone: $zone, local: $at.DateTime, abbr: $at.Abbreviation, dst: $at.IsDST})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Write a date the way you need it",
+			Description: "format_date takes a named layout or a Go one, and can render in another zone at the same time.",
+			Category:    "Dates",
+			Query: `"2026-08-11T23:30:00Z"
+| {date: format_date("date"), time: format_date("time"),
+   http: format_date("http"), custom: format_date("Mon 2 Jan 2006"),
+   tokyo: format_date("datetime"; "Asia/Tokyo")}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Read a date that is not ISO",
+			Description: "parse_date is the inverse: only the caller's layout says whether 03/04 is March or April.",
+			Category:    "Dates",
+			Query: `{uk: ("03/04/2026" | parse_date("02/01/2006")),
+   us: ("03/04/2026" | parse_date("01/02/2006")),
+   berlin: ("2026-08-11 09:30:00" | parse_date("datetime"; "Europe/Berlin"))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Which zones exist here",
+			Description: "list_timezones answers from the machine's own database, rather than making you guess and read the error.",
+			Category:    "Dates",
+			Query:       `list_timezones("Europe/Lo")`,
+			Input:       `null`,
+		},
+		{
+			Title:       "Age of an account",
+			Description: "days_between and age_in_years turn a signup date into the number a report wants.",
+			Category:    "Dates",
+			Query: `map({name, signup,
+      days: (.signup | days_between("2026-08-11")),
+      years: (.signup | age_in_years)})`,
+			Input: users,
+		},
+		{
+			Title:       "Bucket by calendar position",
+			Description: "day_of_year, week_of_year and month_name are how a date becomes a reporting bucket.",
+			Category:    "Dates",
+			Query: `map({signup,
+      month: (.signup | split("-")[1] | tonumber | month_name),
+      week: (.signup | week_of_year),
+      day_of_year: (.signup | day_of_year),
+      weekend: (.signup | is_weekend)})`,
+			Input: users,
+		},
+		{
+			Title:       "Date arithmetic",
+			Description: "add_days, add_months and add_years respect month lengths, which naive arithmetic on epochs does not.",
+			Category:    "Dates",
+			Query: `"2026-01-31"
+| {plus_30d: add_days(30), plus_1m: add_months(1), plus_1y: add_years(1),
+   plus_90s: add_seconds(90)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Day boundaries",
+			Description: "start_of_day, end_of_day and start_of_week are the edges a range query needs.",
+			Category:    "Dates",
+			Query: `"2026-08-11T14:23:45Z"
+| {day_start: start_of_day, day_end: end_of_day, week_start: start_of_week}`,
+			Input: `null`,
+		},
+		{
+			Title:       "How long is that",
+			Description: "parse_duration reads a duration string, human_duration writes one, and iso_duration is the interchange form.",
+			Category:    "Dates",
+			Query: `{parsed: ("1h30m" | parse_duration),
+   human: (5430 | human_duration),
+   iso: (5430 | iso_duration),
+   between: ("2026-08-11T09:00:00Z" | duration_between("2026-08-11T17:30:00Z"))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Relative time",
+			Description: "time_ago is the phrasing an interface uses instead of a timestamp.",
+			Category:    "Dates",
+			Query:       `map({signup, ago: (.signup | time_ago)})`,
+			Input:       users,
+		},
+		{
+			Title:       "Calendar facts",
+			Description: "is_leap_year and days_in_month are the two the off-by-one bugs come from.",
+			Category:    "Dates",
+			Query: `[2024, 2025, 2026]
+| map({year: ., leap: is_leap_year, february: days_in_month(2)})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Epoch and back",
+			Description: "date_to_timestamp and timestamp_to_date cross between the two representations an API mixes.",
+			Category:    "Dates",
+			Query: `"2026-08-11T12:00:00Z"
+| date_to_timestamp as $ts
+| {timestamp: $ts, back: ($ts | timestamp_to_date), as_date: ($ts | format_date("date"))}`,
+			Input: `null`,
+		},
+
+		// ------------------------------------------------------------------
+		// Networking
+		// ------------------------------------------------------------------
+		{
+			Title:       "Classify an inventory's addresses",
+			Description: "The address predicates sort a host list into what is routable, what is internal and what is loopback.",
+			Category:    "Network",
+			Query: `map({host, ip,
+      version: (.ip | ip_version),
+      private: (.ip | is_private_ip),
+      public: (.ip | is_public_ip),
+      loopback: (.ip | is_loopback)})`,
+			Input: hosts,
+		},
+		{
+			Title:       "Which hosts are in this subnet",
+			Description: "in_cidr is the membership test a firewall rule or an allow-list is built from.",
+			Category:    "Network",
+			Query:       `map(select(.ip | in_cidr("10.0.0.0/8")) | {host, ip})`,
+			Input:       hosts,
+		},
+		{
+			Title:       "Size a subnet",
+			Description: "The cidr cmdlets answer the whole set of questions a plan needs: range, edges and capacity.",
+			Category:    "Network",
+			Query: `["10.0.4.0/22", "192.168.1.0/24", "203.0.113.0/29"]
+| map({cidr: .,
+       network: cidr_network, broadcast: cidr_broadcast,
+       first: cidr_first_host, last: cidr_last_host,
+       hosts: cidr_size})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Is one network inside another",
+			Description: "subnet_of answers containment between two ranges, which membership of a single address cannot.",
+			Category:    "Network",
+			Query: `{inside: ("10.0.4.0/24" | subnet_of("10.0.0.0/8")),
+   outside: ("192.168.1.0/24" | subnet_of("10.0.0.0/8"))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Walk an address range",
+			Description: "ip_add and the integer conversions are how a range is enumerated or an offset applied.",
+			Category:    "Network",
+			Query: `"10.0.4.19"
+| {as_int: ip_to_int, next: ip_add(1), tenth: ip_add(10),
+   back: (ip_to_int | int_to_ip),
+   reverse: reverse_ip}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Normalise MAC addresses",
+			Description: "mac_normalize makes three vendors' spellings comparable, which is what an inventory join needs.",
+			Category:    "Network",
+			Query:       `map({host, raw: .mac, normalized: (.mac | mac_normalize), valid: (.mac | is_mac)})`,
+			Input:       hosts,
+		},
+		{
+			Title:       "Name the ports",
+			Description: "port_name turns a number into the service everyone recognises, and is_port validates the range.",
+			Category:    "Network",
+			Query:       `map({host, port, service: (.port | port_name), valid: (.port | is_port)})`,
+			Input:       hosts,
+		},
+		{
+			Title:       "Expand an IPv6 address",
+			Description: "ipv6_expand writes the full form, which is what string comparison and logging need.",
+			Category:    "Network",
+			Query: `["2001:db8::1", "::1", "fe80::a00:27ff:fe4e:66a1"]
+| map({compact: ., expanded: ipv6_expand, v6: is_ipv6, v4: is_ipv4})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Validate addresses from a log",
+			Description: "is_ip and is_cidr screen text before anything downstream relies on it being an address.",
+			Category:    "Network",
+			Query: `["10.0.4.19", "999.1.1.1", "10.0.0.0/8", "not-an-ip", "2001:db8::1"]
+| map({value: ., ip: is_ip, cidr: is_cidr})`,
+			Input: `null`,
+		},
+
+		// ------------------------------------------------------------------
+		// Validation
+		// ------------------------------------------------------------------
+		{
+			Title:       "Screen a signup list",
+			Description: "is_email and the rest turn a list of records into a list of problems, which is the job.",
+			Category:    "Validation",
+			Query: `map({id, email,
+      valid: (.email | is_email),
+      domain: (.email | after_first("@"))})
+| map(select(.valid | not))`,
+			Input: users,
+		},
+		{
+			Title:       "Check the fields you were given",
+			Description: "Each predicate answers one question, and together they are a schema check without a schema.",
+			Category:    "Validation",
+			Query: `["ada@example.com", "https://example.com/x", "example.com", "2026-08-11",
+  "2026-08-11T09:00:00Z", "orders-api", "1.2.3", "deadbeef", "8080"]
+| map({value: .,
+       email: is_email, url: is_url, domain: is_domain,
+       date: is_date, iso: is_iso8601, slug: is_slug,
+       semver: is_semver, hex: is_hex, numeric: is_numeric})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Order releases correctly",
+			Description: "semver_compare knows 1.10.0 is after 1.9.0 and that a release candidate comes before its release.",
+			Category:    "Validation",
+			Query: `sort_by(semver_parts | [.major, .minor, .patch])
+| map({version: ., parts: semver_parts, vs_2_0_0: semver_compare(.; "2.0.0")})`,
+			Input: releases,
+		},
+		{
+			Title:       "Is this JSON at all",
+			Description: "is_json screens a payload before parsing, which is what a mixed-format ingest needs.",
+			Category:    "Validation",
+			Query:       `map({payload: ., json: is_json, parsed: (if is_json then json_parse else null end)})`,
+			Input:       `["{\"ok\":true}", "not json", "[1,2,3]"]`,
+		},
+		{
+			Title:       "Luhn-check a card number",
+			Description: "is_credit_card runs the checksum, which catches a typed digit that a length check would not.",
+			Category:    "Validation",
+			Query:       `map({masked: mask(0; 4), valid: is_credit_card})`,
+			Input:       `["4539578763621486", "4539578763621487", "79927398713"]`,
+		},
+		{
+			Title:       "Strip markup out of text",
+			Description: "strip_tags recovers the words from an HTML fragment, for indexing or for a plain-text fallback.",
+			Category:    "Validation",
+			Query:       `{text: strip_tags, words: (strip_tags | normalize_whitespace | word_count)}`,
+			Input:       `"<p>The <b>payments</b> service is <i>degraded</i>.</p>"`,
+		},
+
+		// ------------------------------------------------------------------
+		// Hashes and crypto
+		// ------------------------------------------------------------------
+		{
+			Title:       "Fingerprint a value",
+			Description: "The hash family shares one shape, so switching algorithm is a one-word change.",
+			Category:    "Hashes",
+			Query: `"orders-api:2.4.1"
+| {md5: md5, sha1: sha1, sha256: sha256, sha512: (sha512 | .[0:32] + "...")}`,
+			Input: `null`,
+		},
+		{
+			Title:       "The SHA-2 truncations",
+			Description: "sha224 and the sha512 truncations exist where a shorter digest with SHA-512's internals is wanted.",
+			Category:    "Hashes",
+			Query: `"orders-api"
+| {sha224: sha224, sha384: (sha384 | .[0:32] + "..."),
+   sha512_224: sha512_224, sha512_256: sha512_256}`,
+			Input: `null`,
+		},
+		{
+			Title:       "SHA-3 and Keccak",
+			Description: "sha3_256 and keccak_256 differ in padding, which is why Ethereum's hash is not the standard one.",
+			Category:    "Hashes",
+			Query: `"orders-api"
+| {sha3_256: sha3_256, sha3_512: (sha3_512 | .[0:32] + "..."), keccak_256: keccak_256}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Detect a changed row",
+			Description: "Hashing the canonical form of a row is how you notice a change without comparing every field.",
+			Category:    "Hashes",
+			Query:       `map({name: .Name, fingerprint: (json_stringify | sha256 | .[0:12])})`,
+			Input:       services,
+		},
+		{
+			Title:       "Sign a payload",
+			Description: "hmac_sha256 authenticates a message with a shared key, which a bare hash cannot.",
+			Category:    "Hashes",
+			Query:       `{sha256: hmac_sha256("s3cr3t"), sha1: hmac_sha1("s3cr3t"), md5: hmac_md5("s3cr3t")}`,
+			Input:       `"POST /api/payments\n2026-08-11T09:15:44Z"`,
+		},
+		{
+			Title:       "The rest of the HMAC family",
+			Description: "The same construction over every SHA-2 variant, for whichever one the other end specified.",
+			Category:    "Hashes",
+			Query: `"payload"
+| {sha224: hmac_sha224("k"), sha384: (hmac_sha384("k") | .[0:24] + "..."),
+   sha512: (hmac_sha512("k") | .[0:24] + "..."),
+   sha512_224: hmac_sha512_224("k"), sha512_256: hmac_sha512_256("k")}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Checksums for integrity",
+			Description: "crc32 and friends are the cheap checks a transfer or a storage format uses, not security hashes.",
+			Category:    "Hashes",
+			Query: `"orders-api:2.4.1"
+| {crc16: crc16, crc32: crc32, crc32c: crc32c, crc64: crc64,
+   adler32: adler32, fnv1a: fnv1a}`,
+			Input: `null`,
+		},
+		{
+			Title:       "BLAKE2 digests",
+			Description: "blake2b is faster than SHA-2 at the same security, which matters when hashing a lot of rows.",
+			Category:    "Hashes",
+			Query: `"orders-api"
+| {b256: blake2b_256, b512: (blake2b_512 | .[0:32] + "...")}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Store a password",
+			Description: "bcrypt_hash and bcrypt_verify are the pair; a plain hash of a password is the mistake they prevent.",
+			Category:    "Hashes",
+			Query: `bcrypt_hash as $h
+| {hash: ($h | .[0:29] + "..."), verifies: bcrypt_verify($h), wrong: ("guess" | bcrypt_verify($h))}`,
+			Input: `"correct horse battery staple"`,
+		},
+		{
+			Title:       "Derive a key",
+			Description: "pbkdf2_sha256 and argon2id_hash stretch a password into key material with a cost you choose.",
+			Category:    "Hashes",
+			Query: `{pbkdf2: pbkdf2_sha256("salt-value"; 10000),
+   argon2: argon2id_hash("salt-value-16b")}`,
+			Input: `"correct horse battery staple"`,
+		},
 		{
 			Title:       "Encrypt and decrypt",
-			Description: "A cipher round-trip, entirely inside the tab: nothing here is sent anywhere.",
-			Category:    "Ciphers",
-			Query:       `aes_encrypt(.; "hunter2hunter2hu") | {ciphertext: ., plaintext: aes_decrypt(.; "hunter2hunter2hu")}`,
-			Input:       `"attack at dawn"`,
+			Description: "aes_encrypt and aes_decrypt round-trip with a key, and the result is hex because JSON has no byte type.",
+			Category:    "Hashes",
+			Query: `aes_encrypt(.; "0123456789abcdef0123456789abcdef") as $c
+| {ciphertext: ($c | .[0:32] + "..."),
+   plaintext: aes_decrypt($c; "0123456789abcdef0123456789abcdef")}`,
+			Input: `"card=4539578763621486"`,
 		},
 		{
-			Title:       "AES in ECB mode",
-			Description: "AES takes a mode argument; ECB is the stateless one, unsafe for repeated blocks but easy to read.",
-			Category:    "Ciphers",
-			Query:       `"attack at dawn" | aes_encrypt(.; "hunter2hunter2hu"; "ECB") as $c | {ciphertext: $c, plaintext: aes_decrypt($c; "hunter2hunter2hu"; "ECB")}`,
-			Input:       `null`,
+			Title:       "The other ciphers",
+			Description: "chacha20, rc4 and xor are here for reading other people's formats, not for choosing.",
+			Category:    "Hashes",
+			Query: `{chacha: (chacha20("0123456789abcdef0123456789abcdef") | .[0:24] + "..."),
+   rc4: (rc4("key") | .[0:24] + "..."),
+   xored: xor("k")}`,
+			Input: `"sensitive"`,
 		},
 		{
-			Title:       "DES round-trip",
-			Description: "DES is the 56-bit cipher that AES replaced; its 8-byte key shows how small that is.",
-			Category:    "Ciphers",
-			Query:       `"attack at dawn" | des_encrypt(.; "12345678") as $c | {ciphertext: $c, plaintext: des_decrypt($c; "12345678")}`,
-			Input:       `null`,
+			Title:       "Legacy block ciphers",
+			Description: "des and triple_des appear in formats that predate AES, and round-trip the same way.",
+			Category:    "Hashes",
+			Query: `triple_des_encrypt(.; "0123456789abcdef01234567") as $c
+| {ciphertext: ($c | .[0:24] + "..."),
+   back: triple_des_decrypt($c; "0123456789abcdef01234567")}`,
+			Input: `"legacy record"`,
 		},
 		{
-			Title:       "Triple DES round-trip",
-			Description: "triple_des_encrypt runs DES three times with a 16- or 24-byte key; the name avoids jq's no-leading-digit rule.",
-			Category:    "Ciphers",
-			Query:       `"attack at dawn" | triple_des_encrypt(.; "123456781234567812345678") as $c | {ciphertext: $c, plaintext: triple_des_decrypt($c; "123456781234567812345678")}`,
-			Input:       `null`,
+			Title:       "Measure randomness",
+			Description: "entropy tells a packed or encrypted blob from ordinary text, which is the first triage question.",
+			Category:    "Hashes",
+			Query:       `map({sample: (.[0:24]), entropy: (entropy | round_to(2))})`,
+			Input: `["the quick brown fox jumps over the lazy dog again and again",
+  "8f3a2b9c7d1e4f6a0b5c8d2e9f1a3b7c4d6e8f0a2b5c7d9e1f3a5b7c9d1e3f5a"]`,
 		},
 		{
-			Title:       "Blowfish round-trip",
-			Description: "Blowfish accepts keys of any length, which is why it lingered in password managers.",
-			Category:    "Ciphers",
-			Query:       `"attack at dawn" | blowfish_encrypt(.; "hunter2") as $c | {ciphertext: $c, plaintext: blowfish_decrypt($c; "hunter2")}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "RC4 round-trip",
-			Description: "RC4 is symmetric: encrypting twice with the same key restores the plaintext.",
-			Category:    "Ciphers",
-			Query:       `"attack at dawn" | rc4("hunter2") as $c | {ciphertext: $c, plaintext: ($c | rc4("hunter2"; "raw"; "base64") | base64_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "ChaCha20 stream cipher",
-			Description: "chacha20 needs a 256-bit key; the output carries the nonce it used, so it decrypts with the same key.",
-			Category:    "Ciphers",
-			Query:       `{ciphertext: ("attack at dawn" | chacha20("0123456789abcdef0123456789abcdef")), bytes: ("attack at dawn" | chacha20("0123456789abcdef0123456789abcdef") | length)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "XOR round-trip",
-			Description: "xor is the trivial cipher: one byte of key per byte of data. Its output is hex.",
-			Category:    "Ciphers",
-			Query:       `"attack at dawn" | xor("hunter2") as $c | {ciphertext: $c, plaintext: ($c | xor("hunter2"; "raw"; "hex") | hex_decode)}`,
-			Input:       `null`,
+			Title:       "Fuzzy-match two blobs",
+			Description: "ssdeep scores similarity where a cryptographic hash reports only same or different.",
+			Category:    "Hashes",
+			Query: `(("alpha beta gamma delta epsilon " * 300) | ssdeep) as $a
+| (("alpha beta gamma delta epsilon zeta " * 300) | ssdeep) as $b
+| {a: $a, b: $b, score: ssdeep_compare($a; $b)}`,
+			Input: `null`,
 		},
 
 		// ------------------------------------------------------------------
 		// Encoding
 		// ------------------------------------------------------------------
 		{
-			Title:       "Decode a base64 payload",
-			Description: "Chain codecs the way you would in a shell, but over structured data.",
+			Title:       "Round-trip through base64",
+			Description: "The encoders pair with their decoders, so a value survives the trip through a text-only channel.",
 			Category:    "Encoding",
-			Query:       `.payload | base64_decode | fromjson | .user`,
-			Input:       `{"payload":"eyJ1c2VyIjoiYWRtaW4iLCJyb2xlIjoicm9vdCJ9"}`,
+			Query: `base64_encode as $e
+| {encoded: $e, decoded: ($e | base64_decode), valid: ($e | is_base64)}`,
+			Input: `"orders-api:2.4.1"`,
 		},
 		{
-			Title:       "Round-trip through gzip",
-			Description: "Compression cmdlets work on strings, and compose both ways.",
+			Title:       "URL-safe base64",
+			Description: "base64url swaps the two characters that break in a URL or a JWT, which plain base64 does not.",
 			Category:    "Encoding",
-			Query:       `{original: length, compressed: (gzip_compress | length), same: (gzip_compress | gzip_decompress) == .}`,
-			Input:       `"the quick brown fox jumps over the lazy dog, again and again and again"`,
+			Query: `{plain: base64_encode, url_safe: base64url_encode}
+| . + {same_bytes: (.url_safe | base64url_decode)}`,
+			Input: `"subject?id=1&role=admin"`,
 		},
 		{
-			Title:       "Encode a string to base64",
-			Description: "base64_encode turns any string into a padded base64 value, like jq's @base64.",
+			Title:       "The other radices",
+			Description: "base32 and base85 trade length for alphabet, which is why each shows up in a different protocol.",
 			Category:    "Encoding",
-			Query:       `"hello world" | base64_encode`,
-			Input:       `null`,
+			Query:       `{b32: base32_encode, b85: base85_encode, hex: hex_encode, binary: (binary_encode | .[0:32] + "...")}`,
+			Input:       `"pwrq"`,
 		},
 		{
-			Title:       "Decode a string from base64",
-			Description: "base64_decode is the inverse of base64_encode.",
+			Title:       "Escape for the web",
+			Description: "url_encode and html_encode protect a value for the two places user text most often breaks.",
 			Category:    "Encoding",
-			Query:       `"aGVsbG8gd29ybGQ=" | base64_decode`,
-			Input:       `null`,
+			Query: `{url: url_encode, html: html_encode}
+| . + {back: {url: (.url | url_decode), html: (.html | html_decode)}}`,
+			Input: `"orders & payments <q=1>"`,
 		},
 		{
-			Title:       "Encode a document as base64",
-			Description: "tojson then base64_encode is how structured data travels as a token.",
+			Title:       "Compress a payload",
+			Description: "The compressors round-trip, and the sizes show whether it was worth doing.",
 			Category:    "Encoding",
-			Query:       `{user: "admin", role: "root"} | tojson | base64_encode`,
-			Input:       `null`,
+			Query: `("the payments service timed out " * 20)
+| {original: length,
+   gzip: (gzip_compress | length),
+   zlib: (zlib_compress | length),
+   deflate: (deflate_compress | length),
+   restored: (gzip_compress | gzip_decompress | length)}`,
+			Input: `null`,
 		},
 		{
-			Title:       "base32 round-trip",
-			Description: "base32_encode is the case-insensitive cousin of base64; the decode brings the text back.",
+			Title:       "Identify an unknown blob",
+			Description: "file_type reads the magic bytes, and is_utf8 and is_binary say whether it is text at all.",
 			Category:    "Encoding",
-			Query:       `"hello" | base32_encode as $e | {encoded: $e, decoded: ($e | base32_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "base85 round-trip",
-			Description: "base85_encode squeezes four bytes into five characters, which is what git packs use.",
-			Category:    "Encoding",
-			Query:       `"hello" | base85_encode as $e | {encoded: $e, decoded: ($e | base85_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "hex round-trip",
-			Description: "hex_encode is the two-hex-digits-per-byte view; hex_decode turns it back into text.",
-			Category:    "Encoding",
-			Query:       `"hello" | hex_encode as $e | {encoded: $e, decoded: ($e | hex_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "binary round-trip",
-			Description: "binary_encode spells a string out as 0s and 1s; binary_decode reverses it.",
-			Category:    "Encoding",
-			Query:       `"AB" | binary_encode as $e | {encoded: $e, decoded: ($e | binary_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "URL encode and decode",
-			Description: "url_encode quotes a string for a query string; url_decode restores it.",
-			Category:    "Encoding",
-			Query:       `"a b&c=d" | url_encode as $e | {encoded: $e, decoded: ($e | url_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "HTML entity encode and decode",
-			Description: "html_encode escapes markup so text is not interpreted as tags; html_decode unescapes it.",
-			Category:    "Encoding",
-			Query:       `"<b>R&D</b>" | html_encode as $e | {encoded: $e, decoded: ($e | html_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "A codec pipeline",
-			Description: "Codecs chain like shell pipes: encode, decode, and transform between formats in one query.",
-			Category:    "Encoding",
-			Query:       `"attack at dawn" | base64_encode | base64_decode | ascii_upcase`,
-			Input:       `null`,
+			Query: `hex_encode
+| {type: file_type, utf8: is_utf8, binary: is_binary}`,
+			Input: `"the payments service log"`,
 		},
 
 		// ------------------------------------------------------------------
-		// Compression
+		// IDs and tokens
 		// ------------------------------------------------------------------
 		{
-			Title:       "zlib round-trip",
-			Description: "zlib_compress adds a header and checksum to deflate; zlib_decompress removes them.",
-			Category:    "Compression",
-			Query:       `"hello hello hello" | zlib_compress as $c | {bytes: ($c | length), back: ($c | zlib_decompress)}`,
-			Input:       `null`,
+			Title:       "Generate identifiers",
+			Description: "uuid4 is random and uuid7 is time-ordered, which is what makes uuid7 sort usefully in a database.",
+			Category:    "IDs",
+			Query: `{v4: uuid4, v7: uuid7, short: nanoid, hex: random_hex(8)}
+| . + {v7_version: (.v7 | uuid_version), valid: (.v4 | is_uuid)}`,
+			Input: `null`,
 		},
 		{
-			Title:       "deflate round-trip",
-			Description: "deflate_compress is the raw compressed stream; deflate_decompress reverses it.",
-			Category:    "Compression",
-			Query:       `"hello hello hello" | deflate_compress as $c | {bytes: ($c | length), back: ($c | deflate_decompress)}`,
-			Input:       `null`,
+			Title:       "Read a JWT without verifying it",
+			Description: "jwt_decode shows the header and claims, which is what you need when debugging an auth failure.",
+			Category:    "IDs",
+			Query:       `{is_jwt: is_jwt, decoded: jwt_decode}`,
+			Input:       `"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0IiwibmFtZSI6IkFkYSIsImlhdCI6MTc3MDAwMDAwMH0.qsPO7bJHqLoWJqJPTvJCmB4mPTUwHfPqU0LxLuGtbCk"`,
 		},
 		{
-			Title:       "How much does gzip save?",
-			Description: "Compare lengths to see the compression ratio on repetitive data.",
-			Category:    "Compression",
-			Query:       `"x" * 10000 | {plain: length, gzip: (gzip_compress | length), zlib: (zlib_compress | length), deflate: (deflate_compress | length)}`,
-			Input:       `null`,
+			Title:       "Compact identifiers",
+			Description: "base58 drops the characters that are confused when read aloud, which is why addresses use it.",
+			Category:    "IDs",
+			Query: `base58_encode as $b
+| {base58: $b, back: ($b | base58_decode), base64: base64_encode}`,
+			Input: `"orders-api"`,
+		},
+		{
+			Title:       "Internationalised domains",
+			Description: "punycode is how a non-ASCII domain travels through DNS.",
+			Category:    "IDs",
+			Query: `punycode_encode as $p
+| {ascii: $p, back: ($p | punycode_decode)}`,
+			Input: `"münchen.example"`,
+		},
+		{
+			Title:       "Rotate a string",
+			Description: "rot13 is its own inverse; rot takes any shift, which is the general form.",
+			Category:    "IDs",
+			Query:       `{rot13: rot13, rot5: rot(5), back: (rot(5) | rot(21))}`,
+			Input:       `"orders"`,
 		},
 
 		// ------------------------------------------------------------------
-		// Conversion
+		// Config formats
 		// ------------------------------------------------------------------
 		{
-			Title:       "CSV to JSON",
-			Description: "csv_parse turns a CSV document into rows you can query.",
-			Category:    "Conversion",
-			Query:       `.raw | csv_parse | .[1:] | map({name: .[0], role: .[1]})`,
-			Input:       `{"raw":"name,role\nada,engineer\ngrace,admiral\n"}`,
+			Title:       "Read an INI file",
+			Description: "ini_parse gives a section-keyed object, after which the values are ordinary data.",
+			Category:    "Config",
+			Query: `ini_parse
+| {host: .server.host, port: (.server.port | tonumber), pool: (.database.pool | tonumber)}`,
+			Input: appConfig,
 		},
 		{
-			Title:       "XML to JSON",
-			Description: "xml_parse gives plain JSON, so the rest of the query is ordinary jq.",
-			Category:    "Conversion",
-			Query:       `.doc | xml_parse`,
-			Input:       `{"doc":"<config><host>db-01</host><port>5432</port></config>"}`,
+			Title:       "Edit and write config back",
+			Description: "Reading, changing and re-emitting is the whole job of a configuration change.",
+			Category:    "Config",
+			Query: `ini_parse
+| .server.port = "8443"
+| .server.tls = "true"
+| ini_stringify`,
+			Input: appConfig,
 		},
 		{
-			Title:       "Timestamps to dates",
-			Description: "Unix time in, ISO out.",
-			Category:    "Conversion",
-			Query:       `map({raw: ., when: timestamp_to_date})`,
-			Input:       `[0, 1000000000, 1700000000]`,
+			Title:       "Read a .env file",
+			Description: "properties_parse handles the key=value format env files and Java properties share.",
+			Category:    "Config",
+			Query: `properties_parse
+| {url: .DATABASE_URL, debug: (.DEBUG == "true"), workers: (.WORKERS | tonumber)}`,
+			Input: `"DATABASE_URL=postgres://db-01:5432/orders\nDEBUG=false\nWORKERS=8"`,
 		},
 		{
-			Title:       "Parse a JSON string",
-			Description: "json_parse turns a JSON string back into data; fromjson is the same thing.",
-			Category:    "Conversion",
-			Query:       `"{\"service\":\"api\",\"port\":8080}" | json_parse`,
-			Input:       `null`,
+			Title:       "Write properties out",
+			Description: "properties_stringify is the inverse, for generating the file a container expects.",
+			Category:    "Config",
+			Query:       `properties_stringify`,
+			Input:       `{"DATABASE_URL":"postgres://db-01:5432/orders","WORKERS":"8"}`,
 		},
 		{
-			Title:       "Stringify a document",
-			Description: "json_stringify is tojson: a value becomes one JSON string.",
-			Category:    "Conversion",
-			Query:       `{name: "api", port: 8080} | json_stringify`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Build a CSV document",
-			Description: "csv_stringify writes rows of an array of arrays, header and all.",
-			Category:    "Conversion",
-			Query:       `[["name","role"],["ada","engineer"],["grace","admiral"]] | csv_stringify`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Turn objects into XML",
-			Description: "xml_stringify renders _tag and _content as a document, the inverse of xml_parse.",
-			Category:    "Conversion",
-			Query:       `{_tag: "config", _content: "enabled"} | xml_stringify`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Date to timestamp",
-			Description: "date_to_timestamp parses an ISO date back into Unix seconds.",
-			Category:    "Conversion",
-			Query:       `"2026-01-01" | date_to_timestamp`,
-			Input:       `null`,
+			Title:       "Emit logfmt",
+			Description: "logfmt_stringify writes the line format the log readers parse, which closes the loop on structured logging.",
+			Category:    "Config",
+			Query:       `map(logfmt_stringify)`,
+			Input:       `[{"level":"error","svc":"payments","msg":"upstream timeout","dur_ms":1902}]`,
 		},
 
 		// ------------------------------------------------------------------
-		// Analysis
+		// Comparing and diffing
 		// ------------------------------------------------------------------
 		{
-			Title:       "Spot high-entropy strings",
-			Description: "Shannon entropy over each value: the usual first pass for finding secrets in a config.",
-			Category:    "Analysis",
-			Query: `to_entries
-| map(select(.value | type == "string") | {key, entropy: (.value | entropy)})
-| map(select(.entropy > 3.5))`,
-			Input: `{"host":"api.example.com",
- "port":"8443",
- "token":"hunter2xK9pLmQ7vB3nR8sT2wY6zA4",
- "debug":"false"}`,
+			Title:       "What changed between two documents",
+			Description: "deep_diff reports the added, removed and changed paths, which is what a config review needs.",
+			Category:    "Compare",
+			Query: `deep_diff({server: {host: "0.0.0.0", port: 8080, tls: false}, log: {level: "info"}};
+            {server: {host: "0.0.0.0", port: 8443, tls: true}, metrics: {enabled: true}})`,
+			Input: `null`,
 		},
 		{
-			Title:       "Rank values by entropy",
-			Description: "entropy scores how unpredictable a string is; sort the scores to see which value is most random.",
-			Category:    "Analysis",
-			Query:       `to_entries | map({key, entropy: (.value | entropy)}) | sort_by(-.entropy)`,
-			Input:       `{"username":"admin","api_key":"8f3a91c2e7d4b506","email":"user@example.com","password":"P@ssw0rd!2024"}`,
+			Title:       "Reconcile two lists",
+			Description: "compare_object says which side each value came from, and counts occurrences rather than collapsing to sets.",
+			Category:    "Compare",
+			Query: `compare_object(["orders-api", "payments-api", "gateway", "search"];
+                 ["orders-api", "payments-api", "gateway", "mailer"])
+| map({service: .InputObject, side: .SideIndicator})`,
+			Input: `null`,
 		},
 		{
-			Title:       "Fuzzy hash with ssdeep",
-			Description: "ssdeep needs enough input to matter; give it a paragraph, not a word.",
-			Category:    "Analysis",
-			Query:       `"The quick brown fox jumps over the lazy dog. " * 120 | ssdeep`,
-			Input:       `null`,
+			Title:       "Reconcile on a key",
+			Description: "Comparing by a property matches rows whose other fields have changed, which whole-value identity cannot.",
+			Category:    "Compare",
+			Query: `compare_object([{"id":1,"v":"2.4.0"},{"id":2,"v":"1.9.0"}];
+                 [{"id":1,"v":"2.4.1"},{"id":3,"v":"1.0.0"}];
+                 {Property: "id", IncludeEqual: true})
+| map({id: .InputObject.id, side: .SideIndicator})`,
+			Input: `null`,
 		},
 		{
-			Title:       "Compare fuzzy hashes",
-			Description: "ssdeep_compare scores how similar two hashes are, 0 to 100.",
-			Category:    "Analysis",
-			Query:       `("hello " * 1000) | ssdeep as $a | ("hello " * 1000) | ssdeep as $b | {score: ssdeep_compare($a; $b)}`,
-			Input:       `null`,
+			Title:       "Fuzzy-match names",
+			Description: "levenshtein counts edits, jaro_winkler favours a shared prefix, and soundex matches how a name sounds.",
+			Category:    "Compare",
+			Query: `["Lovelace", "Lovelase", "Lavelace", "Turing"]
+| map({name: .,
+       edits: levenshtein("Lovelace"; .),
+       similarity: (similarity_percent("Lovelace"; .) | round_to(2)),
+       jaro: (jaro_winkler("Lovelace"; .) | round_to(3)),
+       sounds_like: soundex})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Overlap between two sets",
+			Description: "jaccard scores how much two sets share, where the set cmdlets only list the members.",
+			Category:    "Compare",
+			Query: `["orders", "payments", "gateway"] as $a
+| ["orders", "payments", "search"] as $b
+| {shared: intersection($a; $b), only_a: difference($a; $b),
+   either: symmetric_difference($a; $b), all: union($a; $b),
+   score: (jaccard($a; $b) | round_to(3))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Compare fixed-width codes",
+			Description: "hamming_distance counts differing positions, which is the right measure for codes of equal length.",
+			Category:    "Compare",
+			Query: `{distance: hamming_distance("2.4.1-linux"; "2.4.0-linux"),
+   grams: ("orders" | n_grams(3))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Spot duplicate rows",
+			Description: "contains_duplicates and all_equal are the two shape questions to ask before trusting a key.",
+			Category:    "Compare",
+			Query: `{names: (map(.Name) | {duplicated: contains_duplicates, distinct: (dedupe | length)}),
+   versions: (map(.Version) | {all_same: all_equal, distinct: dedupe})}`,
+			Input: services,
 		},
 
 		// ------------------------------------------------------------------
-		// Strings
+		// Sampling and discovery
 		// ------------------------------------------------------------------
 		{
-			Title:       "Censor with replace",
-			Description: "replace works on plain text; chain it to scrub several tokens at once.",
-			Category:    "Strings",
-			Query:       `"login: alice, token: abc123" | replace("abc123"; "***")`,
-			Input:       `null`,
+			Title:       "Take a random sample",
+			Description: "sample draws without replacement and shuffle reorders, which is how a spot check gets chosen.",
+			Category:    "Random",
+			Query: `{sampled: (map(.Name) | sample(2) | length),
+   shuffled: (map(.Name) | shuffle | length),
+   picked: (map(.Name) | random_choice | type)}`,
+			Input: services,
 		},
-
-		// ------------------------------------------------------------------
-		// Discovery
-		// ------------------------------------------------------------------
 		{
-			Title:       "What can I call here?",
-			Description: "get_command answers from the registry the page actually runs, not from a document.",
+			Title:       "Generate test values",
+			Description: "The random cmdlets fill a fixture without leaving the query.",
+			Category:    "Random",
+			Query: `{int: (random_int(1; 100) | type),
+   float: (random_float(0; 1) | type),
+   token: (random_string(12) | length)}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Ask what is available",
+			Description: "get_command answers from the registry the page actually runs, not from a document that can drift.",
 			Category:    "Discovery",
 			Query:       `[get_command("sha*") | {Name, Description}] | sort_by(.Name)`,
-			Input:       ``,
-		},
-		{
-			Title:       "List every command",
-			Description: "get_command with no pattern lists the whole vocabulary, the page's own --udf-list.",
-			Category:    "Discovery",
-			Query:       `[get_command | .Name] | length`,
-			Input:       ``,
-		},
-		{
-			Title:       "Find commands by category",
-			Description: "get_command returns objects, so you can filter them with ordinary jq.",
-			Category:    "Discovery",
-			Query:       `[get_command | select(.Category == "PowerShell") | .Name] | sort`,
-			Input:       ``,
+			Input:       `null`,
 		},
 		{
 			Title:       "Read the help for a cmdlet",
-			Description: "get_help renders the NAME, SYNOPSIS, SYNTAX and EXAMPLES sections for a command.",
+			Description: "get_help prints the signature and examples that --udf-list carries, from inside a query.",
 			Category:    "Discovery",
-			Query:       `get_help("sha256")`,
-			Input:       ``,
+			Query:       `get_help("summarize_by")`,
+			Input:       `null`,
 		},
 		{
-			Title:       "Which commands still run here?",
-			Description: "get_command reports an Available flag, so the page can show what a query is allowed to use.",
+			Title:       "What can this page run",
+			Description: "Available reports whether the browser build can evaluate a name, so the page can mark what it cannot.",
 			Category:    "Discovery",
-			Query:       `[get_command | select(.Available) | .Name] | length as $n | {here: $n, total: ([get_command | .Name] | length)}`,
-			Input:       ``,
+			Query: `[get_command("*archive*"), get_command("select_string")]
+| map({Name, Available})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Sort human-readably",
+			Description: "natural_sort puts file2 before file10, which lexicographic order does not.",
+			Category:    "Discovery",
+			Query:       `{natural: natural_sort, lexicographic: sort}`,
+			Input:       `["run-10.log", "run-2.log", "run-1.log", "run-21.log"]`,
 		},
 
 		// ------------------------------------------------------------------
-		// Arguments
+		// Paths and places
+		// ------------------------------------------------------------------
+		{
+			Title:       "Take a path apart",
+			Description: "The path cmdlets are pure string work, so they answer the same on any platform and without touching a disk.",
+			Category:    "Paths",
+			Query: `map({path: .,
+      dir: dirname, file: basename, stem: stem,
+      ext: file_extension, absolute: is_absolute, directory: is_dir_path})`,
+			Input: `["/var/log/orders/app.2026-08-11.log", "reports/q1.csv", "/etc/pwrq/"]`,
+		},
+		{
+			Title:       "Change a file's extension",
+			Description: "with_extension and has_extension are how an output name is derived from an input one.",
+			Category:    "Paths",
+			Query:       `map(select(has_extension(".csv")) | {source: ., report: with_extension(".html"), sep: path_sep})`,
+			Input:       `["exports/q1.csv", "exports/q2.csv", "notes/readme.md"]`,
+		},
+		{
+			Title:       "Tidy and relativise",
+			Description: "normalize_path resolves the dots, and relative_path expresses one location from another.",
+			Category:    "Paths",
+			Query: `{tidy: ("/srv/app/../app/./logs//today.log" | normalize_path),
+   relative: ("/srv/app/logs/today.log" | relative_path("/srv/app"))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Name output files from input ones",
+			Description: "Deriving the whole set of names in one pass is the everyday use, and it stays pure text.",
+			Category:    "Paths",
+			Query: `map(. as $src
+      | {source: $src,
+         name: ($src | basename | stem),
+         archive: ($src | with_extension(".gz") | basename),
+         folder: ($src | dirname)})`,
+			Input: `["/var/log/orders/app.log", "/var/log/payments/app.log"]`,
+		},
+
+		// ------------------------------------------------------------------
+		// Geography
+		// ------------------------------------------------------------------
+		{
+			Title:       "Distance between two places",
+			Description: "haversine_distance measures the great-circle route, which is the honest distance between coordinates.",
+			Category:    "Domain",
+			Query: `{london_to_ny: (haversine_distance(51.5007; -0.1246; 40.7128; -74.0060) | round),
+   heading: (bearing(51.5007; -0.1246; 40.7128; -74.0060) | round_to(1)),
+   midpoint: (geo_midpoint(51.5007; -0.1246; 40.7128; -74.0060) | map_values(round_to(3)))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Is it within range",
+			Description: "within_radius is the geofence test, which is a distance comparison you would otherwise write out.",
+			Category:    "Domain",
+			Query: `map(. as $p
+      | {site: $p.name,
+         near_london: within_radius(51.5007; -0.1246; $p.lat; $p.lon; 50),
+         km: (haversine_distance(51.5007; -0.1246; $p.lat; $p.lon) | round)})`,
+			Input: `[{"name":"croydon","lat":51.3762,"lon":-0.0982},
+  {"name":"reading","lat":51.4543,"lon":-0.9781},
+  {"name":"edinburgh","lat":55.9533,"lon":-3.1883}]`,
+		},
+		{
+			Title:       "Coordinates as a short string",
+			Description: "geohash_encode turns a point into a prefix-comparable string, which is how proximity becomes an index lookup.",
+			Category:    "Domain",
+			Query: `parse_coords as $p
+| geohash_encode($p.lat; $p.lon; 7) as $h
+| {parsed: $p, geohash: $h, decoded: ($h | geohash_decode | {lat, lon})}`,
+			Input: `"51.5007, -0.1246"`,
+		},
+
+		// ------------------------------------------------------------------
+		// Money
+		// ------------------------------------------------------------------
+		{
+			Title:       "What a loan costs",
+			Description: "monthly_payment is the spreadsheet's PMT, and the total shows what the interest actually came to.",
+			Category:    "Domain",
+			Query: `monthly_payment(20000; 0.06; 60) as $m
+| {monthly: ($m | round_to(2)),
+   total: (($m * 60) | round_to(2)),
+   interest: (($m * 60 - 20000) | round_to(2))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Growth over time",
+			Description: "future_value and present_value are the two directions, and cagr recovers the rate from a start and an end.",
+			Category:    "Domain",
+			Query: `{future: (future_value(1000; 0.05; 10) | round_to(2)),
+   present: (present_value(1628.89; 0.05; 10) | round_to(2)),
+   rate: (cagr(1000; 1628.89; 10) | round_to(4))}`,
+			Input: `null`,
+		},
+		{
+			Title:       "Simple against compound",
+			Description: "The gap between the two is the whole argument for compounding, and it widens with time.",
+			Category:    "Domain",
+			Query: `[1, 5, 10, 20]
+| map({years: .,
+       simple: (simple_interest(1000; 0.05; .) | round_to(2)),
+       compound: ((compound_interest(1000; 0.05; .) - 1000) | round_to(2))})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Is the project worth it",
+			Description: "net_present_value discounts a series of cash flows to today, which is how two options are compared.",
+			Category:    "Domain",
+			Query: `{npv_at_8pc: (net_present_value([-10000, 3000, 4200, 5100]; 0.08) | round_to(2)),
+   npv_at_15pc: (net_present_value([-10000, 3000, 4200, 5100]; 0.15) | round_to(2))}`,
+			Input: `null`,
+		},
+
+		// ------------------------------------------------------------------
+		// Round trips
+		// ------------------------------------------------------------------
+		{
+			Title:       "Every codec round-trips",
+			Description: "A decoder that does not invert its encoder is a bug, so the pairs are worth exercising together.",
+			Category:    "Encoding",
+			Query: `. as $original
+| {base32: (base32_encode | base32_decode),
+   base85: (base85_encode | base85_decode),
+   binary: (binary_encode | binary_decode),
+   hex: (hex_encode | hex_decode)}
+| map_values(. == $original)`,
+			Input: `"orders-api:2.4.1"`,
+		},
+		{
+			Title:       "Every compressor round-trips",
+			Description: "The same check for the compression pair, which is the one place a silent truncation would hide.",
+			Category:    "Encoding",
+			Query: `. as $original
+| {zlib: (zlib_compress | zlib_decompress),
+   deflate: (deflate_compress | deflate_decompress),
+   gzip: (gzip_compress | gzip_decompress)}
+| map_values(. == $original)`,
+			Input: `"the payments service timed out twice within five minutes"`,
+		},
+		{
+			Title:       "Block ciphers round-trip too",
+			Description: "des and blowfish appear in older formats; the useful property is that they invert.",
+			Category:    "Hashes",
+			Query: `. as $plain
+| {des: (des_encrypt($plain; "8bytekey") | des_decrypt(.; "8bytekey")),
+   blowfish: (blowfish_encrypt($plain; "bfkey123") | blowfish_decrypt(.; "bfkey123"))}
+| map_values(. == $plain)`,
+			Input: `"legacy record"`,
+		},
+		{
+			Title:       "Radix round trip",
+			Description: "from_base reads back what to_base wrote, for any radix from 2 to 36.",
+			Category:    "Numbers",
+			Query: `[2, 8, 16, 36]
+| map(. as $b | {base: $b, encoded: (48879 | to_base($b)), back: (48879 | to_base($b) | from_base($b))})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Which base64 is this",
+			Description: "is_base64 and is_base64url tell the two alphabets apart, which matters before decoding a token.",
+			Category:    "IDs",
+			Query:       `map({value: ., standard: is_base64, url_safe: is_base64url})`,
+			Input:       `["b3JkZXJzLWFwaQ==", "c3ViamVjdD9pZD0xJnJvbGU9YWRtaW4", "not base64!"]`,
+		},
+		{
+			Title:       "Read a JSONL export",
+			Description: "jsonl_parse reads the one-object-per-line format that logs and database exports ship in.",
+			Category:    "JSON",
+			Query: `jsonl_parse
+| map(.dur_ms |= tonumber)
+| {events: length, slowest: (max_by(.dur_ms) | .svc), total_ms: (map(.dur_ms) | add)}`,
+			Input: `"{\"svc\":\"orders\",\"dur_ms\":84}\n{\"svc\":\"payments\",\"dur_ms\":1902}\n{\"svc\":\"gateway\",\"dur_ms\":6}"`,
+		},
+		{
+			Title:       "Biggest values in a list",
+			Description: "top_n takes the largest numbers from a bare list, where top_by needs rows with a property.",
+			Category:    "Statistics",
+			Query:       `{slowest: top_n(3), weekday_of_incident: ("2026-08-11" | weekday)}`,
+			Input:       latencies,
+		},
+
+		// ------------------------------------------------------------------
+		// jq itself
+		//
+		// Everything above is a cmdlet doing a job. What follows is the
+		// language underneath it: pwrq is a strict superset of jq, so every
+		// one of these is also a plain jq program. They are kept apart
+		// because learning jq and learning the cmdlets are different
+		// errands, and a visitor is usually on one of them.
 		// ------------------------------------------------------------------
 		{
 			Title:       "Arguments make a query reusable",
@@ -624,10 +1900,6 @@ func Examples() []Example {
  {"user":"grace","level":2},
  {"user":"linus","level":8}]`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — fundamentals
-		// ------------------------------------------------------------------
 		{
 			Title:       "Map over an array",
 			Description: "map applies a filter to every element and collects the results into a new array.",
@@ -712,10 +1984,6 @@ func Examples() []Example {
 			Query:       `{base: {host: "db-01", port: 5432}, overrides: {port: 5433}} | .base * .overrides`,
 			Input:       `null`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — arrays
-		// ------------------------------------------------------------------
 		{
 			Title:       "Build an array with range",
 			Description: "range generates numbers; wrapping it in brackets collects them.",
@@ -786,10 +2054,6 @@ func Examples() []Example {
 			Query:       `[0,1,2,3,4,5] | {mid: .[1:4], head: .[:2], tail: .[-2:], all_but: .[1:-1]}`,
 			Input:       `null`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — objects
-		// ------------------------------------------------------------------
 		{
 			Title:       "Rewrite every value",
 			Description: "map_values applies a filter to each value and keeps the keys.",
@@ -852,10 +2116,6 @@ func Examples() []Example {
 			Query:       `reduce .[] as $x ({}; .[$x.name] = $x.v)`,
 			Input:       `[{"name":"a","v":1},{"name":"b","v":2}]`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — strings
-		// ------------------------------------------------------------------
 		{
 			Title:       "Split and rejoin",
 			Description: "split breaks a string on a delimiter; join rebuilds an array with one.",
@@ -926,10 +2186,6 @@ func Examples() []Example {
 			Query:       `{a: 1, b: "two"} | {json: @json, csv: ([1,2] | @csv), uri: ("a b" | @uri), sh: ("a b" | @sh)}`,
 			Input:       `null`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — numbers
-		// ------------------------------------------------------------------
 		{
 			Title:       "Round numbers",
 			Description: "floor, ceil and round each take a number to a neighbour.",
@@ -993,10 +2249,6 @@ func Examples() []Example {
 			Query:       `{hypot: hypot(3; 4), checked: ((3*3 + 4*4) | sqrt)}`,
 			Input:       `null`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — iteration and generators
-		// ------------------------------------------------------------------
 		{
 			Title:       "Reduce into a summary",
 			Description: "Plain jq: reduce is how you fold a stream into one value.",
@@ -1070,10 +2322,6 @@ func Examples() []Example {
 			Query:       `[.x, .y] | map(. * .) | add`,
 			Input:       `{"x":3,"y":4}`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — input streams
-		// ------------------------------------------------------------------
 		{
 			Title:       "Read every input document",
 			Description: "[., inputs] collects the rest of the stream after each input position — jq's slurp idiom, one output per starting point.",
@@ -1105,10 +2353,6 @@ func Examples() []Example {
 			Query:       `{me: ., next: (input? // "eof")}`,
 			Input:       `1 2 3`,
 		},
-
-		// ------------------------------------------------------------------
-		// jq — realistic pipelines
-		// ------------------------------------------------------------------
 		{
 			Title:       "Analyse a request log",
 			Description: "Combine streaming input, group_by and measure to summarise traffic by endpoint.",
@@ -1179,703 +2423,6 @@ func Examples() []Example {
 			Category:    "jq",
 			Query:       `.text | split(" ") | map(length) | group_by(.) | map({len: .[0], count: length}) | sort_by(.len)`,
 			Input:       `{"text":"the quick brown fox jumps over the lazy dog"}`,
-		},
-
-		// ------------------------------------------------------------------
-		// Text, numbers and paths
-		// ------------------------------------------------------------------
-		{
-			Title:       "Slugify a name",
-			Description: "slugify turns any heading into a URL-safe identifier.",
-			Category:    "String",
-			Query:       `"Production API Server v2" | slugify`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Case converters",
-			Description: "snake_case, kebab_case and camel_case transpose between naming styles.",
-			Category:    "String",
-			Query:       `"BuildConfig" | {snake: snake_case, kebab: kebab_case, camel: camel_case, pascal: pascal_case}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Human-readable byte sizes",
-			Description: "human_bytes renders binary units (KiB, MiB, GiB) for file and memory sizes.",
-			Category:    "Numbers",
-			Query:       `[0, 1024, 1048576, 3221225472] | map(human_bytes)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Radix conversion",
-			Description: "to_base and to_hex_number render a number in another base.",
-			Category:    "Numbers",
-			Query:       `255 | {hex: to_hex_number, binary: to_base(2), octal: to_base(8)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Path parts",
-			Description: "basename, dirname and file_extension pull a path apart without touching disk.",
-			Category:    "Paths",
-			Query:       `"/var/log/app.log" | {dir: dirname, name: basename, ext: file_extension}`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Statistics, duration and random
-		// ------------------------------------------------------------------
-		{
-			Title:       "Response-time statistics",
-			Description: "mean, median, percentile and stdev summarise a batch of measurements.",
-			Category:    "Statistics",
-			Query:       `[120, 340, 40, 812, 65, 90] | {mean: mean, median: median, p95: percentile(95), stdev: stdev}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "One-call summary",
-			Description: "summary reports count, min, max, mean, median and stdev together.",
-			Category:    "Statistics",
-			Query:       `[3,1,4,1,5,9,2,6] | summary`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Human durations",
-			Description: "human_duration renders seconds as days, hours, minutes and seconds.",
-			Category:    "Duration",
-			Query:       `[45, 3661, 90061] | map(human_duration)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Parse a duration",
-			Description: "parse_duration turns a string like 2h30m into seconds.",
-			Category:    "Duration",
-			Query:       `"2h30m" | parse_duration`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Roll a die",
-			Description: "random_int draws a uniform integer; the range is inclusive.",
-			Category:    "Random",
-			Query:       `[range(0; 5)] | map(random_int(1; 6))`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Generate a token",
-			Description: "random_string draws cryptographically random characters.",
-			Category:    "Random",
-			Query:       `{token: random_string(32), die: random_int(1; 6)}`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// IP, tokens and validation
-		// ------------------------------------------------------------------
-		{
-			Title:       "Which IPs are internal?",
-			Description: "in_cidr answers whether an address belongs to a block; select keeps the internal ones.",
-			Category:    "IP & Network",
-			Query:       `map(select(in_cidr("10.0.0.0/8") or in_cidr("192.168.0.0/16")))`,
-			Input:       `["10.0.0.5", "8.8.8.8", "192.168.1.20", "172.16.0.9"]`,
-		},
-		{
-			Title:       "CIDR sizes",
-			Description: "cidr_size counts the addresses a block holds.",
-			Category:    "IP & Network",
-			Query:       `["10.0.0.0/8", "10.0.0.0/24", "10.0.0.0/32"] | map({cidr: ., hosts: cidr_size})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Generate and inspect a UUID",
-			Description: "uuid4 makes a version-4 UUID; is_uuid and uuid_version read it back.",
-			Category:    "IDs & Tokens",
-			Query:       `uuid4 as $u | {uuid: $u, version: ($u | uuid_version), valid: ($u | is_uuid)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Decode a JWT",
-			Description: "jwt_decode splits a token into its header, payload and signature.",
-			Category:    "IDs & Tokens",
-			Query:       `"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" | jwt_decode | {alg: .header.alg, name: .payload.name}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Extract indicators from a log line",
-			Description: "extract_emails, extract_urls and extract_ips pull the useful bits out of free text.",
-			Category:    "Validation",
-			Query:       `.line | {emails: extract_emails, urls: extract_urls, ips: extract_ips}`,
-			Input:       `{"line":"failed login from 10.0.0.7 as alice@example.com (https://intranet/login)"}`,
-		},
-		{
-			Title:       "Validate a form",
-			Description: "is_email, is_domain and is_json say whether a value has the right shape.",
-			Category:    "Validation",
-			Query:       `{email: ("ada@example.com" | is_email), domain: ("example.com" | is_domain), json: ("{\"a\":1}" | is_json)}`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Similarity, YAML and checksums
-		// ------------------------------------------------------------------
-		{
-			Title:       "Edit distance",
-			Description: "levenshtein and hamming_distance measure how far two strings are apart.",
-			Category:    "Similarity",
-			Query:       `{edit: levenshtein("kitten"; "sitting"), hamming: hamming_distance("abc"; "abd")}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "What changed in the config?",
-			Description: "deep_diff summarises a structural change as added, removed and changed paths.",
-			Category:    "Similarity",
-			Query:       `deep_diff({host: "a", port: 80, user: "ada"}; {host: "b", port: 80, role: "admin"})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Parse a YAML config",
-			Description: "yaml_parse turns config files into JSON you can query.",
-			Category:    "YAML",
-			Query:       `"host: db-01\nport: 5432\nreplicas: [a, b]\n" | yaml_parse`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Checksum a value",
-			Description: "crc32, blake2b_256 and sha256 are all one call away.",
-			Category:    "Checksum",
-			Query:       `"hello" | {crc32: crc32, blake2: blake2b_256, sha256: sha256}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Verify a bcrypt password",
-			Description: "bcrypt_hash and bcrypt_verify handle password hashes without a database.",
-			Category:    "Checksum",
-			Query:       `"hunter2" | bcrypt_hash(4) as $h | {hash: $h, matches: ("hunter2" | bcrypt_verify($h))}`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Second round: text predicates, patterns, collections
-		// ------------------------------------------------------------------
-		{
-			Title:       "What kind of string is it?",
-			Description: "is_blank, is_numeric_string and the other predicates classify a value without regexes.",
-			Category:    "String",
-			Query:       `{blank: ("" | is_blank), numeric: ("12345" | is_numeric_string), upper: ("HELLO" | is_uppercase), words: ("the quick fox" | word_count)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Filter by glob",
-			Description: "match_glob applies a shell-style pattern; select keeps the files that match.",
-			Category:    "String",
-			Query:       `["report.pdf", "notes.txt", "image.png"] | map(select(match_glob("*.png") or match_glob("*.txt")))`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Chunk a list",
-			Description: "chunks splits an array into fixed-size groups, handy for batching.",
-			Category:    "Collections",
-			Query:       `[range(0; 10)] | chunks(3)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Flatten a nested config",
-			Description: "flatten_keys reduces any nesting to dotted keys; unflatten_keys puts it back.",
-			Category:    "Collections",
-			Query:       `{server: {host: "db-01", ports: [5432, 5433]}} | flatten_keys`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Merge configs deep",
-			Description: "deep_merge combines nested objects instead of overwriting whole subtrees.",
-			Category:    "Collections",
-			Query:       `deep_merge({base: {host: "db", tls: true}, env: "prod"}; {base: {port: 5433}})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Prune empty values",
-			Description: "prune removes nulls and empty entries wherever they hide.",
-			Category:    "Collections",
-			Query:       `{a: 1, b: null, c: "", d: {e: [], f: "x"}} | prune`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Second round: JSON pointer, dates, IP, hashes, IDs, numbers, sniff
-		// ------------------------------------------------------------------
-		{
-			Title:       "Read a JSON pointer",
-			Description: "json_pointer looks a value up by RFC 6901 path, like a browser's JSON pointer.",
-			Category:    "JSON",
-			Query:       `{config: {host: "db-01", port: 5432}} | {host: json_pointer("/config/host"), port: json_pointer("/config/port")}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Build a query string",
-			Description: "query_string_build turns an object into URL query text; query_string_parse reverses it.",
-			Category:    "JSON",
-			Query:       `{page: "2", tag: ["go", "jq"]} | query_string_build`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Date arithmetic",
-			Description: "add_days and duration_between move and measure calendar time.",
-			Category:    "Duration",
-			Query:       `"2026-01-01" | {plus: add_days(30), between: duration_between("2026-02-01")}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Leap years and month lengths",
-			Description: "is_leap_year and days_in_month answer calendar questions.",
-			Category:    "Duration",
-			Query:       `[2024, 2025] | map({year: ., leap: is_leap_year, feb: days_in_month(2)})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "CIDR network and broadcast",
-			Description: "cidr_network and cidr_broadcast give the block's edges; cidr_size counts it.",
-			Category:    "IP & Network",
-			Query:       `"192.168.1.55/24" | {network: cidr_network, broadcast: cidr_broadcast, size: cidr_size}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Which addresses are private?",
-			Description: "is_private_ip and ip_version classify addresses for a network audit.",
-			Category:    "IP & Network",
-			Query:       `["10.0.0.1", "8.8.8.8", "127.0.0.1"] | map({ip: ., version: ip_version, private: is_private_ip})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Newer hashes",
-			Description: "sha3_256, keccak_256 and crc16 join the digest family.",
-			Category:    "Checksum",
-			Query:       `"hello" | {sha3: sha3_256, keccak: keccak_256, crc16: crc16}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Derive a key with PBKDF2",
-			Description: "pbkdf2_sha256 stretches a password and salt into a key for storage.",
-			Category:    "Checksum",
-			Query:       `"correct horse battery staple" | pbkdf2_sha256("somesalt"; 100000; 32)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Time-ordered UUIDs",
-			Description: "uuid7 values sort by creation time; uuid4 are random. Both are valid UUIDs.",
-			Category:    "IDs & Tokens",
-			Query:       `[uuid7, uuid4] | map(is_uuid)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Compact IDs",
-			Description: "nanoid and random_hex mint short, URL-safe identifiers.",
-			Category:    "IDs & Tokens",
-			Query:       `{nanoid: nanoid(12), hex: random_hex(8)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Encode as base58",
-			Description: "base58_encode packs bytes into the compact alphabet Bitcoin addresses use.",
-			Category:    "IDs & Tokens",
-			Query:       `"hello" | base58_encode`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Factorials and primes",
-			Description: "factorial and is_prime are exact for the sizes data work meets.",
-			Category:    "Numbers",
-			Query:       `[2, 3, 4, 5, 6, 7] | map({n: ., prime: is_prime, fact: factorial})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Ordinals and compact counts",
-			Description: "ordinal renders ranks; human_number shrinks big counts.",
-			Category:    "Numbers",
-			Query:       `{ranks: ([1, 2, 3, 11, 21] | map(ordinal)), total: (1234567 | human_number)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "What file is this?",
-			Description: "file_type guesses the kind of a blob from its magic bytes.",
-			Category:    "Sniff",
-			Query:       `[{"name": "report", "bytes": "%PDF-1.7"}, {"name": "log", "bytes": "hello world"}] | map({name, type: (.bytes | file_type)})`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Third round: log text, time series, network math, structured data
-		// ------------------------------------------------------------------
-		{
-			Title:       "Strip ANSI from a log line",
-			Description: "strip_ansi removes terminal colour codes, leaving the plain text.",
-			Category:    "String",
-			Query:       `"\u001b[32mOK\u001b[0m 200 \u001b[1mGET /health\u001b[0m" | strip_ansi`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Template a message",
-			Description: "template fills {{placeholders}} from an object.",
-			Category:    "String",
-			Query:       `"server {{host}} is {{status}}" | template({host: "db-01", status: "up"})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Rolling average",
-			Description: "moving_average smooths a time series into a rolling mean.",
-			Category:    "Statistics",
-			Query:       `[12, 14, 13, 40, 42] | moving_average(3)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Rescale to a percentage",
-			Description: "rescale maps a value between ranges, e.g. sensors to 0-100.",
-			Category:    "Numbers",
-			Query:       `[0, 5, 10] | map(rescale(0; 10; 0; 100))`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Rotate a list",
-			Description: "rotate shifts an array, wrapping around.",
-			Category:    "Collections",
-			Query:       `[1, 2, 3, 4, 5] | rotate(2)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Merge a config patch",
-			Description: "json_merge_patch applies an RFC 7386 merge: null deletes, objects merge.",
-			Category:    "JSON",
-			Query:       `json_merge_patch({host: "a", tls: {on: true}, db: "old"}; {tls: {port: 443}, db: null})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Parse JSON lines",
-			Description: "jsonl_parse reads newline-delimited JSON into an array.",
-			Category:    "JSON",
-			Query:       `"{\"a\":1}\n{\"a\":2}\n{\"a\":3}" | jsonl_parse | map(.a) | add`,
-			Input:       `null`,
-		},
-		{
-			Title:       "CIDR subnet math",
-			Description: "cidr_first_host, cidr_last_host and subnet_of answer block-boundary questions.",
-			Category:    "IP & Network",
-			Query:       `"10.0.0.0/24" | {first: cidr_first_host, last: cidr_last_host, inside_10_8: subnet_of("10.0.0.0/8")}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Name a port",
-			Description: "port_name maps common service ports to their well-known names.",
-			Category:    "IP & Network",
-			Query:       `[22, 80, 443, 5432] | map({port: ., service: port_name})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Similarity for matching",
-			Description: "similarity_percent and jaro_winkler score how close two strings are.",
-			Category:    "Similarity",
-			Query:       `{lev: similarity_percent("kitten"; "sitting"), jaro: jaro_winkler("MARTHA"; "MARHTA")}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Luhn-check a card number",
-			Description: "is_credit_card runs the Luhn checksum over the digits.",
-			Category:    "Validation",
-			Query:       `["4111111111111111", "4111111111111112"] | map({number: ., valid: is_credit_card})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Punycode a domain",
-			Description: "punycode_encode turns an internationalized domain into ASCII for DNS.",
-			Category:    "IDs & Tokens",
-			Query:       `"münchen.example" | punycode_encode`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Fourth round: group and summarise, units, geo, finance, time series
-		// ------------------------------------------------------------------
-		{
-			Title:       "Count rows by a key",
-			Description: "count_by is Group-Object's tally: how many rows share each value of a property.",
-			Category:    "Collections",
-			Query:       `count_by(.; "dept")`,
-			Input: `[{"dept":"eng","pay":90},{"dept":"eng","pay":110},
- {"dept":"ops","pay":80},{"dept":"eng","pay":95}]`,
-		},
-		{
-			Title:       "Summarize per group",
-			Description: "summarize_by reports count, sum, average, min and max per key value.",
-			Category:    "Collections",
-			Query:       `summarize_by(.; "dept"; "pay")`,
-			Input: `[{"dept":"eng","pay":90},{"dept":"eng","pay":110},
- {"dept":"ops","pay":80}]`,
-		},
-		{
-			Title:       "Pivot a table",
-			Description: "pivot turns rows into a row-by-column grid, the way a spreadsheet does.",
-			Category:    "Collections",
-			Query:       `pivot(.; {rows: "dept", cols: "year", values: "salary"})`,
-			Input: `[{"dept":"eng","year":2020,"salary":90},
- {"dept":"eng","year":2021,"salary":110},
- {"dept":"ops","year":2020,"salary":80}]`,
-		},
-		{
-			Title:       "Melt wide rows",
-			Description: "unpivot is pivot's inverse: value columns melted into key/value rows.",
-			Category:    "Collections",
-			Query:       `unpivot(.; {cols: ["y2020", "y2021"], id: "dept"})`,
-			Input: `[{"dept":"eng","y2020":90,"y2021":110},
- {"dept":"ops","y2020":80,"y2021":null}]`,
-		},
-		{
-			Title:       "Top rows by a column",
-			Description: "top_by keeps the rows with the largest value of a numeric property.",
-			Category:    "Collections",
-			Query:       `top_by(.; "pay"; 2) | map(.name)`,
-			Input: `[{"name":"ada","pay":120},{"name":"grace","pay":110},
- {"name":"alan","pay":95},{"name":"ken","pay":85}]`,
-		},
-		{
-			Title:       "Value frequencies",
-			Description: "value_counts tallies whole values, the histogram of a list.",
-			Category:    "Collections",
-			Query:       `value_counts`,
-			Input:       `["200","404","200","500","200","404"]`,
-		},
-		{
-			Title:       "Set operations",
-			Description: "intersection, union and difference treat arrays as sets.",
-			Category:    "Collections",
-			Query:       `{common: intersection([1,2,3]; [2,3,4]), both: union([1,2]; [2,3]), onlyA: difference([1,2,3]; [2])}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Natural sort",
-			Description: "natural_sort orders file2 before file10, the way a human expects.",
-			Category:    "Collections",
-			Query:       `["ch3","ch10","ch1","ch2"] | natural_sort`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Parse a size string",
-			Description: "parse_size is the inverse of human_bytes: a size string to bytes.",
-			Category:    "Domain",
-			Query:       `"1.5 MiB" | parse_size as $b | {bytes: $b, roundtrip: ($b | human_bytes)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Distance between cities",
-			Description: "haversine_distance measures the great-circle route between two coordinates.",
-			Category:    "Domain",
-			Query:       `haversine_distance(51.5007; -0.1246; 40.7128; -74.0060) | round`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Geohash a point",
-			Description: "geohash_encode and geohash_decode move between a coordinate and its string form.",
-			Category:    "Domain",
-			Query:       `geohash_encode(42.6; -5.6; 6) as $h | {hash: $h, centre: ($h | geohash_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Growth and loans",
-			Description: "future_value, monthly_payment and cagr answer money questions without a spreadsheet.",
-			Category:    "Domain",
-			Query:       `{fv: future_value(100; 0.05; 10), payment: monthly_payment(20000; 0.06; 60), growth: cagr(100; 200; 3)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Running totals",
-			Description: "cumsum turns a series of increments into the running total.",
-			Category:    "Statistics",
-			Query:       `[5, 3, -2, 4, 6] | cumsum`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Exponential smoothing",
-			Description: "ema smooths a noisy series, weighting recent values more heavily.",
-			Category:    "Statistics",
-			Query:       `[10, 12, 11, 14, 13, 17, 16] | ema(0.4) | map(round)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Correlate two series",
-			Description: "correlation scores how two arrays move together, from -1 to 1.",
-			Category:    "Statistics",
-			Query:       `correlation([1,2,3,4,5]; [1,4,9,16,25])`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Five-number summary",
-			Description: "quartiles gives minimum, quartiles, median and maximum in one call.",
-			Category:    "Statistics",
-			Query:       `[3, 1, 9, 7, 5, 11, 2, 8] | quartiles`,
-			Input:       `null`,
-		},
-		{
-			Title:       "First differences",
-			Description: "deltas is the change between consecutive values, one shorter than the input.",
-			Category:    "Statistics",
-			Query:       `[100, 102, 99, 105] | deltas`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Sort log lines",
-			Description: "sort_lines and unique_lines shape a block of text as if it were rows.",
-			Category:    "String",
-			Query:       `"b\na\nb\nc" | unique_lines | sort_lines`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Version ordering",
-			Description: "semver_compare orders releases correctly, pre-releases before stable.",
-			Category:    "Validation",
-			Query:       `["2.0.0", "1.10.0", "1.9.0", "2.0.0-rc.1"] | sort | map({v: ., behind: semver_compare(.; "2.0.0")})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Path surgery",
-			Description: "stem, with_extension and normalize_path reshape paths as pure strings.",
-			Category:    "Paths",
-			Query:       `"/tmp/data/report.pdf" | {stem: stem, md: with_extension(".md"), norm: ("/a//b/../c" | normalize_path)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Relative paths",
-			Description: "relative_path expresses one path against another, the way filepath.Rel does.",
-			Category:    "Paths",
-			Query:       `"/var/log/app" | relative_path("/var")`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Prime factors",
-			Description: "prime_factors breaks an integer down with multiplicity, for forensics and puzzles.",
-			Category:    "Numbers",
-			Query:       `[60, 97, 100] | map({n: ., factors: prime_factors, prime: is_prime})`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Fourth round, part two: config formats, text and object helpers
-		// ------------------------------------------------------------------
-		{
-			Title:       "Read an INI file",
-			Description: "ini_parse turns an INI document into nested objects, ready for jq.",
-			Category:    "Config",
-			Query:       `ini_parse | {host: .server.host, level: .log.level}`,
-			Input:       `"[server]\nhost = 10.0.0.1\nport = 8080\n\n[log]\nlevel = debug"`,
-		},
-		{
-			Title:       "Read a .env file",
-			Description: "properties_parse handles Java-properties and dotenv files, escapes and continuations included.",
-			Category:    "Config",
-			Query:       `properties_parse | {name: .APP_NAME, host: .DB_HOST}`,
-			Input:       `"# deploy config\nAPP_NAME=my-app\nDB_HOST = db.internal\nMODE=prod"`,
-		},
-		{
-			Title:       "Parse a logfmt line",
-			Description: "logfmt_parse reads key=value log lines, typing numbers and booleans for you.",
-			Category:    "Config",
-			Query:       `logfmt_parse | {level, user, retries, success}`,
-			Input:       `"ts=2026-08-10T12:00:00Z level=info msg=\"user logged in\" user=ada retries=3 success=true"`,
-		},
-		{
-			Title:       "Emit logfmt",
-			Description: "logfmt_stringify renders an object back into a log line, quoting what needs it.",
-			Category:    "Config",
-			Query:       `logfmt_stringify`,
-			Input:       `{"level":"warn","msg":"disk nearly full","free_gb":1.2,"ok":false}`,
-		},
-		{
-			Title:       "Cut a string around a separator",
-			Description: "before_first and after_first are the ${var#} and ${var%} of jq.",
-			Category:    "String",
-			Query:       `"user:secret@db.internal:5432" | {user: before_first(":"), cred: (after_first(":") | before_first("@")), host: (after_first("@") | before_first(":"))}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Match names that sound alike",
-			Description: "soundex gives Robert and Rupert the same code, for fuzzy name matching.",
-			Category:    "String",
-			Query:       `[["Robert","Rupert"],["Ashcraft","Ashcroft"],["Tymczak","Smith"]] | map({a: .[0] | soundex, b: .[1] | soundex, same: (.[0] | soundex) == (.[1] | soundex)})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Diff two log snapshots",
-			Description: "diff_lines reports which lines are new and which are gone.",
-			Category:    "String",
-			Query:       `"200\n404\n500" | diff_lines("200\n302\n404")`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Fixed-point formatting",
-			Description: "to_fixed renders a number with a fixed number of decimal places.",
-			Category:    "Numbers",
-			Query:       `[1.5, 3.14159, 100] | map(to_fixed(2))`,
-			Input:       `null`,
-		},
-
-		// ------------------------------------------------------------------
-		// Fourth round, part three: TSV, rolling windows, path writes, words
-		// ------------------------------------------------------------------
-		{
-			Title:       "Parse TSV",
-			Description: "tsv_parse reads tab-separated data; tsv_stringify writes it back.",
-			Category:    "CSV",
-			Query:       `tsv_parse | .[1:] | map(.[1])`,
-			Input:       `"name\trole\nada\tengineer\ngrace\tadmiral"`,
-		},
-		{
-			Title:       "Rolling windows",
-			Description: "windows slides an n-element window across an array, ready for a rolling computation.",
-			Category:    "Collections",
-			Query:       `[1,2,3,4,5] | windows(3)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Thousands separators",
-			Description: "group_digits and format_currency make big numbers readable.",
-			Category:    "Numbers",
-			Query:       `{grouped: (1234567 | group_digits), price: (1234.5 | format_currency), euros: (1234.5 | format_currency("€"))}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Numeric strings",
-			Description: "is_numeric accepts any number syntax, where is_numeric_string only takes digits.",
-			Category:    "Validation",
-			Query:       `["42", "-1.5e3", "0x1F", "abc"] | map({s: ., numeric: is_numeric})`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Where a value ranks",
-			Description: "percentile_rank says what fraction of the data sits at or below a value.",
-			Category:    "Statistics",
-			Query:       `[1,2,3,4,5] | {median: percentile_rank(3), max: percentile_rank(5), min: percentile_rank(0)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Discounted cash flows",
-			Description: "net_present_value discounts a series of flows back to today's money.",
-			Category:    "Domain",
-			Query:       `net_present_value([-100000, 30000, 30000, 40000, 40000]; 0.08) | round`,
-			Input:       `null`,
-		},
-		{
-			Title:       "ISO durations",
-			Description: "iso_duration renders seconds the way APIs and schedules expect.",
-			Category:    "Duration",
-			Query:       `[45, 3600, 93784] | map(iso_duration)`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Quote-printable email text",
-			Description: "quoted_printable_encode makes non-ASCII text safe for email, and back.",
-			Category:    "String",
-			Query:       `"café ☕" | quoted_printable_encode as $e | {encoded: $e, back: ($e | quoted_printable_decode)}`,
-			Input:       `null`,
-		},
-		{
-			Title:       "Balanced brackets",
-			Description: "is_balanced checks that (), [] and {} close in the right order.",
-			Category:    "String",
-			Query:       `["(a[b]{c})", "([)]", "(unclosed"] | map({s: ., balanced: is_balanced})`,
-			Input:       `null`,
 		},
 	}
 }
