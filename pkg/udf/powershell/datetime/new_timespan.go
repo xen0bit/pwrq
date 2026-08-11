@@ -28,12 +28,12 @@ type TimeSpan struct {
 
 // NewTimeSpanOptions holds options for new_timespan
 type NewTimeSpanOptions struct {
-	Start  any // Start time (string, int timestamp, or map with DateTime)
-	End    any // End time (string, int timestamp, or map with DateTime)
-	Days   int
-	Hours  int
-	Minutes int
-	Seconds int
+	Start        any // Start time (string, int timestamp, or map with DateTime)
+	End          any // End time (string, int timestamp, or map with DateTime)
+	Days         int
+	Hours        int
+	Minutes      int
+	Seconds      int
 	Milliseconds int
 }
 
@@ -212,18 +212,18 @@ func createTimeSpan(duration time.Duration) TimeSpan {
 	// Extract components using proper remainder calculations
 	days := int(absDuration / (24 * time.Hour))
 	remaining := absDuration - time.Duration(days)*24*time.Hour
-	
+
 	hours := int(remaining / time.Hour)
 	remaining = remaining - time.Duration(hours)*time.Hour
-	
+
 	minutes := int(remaining / time.Minute)
 	remaining = remaining - time.Duration(minutes)*time.Minute
-	
+
 	seconds := int(remaining / time.Second)
 	remaining = remaining - time.Duration(seconds)*time.Second
-	
+
 	milliseconds := int(remaining / time.Millisecond)
-	
+
 	// 1 tick = 100 nanoseconds
 	ticks := absDuration.Nanoseconds() / 100
 
@@ -261,16 +261,16 @@ func formatDuration(d time.Duration) string {
 	// Extract components using proper remainder calculations
 	days := int(d / (24 * time.Hour))
 	remaining := d - time.Duration(days)*24*time.Hour
-	
+
 	hours := int(remaining / time.Hour)
 	remaining = remaining - time.Duration(hours)*time.Hour
-	
+
 	minutes := int(remaining / time.Minute)
 	remaining = remaining - time.Duration(minutes)*time.Minute
-	
+
 	seconds := int(remaining / time.Second)
 	remaining = remaining - time.Duration(seconds)*time.Second
-	
+
 	// Get fractional seconds as 7-digit ticks (1 tick = 100 nanoseconds)
 	// This gives us the full 7-digit precision for fractional seconds
 	fractionalTicks := int(remaining.Nanoseconds() / 100)

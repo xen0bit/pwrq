@@ -123,4 +123,3 @@ func RegisterMkdir() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(dirPath, meta)
 	})
 }
-

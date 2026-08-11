@@ -190,9 +190,9 @@ func RegisterCSVStringify() gojq.CompilerOption {
 		result := buf.String()
 
 		meta := map[string]any{
-			"operation": "csv_stringify",
-			"delimiter": string(delimiter),
-			"rows":      len(records),
+			"operation":     "csv_stringify",
+			"delimiter":     string(delimiter),
+			"rows":          len(records),
 			"output_length": len(result),
 		}
 
@@ -207,7 +207,6 @@ func RegisterCSVStringify() gojq.CompilerOption {
 			}
 		}
 
-  return common.MakeUDFSuccessResult(result, meta)
+		return common.MakeUDFSuccessResult(result, meta)
 	})
 }
-

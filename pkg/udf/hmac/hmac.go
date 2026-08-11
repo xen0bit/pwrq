@@ -132,7 +132,7 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 			meta["input_length"] = len(inputBytes)
 		}
 
-  return common.MakeUDFSuccessResult(hashHex, meta)
+		return common.MakeUDFSuccessResult(hashHex, meta)
 	})
 }
 
@@ -175,4 +175,3 @@ func RegisterHMACSHA512_224() gojq.CompilerOption {
 func RegisterHMACSHA512_256() gojq.CompilerOption {
 	return RegisterHMAC("sha512_256")
 }
-

@@ -80,7 +80,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 			meta["compressed_length"] = len(compressed)
 		}
 
-  return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
+		return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
 	})
 }
 
@@ -154,7 +154,7 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 			meta["decompressed_length"] = len(decompressed)
 		}
 
-  return common.MakeUDFSuccessResult(string(decompressed), meta)
+		return common.MakeUDFSuccessResult(string(decompressed), meta)
 	})
 }
 
@@ -225,7 +225,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 			meta["compressed_length"] = len(compressed)
 		}
 
-  return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
+		return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
 	})
 }
 
@@ -299,7 +299,7 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 			meta["decompressed_length"] = len(decompressed)
 		}
 
-  return common.MakeUDFSuccessResult(string(decompressed), meta)
+		return common.MakeUDFSuccessResult(string(decompressed), meta)
 	})
 }
 
@@ -373,7 +373,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 			meta["compressed_length"] = len(compressed)
 		}
 
-  return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
+		return common.MakeUDFSuccessResult(fmt.Sprintf("%x", compressed), meta)
 	})
 }
 
@@ -444,7 +444,6 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 			meta["decompressed_length"] = len(decompressed)
 		}
 
-  return common.MakeUDFSuccessResult(string(decompressed), meta)
+		return common.MakeUDFSuccessResult(string(decompressed), meta)
 	})
 }
-

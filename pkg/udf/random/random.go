@@ -108,7 +108,7 @@ func RegisterRandomFloat() gojq.CompilerOption {
 		}
 		bits := binary.LittleEndian.Uint64(append(b[:], 0)) & ((uint64(1) << 53) - 1)
 		unit := float64(bits) / float64(uint64(1)<<53)
-		return common.MakeUDFSuccessResult(min + unit*span, nil)
+		return common.MakeUDFSuccessResult(min+unit*span, nil)
 	})
 }
 

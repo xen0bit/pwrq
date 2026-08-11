@@ -14,10 +14,10 @@ import (
 
 // RemoveVariableOptions holds options for the remove_variable function
 type RemoveVariableOptions struct {
-	Name       string // Variable name (supports wildcards)
-	Scope      string // Scope to search: global, script, local
-	Force      bool   // Force removal (only bypasses "not found" errors)
-	Exclude    string // Exclude pattern
+	Name    string // Variable name (supports wildcards)
+	Scope   string // Scope to search: global, script, local
+	Force   bool   // Force removal (only bypasses "not found" errors)
+	Exclude string // Exclude pattern
 }
 
 // RegisterRemoveVariable registers the remove_variable function with gojq
@@ -40,7 +40,7 @@ func RegisterRemoveVariable() gojq.CompilerOption {
 
 		// First argument is name or options
 		firstArg := common.BindValue(args[0])
-		
+
 		if nameStr, isString := firstArg.(string); isString {
 			name = nameStr
 		} else if optsMap, ok := firstArg.(map[string]any); ok {
@@ -50,7 +50,7 @@ func RegisterRemoveVariable() gojq.CompilerOption {
 				name = opts.Name
 			}
 		}
-		
+
 		// Second argument could be options
 		if len(args) > 1 {
 			if optsMap, ok := args[1].(map[string]any); ok {
@@ -125,10 +125,10 @@ func RegisterRemoveVariable() gojq.CompilerOption {
 func removeVariablesByPattern(ss *sessionstate.SessionState, pattern string, opts RemoveVariableOptions) (int, error) {
 	// Use ss.GetVariables() which properly traverses the scope chain
 	allVars := ss.GetVariables()
-	
+
 	var removedCount int
 	var firstErr error
-	
+
 	for name := range allVars {
 		// Apply Exclude filter (if specified)
 		if opts.Exclude != "" {
@@ -137,13 +137,13 @@ func removeVariablesByPattern(ss *sessionstate.SessionState, pattern string, opt
 				continue // Skip if matches exclude pattern
 			}
 		}
-		
+
 		// Check if name matches the wildcard pattern
 		matched, err := filepath.Match(pattern, name)
 		if err != nil || !matched {
 			continue
 		}
-		
+
 		// If Scope is specified, filter by scope
 		if opts.Scope != "" {
 			entry := allVars[name]
@@ -152,7 +152,7 @@ func removeVariablesByPattern(ss *sessionstate.SessionState, pattern string, opt
 				continue
 			}
 		}
-		
+
 		// Attempt to remove the variable
 		err = ss.RemoveVariable(name)
 		if err != nil {
@@ -169,7 +169,7 @@ func removeVariablesByPattern(ss *sessionstate.SessionState, pattern string, opt
 		}
 		removedCount++
 	}
-	
+
 	return removedCount, firstErr
 }
 

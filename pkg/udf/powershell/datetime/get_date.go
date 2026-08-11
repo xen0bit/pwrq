@@ -13,21 +13,21 @@ import (
 
 // GetDateOptions holds options for get_date
 type GetDateOptions struct {
-	Date       any // Can be string (date to parse) or int (timestamp)
-	Format     string
+	Date        any // Can be string (date to parse) or int (timestamp)
+	Format      string
 	DisplayHint string // Date, Time, DateTime
-	Year       int
-	YearSet    bool
-	Month      int
-	MonthSet   bool
-	Day        int
-	DaySet     bool
-	Hour       int
-	HourSet    bool
-	Minute     int
-	MinuteSet  bool
-	Second     int
-	SecondSet  bool
+	Year        int
+	YearSet     bool
+	Month       int
+	MonthSet    bool
+	Day         int
+	DaySet      bool
+	Hour        int
+	HourSet     bool
+	Minute      int
+	MinuteSet   bool
+	Second      int
+	SecondSet   bool
 }
 
 // RegisterGetDate registers the get_date function with gojq

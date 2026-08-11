@@ -18,10 +18,10 @@ import (
 
 // SetContentOptions represents options for Set-Content
 type SetContentOptions struct {
-	Path    string
-	Value   any
+	Path     string
+	Value    any
 	Encoding string
-	Force   bool
+	Force    bool
 }
 
 // parseSetContentArgs parses arguments for set_content
@@ -193,7 +193,7 @@ func convertToEncoding(s string, enc encoding.Encoding) ([]byte, error) {
 		}
 		return '?'
 	}, s)
-	
+
 	encoder := enc.NewEncoder()
 	result, _, err := transform.String(encoder, safe)
 	if err != nil {
@@ -210,7 +210,7 @@ func extractPSObjectValue(v any) any {
 	if !ok {
 		return v
 	}
-	
+
 	// Check for PSObject marker
 	if isPSObj, ok := m["__psobject"].(bool); ok && isPSObj {
 		if val, ok := m["Value"]; ok {
@@ -237,26 +237,26 @@ func validatePath(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
 	}
-	
+
 	// On Windows, check for reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
 	if runtime.GOOS == "windows" {
 		baseName := strings.ToUpper(filepath.Base(path))
 		ext := filepath.Ext(baseName)
 		nameWithoutExt := strings.TrimSuffix(baseName, ext)
-		
+
 		reservedNames := []string{
 			"CON", "PRN", "AUX", "NUL",
 			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
 			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 		}
-		
+
 		for _, reserved := range reservedNames {
 			if nameWithoutExt == reserved {
 				return fmt.Errorf("cannot write to reserved device name: %s", nameWithoutExt)
 			}
 		}
 	}
-	
+
 	return nil
 }
 

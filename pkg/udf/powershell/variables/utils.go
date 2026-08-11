@@ -40,7 +40,7 @@ func variableOptionsToString(opts sessionstate.VariableOptions) string {
 	if opts == sessionstate.None {
 		return "None"
 	}
-	
+
 	var parts []string
 	if opts&sessionstate.ReadOnly != 0 {
 		parts = append(parts, "ReadOnly")
@@ -54,7 +54,7 @@ func variableOptionsToString(opts sessionstate.VariableOptions) string {
 	if opts&sessionstate.AllScope != 0 {
 		parts = append(parts, "AllScope")
 	}
-	
+
 	if len(parts) == 0 {
 		return "None"
 	}

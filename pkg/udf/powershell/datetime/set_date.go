@@ -22,6 +22,7 @@ type SetDateOptions struct {
 //   - set_date("2024-01-15") - Set system date (requires privileges)
 //   - set_date(1704067200) - Set from Unix timestamp
 //   - set_date({"Date": "2024-01-15T12:00:00Z"})
+//
 // Note: On Unix systems, this typically requires root privileges
 func RegisterSetDate() gojq.CompilerOption {
 	return gojq.WithFunction("set_date", 0, 2, func(v any, args []any) any {

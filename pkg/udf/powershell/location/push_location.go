@@ -35,10 +35,10 @@ func RegisterPushLocation() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			firstArg := common.BindValue(args[0])
-			
+
 			if pathStr, isString := firstArg.(string); isString {
 				opts.Path = pathStr
-				
+
 				// Second argument could be options
 				if len(args) > 1 {
 					if optsMap, ok := args[1].(map[string]any); ok {
@@ -81,7 +81,7 @@ func RegisterPushLocation() gojq.CompilerOption {
 				ss.PopLocationStack(stackName)
 				return common.MakeUDFErrorResult(fmt.Errorf("push_location: failed to change to path %q: %v", opts.Path, err), nil)
 			}
-			
+
 			// Get the new current directory
 			targetPath, err = os.Getwd()
 			if err != nil {
@@ -94,8 +94,8 @@ func RegisterPushLocation() gojq.CompilerOption {
 
 		// Build result object
 		result := map[string]any{
-			"Path":     targetPath,
-			"Provider": "FileSystem",
+			"Path":      targetPath,
+			"Provider":  "FileSystem",
 			"StackName": stackName,
 		}
 		psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")

@@ -43,8 +43,8 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/similarity"
 	"github.com/xen0bit/pwrq/pkg/udf/sniff"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
-	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/stats"
+	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/system"
 	"github.com/xen0bit/pwrq/pkg/udf/tee"
 	"github.com/xen0bit/pwrq/pkg/udf/tempdir"
@@ -54,6 +54,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/validate"
 	"github.com/xen0bit/pwrq/pkg/udf/xml"
 	yamllib "github.com/xen0bit/pwrq/pkg/udf/yaml"
+
 	// PowerShell cmdlets
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/datetime"
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/filesystem"

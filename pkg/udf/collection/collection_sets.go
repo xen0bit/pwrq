@@ -1,9 +1,9 @@
+// Arrays as sets, and looking a row up inside one.
 package collection
 
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
@@ -205,26 +205,22 @@ func RegisterCartesian() gojq.CompilerOption {
 	})
 }
 
-// RegisterColumn registers column, the nth element of every row of an array of
-// arrays.
-func RegisterColumn() gojq.CompilerOption {
-	return gojq.WithFunction("column", 1, 2, func(v any, args []any) any {
-		arr, rest, err := arrInput(v, args, 1, "column")
+// RegisterDedupe registers dedupe, removing duplicate values while keeping
+// first-occurrence order.
+func RegisterDedupe() gojq.CompilerOption {
+	return gojq.WithFunction("dedupe", 0, 1, func(v any, args []any) any {
+		arr, _, err := arrInput(v, args, 0, "dedupe")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
-		n, ok := common.ToInt(rest[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("column: index must be a non-negative integer, got %v", rest[0]), nil)
-		}
+		seen := make(map[string]bool, len(arr))
 		out := make([]any, 0, len(arr))
-		for _, row := range arr {
-			rowArr, ok := common.BindValue(row).([]any)
-			if !ok || n >= len(rowArr) {
-				out = append(out, nil)
-				continue
+		for _, item := range arr {
+			key, _ := json.Marshal(item)
+			if !seen[string(key)] {
+				seen[string(key)] = true
+				out = append(out, item)
 			}
-			out = append(out, rowArr[n])
 		}
 		return common.MakeUDFSuccessResult(out, nil)
 	})
@@ -254,73 +250,3 @@ func RegisterLookup() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(nil, nil)
 	})
 }
-
-// RegisterNaturalSort registers natural_sort, an array of strings in human
-// order, where "file2" sorts before "file10".
-func RegisterNaturalSort() gojq.CompilerOption {
-	return gojq.WithFunction("natural_sort", 0, 1, func(v any, args []any) any {
-		arr, _, err := arrInput(v, args, 0, "natural_sort")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		out := append([]any{}, arr...)
-		sort.SliceStable(out, func(i, j int) bool {
-			return naturalLess(stringify(out[i]), stringify(out[j]))
-		})
-		return common.MakeUDFSuccessResult(out, nil)
-	})
-}
-
-func stringify(v any) string {
-	switch val := common.BindValue(v).(type) {
-	case string:
-		return val
-	case nil:
-		return ""
-	default:
-		b, err := json.Marshal(val)
-		if err != nil {
-			return fmt.Sprint(val)
-		}
-		return string(b)
-	}
-}
-
-// naturalLess compares two strings digit-run by digit-run, so "a2" < "a10".
-func naturalLess(a, b string) bool {
-	for len(a) > 0 && len(b) > 0 {
-		if isDigit(a[0]) && isDigit(b[0]) {
-			i, j := 0, 0
-			for i < len(a) && isDigit(a[i]) {
-				i++
-			}
-			for j < len(b) && isDigit(b[j]) {
-				j++
-			}
-			na, nb := a[:i], b[:j]
-			// Skip leading zeros for length comparison.
-			ta, tb := na, nb
-			for len(ta) > 1 && ta[0] == '0' {
-				ta = ta[1:]
-			}
-			for len(tb) > 1 && tb[0] == '0' {
-				tb = tb[1:]
-			}
-			if len(ta) != len(tb) {
-				return len(ta) < len(tb)
-			}
-			if ta != tb {
-				return ta < tb
-			}
-			a, b = a[i:], b[j:]
-			continue
-		}
-		if a[0] != b[0] {
-			return a[0] < b[0]
-		}
-		a, b = a[1:], b[1:]
-	}
-	return len(a) < len(b)
-}
-
-func isDigit(c byte) bool { return c >= '0' && c <= '9' }

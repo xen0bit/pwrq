@@ -137,7 +137,7 @@ func RegisterIPToInt() gojq.CompilerOption {
 		}
 		if addr.Is4() {
 			bytes := addr.As4()
-			return common.MakeUDFSuccessResult(uint32(bytes[0])<<24 | uint32(bytes[1])<<16 | uint32(bytes[2])<<8 | uint32(bytes[3]), nil)
+			return common.MakeUDFSuccessResult(uint32(bytes[0])<<24|uint32(bytes[1])<<16|uint32(bytes[2])<<8|uint32(bytes[3]), nil)
 		}
 		bytes := addr.As16()
 		n := new(big.Int).SetBytes(bytes[:])
@@ -214,7 +214,7 @@ func RegisterCidrSize() gojq.CompilerOption {
 		bitLen := prefix.Addr().BitLen()
 		hostBits := bitLen - prefix.Bits()
 		if hostBits <= 63 {
-			return common.MakeUDFSuccessResult(int64(1) << uint(hostBits), nil)
+			return common.MakeUDFSuccessResult(int64(1)<<uint(hostBits), nil)
 		}
 		return common.MakeUDFSuccessResult(math.Pow(2, float64(hostBits)), nil)
 	})
@@ -261,5 +261,269 @@ func RegisterMacNormalize() gojq.CompilerOption {
 			parts[i] = clean[i*2 : i*2+2]
 		}
 		return common.MakeUDFSuccessResult(strings.Join(parts, ":"), nil)
+	})
+}
+
+// RegisterIPVersion registers ip_version, "v4" or "v6" for an address.
+func RegisterIPVersion() gojq.CompilerOption {
+	return gojq.WithFunction("ip_version", 0, 2, func(v any, args []any) any {
+		s, err := strInput(v, args, "ip_version")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("ip_version: %v", err), nil)
+		}
+		addr, err := netip.ParseAddr(s)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("ip_version: %q is not an address", s), nil)
+		}
+		if addr.Is4() {
+			return common.MakeUDFSuccessResult("v4", nil)
+		}
+		return common.MakeUDFSuccessResult("v6", nil)
+	})
+}
+
+// RegisterIsPrivateIP registers is_private_ip, whether an address is private or
+// loopback (RFC 1918, ULA, 127/8, ::1).
+func RegisterIsPrivateIP() gojq.CompilerOption {
+	return registerBool("is_private_ip", func(s string) bool {
+		addr, err := netip.ParseAddr(s)
+		return err == nil && (addr.IsPrivate() || addr.IsLoopback())
+	})
+}
+
+// RegisterIsLoopback registers is_loopback, whether an address is loopback.
+func RegisterIsLoopback() gojq.CompilerOption {
+	return registerBool("is_loopback", func(s string) bool {
+		addr, err := netip.ParseAddr(s)
+		return err == nil && addr.IsLoopback()
+	})
+}
+
+// RegisterCidrNetwork registers cidr_network, the base address of a CIDR
+// block.
+func RegisterCidrNetwork() gojq.CompilerOption {
+	return gojq.WithFunction("cidr_network", 0, 2, func(v any, args []any) any {
+		s, err := strInput(v, args, "cidr_network")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_network: %v", err), nil)
+		}
+		prefix, err := netip.ParsePrefix(s)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_network: %q is not a CIDR", s), nil)
+		}
+		return common.MakeUDFSuccessResult(prefix.Masked().Addr().String(), nil)
+	})
+}
+
+// RegisterCidrBroadcast registers cidr_broadcast, the last address of a CIDR
+// block.
+func RegisterCidrBroadcast() gojq.CompilerOption {
+	return gojq.WithFunction("cidr_broadcast", 0, 2, func(v any, args []any) any {
+		s, err := strInput(v, args, "cidr_broadcast")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_broadcast: %v", err), nil)
+		}
+		prefix, err := netip.ParsePrefix(s)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_broadcast: %q is not a CIDR", s), nil)
+		}
+		return common.MakeUDFSuccessResult(lastAddress(prefix).String(), nil)
+	})
+}
+
+// lastAddress returns the highest address in a prefix.
+func lastAddress(prefix netip.Prefix) netip.Addr {
+	base := prefix.Masked().Addr()
+	bitLen := base.BitLen()
+	hostBits := bitLen - prefix.Bits()
+	baseInt := new(big.Int).SetBytes(base.AsSlice())
+	hosts := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(hostBits)), big.NewInt(1))
+	lastInt := new(big.Int).Or(baseInt, hosts)
+	bytes := lastInt.Bytes()
+	if bitLen == 32 {
+		var b [4]byte
+		copy(b[4-len(bytes):], bytes)
+		return netip.AddrFrom4(b)
+	}
+	var b [16]byte
+	copy(b[16-len(bytes):], bytes)
+	return netip.AddrFrom16(b)
+}
+
+// RegisterIPAdd registers ip_add, an address shifted by n (which may be
+// negative). The result wraps within the address family.
+func RegisterIPAdd() gojq.CompilerOption {
+	return gojq.WithFunction("ip_add", 1, 1, func(v any, args []any) any {
+		n, ok := common.ToInt(args[0])
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("ip_add: expected an integer offset, got %v", args[0]), nil)
+		}
+		ip, ok := common.BindValue(v).(string)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("ip_add: expected an IP string, got %T", v), nil)
+		}
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("ip_add: %q is not an address", ip), nil)
+		}
+		bitLen := addr.BitLen()
+		value := new(big.Int).SetBytes(addr.AsSlice())
+		value.Add(value, big.NewInt(int64(n)))
+		mod := new(big.Int).Lsh(big.NewInt(1), uint(bitLen))
+		value.Mod(value, mod)
+		bytes := value.Bytes()
+		if bitLen == 32 {
+			var b [4]byte
+			copy(b[4-len(bytes):], bytes)
+			return common.MakeUDFSuccessResult(netip.AddrFrom4(b).String(), nil)
+		}
+		var b [16]byte
+		copy(b[16-len(bytes):], bytes)
+		return common.MakeUDFSuccessResult(netip.AddrFrom16(b).String(), nil)
+	})
+}
+
+// RegisterIPv6Expand registers ipv6_expand, an IPv6 address in full
+// eight-group form.
+func RegisterIPv6Expand() gojq.CompilerOption {
+	return gojq.WithFunction("ipv6_expand", 0, 2, func(v any, args []any) any {
+		s, err := strInput(v, args, "ipv6_expand")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("ipv6_expand: %v", err), nil)
+		}
+		addr, err := netip.ParseAddr(s)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("ipv6_expand: %q is not an address", s), nil)
+		}
+		if addr.Is4() {
+			return common.MakeUDFErrorResult(fmt.Errorf("ipv6_expand: %q is an IPv4 address", s), nil)
+		}
+		bytes := addr.As16()
+		groups := make([]string, 8)
+		for i := 0; i < 8; i++ {
+			groups[i] = fmt.Sprintf("%04x", uint16(bytes[2*i])<<8|uint16(bytes[2*i+1]))
+		}
+		return common.MakeUDFSuccessResult(strings.Join(groups, ":"), nil)
+	})
+}
+
+// RegisterReverseIP registers reverse_ip, the PTR record name for an address.
+func RegisterReverseIP() gojq.CompilerOption {
+	return gojq.WithFunction("reverse_ip", 0, 2, func(v any, args []any) any {
+		s, err := strInput(v, args, "reverse_ip")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("reverse_ip: %v", err), nil)
+		}
+		addr, err := netip.ParseAddr(s)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("reverse_ip: %q is not an address", s), nil)
+		}
+		if addr.Is4() {
+			bytes := addr.As4()
+			return common.MakeUDFSuccessResult(fmt.Sprintf("%d.%d.%d.%d.in-addr.arpa.",
+				bytes[3], bytes[2], bytes[1], bytes[0]), nil)
+		}
+		bytes := addr.As16()
+		var b strings.Builder
+		for i := len(bytes) - 1; i >= 0; i-- {
+			fmt.Fprintf(&b, "%x.%x.", bytes[i]&0x0f, bytes[i]>>4)
+		}
+		b.WriteString("ip6.arpa.")
+		return common.MakeUDFSuccessResult(b.String(), nil)
+	})
+}
+
+// RegisterSubnetOf registers subnet_of, whether one CIDR block is inside
+// another.
+func RegisterSubnetOf() gojq.CompilerOption {
+	return gojq.WithFunction("subnet_of", 1, 1, func(v any, args []any) any {
+		subnet, ok := common.BindValue(v).(string)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("subnet_of: expected a CIDR string, got %T", v), nil)
+		}
+		super, ok := common.BindValue(args[0]).(string)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("subnet_of: expected a CIDR string, got %T", args[0]), nil)
+		}
+		sub, err := netip.ParsePrefix(subnet)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("subnet_of: %q is not a CIDR", subnet), nil)
+		}
+		sup, err := netip.ParsePrefix(super)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("subnet_of: %q is not a CIDR", super), nil)
+		}
+		return common.MakeUDFSuccessResult(sub.Bits() >= sup.Bits() && sup.Contains(sub.Masked().Addr()), nil)
+	})
+}
+
+// RegisterCidrFirstHost registers cidr_first_host, the first usable host
+// address of a CIDR block.
+func RegisterCidrFirstHost() gojq.CompilerOption {
+	return gojq.WithFunction("cidr_first_host", 0, 2, func(v any, args []any) any {
+		s, err := strInput(v, args, "cidr_first_host")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_first_host: %v", err), nil)
+		}
+		prefix, err := netip.ParsePrefix(s)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_first_host: %q is not a CIDR", s), nil)
+		}
+		return common.MakeUDFSuccessResult(addToAddr(prefix.Masked().Addr(), 1).String(), nil)
+	})
+}
+
+// RegisterCidrLastHost registers cidr_last_host, the last usable host address
+// of a CIDR block.
+func RegisterCidrLastHost() gojq.CompilerOption {
+	return gojq.WithFunction("cidr_last_host", 0, 2, func(v any, args []any) any {
+		s, err := strInput(v, args, "cidr_last_host")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_last_host: %v", err), nil)
+		}
+		prefix, err := netip.ParsePrefix(s)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("cidr_last_host: %q is not a CIDR", s), nil)
+		}
+		return common.MakeUDFSuccessResult(addToAddr(lastAddress(prefix), -1).String(), nil)
+	})
+}
+
+// RegisterIsPublicIP registers is_public_ip, whether an address is not private,
+// loopback, link-local, multicast or unspecified.
+func RegisterIsPublicIP() gojq.CompilerOption {
+	return registerBool("is_public_ip", func(s string) bool {
+		addr, err := netip.ParseAddr(s)
+		if err != nil {
+			return false
+		}
+		return !(addr.IsPrivate() || addr.IsLoopback() || addr.IsLinkLocalUnicast() ||
+			addr.IsLinkLocalMulticast() || addr.IsMulticast() || addr.IsUnspecified())
+	})
+}
+
+var commonPorts = map[int64]string{
+	20: "ftp-data", 21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp",
+	53: "dns", 67: "dhcp", 68: "dhcp", 80: "http", 110: "pop3",
+	123: "ntp", 143: "imap", 443: "https", 445: "smb", 465: "smtps",
+	514: "syslog", 587: "smtp", 993: "imaps", 995: "pop3s",
+	1433: "mssql", 1521: "oracle", 3306: "mysql", 3389: "rdp",
+	5432: "postgresql", 5900: "vnc", 6379: "redis", 8080: "http-alt",
+	8443: "https-alt", 9092: "kafka", 9200: "elasticsearch",
+	11211: "memcached", 27017: "mongodb",
+}
+
+// RegisterPortName registers port_name, the common service name for a port
+// number.
+func RegisterPortName() gojq.CompilerOption {
+	return gojq.WithFunction("port_name", 0, 0, func(v any, args []any) any {
+		port, ok := common.ToInt(common.BindValue(v))
+		if !ok || port < 0 || port > 65535 {
+			return common.MakeUDFErrorResult(fmt.Errorf("port_name: expected a port 0-65535, got %v", v), nil)
+		}
+		if name, known := commonPorts[int64(port)]; known {
+			return common.MakeUDFSuccessResult(name, nil)
+		}
+		return common.MakeUDFSuccessResult("unknown", nil)
 	})
 }

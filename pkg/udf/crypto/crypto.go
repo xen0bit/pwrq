@@ -441,7 +441,7 @@ func RegisterXOR() gojq.CompilerOption {
 
 		meta := map[string]any{
 			"operation": "xor",
-			"key_size":   len(key),
+			"key_size":  len(key),
 		}
 
 		return common.MakeUDFSuccessResult(resultHex, meta)
@@ -580,7 +580,7 @@ func RegisterChaCha20() gojq.CompilerOption {
 		resultB64 := base64.StdEncoding.EncodeToString(resultWithNonce)
 
 		meta := map[string]any{
-			"operation": "chacha20",
+			"operation":  "chacha20",
 			"key_size":   len(key),
 			"nonce_size": len(nonce),
 		}
@@ -1148,4 +1148,3 @@ func RegisterBlowfishDecrypt() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(result, meta)
 	})
 }
-

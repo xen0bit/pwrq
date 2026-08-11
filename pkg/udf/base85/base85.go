@@ -154,4 +154,3 @@ func RegisterBase85Decode() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(string(decoded), meta)
 	})
 }
-

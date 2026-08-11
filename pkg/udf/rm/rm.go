@@ -88,16 +88,16 @@ func RegisterRm() gojq.CompilerOption {
 			if os.IsNotExist(err) {
 				meta := map[string]any{
 					"operation": "rm",
-					"path":       targetPath,
-					"type":       targetType,
+					"path":      targetPath,
+					"type":      targetType,
 				}
 				return common.MakeUDFErrorResult(fmt.Errorf("rm: path does not exist: %q", targetPath), meta)
 			}
 			if os.IsPermission(err) {
 				meta := map[string]any{
 					"operation": "rm",
-					"path":       targetPath,
-					"type":       targetType,
+					"path":      targetPath,
+					"type":      targetType,
 				}
 				return common.MakeUDFErrorResult(fmt.Errorf("rm: permission denied accessing path: %q", targetPath), meta)
 			}
@@ -134,8 +134,8 @@ func RegisterRm() gojq.CompilerOption {
 			if err != nil {
 				meta := map[string]any{
 					"operation": "rm",
-					"path":       targetPath,
-					"type":       targetType,
+					"path":      targetPath,
+					"type":      targetType,
 				}
 				if os.IsPermission(err) {
 					return common.MakeUDFErrorResult(fmt.Errorf("rm: permission denied removing file: %q", targetPath), meta)
@@ -147,8 +147,8 @@ func RegisterRm() gojq.CompilerOption {
 			if err != nil {
 				meta := map[string]any{
 					"operation": "rm",
-					"path":       targetPath,
-					"type":       targetType,
+					"path":      targetPath,
+					"type":      targetType,
 				}
 				if os.IsPermission(err) {
 					return common.MakeUDFErrorResult(fmt.Errorf("rm: permission denied removing folder: %q", targetPath), meta)
@@ -162,28 +162,27 @@ func RegisterRm() gojq.CompilerOption {
 		if err == nil {
 			meta := map[string]any{
 				"operation": "rm",
-				"path":       targetPath,
-				"type":       targetType,
+				"path":      targetPath,
+				"type":      targetType,
 			}
 			return common.MakeUDFErrorResult(fmt.Errorf("rm: path %q still exists after removal", targetPath), meta)
 		}
 		if !os.IsNotExist(err) {
 			meta := map[string]any{
 				"operation": "rm",
-				"path":       targetPath,
-				"type":       targetType,
+				"path":      targetPath,
+				"type":      targetType,
 			}
 			return common.MakeUDFErrorResult(fmt.Errorf("rm: unexpected error checking removal: %v", err), meta)
 		}
 
 		meta := map[string]any{
 			"operation": "rm",
-			"path":       targetPath,
-			"type":       targetType,
-			"removed":    true,
+			"path":      targetPath,
+			"type":      targetType,
+			"removed":   true,
 		}
 
 		return common.MakeUDFSuccessResult(targetPath, meta)
 	})
 }
-

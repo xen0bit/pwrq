@@ -54,4 +54,3 @@ func TestIsAbsolute(t *testing.T) {
 		t.Errorf("is_absolute relative = %v", got)
 	}
 }
-

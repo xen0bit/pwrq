@@ -32,17 +32,17 @@ type PingResult struct {
 
 // TestConnectionOptions holds options for test_connection
 type TestConnectionOptions struct {
-	Target           string
-	Count            int           // Number of pings
-	Timeout          int           // Timeout in seconds
-	TTL              int           // Time to live
-	BufferSize       int           // Buffer size in bytes
-	ResolveDNS       bool          // Resolve DNS names
-	Quiet            bool          // Return only success/failure
-	TcpPort          int           // Test TCP connection to port instead of ping
-	HttpProbe        bool          // Test HTTP connectivity
-	HttpsProbe       bool          // Test HTTPS connectivity
-	SkipSSLVerify    bool          // Skip SSL verification for HTTP probes
+	Target        string
+	Count         int  // Number of pings
+	Timeout       int  // Timeout in seconds
+	TTL           int  // Time to live
+	BufferSize    int  // Buffer size in bytes
+	ResolveDNS    bool // Resolve DNS names
+	Quiet         bool // Return only success/failure
+	TcpPort       int  // Test TCP connection to port instead of ping
+	HttpProbe     bool // Test HTTP connectivity
+	HttpsProbe    bool // Test HTTPS connectivity
+	SkipSSLVerify bool // Skip SSL verification for HTTP probes
 }
 
 // RegisterTestConnection registers the test_connection function with gojq

@@ -12,12 +12,12 @@ import (
 
 // SetVariableOptions holds options for the set_variable function
 type SetVariableOptions struct {
-	Name        string                  // Variable name
-	Value       any                     // Value to set
-	Description string                  // Variable description
+	Name        string                       // Variable name
+	Value       any                          // Value to set
+	Description string                       // Variable description
 	Option      sessionstate.VariableOptions // Variable options (ReadOnly, Constant, etc.)
-	Scope       string                  // Target scope: global, script, local, private
-	PassThru    bool                    // Return the variable after setting
+	Scope       string                       // Target scope: global, script, local, private
+	PassThru    bool                         // Return the variable after setting
 }
 
 // RegisterSetVariable registers the set_variable function with gojq
@@ -41,7 +41,7 @@ func RegisterSetVariable() gojq.CompilerOption {
 
 		// First argument is name or value
 		firstArg := common.BindValue(args[0])
-		
+
 		// Check if first arg is a string (variable name)
 		if nameStr, isString := firstArg.(string); isString {
 			name = nameStr
@@ -57,7 +57,7 @@ func RegisterSetVariable() gojq.CompilerOption {
 				// Only name provided, value from pipe
 				value = common.BindValue(v)
 			}
-			
+
 			// Third argument could be options
 			if len(args) > 2 {
 				if optsMap, ok := args[2].(map[string]any); ok {
@@ -67,7 +67,7 @@ func RegisterSetVariable() gojq.CompilerOption {
 		} else if optsMap, ok := firstArg.(map[string]any); ok {
 			// First arg is options map
 			parseSetVariableOptions(&opts, optsMap)
-			
+
 			// Name and value should be in the options map or additional args
 			if opts.Name != "" {
 				name = opts.Name
@@ -75,7 +75,7 @@ func RegisterSetVariable() gojq.CompilerOption {
 			if opts.Value != nil {
 				value = opts.Value
 			}
-			
+
 			// If name/value not in map, check additional args
 			if name == "" && len(args) > 1 {
 				if nStr, ok := args[1].(string); ok {
