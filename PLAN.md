@@ -470,6 +470,107 @@ time and date, IP extras, SHA-3/Keccak/CRC-16/PBKDF2/Argon2/random hex, UUID v7
 and nanoid, number theory and formatting, and file sniffing), all registered in
 both the CLI and the browser.
 
+## Fourth round — group, convert and explain
+
+A ~130-cmdlet round on branch `fourth-round-domain` covering the areas the
+first three rounds left open: PowerShell-style grouping over arrays, unit/geo/
+finance conversions, time-series statistics, regex and text tools, version and
+path helpers, set operations, and number theory. Everything is a pure transform
+except `expand_home` and `home_dir`, which need the user database and are
+CLI-only (they were split out of `path` into `path.RegisterWeb()` for the
+browser).
+
+New packages:
+- `aggregate` (category **Collections**): `group_by_key`, `count_by`,
+  `sum_by`/`avg_by` (key, [column]), `index_by`, `value_counts`,
+  `summarize_by`, `pivot`, `unpivot`, `top_by`, `bottom_by`, `distinct_count`
+- `domain` (category **Domain**, new): 23 unit converters incl. `parse_size`,
+  7 geo cmdlets (`haversine_distance`, `bearing`, `geo_midpoint`,
+  `within_radius`, `parse_coords`, `geohash_encode`/`decode`), 8 finance
+  cmdlets (`cagr`, `future_value`, `present_value`, `monthly_payment`,
+  `compound_interest`, `simple_interest`, `rule_of_72`, `annual_yield`)
+
+Extended:
+- `stats`: `cumsum`, `cumulative_max`/`min`, `deltas`, `lag`, `fill_forward`,
+  `ema`, `moving_max`/`min`, `correlation`, `covariance`, `skewness`,
+  `kurtosis`, `weighted_mean`, `harmonic_mean`, `quartiles`, `trimmed_mean`,
+  `standardize`, `rms`, `product`, `midrange`
+- `string`: `regex_find_all`, `regex_extract_first`, `regex_replace_first`,
+  `regex_split`, `regex_count`, `is_palindrome`, `reverse_words`,
+  `truncate_words`, `remove_accents`, `sentence_case`, `line_count`, `dedent`,
+  `swap_case`, `char_frequencies`, `anagram`, `first_line`, `last_line`,
+  `reverse_lines`, `unique_lines`, `sort_lines`, `strip_quotes`, `pad_center`
+- `path`: `normalize_path`, `relative_path`, `stem`, `with_extension`,
+  `has_extension`, `is_dir_path`, `path_sep`, `expand_home` (CLI), `home_dir`
+  (CLI)
+- `validate`: `semver_compare`, `semver_parts`, `is_hex`, `is_cidr`,
+  `is_port`, `is_date`, `is_iso8601`, `is_slug`, `extract_dates`
+- `collection`: `intersection`, `union`, `difference`, `symmetric_difference`,
+  `all_equal`, `contains_duplicates`, `take`, `drop`, `cartesian`, `column`,
+  `lookup`, `natural_sort`
+- `number`: `sign`, `is_perfect_square`, `is_coprime`, `next_prime`,
+  `prime_factors`, `proper_divisors`, `is_perfect_number`, `euler_totient`
+
+Wiring: one `RegisterAll()` line per package in both registries (`path` uses
+`RegisterWeb()` for the browser), ~130 `metadata.go` entries, the `Domain`
+category added to `cli/udf_list.go`, 28 runnable/drawable gallery examples, and
+a new EXAMPLES.md section. All registry guards unchanged and passing; `make
+test` green.
+
+**Intentionally loose.** This round was built "go all out" for later pruning.
+Likely candidates for merging or removal: the per-unit converters
+(`km_to_mi`/`mi_to_km` and friends could collapse into one table-driven
+converter), `top_by`/`bottom_by` overlap `sort_by | .[0:n]`, `value_counts`
+overlaps `group_by`, and `take`/`drop` are thin wrappers over slices. The
+gallery and `--udf-list` make the full surface easy to review.
+
+### Fourth round, part two — config formats and loose ends
+
+A second ~37-cmdlet pass on the same branch filling the gaps the first pass
+left open:
+
+- `config` package (category **Config**, new): `ini_parse`/`ini_stringify`,
+  `properties_parse`/`properties_stringify` (.env / Java properties, with
+  escapes and line continuations), `logfmt_parse`/`logfmt_stringify` (numbers
+  and booleans typed). All pure, so they appear in the browser too.
+- `string`: `before_first`, `after_first`, `surround`, `soundex`, `is_isogram`,
+  `count_vowels`, `count_consonants`, `capitalize_first`, `regex_groups`,
+  `unicode_escape`/`unicode_unescape`, `diff_lines`
+- `collection`: `rename_keys`, `invert_object`, `pluck` (map(.key) with a
+  string key and dot paths)
+- `stats`: `autocorrelation`, `iqr`, `mad`, `spread`, `moving_stdev`
+- `duration`: `days_between`, `day_of_year`, `week_of_year`, `start_of_week`,
+  `add_months`, `add_years`, `age_in_years` (optional "now" arg for
+  deterministic tests)
+- `number`: `to_fixed`, `is_power_of_two`
+
+Wiring and guards identical to the rest of the round: both registries,
+~37 metadata entries, the `Config` category added, 14 more gallery examples,
+EXAMPLES.md extended. `make test` green.
+
+### Fourth round, part three — windows, path writes, words, money
+
+A final ~24-cmdlet pass rounding out the language:
+
+- `string`: `quoted_printable_encode`/`decode` (MIME email encoding, byte-aware
+  for UTF-8), `prefix_lines`, `first_lines`, `last_lines`, `is_balanced`
+  (bracket matching), `regex_last_match`
+- `csv`: `tsv_parse`/`tsv_stringify` (tab-separated, quoted fields honoured)
+- `collection`: `windows` (rolling n-windows), `pairs` (adjacent pairs),
+  `is_subset`
+- `json`: `set_path`/`has_path`/`del_path`, the dot-and-bracket complements to
+  `get_path`
+- `number`: `to_words` (hyphenated English), `roman_numeral` (1-3999),
+  `group_digits` (thousands separators), `format_currency`,
+  `collatz_steps`
+- `validate`: `is_numeric` (any number syntax, unlike `is_numeric_string`)
+- `stats`: `percentile_rank`
+- `domain`: `net_present_value`
+- `duration`: `iso_duration` (ISO 8601 durations like `P1DT2H3M4S`)
+
+Same wiring: both registries, ~24 metadata entries, 15 more gallery examples,
+EXAMPLES.md extended. `make test` green.
+
 ## Known remaining work
 
 - Object cmdlets (`select_object`, `where_object`, `sort_object`) still

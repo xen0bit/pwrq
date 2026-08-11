@@ -11,13 +11,33 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
-// RegisterAll registers every path cmdlet.
+// RegisterAll registers every path cmdlet, including expand_home and home_dir,
+// which need the user database and are therefore CLI-only. The browser
+// registry should call RegisterWeb instead.
 func RegisterAll() []gojq.CompilerOption {
+	opts := RegisterWeb()
+	opts = append(opts,
+		RegisterExpandHome(),
+		RegisterHomeDir(),
+	)
+	return opts
+}
+
+// RegisterWeb registers the pure string-operation path cmdlets, the ones a
+// browser tab can run. expand_home and home_dir are left out.
+func RegisterWeb() []gojq.CompilerOption {
 	return []gojq.CompilerOption{
 		RegisterBasename(),
 		RegisterDirname(),
 		RegisterFileExtension(),
 		RegisterIsAbsolute(),
+		RegisterNormalizePath(),
+		RegisterRelativePath(),
+		RegisterStem(),
+		RegisterWithExtension(),
+		RegisterHasExtension(),
+		RegisterIsDirPath(),
+		RegisterPathSep(),
 	}
 }
 

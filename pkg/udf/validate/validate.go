@@ -27,6 +27,16 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterStripTags(),
 		RegisterIsSemver(),
 		RegisterIsCreditCard(),
+		RegisterSemverCompare(),
+		RegisterSemverParts(),
+		RegisterIsHex(),
+		RegisterIsCIDR(),
+		RegisterIsPort(),
+		RegisterIsDate(),
+		RegisterIsISO8601(),
+		RegisterIsSlug(),
+		RegisterExtractDates(),
+		RegisterIsNumeric(),
 	}
 }
 
@@ -78,8 +88,8 @@ func registerFindAll(name string, re *regexp.Regexp) gojq.CompilerOption {
 // rabbit hole; the goal here is to separate obvious addresses from everything
 // else, not to implement RFC 5322.
 var (
-	emailPattern = regexp.MustCompile(`^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$`)
-	domainPattern = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)*$`)
+	emailPattern        = regexp.MustCompile(`^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$`)
+	domainPattern       = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)*$`)
 	extractEmailPattern = regexp.MustCompile(`[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`)
 	extractURLPattern   = regexp.MustCompile(`https?://[^\s"'<>]+`)
 	extractIPPattern    = regexp.MustCompile(`\b(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}\b`)

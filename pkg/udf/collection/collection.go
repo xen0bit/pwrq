@@ -28,6 +28,25 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterRotate(),
 		RegisterTopN(),
 		RegisterInterleave(),
+		// Sets, slicing and lookups
+		RegisterIntersection(),
+		RegisterUnion(),
+		RegisterDifference(),
+		RegisterSymmetricDifference(),
+		RegisterAllEqual(),
+		RegisterContainsDuplicates(),
+		RegisterTake(),
+		RegisterDrop(),
+		RegisterCartesian(),
+		RegisterColumn(),
+		RegisterLookup(),
+		RegisterNaturalSort(),
+		RegisterRenameKeys(),
+		RegisterInvertObject(),
+		RegisterPluck(),
+		RegisterWindows(),
+		RegisterPairs(),
+		RegisterIsSubset(),
 	}
 }
 

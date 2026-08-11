@@ -25,6 +25,8 @@ func (cli *cli) printUDFList() {
 		"String",
 		"Numbers",
 		"Paths",
+		"Domain",
+		"Config",
 		"Collections",
 		"Statistics",
 		"Duration",

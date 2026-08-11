@@ -27,6 +27,14 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterIsLeapYear(),
 		RegisterDaysInMonth(),
 		RegisterMonthName(),
+		RegisterDaysBetween(),
+		RegisterDayOfYear(),
+		RegisterWeekOfYear(),
+		RegisterStartOfWeek(),
+		RegisterAddMonths(),
+		RegisterAddYears(),
+		RegisterAgeInYears(),
+		RegisterIsoDuration(),
 	}
 }
 

@@ -14,5 +14,8 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterJSONMergePatch(),
 		RegisterJSONLParse(),
 		RegisterGetPath(),
+		RegisterSetPath(),
+		RegisterHasPath(),
+		RegisterDelPath(),
 	}
 }
