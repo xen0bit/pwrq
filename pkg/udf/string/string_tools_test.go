@@ -39,15 +39,3 @@ func TestIndent(t *testing.T) {
 		t.Errorf("indent = %q", got)
 	}
 }
-
-func TestPluralize(t *testing.T) {
-	if got := fmt.Sprint(run(t, `1 | pluralize("item")`, nil, RegisterAll()...)); got != "1 item" {
-		t.Errorf("pluralize(1) = %q", got)
-	}
-	if got := fmt.Sprint(run(t, `3 | pluralize("item")`, nil, RegisterAll()...)); got != "3 items" {
-		t.Errorf("pluralize(3) = %q", got)
-	}
-	if got := fmt.Sprint(run(t, `2 | pluralize("goose"; "geese")`, nil, RegisterAll()...)); got != "2 geese" {
-		t.Errorf("pluralize irregular = %q", got)
-	}
-}

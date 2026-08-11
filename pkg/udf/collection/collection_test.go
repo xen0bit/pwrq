@@ -28,6 +28,28 @@ func run(t *testing.T, query string) any {
 	return v
 }
 
+// runErr is run for queries expected to fail: it returns the error rather than
+// ending the test with it.
+func runErr(t *testing.T, query string) error {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		return err
+	}
+	code, err := gojq.Compile(q, RegisterAll()...)
+	if err != nil {
+		return err
+	}
+	v, ok := code.Run(nil).Next()
+	if !ok {
+		t.Fatalf("%q produced no result", query)
+	}
+	if e, isErr := v.(error); isErr {
+		return e
+	}
+	return nil
+}
+
 func TestChunks(t *testing.T) {
 	got := run(t, `[1,2,3,4,5,6,7] | chunks(3)`)
 	arr := got.([]any)
@@ -54,17 +76,7 @@ func TestDeepMerge(t *testing.T) {
 	}
 }
 
-func TestSortKeys(t *testing.T) {
-	got := run(t, `{b: 2, a: 1} | sort_keys`)
-	if fmt.Sprint(got) != "map[a:1 b:2]" {
-		t.Errorf("sort_keys = %v", got)
-	}
-}
-
-func TestCompactPrune(t *testing.T) {
-	if got := run(t, `[1, null, "", [], false, 0, "x"] | compact`); fmt.Sprint(got) != "[1 0 x]" {
-		t.Errorf("compact = %v", got)
-	}
+func TestPrune(t *testing.T) {
 	got := run(t, `{a: 1, b: null, c: {d: "", e: 0}, f: [null, 2]} | prune`)
 	if fmt.Sprint(got) != "map[a:1 c:map[e:0] f:[2]]" {
 		t.Errorf("prune = %v", got)

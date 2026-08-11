@@ -14,8 +14,8 @@ import (
 
 // GetLocationOptions holds options for the get_location function
 type GetLocationOptions struct {
-	PSDrive   string   // Get location from a specific PSDrive
-	StackName string   // Get location from a specific location stack
+	PSDrive   string // Get location from a specific PSDrive
+	StackName string // Get location from a specific location stack
 }
 
 // RegisterGetLocation registers the get_location function with gojq
@@ -47,7 +47,7 @@ func RegisterGetLocation() gojq.CompilerOption {
 
 		// Wrap in PSObject for PowerShell compatibility
 		psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")
-		
+
 		return common.MakeUDFSuccessResult(psobj.ToMap(), map[string]any{
 			"operation": "get_location",
 		})

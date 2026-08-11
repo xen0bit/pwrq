@@ -44,7 +44,7 @@ func getEncoding(encodingName string) (encoding.Encoding, error) {
 func RegisterCat() gojq.CompilerOption {
 	return gojq.WithFunction("cat", 0, 2, func(v any, args []any) any {
 		var filePath string
-		var tailLines int = -1 // -1 means no tail limit
+		var tailLines int = -1  // -1 means no tail limit
 		var totalCount int = -1 // -1 means no total count limit
 		var encoding string = "utf8"
 

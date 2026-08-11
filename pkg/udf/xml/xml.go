@@ -56,15 +56,15 @@ func RegisterXMLParse() gojq.CompilerOption {
 		// Note: Full XML parsing is complex, so we'll use a simplified approach
 		var result map[string]any
 		decoder := xml.NewDecoder(strings.NewReader(input))
-		
+
 		// For simplicity, we'll parse into a generic structure
 		// This is a basic implementation - full XML parsing would require more complex handling
 		var xmlData struct {
 			XMLName xml.Name
-			Content []byte `xml:",innerxml"`
+			Content []byte     `xml:",innerxml"`
 			Attrs   []xml.Attr `xml:",any,attr"`
 		}
-		
+
 		if err := decoder.Decode(&xmlData); err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: failed to parse XML: %v", err), nil)
 		}
@@ -112,7 +112,7 @@ func RegisterXMLStringify() gojq.CompilerOption {
 		// Convert object to XML
 		// This is a simplified implementation
 		var result string
-		
+
 		switch val := inputVal.(type) {
 		case map[string]any:
 			// Try to extract tag name and content
@@ -120,14 +120,14 @@ func RegisterXMLStringify() gojq.CompilerOption {
 			if tag, ok := val["_tag"].(string); ok {
 				tagName = tag
 			}
-			
+
 			var attrs []string
 			if attrsMap, ok := val["_attrs"].(map[string]any); ok {
 				for k, v := range attrsMap {
 					attrs = append(attrs, fmt.Sprintf(`%s="%s"`, k, fmt.Sprintf("%v", v)))
 				}
 			}
-			
+
 			content := ""
 			if c, ok := val["_content"].(string); ok {
 				content = c
@@ -138,12 +138,12 @@ func RegisterXMLStringify() gojq.CompilerOption {
 					content = string(xmlBytes)
 				}
 			}
-			
+
 			attrStr := ""
 			if len(attrs) > 0 {
 				attrStr = " " + strings.Join(attrs, " ")
 			}
-			
+
 			if content != "" {
 				result = fmt.Sprintf("<%s%s>%s</%s>", tagName, attrStr, content, tagName)
 			} else {
@@ -159,7 +159,7 @@ func RegisterXMLStringify() gojq.CompilerOption {
 		}
 
 		meta := map[string]any{
-			"operation": "xml_stringify",
+			"operation":     "xml_stringify",
 			"output_length": len(result),
 		}
 
@@ -174,7 +174,6 @@ func RegisterXMLStringify() gojq.CompilerOption {
 			}
 		}
 
-  return common.MakeUDFSuccessResult(result, meta)
+		return common.MakeUDFSuccessResult(result, meta)
 	})
 }
-

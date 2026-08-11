@@ -16,8 +16,6 @@ func TestTextExtras(t *testing.T) {
 		{`"x" | surround("[ "; " ]")`, "[ x ]"},
 		{`"Robert" | soundex`, "R163"},
 		{`"Rupert" | soundex`, "R163"},
-		{`"abcde" | is_isogram`, "true"},
-		{`"letter" | is_isogram`, "false"},
 		{`"hello" | count_vowels`, "2"},
 		{`"hello" | count_consonants`, "3"},
 		{`"hELLO" | capitalize_first`, "HELLO"},
@@ -29,13 +27,6 @@ func TestTextExtras(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("%s = %s, want %s", tt.query, got, tt.want)
 		}
-	}
-}
-
-func TestRegexGroups(t *testing.T) {
-	got := run(t, `"a=1 b=22" | regex_groups("(\\w+)=(\\d+)")`, nil, RegisterAll()...)
-	if fmt.Sprint(got) != "[[a 1] [b 22]]" {
-		t.Errorf("regex_groups = %v", got)
 	}
 }
 

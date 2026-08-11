@@ -28,6 +28,29 @@ func run(t *testing.T, query string, input any, options ...gojq.CompilerOption) 
 	return v
 }
 
+// runErr is run for queries expected to fail: it returns the error rather than
+// ending the test with it.
+func runErr(t *testing.T, query string, input any, options ...gojq.CompilerOption) (any, error) {
+	t.Helper()
+	q, err := gojq.Parse(query)
+	if err != nil {
+		return nil, err
+	}
+	code, err := gojq.Compile(q, options...)
+	if err != nil {
+		return nil, err
+	}
+	iter := code.Run(input)
+	v, ok := iter.Next()
+	if !ok {
+		t.Fatalf("%q produced no result", query)
+	}
+	if e, isErr := v.(error); isErr {
+		return nil, e
+	}
+	return v, nil
+}
+
 func approx(want, got float64) bool {
 	d := want - got
 	if d < 0 {
@@ -41,27 +64,6 @@ func approx(want, got float64) bool {
 	return d < tol
 }
 
-func TestTemperature(t *testing.T) {
-	tests := []struct {
-		query string
-		want  float64
-	}{
-		{`100 | c_to_f`, 212},
-		{`212 | f_to_c`, 100},
-		{`0 | c_to_k`, 273.15},
-		{`273.15 | k_to_c`, 0},
-		{`32 | f_to_k`, 273.15},
-		{`300 | k_to_f`, 80.33},
-	}
-	for _, tt := range tests {
-		got := run(t, tt.query, nil, RegisterAll()...)
-		f, ok := toF64(got)
-		if !ok || !approx(tt.want, f) {
-			t.Errorf("%s = %v, want %v", tt.query, got, tt.want)
-		}
-	}
-}
-
 func toF64(v any) (float64, bool) {
 	switch val := v.(type) {
 	case float64:
@@ -72,37 +74,6 @@ func toF64(v any) (float64, bool) {
 		return float64(val), true
 	}
 	return 0, false
-}
-
-func TestLengthAndMass(t *testing.T) {
-	tests := []struct {
-		query string
-		want  float64
-	}{
-		{`1 | km_to_mi`, 0.621371},
-		{`1 | mi_to_km`, 1.609344},
-		{`1 | m_to_ft`, 3.28084},
-		{`1 | ft_to_m`, 0.3048},
-		{`1 | cm_to_in`, 0.393701},
-		{`1 | in_to_cm`, 2.54},
-		{`1 | kg_to_lb`, 2.20462},
-		{`1 | lb_to_kg`, 0.453592},
-		{`1 | g_to_oz`, 0.035274},
-		{`1 | oz_to_g`, 28.3495},
-		{`1 | l_to_gal`, 0.264172},
-		{`1 | gal_to_l`, 3.78541},
-		{`1 | mph_to_kph`, 1.609344},
-		{`1 | kph_to_mph`, 0.621371},
-		{`30 | mpg_to_l100km`, 7.840486},
-		{`7.84 | l100km_to_mpg`, 30.0},
-	}
-	for _, tt := range tests {
-		got := run(t, tt.query, nil, RegisterAll()...)
-		f, ok := toF64(got)
-		if !ok || !approx(tt.want, f) {
-			t.Errorf("%s = %v, want %v", tt.query, got, tt.want)
-		}
-	}
 }
 
 func TestParseSize(t *testing.T) {
@@ -198,14 +169,53 @@ func TestFinance(t *testing.T) {
 		{`compound_interest(100; 0.1; 10)`, 159.3742},
 		{`simple_interest(100; 0.1; 3)`, 30},
 		{`monthly_payment(10000; 0.06; 36)`, 304.219},
-		{`rule_of_72(0.08)`, 9},
-		{`annual_yield(0.06; 12)`, 0.061678},
 	}
 	for _, tt := range tests {
 		got := run(t, tt.query, nil, RegisterAll()...)
 		f, ok := toF64(got)
 		if !ok || !approx(tt.want, f) {
 			t.Errorf("%s = %v, want %v", tt.query, got, tt.want)
+		}
+	}
+}
+
+func TestConvertUnit(t *testing.T) {
+	tests := []struct {
+		query string
+		want  float64
+	}{
+		{`20 | convert_unit("C"; "F")`, 68},
+		{`68 | convert_unit("F"; "C")`, 20},
+		{`0 | convert_unit("C"; "K")`, 273.15},
+		{`convert_unit(5; "mi"; "km")`, 8.04672},
+		{`convert_unit(8.04672; "km"; "mi")`, 5},
+		{`10 | convert_unit("lb"; "kg")`, 4.5359237},
+		{`90 | convert_unit("min"; "h")`, 1.5},
+		{`convert_unit(2; "d"; "h")`, 48},
+		{`30 | convert_unit("mpg"; "l100km")`, 7.8404861},
+		{`5 | convert_unit("m"; "m")`, 5},
+		{`100 | convert_unit("CELSIUS"; "fahrenheit")`, 212},
+	}
+	for _, tt := range tests {
+		got := run(t, tt.query, nil, RegisterAll()...)
+		f, ok := toF64(got)
+		if !ok || !approx(tt.want, f) {
+			t.Errorf("%s = %v, want %v", tt.query, got, tt.want)
+		}
+	}
+}
+
+// TestConvertUnitRejectsMismatch is the property the pairwise converters could
+// not have: a conversion between different quantities is an error, not a
+// plausible-looking number.
+func TestConvertUnitRejectsMismatch(t *testing.T) {
+	for _, q := range []string{
+		`5 | convert_unit("kg"; "m")`,
+		`5 | convert_unit("C"; "km")`,
+		`5 | convert_unit("furlong"; "m")`,
+	} {
+		if _, err := runErr(t, q, nil, RegisterAll()...); err == nil {
+			t.Errorf("%s should be an error", q)
 		}
 	}
 }

@@ -10,6 +10,8 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterGetChildItem(),
 		RegisterTestPath(),
 		RegisterSetContent(),
+		RegisterAddContent(),
+		RegisterOutFile(),
 		RegisterJoinPath(),
 		RegisterSplitPath(),
 		RegisterResolvePath(),

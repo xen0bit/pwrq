@@ -3,6 +3,7 @@ package udf
 import (
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/aggregate"
+	"github.com/xen0bit/pwrq/pkg/udf/archive"
 	"github.com/xen0bit/pwrq/pkg/udf/base32"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
@@ -43,8 +44,8 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/similarity"
 	"github.com/xen0bit/pwrq/pkg/udf/sniff"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
-	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/stats"
+	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 	"github.com/xen0bit/pwrq/pkg/udf/system"
 	"github.com/xen0bit/pwrq/pkg/udf/tee"
 	"github.com/xen0bit/pwrq/pkg/udf/tempdir"
@@ -54,6 +55,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/validate"
 	"github.com/xen0bit/pwrq/pkg/udf/xml"
 	yamllib "github.com/xen0bit/pwrq/pkg/udf/yaml"
+
 	// PowerShell cmdlets
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/datetime"
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/filesystem"
@@ -260,6 +262,12 @@ func DefaultRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range domain.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Archives. They read and write files, so like the log readers they are a
+	// CLI-only capability and WebRegistry leaves them out.
+	for _, opt := range archive.RegisterAll() {
 		reg.Register(opt)
 	}
 

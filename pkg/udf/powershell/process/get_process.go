@@ -21,27 +21,27 @@ import (
 
 // ProcessInfo holds information about a process
 type ProcessInfo struct {
-	ID               int           `json:"Id"`
-	Name             string        `json:"Name"`
-	Path             string        `json:"Path"`
-	CPU              float64       `json:"CPU"`
-	WorkingSet       int64         `json:"WorkingSet"`
-	VirtualMemory    int64         `json:"VirtualMemory"`
-	StartTime        time.Time     `json:"StartTime"`
-	UserName         string        `json:"UserName"`
-	PriorityClass    string        `json:"PriorityClass"`
-	ThreadCount      int           `json:"Threads"`
-	Handles          int32         `json:"Handles"`
-	ResponseTime     time.Duration `json:"ResponseTime"`
+	ID                 int           `json:"Id"`
+	Name               string        `json:"Name"`
+	Path               string        `json:"Path"`
+	CPU                float64       `json:"CPU"`
+	WorkingSet         int64         `json:"WorkingSet"`
+	VirtualMemory      int64         `json:"VirtualMemory"`
+	StartTime          time.Time     `json:"StartTime"`
+	UserName           string        `json:"UserName"`
+	PriorityClass      string        `json:"PriorityClass"`
+	ThreadCount        int           `json:"Threads"`
+	Handles            int32         `json:"Handles"`
+	ResponseTime       time.Duration `json:"ResponseTime"`
 	TotalProcessorTime time.Duration `json:"TotalProcessorTime"`
 	UserProcessorTime  time.Duration `json:"UserProcessorTime"`
 }
 
 // GetProcessOptions holds options for the get_process function
 type GetProcessOptions struct {
-	Name       string // Process name filter
-	ID         int    // Process ID filter
-	IncludeUserName bool // Include username in output (requires privileges)
+	Name            string // Process name filter
+	ID              int    // Process ID filter
+	IncludeUserName bool   // Include username in output (requires privileges)
 }
 
 // RegisterGetProcess registers the get_process function with gojq
@@ -57,7 +57,7 @@ func RegisterGetProcess() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			firstArg := common.BindValue(args[0])
-			
+
 			// Check if first arg is a string (process name)
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr
@@ -195,12 +195,12 @@ func getProcessesUnix(opts GetProcessOptions) ([]ProcessInfo, error) {
 
 	var processes []ProcessInfo
 	lines := strings.Split(string(output), "\n")
-	
+
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		
+
 		// Parse ps output - lstart is multi-word so we need careful parsing
 		// Format: PID COMM %CPU RSS VSZ LSTART USER NI ELAPSED STATE THCOUNT
 		// LSTART is "Day Mon DD HH:MM:SS YYYY" (5 space-separated tokens)
@@ -209,14 +209,14 @@ func getProcessesUnix(opts GetProcessOptions) ([]ProcessInfo, error) {
 		if len(fields) < 15 {
 			continue
 		}
-		
+
 		pid, err := strconv.Atoi(fields[0])
 		if err != nil {
 			continue
 		}
-		
+
 		name := fields[1]
-		
+
 		// Apply name filter using filepath.Match for wildcard support
 		if opts.Name != "" {
 			matched, matchErr := filepath.Match(opts.Name, name)
@@ -228,49 +228,49 @@ func getProcessesUnix(opts GetProcessOptions) ([]ProcessInfo, error) {
 				continue
 			}
 		}
-		
+
 		// Apply ID filter
 		if opts.ID != 0 && pid != opts.ID {
 			continue
 		}
-		
+
 		cpu, _ := strconv.ParseFloat(fields[2], 64)
 		rss, _ := strconv.ParseInt(fields[3], 10, 64)
 		vsz, _ := strconv.ParseInt(fields[4], 10, 64)
-		
+
 		// LSTART is fields[5:10] (5 tokens): "Wed Apr 29 00:29:28 2026"
 		// Format: Day Mon DD HH:MM:SS YYYY
 		lstartStr := strings.Join(fields[5:10], " ")
 		startTime, _ := time.Parse("Mon Jan 02 15:04:05 2006", lstartStr)
-		
+
 		user := fields[10]
 		nice, _ := strconv.Atoi(fields[11])
 		// elapsed time in fields[12] - format varies (MM:SS, HH:MM:SS, D-HH:MM:SS)
 		state := fields[13]
 		threadCount, _ := strconv.Atoi(fields[14])
-		
+
 		// Map nice value to priority class (Linux-specific)
 		priorityClass := mapNiceToPriorityClass(nice)
-		
+
 		// Map state to response time indicator
 		responseTime := time.Duration(0)
 		if state == "R" {
 			responseTime = time.Millisecond
 		}
-		
+
 		processes = append(processes, ProcessInfo{
-			ID:               pid,
-			Name:             name,
-			Path:             getProcessPathUnix(pid),
-			CPU:              cpu,
-			WorkingSet:       rss * 1024, // RSS is in KB
-			VirtualMemory:    vsz * 1024, // VSZ is in KB
-			StartTime:        startTime,
-			UserName:         user,
-			PriorityClass:    priorityClass,
-			ThreadCount:      threadCount,
-			Handles:          0, // Not available on Unix
-			ResponseTime:     responseTime,
+			ID:                 pid,
+			Name:               name,
+			Path:               getProcessPathUnix(pid),
+			CPU:                cpu,
+			WorkingSet:         rss * 1024, // RSS is in KB
+			VirtualMemory:      vsz * 1024, // VSZ is in KB
+			StartTime:          startTime,
+			UserName:           user,
+			PriorityClass:      priorityClass,
+			ThreadCount:        threadCount,
+			Handles:            0, // Not available on Unix
+			ResponseTime:       responseTime,
 			TotalProcessorTime: time.Duration(cpu * float64(time.Second)),
 			UserProcessorTime:  time.Duration(cpu * float64(time.Second) * 0.8),
 		})
@@ -320,10 +320,10 @@ func getProcessesWindows(opts GetProcessOptions) ([]ProcessInfo, error) {
 
 	// Use encoding/csv.Reader for proper CSV parsing
 	reader := csv.NewReader(strings.NewReader(string(output)))
-	
+
 	var processes []ProcessInfo
 	firstRow := true
-	
+
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -332,13 +332,13 @@ func getProcessesWindows(opts GetProcessOptions) ([]ProcessInfo, error) {
 		if err != nil {
 			continue
 		}
-		
+
 		// Skip header row
 		if firstRow {
 			firstRow = false
 			continue
 		}
-		
+
 		// tasklist /V columns:
 		// 0: Image Name
 		// 1: PID
@@ -352,9 +352,9 @@ func getProcessesWindows(opts GetProcessOptions) ([]ProcessInfo, error) {
 		if len(record) < 9 {
 			continue
 		}
-		
+
 		name := strings.TrimSpace(record[0])
-		
+
 		// Apply name filter
 		if opts.Name != "" {
 			matched, matchErr := filepath.Match(opts.Name, name)
@@ -365,17 +365,17 @@ func getProcessesWindows(opts GetProcessOptions) ([]ProcessInfo, error) {
 				continue
 			}
 		}
-		
+
 		pid, err := strconv.Atoi(strings.TrimSpace(record[1]))
 		if err != nil {
 			continue
 		}
-		
+
 		// Apply ID filter
 		if opts.ID != 0 && pid != opts.ID {
 			continue
 		}
-		
+
 		sessionName := strings.TrimSpace(record[2])
 		// sessionNum, _ := strconv.Atoi(strings.TrimSpace(record[3]))
 		memUsage := parseMemoryUsage(record[4])
@@ -383,24 +383,24 @@ func getProcessesWindows(opts GetProcessOptions) ([]ProcessInfo, error) {
 		userName := strings.TrimSpace(record[6])
 		cpuTime := parseCPUTime(record[7])
 		// windowTitle := strings.TrimSpace(record[8])
-		
+
 		processes = append(processes, ProcessInfo{
-			ID:               pid,
-			Name:             name,
-			Path:             getProcessPathWindows(pid),
-			CPU:              cpuTime.Seconds(),
-			WorkingSet:       memUsage,
-			VirtualMemory:    memUsage, // Not separately available from tasklist
-			StartTime:        time.Time{}, // Not available from tasklist
-			UserName:         userName,
-			PriorityClass:    "Normal", // Not available from tasklist without additional query
-			ThreadCount:      0, // Not available from tasklist without additional query
-			Handles:          0, // Not available from tasklist without additional query
-			ResponseTime:     time.Duration(0),
+			ID:                 pid,
+			Name:               name,
+			Path:               getProcessPathWindows(pid),
+			CPU:                cpuTime.Seconds(),
+			WorkingSet:         memUsage,
+			VirtualMemory:      memUsage,    // Not separately available from tasklist
+			StartTime:          time.Time{}, // Not available from tasklist
+			UserName:           userName,
+			PriorityClass:      "Normal", // Not available from tasklist without additional query
+			ThreadCount:        0,        // Not available from tasklist without additional query
+			Handles:            0,        // Not available from tasklist without additional query
+			ResponseTime:       time.Duration(0),
 			TotalProcessorTime: cpuTime,
 			UserProcessorTime:  cpuTime,
 		})
-		
+
 		// Include session info in path for context
 		_ = sessionName
 	}
@@ -412,7 +412,7 @@ func getProcessesWindows(opts GetProcessOptions) ([]ProcessInfo, error) {
 func parseMemoryUsage(memStr string) int64 {
 	memStr = strings.TrimSpace(memStr)
 	memStr = strings.ReplaceAll(memStr, ",", "")
-	
+
 	// Remove " K" or " M" suffix and convert
 	if strings.HasSuffix(memStr, " K") {
 		memStr = strings.TrimSuffix(memStr, " K")
@@ -430,7 +430,7 @@ func parseMemoryUsage(memStr string) int64 {
 		}
 		return val * 1024 * 1024
 	}
-	
+
 	val, err := strconv.ParseInt(memStr, 10, 64)
 	if err != nil {
 		return 0
@@ -441,27 +441,27 @@ func parseMemoryUsage(memStr string) int64 {
 // parseCPUTime parses tasklist CPU time string (e.g., "0:01:23.456")
 func parseCPUTime(cpuStr string) time.Duration {
 	cpuStr = strings.TrimSpace(cpuStr)
-	
+
 	// Format: H:MM:SS or H:MM:SS.mmm
 	parts := strings.Split(cpuStr, ":")
 	if len(parts) != 3 {
 		return time.Duration(0)
 	}
-	
+
 	hours, _ := strconv.Atoi(parts[0])
 	minutes, _ := strconv.Atoi(parts[1])
-	
+
 	// Seconds may have milliseconds
 	secParts := strings.Split(parts[2], ".")
 	seconds, _ := strconv.Atoi(secParts[0])
-	
+
 	milliseconds := 0
 	if len(secParts) > 1 {
 		milliseconds, _ = strconv.Atoi(secParts[1])
 	}
-	
-	return time.Duration(hours)*time.Hour + 
-		time.Duration(minutes)*time.Minute + 
+
+	return time.Duration(hours)*time.Hour +
+		time.Duration(minutes)*time.Minute +
 		time.Duration(seconds)*time.Second +
 		time.Duration(milliseconds)*time.Millisecond
 }
@@ -502,7 +502,7 @@ func RegisterStopProcess() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			firstArg := common.BindValue(args[0])
-			
+
 			if nameStr, ok := firstArg.(string); ok {
 				opts.Name = nameStr
 			} else if idInt, ok := firstArg.(int); ok {
@@ -645,7 +645,7 @@ func RegisterStartProcess() gojq.CompilerOption {
 		// Parse arguments
 		if len(args) > 0 {
 			firstArg := common.BindValue(args[0])
-			
+
 			if filePathStr, ok := firstArg.(string); ok {
 				opts.FilePath = filePathStr
 			} else if optsMap, ok := firstArg.(map[string]any); ok {
@@ -696,13 +696,13 @@ func RegisterStartProcess() gojq.CompilerOption {
 
 // StartProcessOptions holds options for the start_process function
 type StartProcessOptions struct {
-	FilePath      string
-	ArgumentList  []any
-	WindowStyle   string // Normal, Hidden, Minimized, Maximized
-	PassThru      bool
-	WorkingDir    string
-	Environment   map[string]any
-	RedirectStdin bool
+	FilePath       string
+	ArgumentList   []any
+	WindowStyle    string // Normal, Hidden, Minimized, Maximized
+	PassThru       bool
+	WorkingDir     string
+	Environment    map[string]any
+	RedirectStdin  bool
 	RedirectStdout bool
 	RedirectStderr bool
 }
@@ -782,11 +782,11 @@ func startProcess(opts StartProcessOptions) (map[string]any, error) {
 	}
 
 	result := map[string]any{
-		"Id":         cmd.Process.Pid,
-		"Name":       opts.FilePath,
-		"HasExited":  false,
-		"StartTime":  time.Now().Format(time.RFC3339),
-		"Process":    cmd.Process,
+		"Id":        cmd.Process.Pid,
+		"Name":      opts.FilePath,
+		"HasExited": false,
+		"StartTime": time.Now().Format(time.RFC3339),
+		"Process":   cmd.Process,
 	}
 
 	if opts.WindowStyle != "" {

@@ -94,7 +94,7 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 			meta["file_size"] = int(fileSize)
 		}
 
-  return common.MakeUDFSuccessResult(dateStr, meta)
+		return common.MakeUDFSuccessResult(dateStr, meta)
 	})
 }
 
@@ -188,7 +188,6 @@ func RegisterDateToTimestamp() gojq.CompilerOption {
 			meta["file_size"] = int(fileSize)
 		}
 
-  return common.MakeUDFSuccessResult(float64(timestamp), meta)
+		return common.MakeUDFSuccessResult(float64(timestamp), meta)
 	})
 }
-

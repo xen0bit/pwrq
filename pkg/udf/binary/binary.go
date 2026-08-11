@@ -124,7 +124,7 @@ func RegisterBinaryDecode() gojq.CompilerOption {
 
 		parts := strings.Fields(input)
 		var decoded []byte
-		
+
 		if len(parts) > 1 {
 			for _, part := range parts {
 				part = strings.TrimSpace(part)

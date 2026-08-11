@@ -125,4 +125,3 @@ func RegisterTempDir() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(absTempDir, meta)
 	})
 }
-

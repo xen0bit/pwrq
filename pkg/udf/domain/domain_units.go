@@ -2,138 +2,149 @@ package domain
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
-// convertUnary registers a one-number converter like c_to_f: it reads a number
-// from the pipeline or the first argument and applies fn.
-func convertUnary(name string, fn func(float64) float64) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 1, func(v any, args []any) any {
-		input := v
-		if len(args) > 0 {
-			input = args[0]
-		}
-		f, ok := common.ToFloat64(common.BindValue(input))
+// unitConversion is a linear map to and from a base unit: value*factor+offset
+// gives the base, and the inverse gives the value back. Temperature needs the
+// offset; everything else leaves it zero.
+type unitConversion struct {
+	quantity string
+	factor   float64
+	offset   float64
+}
+
+// units maps a unit name to its quantity and its conversion to that quantity's
+// base unit — kelvin, metre, kilogram, litre, metre per second, or litres per
+// 100km. Conversion between any two units of the same quantity is then to the
+// base and back, which is why this table replaces the pairwise converters:
+// adding a unit here makes it convertible to every other unit of its quantity,
+// rather than requiring two more functions per existing unit.
+var units = map[string]unitConversion{
+	// Temperature, base kelvin.
+	"c": {"temperature", 1, 273.15}, "celsius": {"temperature", 1, 273.15},
+	"f": {"temperature", 5.0 / 9.0, 273.15 - 32*5.0/9.0}, "fahrenheit": {"temperature", 5.0 / 9.0, 273.15 - 32*5.0/9.0},
+	"k": {"temperature", 1, 0}, "kelvin": {"temperature", 1, 0},
+
+	// Length, base metre.
+	"m": {"length", 1, 0}, "metre": {"length", 1, 0}, "meter": {"length", 1, 0},
+	"km": {"length", 1000, 0}, "cm": {"length", 0.01, 0}, "mm": {"length", 0.001, 0},
+	"mi": {"length", 1609.344, 0}, "mile": {"length", 1609.344, 0},
+	"ft": {"length", 0.3048, 0}, "foot": {"length", 0.3048, 0},
+	"in": {"length", 0.0254, 0}, "inch": {"length", 0.0254, 0},
+	"yd": {"length", 0.9144, 0}, "nmi": {"length", 1852, 0},
+
+	// Mass, base kilogram.
+	"kg": {"mass", 1, 0}, "g": {"mass", 0.001, 0}, "mg": {"mass", 1e-6, 0},
+	"lb": {"mass", 0.45359237, 0}, "pound": {"mass", 0.45359237, 0},
+	"oz": {"mass", 0.028349523125, 0}, "st": {"mass", 6.35029318, 0},
+	"t": {"mass", 1000, 0}, "tonne": {"mass", 1000, 0},
+
+	// Volume, base litre.
+	"l": {"volume", 1, 0}, "litre": {"volume", 1, 0}, "liter": {"volume", 1, 0},
+	"ml": {"volume", 0.001, 0}, "gal": {"volume", 3.785411784, 0},
+	"qt": {"volume", 0.946352946, 0}, "pt": {"volume", 0.473176473, 0},
+	"floz": {"volume", 0.0295735295625, 0},
+
+	// Speed, base metre per second.
+	"mps": {"speed", 1, 0}, "kph": {"speed", 1 / 3.6, 0}, "kmh": {"speed", 1 / 3.6, 0},
+	"mph": {"speed", 0.44704, 0}, "knot": {"speed", 0.514444, 0}, "kn": {"speed", 0.514444, 0},
+
+	// Duration, base second.
+	"s": {"duration", 1, 0}, "sec": {"duration", 1, 0}, "second": {"duration", 1, 0},
+	"ms": {"duration", 0.001, 0}, "min": {"duration", 60, 0}, "minute": {"duration", 60, 0},
+	"h": {"duration", 3600, 0}, "hour": {"duration", 3600, 0},
+	"d": {"duration", 86400, 0}, "day": {"duration", 86400, 0},
+	"wk": {"duration", 604800, 0}, "week": {"duration", 604800, 0},
+}
+
+// fuelEfficiency is its own case: mpg and l/100km are reciprocal, not linear,
+// so they cannot share the table above.
+var fuelEfficiency = map[string]bool{"mpg": true, "l100km": true}
+
+// RegisterConvertUnit registers convert_unit, converting a number between two
+// units of the same quantity:
+//
+//	20 | convert_unit("C"; "F")        -> 68
+//	convert_unit(5; "mi"; "km")        -> 8.04672
+//
+// Unit names are case-insensitive. Converting between different quantities is
+// an error rather than a silently wrong number.
+func RegisterConvertUnit() gojq.CompilerOption {
+	return gojq.WithFunction("convert_unit", 2, 3, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 2)
+		value, ok := common.ToFloat64(common.BindValue(in))
 		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("%s: expected a number, got %T", name, input), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("convert_unit: expected a number, got %T", common.BindValue(in)), nil)
 		}
-		return common.MakeUDFSuccessResult(fn(f), nil)
+		from, err := unitName(rest[0])
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		to, err := unitName(rest[1])
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		out, err := convertUnit(value, from, to)
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		return common.MakeUDFSuccessResult(out, nil)
 	})
 }
 
-// RegisterCToF registers c_to_f, Celsius to Fahrenheit.
-func RegisterCToF() gojq.CompilerOption {
-	return convertUnary("c_to_f", func(c float64) float64 { return c*9/5 + 32 })
+func unitName(a any) (string, error) {
+	s, ok := common.BindValue(a).(string)
+	if !ok {
+		return "", fmt.Errorf("convert_unit: unit must be a string, got %T", common.BindValue(a))
+	}
+	return strings.ToLower(strings.TrimSpace(s)), nil
 }
 
-// RegisterFToC registers f_to_c, Fahrenheit to Celsius.
-func RegisterFToC() gojq.CompilerOption {
-	return convertUnary("f_to_c", func(f float64) float64 { return (f - 32) * 5 / 9 })
+func convertUnit(value float64, from, to string) (float64, error) {
+	if fuelEfficiency[from] && fuelEfficiency[to] {
+		if from == to {
+			return value, nil
+		}
+		if value == 0 {
+			return 0, fmt.Errorf("convert_unit: cannot convert 0 %s", from)
+		}
+		return tidy(235.214583 / value), nil
+	}
+	src, ok := units[from]
+	if !ok {
+		return 0, fmt.Errorf("convert_unit: unknown unit %q", from)
+	}
+	dst, ok := units[to]
+	if !ok {
+		return 0, fmt.Errorf("convert_unit: unknown unit %q", to)
+	}
+	if src.quantity != dst.quantity {
+		return 0, fmt.Errorf("convert_unit: cannot convert %s (%s) to %s (%s)", from, src.quantity, to, dst.quantity)
+	}
+	if from == to {
+		return value, nil
+	}
+	base := value*src.factor + src.offset
+	return tidy((base - dst.offset) / dst.factor), nil
 }
 
-// RegisterCToK registers c_to_k, Celsius to Kelvin.
-func RegisterCToK() gojq.CompilerOption {
-	return convertUnary("c_to_k", func(c float64) float64 { return c + 273.15 })
-}
-
-// RegisterKToC registers k_to_c, Kelvin to Celsius.
-func RegisterKToC() gojq.CompilerOption {
-	return convertUnary("k_to_c", func(k float64) float64 { return k - 273.15 })
-}
-
-// RegisterFToK registers f_to_k, Fahrenheit to Kelvin.
-func RegisterFToK() gojq.CompilerOption {
-	return convertUnary("f_to_k", func(f float64) float64 { return (f-32)*5/9 + 273.15 })
-}
-
-// RegisterKToF registers k_to_f, Kelvin to Fahrenheit.
-func RegisterKToF() gojq.CompilerOption {
-	return convertUnary("k_to_f", func(k float64) float64 { return (k-273.15)*9/5 + 32 })
-}
-
-// RegisterKmToMi registers km_to_mi, kilometres to miles.
-func RegisterKmToMi() gojq.CompilerOption {
-	return convertUnary("km_to_mi", func(km float64) float64 { return km / 1.609344 })
-}
-
-// RegisterMiToKm registers mi_to_km, miles to kilometres.
-func RegisterMiToKm() gojq.CompilerOption {
-	return convertUnary("mi_to_km", func(mi float64) float64 { return mi * 1.609344 })
-}
-
-// RegisterMToFt registers m_to_ft, metres to feet.
-func RegisterMToFt() gojq.CompilerOption {
-	return convertUnary("m_to_ft", func(m float64) float64 { return m / 0.3048 })
-}
-
-// RegisterFtToM registers ft_to_m, feet to metres.
-func RegisterFtToM() gojq.CompilerOption {
-	return convertUnary("ft_to_m", func(ft float64) float64 { return ft * 0.3048 })
-}
-
-// RegisterCmToIn registers cm_to_in, centimetres to inches.
-func RegisterCmToIn() gojq.CompilerOption {
-	return convertUnary("cm_to_in", func(cm float64) float64 { return cm / 2.54 })
-}
-
-// RegisterInToCm registers in_to_cm, inches to centimetres.
-func RegisterInToCm() gojq.CompilerOption {
-	return convertUnary("in_to_cm", func(in float64) float64 { return in * 2.54 })
-}
-
-// RegisterKgToLb registers kg_to_lb, kilograms to pounds.
-func RegisterKgToLb() gojq.CompilerOption {
-	return convertUnary("kg_to_lb", func(kg float64) float64 { return kg / 0.45359237 })
-}
-
-// RegisterLbToKg registers lb_to_kg, pounds to kilograms.
-func RegisterLbToKg() gojq.CompilerOption {
-	return convertUnary("lb_to_kg", func(lb float64) float64 { return lb * 0.45359237 })
-}
-
-// RegisterGToOz registers g_to_oz, grams to ounces.
-func RegisterGToOz() gojq.CompilerOption {
-	return convertUnary("g_to_oz", func(g float64) float64 { return g / 28.349523125 })
-}
-
-// RegisterOzToG registers oz_to_g, ounces to grams.
-func RegisterOzToG() gojq.CompilerOption {
-	return convertUnary("oz_to_g", func(oz float64) float64 { return oz * 28.349523125 })
-}
-
-// RegisterLToGal registers l_to_gal, litres to US gallons.
-func RegisterLToGal() gojq.CompilerOption {
-	return convertUnary("l_to_gal", func(l float64) float64 { return l / 3.785411784 })
-}
-
-// RegisterGalToL registers gal_to_l, US gallons to litres.
-func RegisterGalToL() gojq.CompilerOption {
-	return convertUnary("gal_to_l", func(gal float64) float64 { return gal * 3.785411784 })
-}
-
-// RegisterMphToKph registers mph_to_kph, miles per hour to kilometres per hour.
-func RegisterMphToKph() gojq.CompilerOption {
-	return convertUnary("mph_to_kph", func(mph float64) float64 { return mph * 1.609344 })
-}
-
-// RegisterKphToMph registers kph_to_mph, kilometres per hour to miles per hour.
-func RegisterKphToMph() gojq.CompilerOption {
-	return convertUnary("kph_to_mph", func(kph float64) float64 { return kph / 1.609344 })
-}
-
-// RegisterMpgToL100km registers mpg_to_l100km, US miles per gallon to litres per
-// 100 kilometres.
-func RegisterMpgToL100km() gojq.CompilerOption {
-	return convertUnary("mpg_to_l100km", func(mpg float64) float64 { return 235.214583 / mpg })
-}
-
-// RegisterL100kmToMpg registers l100km_to_mpg, litres per 100 kilometres to US
-// miles per gallon.
-func RegisterL100kmToMpg() gojq.CompilerOption {
-	return convertUnary("l100km_to_mpg", func(l float64) float64 { return 235.214583 / l })
+// tidy rounds off the representation error a trip through the base unit
+// introduces. Converting 20°C to °F is exactly 68, but going via kelvin with
+// factors of 5/9 — which no binary float holds exactly — lands on
+// 67.99999999999993. Rounding to 12 significant figures recovers the intended
+// answer while leaving genuinely precise conversions (5 mi = 8.04672 km) alone,
+// since they need far fewer digits than that.
+func tidy(f float64) float64 {
+	if f == 0 || math.IsInf(f, 0) || math.IsNaN(f) {
+		return f
+	}
+	mag := math.Pow(10, 12-math.Ceil(math.Log10(math.Abs(f))))
+	return math.Round(f*mag) / mag
 }
 
 // RegisterParseSize registers parse_size, a size string like "1.5 MiB" to its

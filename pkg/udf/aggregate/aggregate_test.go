@@ -149,13 +149,6 @@ func TestTopByBottomBy(t *testing.T) {
 	}
 }
 
-func TestDistinctCount(t *testing.T) {
-	got := run(t, `distinct_count`, []any{1, 2, 1, 3, 3, 3}, RegisterAll()...)
-	if fmt.Sprint(got) != "3" {
-		t.Errorf("distinct_count = %v, want 3", got)
-	}
-}
-
 func mustArray(t *testing.T, json string) []any {
 	t.Helper()
 	arr := run(t, json, nil, RegisterAll()...)

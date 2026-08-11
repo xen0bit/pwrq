@@ -1,7 +1,10 @@
+// Words and characters: counting, padding, masking and templating.
 package string
 
 import (
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -11,42 +14,6 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 	"golang.org/x/text/unicode/norm"
 )
-
-// registerTextFn registers a 0-2 arity string-in, value-out cmdlet.
-func registerTextFn(name string, fn func(string) any) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
-		inputVal, _, err := common.ParseFileArgs(v, args)
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
-		}
-		input, err := stringInput(common.BindValue(inputVal))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
-		}
-		return common.MakeUDFSuccessResult(fn(input), nil)
-	})
-}
-
-// RegisterIsPalindrome registers is_palindrome, whether a string reads the
-// same forwards and backwards, ignoring case and non-letter characters.
-func RegisterIsPalindrome() gojq.CompilerOption {
-	return registerTextFn("is_palindrome", func(s string) any {
-		var cleaned strings.Builder
-		for _, r := range strings.ToLower(s) {
-			if unicode.IsLetter(r) || unicode.IsDigit(r) {
-				cleaned.WriteRune(r)
-			}
-		}
-		text := cleaned.String()
-		runes := []rune(text)
-		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-			if runes[i] != runes[j] {
-				return false
-			}
-		}
-		return true
-	})
-}
 
 // RegisterReverseWords registers reverse_words, the words of a string in
 // reverse order: "the quick brown" -> "brown quick the".
@@ -80,6 +47,47 @@ func RegisterTruncateWords() gojq.CompilerOption {
 	})
 }
 
+// RegisterTruncate registers truncate, cutting a string to a length and
+// appending a suffix (an ellipsis by default).
+func RegisterTruncate() gojq.CompilerOption {
+	return gojq.WithFunction("truncate", 1, 3, func(v any, args []any) any {
+		maxLen, ok := common.ToInt(args[0])
+		if !ok || maxLen < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("truncate: length must be a non-negative number, got %v", args[0]), nil)
+		}
+		suffix := "…"
+		isFile := false
+		if len(args) > 1 {
+			switch s := common.BindValue(args[1]).(type) {
+			case bool:
+				isFile = s
+			case string:
+				suffix = s
+			default:
+				return common.MakeUDFErrorResult(fmt.Errorf("truncate: suffix must be a string, got %T", args[1]), nil)
+			}
+		}
+		if len(args) > 2 {
+			if b, ok := args[2].(bool); ok {
+				isFile = b
+			}
+		}
+		in, err := bindInput(v, isFile)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("truncate: %v", err), nil)
+		}
+		input, err := stringInput(in)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("truncate: %v", err), nil)
+		}
+		runes := []rune(input)
+		if len(runes) <= maxLen {
+			return common.MakeUDFSuccessResult(input, nil)
+		}
+		return common.MakeUDFSuccessResult(string(runes[:maxLen])+suffix, nil)
+	})
+}
+
 // RegisterRemoveAccents registers remove_accents, diacritics stripped from a
 // string: "café" -> "cafe".
 func RegisterRemoveAccents() gojq.CompilerOption {
@@ -90,79 +98,6 @@ func RegisterRemoveAccents() gojq.CompilerOption {
 				continue
 			}
 			b.WriteRune(r)
-		}
-		return b.String()
-	})
-}
-
-// RegisterSentenceCase registers sentence_case, first letter capitalized and
-// the rest lowercased.
-func RegisterSentenceCase() gojq.CompilerOption {
-	return registerTextFn("sentence_case", func(s string) any {
-		s = strings.ToLower(s)
-		for i, r := range s {
-			if unicode.IsLetter(r) {
-				runes := []rune(s)
-				runes[i] = unicode.ToUpper(r)
-				return string(runes)
-			}
-		}
-		return s
-	})
-}
-
-// RegisterLineCount registers line_count, how many lines a string has (0 for
-// an empty string).
-func RegisterLineCount() gojq.CompilerOption {
-	return registerTextFn("line_count", func(s string) any {
-		if s == "" {
-			return 0
-		}
-		return 1 + strings.Count(s, "\n")
-	})
-}
-
-// RegisterDedent registers dedent, the common leading whitespace removed from
-// every line.
-func RegisterDedent() gojq.CompilerOption {
-	return registerTextFn("dedent", func(s string) any {
-		lines := strings.Split(s, "\n")
-		indent := -1
-		for _, line := range lines {
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
-			width := len(line) - len(strings.TrimLeft(line, " \t"))
-			if indent == -1 || width < indent {
-				indent = width
-			}
-		}
-		if indent <= 0 {
-			return s
-		}
-		for i, line := range lines {
-			if len(line) >= indent {
-				lines[i] = line[indent:]
-			}
-		}
-		return strings.Join(lines, "\n")
-	})
-}
-
-// RegisterSwapCase registers swap_case, uppercase and lowercase letters
-// exchanged.
-func RegisterSwapCase() gojq.CompilerOption {
-	return registerTextFn("swap_case", func(s string) any {
-		var b strings.Builder
-		for _, r := range s {
-			switch {
-			case unicode.IsUpper(r):
-				b.WriteRune(unicode.ToLower(r))
-			case unicode.IsLower(r):
-				b.WriteRune(unicode.ToUpper(r))
-			default:
-				b.WriteRune(r)
-			}
 		}
 		return b.String()
 	})
@@ -193,108 +128,200 @@ func RegisterCharFrequencies() gojq.CompilerOption {
 	})
 }
 
-// RegisterAnagram registers anagram, whether two strings use the same letters:
-// "listen" is an anagram of "silent".
-func RegisterAnagram() gojq.CompilerOption {
-	return gojq.WithFunction("anagram", 1, 2, func(v any, args []any) any {
-		other, ok := common.BindValue(args[len(args)-1]).(string)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("anagram: the other string must be a string, got %T", args[len(args)-1]), nil)
-		}
-		input, err := strFromPipeline(v, "anagram")
-		if err != nil {
-			return common.MakeUDFErrorResult(err, nil)
-		}
-		return common.MakeUDFSuccessResult(sortString(input) == sortString(other), nil)
-	})
-}
-
 func sortString(s string) string {
 	runes := []rune(s)
 	sort.Slice(runes, func(i, j int) bool { return runes[i] < runes[j] })
 	return string(runes)
 }
 
-// linesOf splits a string into lines, a lone trailing newline not adding an
-// empty final line.
-func linesOf(s string) []string {
-	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
-}
-
-// RegisterFirstLine registers first_line, the first line of a string.
-func RegisterFirstLine() gojq.CompilerOption {
-	return registerTextFn("first_line", func(s string) any {
-		if s == "" {
-			return ""
-		}
-		return linesOf(s)[0]
-	})
-}
-
-// RegisterLastLine registers last_line, the last line of a string.
-func RegisterLastLine() gojq.CompilerOption {
-	return registerTextFn("last_line", func(s string) any {
-		if s == "" {
-			return ""
-		}
-		lines := linesOf(s)
-		return lines[len(lines)-1]
-	})
-}
-
-// RegisterReverseLines registers reverse_lines, the lines of a string reversed.
-func RegisterReverseLines() gojq.CompilerOption {
-	return registerTextFn("reverse_lines", func(s string) any {
-		if s == "" {
-			return ""
-		}
-		lines := linesOf(s)
-		for i, j := 0, len(lines)-1; i < j; i, j = i+1, j-1 {
-			lines[i], lines[j] = lines[j], lines[i]
-		}
-		return strings.Join(lines, "\n")
-	})
-}
-
-// RegisterUniqueLines registers unique_lines, duplicate lines removed keeping
-// first-occurrence order.
-func RegisterUniqueLines() gojq.CompilerOption {
-	return registerTextFn("unique_lines", func(s string) any {
-		seen := make(map[string]bool)
-		out := []string{}
-		for _, line := range linesOf(s) {
-			if !seen[line] {
-				seen[line] = true
-				out = append(out, line)
+// RegisterCountVowels registers count_vowels, how many vowel letters a string
+// has.
+func RegisterCountVowels() gojq.CompilerOption {
+	return registerTextFn("count_vowels", func(s string) any {
+		n := 0
+		for _, r := range strings.ToLower(s) {
+			switch r {
+			case 'a', 'e', 'i', 'o', 'u':
+				n++
 			}
 		}
-		return strings.Join(out, "\n")
+		return n
 	})
 }
 
-// RegisterSortLines registers sort_lines, the lines of a string sorted.
-func RegisterSortLines() gojq.CompilerOption {
-	return registerTextFn("sort_lines", func(s string) any {
-		lines := linesOf(s)
-		sort.Strings(lines)
-		return strings.Join(lines, "\n")
+// RegisterCountConsonants registers count_consonants, how many consonant
+// letters a string has.
+func RegisterCountConsonants() gojq.CompilerOption {
+	return registerTextFn("count_consonants", func(s string) any {
+		n := 0
+		for _, r := range strings.ToLower(s) {
+			if !unicode.IsLetter(r) {
+				continue
+			}
+			switch r {
+			case 'a', 'e', 'i', 'o', 'u':
+			default:
+				n++
+			}
+		}
+		return n
 	})
 }
 
-// RegisterStripQuotes registers strip_quotes, one layer of matching quotes
-// ('…', "…", or `…`) removed from each end.
-func RegisterStripQuotes() gojq.CompilerOption {
-	return registerTextFn("strip_quotes", func(s string) any {
-		s = strings.TrimSpace(s)
-		if utf8.RuneCountInString(s) < 2 {
-			return s
+// RegisterCountOccurrences registers count_occurrences, counting non-overlapping
+// occurrences of a substring.
+func RegisterCountOccurrences() gojq.CompilerOption {
+	return gojq.WithFunction("count_occurrences", 1, 2, func(v any, args []any) any {
+		sub, ok := common.BindValue(args[0]).(string)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("count_occurrences: substring must be a string, got %T", args[0]), nil)
 		}
-		runes := []rune(s)
-		first, last := runes[0], runes[len(runes)-1]
-		if (first == '"' && last == '"') || (first == '\'' && last == '\'') || (first == '`' && last == '`') {
-			return string(runes[1 : len(runes)-1])
+		isFile := false
+		if len(args) > 1 {
+			if b, ok := args[1].(bool); ok {
+				isFile = b
+			}
 		}
-		return s
+		in, err := bindInput(v, isFile)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("count_occurrences: %v", err), nil)
+		}
+		input, err := stringInput(in)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("count_occurrences: %v", err), nil)
+		}
+		return common.MakeUDFSuccessResult(strings.Count(input, sub), nil)
+	})
+}
+
+// RegisterWordCount registers word_count, how many whitespace-separated words a
+// string has.
+func RegisterWordCount() gojq.CompilerOption {
+	return gojq.WithFunction("word_count", 0, 2, func(v any, args []any) any {
+		inputVal, _, err := common.ParseFileArgs(v, args)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("word_count: %v", err), nil)
+		}
+		input, err := stringInput(common.BindValue(inputVal))
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("word_count: %v", err), nil)
+		}
+		return common.MakeUDFSuccessResult(len(strings.Fields(input)), nil)
+	})
+}
+
+// RegisterAcronym registers acronym, the uppercase initials of the words in a
+// string.
+func RegisterAcronym() gojq.CompilerOption {
+	return registerCaseConverter("acronym", func(s string) string {
+		words := splitWords(s)
+		var b strings.Builder
+		for _, w := range words {
+			if w != "" {
+				b.WriteRune(unicode.ToUpper(rune(w[0])))
+			}
+		}
+		return b.String()
+	})
+}
+
+// RegisterSoundex registers soundex, the four-character Soundex code of a
+// word, for matching names that sound alike.
+func RegisterSoundex() gojq.CompilerOption {
+	return registerTextFn("soundex", func(s string) any {
+		return soundex(s)
+	})
+}
+
+func soundex(s string) string {
+	// Map letters to Soundex groups; 0 marks a dropped letter.
+	code := map[rune]byte{
+		'b': '1', 'f': '1', 'p': '1', 'v': '1',
+		'c': '2', 'g': '2', 'j': '2', 'k': '2', 'q': '2', 's': '2', 'x': '2', 'z': '2',
+		'd': '3', 't': '3',
+		'l': '4',
+		'm': '5', 'n': '5',
+		'r': '6',
+		'a': 0, 'e': 0, 'i': 0, 'o': 0, 'u': 0, 'y': 0, 'h': 0, 'w': 0,
+	}
+	var out []byte
+	prev := byte(0)
+	for _, r := range strings.ToLower(s) {
+		c, ok := code[r]
+		if !ok {
+			continue // non-letter
+		}
+		if len(out) == 0 {
+			out = append(out, byte(unicode.ToUpper(r)))
+			prev = c
+			continue
+		}
+		if c != 0 && c != prev {
+			out = append(out, c)
+			if len(out) == 4 {
+				break
+			}
+		}
+		prev = c
+	}
+	for len(out) < 4 {
+		out = append(out, '0')
+	}
+	return string(out[:4])
+}
+
+// RegisterPadLeft registers pad_left, left-padding a string to a width with a
+// repeated padding character.
+func RegisterPadLeft() gojq.CompilerOption {
+	return gojq.WithFunction("pad_left", 1, 3, func(v any, args []any) any {
+		width, ok := common.ToInt(args[0])
+		if !ok || width < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_left: width must be a non-negative number, got %v", args[0]), nil)
+		}
+		pad, isFile, err := padArgs(args, 1)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_left: %v", err), nil)
+		}
+		in, err := bindInput(v, isFile)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_left: %v", err), nil)
+		}
+		input, err := stringInput(in)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_left: %v", err), nil)
+		}
+		need := width - len([]rune(input))
+		if need <= 0 {
+			return common.MakeUDFSuccessResult(input, nil)
+		}
+		return common.MakeUDFSuccessResult(strings.Repeat(pad, need)+input, nil)
+	})
+}
+
+// RegisterPadRight registers pad_right, right-padding a string to a width.
+func RegisterPadRight() gojq.CompilerOption {
+	return gojq.WithFunction("pad_right", 1, 3, func(v any, args []any) any {
+		width, ok := common.ToInt(args[0])
+		if !ok || width < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_right: width must be a non-negative number, got %v", args[0]), nil)
+		}
+		pad, isFile, err := padArgs(args, 1)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_right: %v", err), nil)
+		}
+		in, err := bindInput(v, isFile)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_right: %v", err), nil)
+		}
+		input, err := stringInput(in)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("pad_right: %v", err), nil)
+		}
+		need := width - len([]rune(input))
+		if need <= 0 {
+			return common.MakeUDFSuccessResult(input, nil)
+		}
+		return common.MakeUDFSuccessResult(input+strings.Repeat(pad, need), nil)
 	})
 }
 
@@ -331,5 +358,127 @@ func RegisterPadCenter() gojq.CompilerOption {
 			rightPad += pad
 		}
 		return common.MakeUDFSuccessResult(leftPad+input+rightPad, nil)
+	})
+}
+
+// padArgs reads the optional padding string (and trailing file flag) that
+// starts at args[start].
+func padArgs(args []any, start int) (string, bool, error) {
+	pad := " "
+	isFile := false
+	if len(args) > start {
+		switch p := common.BindValue(args[start]).(type) {
+		case bool:
+			isFile = p
+		case string:
+			if p == "" {
+				pad = " "
+			} else {
+				pad = string([]rune(p)[0])
+			}
+		default:
+			return "", false, fmt.Errorf("padding must be a string, got %T", args[start])
+		}
+	}
+	if len(args) > start+1 {
+		if b, ok := args[start+1].(bool); ok {
+			isFile = b
+		}
+	}
+	return pad, isFile, nil
+}
+
+// RegisterMask registers mask, hiding the middle of a string and keeping the
+// first and last visible characters, so credentials keep their shape.
+func RegisterMask() gojq.CompilerOption {
+	return gojq.WithFunction("mask", 0, 2, func(v any, args []any) any {
+		visible := 0
+		isFile := false
+		if len(args) > 0 {
+			if b, ok := args[0].(bool); ok {
+				isFile = b
+			} else if n, ok := common.ToInt(args[0]); ok {
+				visible = n
+			}
+		}
+		if len(args) > 1 {
+			if b, ok := args[1].(bool); ok {
+				isFile = b
+			}
+		}
+		if visible < 0 {
+			visible = 0
+		}
+		in, err := bindInput(v, isFile)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("mask: %v", err), nil)
+		}
+		input, err := stringInput(in)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("mask: %v", err), nil)
+		}
+		runes := []rune(input)
+		n := len(runes)
+		if n <= visible*2 {
+			return common.MakeUDFSuccessResult(input, nil)
+		}
+		var b strings.Builder
+		b.Grow(n)
+		for i, r := range runes {
+			if i < visible || i >= n-visible {
+				b.WriteRune(r)
+			} else {
+				b.WriteRune('*')
+			}
+		}
+		return common.MakeUDFSuccessResult(b.String(), nil)
+	})
+}
+
+// RegisterTemplate registers template, replacing {{key}} placeholders in a
+// string with values from an object.
+func RegisterTemplate() gojq.CompilerOption {
+	return gojq.WithFunction("template", 1, 1, func(v any, args []any) any {
+		vars, ok := common.BindValue(args[0]).(map[string]any)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("template: variables must be an object, got %T", args[0]), nil)
+		}
+		in, err := bindInput(v, false)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("template: %v", err), nil)
+		}
+		input, err := stringInput(in)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("template: %v", err), nil)
+		}
+		return common.MakeUDFSuccessResult(applyTemplate(input, vars), nil)
+	})
+}
+
+var placeholder = regexp.MustCompile(`\{\{\s*([A-Za-z0-9_.]+)\s*\}\}`)
+
+func applyTemplate(s string, vars map[string]any) string {
+	return placeholder.ReplaceAllStringFunc(s, func(match string) string {
+		groups := placeholder.FindStringSubmatch(match)
+		key := groups[1]
+		if value, ok := vars[key]; ok {
+			if str, isString := value.(string); isString {
+				return str
+			}
+			encoded, err := json.Marshal(value)
+			if err == nil {
+				return string(encoded)
+			}
+			return fmt.Sprint(value)
+		}
+		return match
+	})
+}
+
+// RegisterNormalizeWhitespace registers normalize_whitespace, collapsing every
+// run of whitespace to a single space and trimming the ends.
+func RegisterNormalizeWhitespace() gojq.CompilerOption {
+	return registerCaseConverter("normalize_whitespace", func(s string) string {
+		return strings.Join(strings.Fields(s), " ")
 	})
 }

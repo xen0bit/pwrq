@@ -14,9 +14,9 @@ import (
 
 // SetLocationOptions holds options for the set_location function
 type SetLocationOptions struct {
-	Path       string // Path to set as current location
-	StackName  string // Location stack name (for push/pop)
-	PassThru   bool   // Return the PathInfo object after setting
+	Path      string // Path to set as current location
+	StackName string // Location stack name (for push/pop)
+	PassThru  bool   // Return the PathInfo object after setting
 }
 
 // RegisterSetLocation registers the set_location function with gojq
@@ -49,10 +49,10 @@ func RegisterSetLocation() gojq.CompilerOption {
 
 		// First argument is path or options
 		firstArg := common.BindValue(args[0])
-		
+
 		if pathStr, isString := firstArg.(string); isString {
 			path = pathStr
-			
+
 			// Second argument could be options
 			if len(args) > 1 {
 				if optsMap, ok := args[1].(map[string]any); ok {
@@ -63,7 +63,7 @@ func RegisterSetLocation() gojq.CompilerOption {
 			// First arg is options map
 			parseSetLocationOptions(&opts, optsMap)
 			path = opts.Path
-			
+
 			// If path not in options, check second arg
 			if path == "" && len(args) > 1 {
 				if pStr, ok := args[1].(string); ok {

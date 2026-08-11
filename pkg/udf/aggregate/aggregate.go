@@ -28,28 +28,27 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterUnpivot(),
 		RegisterTopBy(),
 		RegisterBottomBy(),
-		RegisterDistinctCount(),
 	}
 }
 
-// arrInput resolves the array from the first array argument or the pipeline.
-func arrInput(v any, args []any) []any {
-	for _, a := range args {
-		if arr, ok := common.BindValue(a).([]any); ok {
-			return arr
-		}
-	}
-	return common.NormalizeToSlice(common.BindValue(v))
+// rowsInput separates the array of rows from a cmdlet's operands, following
+// common.SplitInput: the explicit input is the leading argument at the cmdlet's
+// maximum arity, and is never guessed at by inspecting operand types.
+func rowsInput(v any, args []any, operands int) (rows []any, rest []any) {
+	in, rest := common.SplitInput(v, args, operands)
+	return common.NormalizeToSlice(common.BindValue(in)), rest
 }
 
-// keyArg resolves the first string argument as a property name.
-func keyArg(args []any) (string, error) {
-	for _, a := range args {
-		if s, ok := common.BindValue(a).(string); ok {
-			return s, nil
-		}
+// keyArg reads operand i as a property name.
+func keyArg(fn string, args []any, i int) (string, error) {
+	if i >= len(args) {
+		return "", fmt.Errorf("%s: a key property name is required", fn)
 	}
-	return "", fmt.Errorf("a key property name is required")
+	s, ok := common.BindValue(args[i]).(string)
+	if !ok {
+		return "", fmt.Errorf("%s: key must be a string, got %T", fn, common.BindValue(args[i]))
+	}
+	return s, nil
 }
 
 // rowValue reads a property from a row, following dot paths like
@@ -82,26 +81,20 @@ func toLower(s string) string {
 	return string(b)
 }
 
-// groupAndValue splits the grouping key from the numeric column. The first
-// string argument groups rows; a second string argument names the numeric
-// column. When the column is omitted the grouping key itself is the column.
+// groupAndValue reads the grouping key and the numeric column from positional
+// operands. When the column is omitted the grouping key is itself the column,
+// which is what makes sum_by("amount") total that property.
 func groupAndValue(args []any) (groupKey, valueKey string) {
-	var strings []string
-	for _, a := range args {
-		if s, ok := common.BindValue(a).(string); ok {
-			strings = append(strings, s)
-		}
-	}
-	if len(strings) == 0 {
+	if len(args) == 0 {
 		return "", ""
 	}
-	groupKey = strings[0]
-	if len(strings) > 1 {
-		valueKey = strings[1]
-	} else {
-		valueKey = strings[0]
+	groupKey, _ = common.BindValue(args[0]).(string)
+	if len(args) > 1 {
+		if s, ok := common.BindValue(args[1]).(string); ok {
+			return groupKey, s
+		}
 	}
-	return groupKey, valueKey
+	return groupKey, groupKey
 }
 
 // keyString renders a value as a stable object key. Strings stay bare so the
@@ -149,10 +142,10 @@ func numValue(row any, key string) (float64, error) {
 // property into {keyvalue: [rows...]}.
 func RegisterGroupByKey() gojq.CompilerOption {
 	return gojq.WithFunction("group_by_key", 1, 2, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		key, err := keyArg(args)
+		arr, rest := rowsInput(v, args, 1)
+		key, err := keyArg("group_by_key", rest, 0)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("group_by_key: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		buckets := make(map[string][]any)
 		for _, row := range arr {
@@ -174,10 +167,10 @@ func RegisterGroupByKey() gojq.CompilerOption {
 // RegisterCountBy registers count_by, a property's value to a row count.
 func RegisterCountBy() gojq.CompilerOption {
 	return gojq.WithFunction("count_by", 1, 2, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		key, err := keyArg(args)
+		arr, rest := rowsInput(v, args, 1)
+		key, err := keyArg("count_by", rest, 0)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("count_by: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		counts := make(map[string]any)
 		for _, row := range arr {
@@ -206,8 +199,8 @@ func intToAny(n int) any { return n }
 // key itself is summed, so sum_by(arr; "amount") totals amount per value.
 func RegisterSumBy() gojq.CompilerOption {
 	return gojq.WithFunction("sum_by", 1, 3, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		groupKey, valueKey := groupAndValue(args)
+		arr, rest := rowsInput(v, args, 2)
+		groupKey, valueKey := groupAndValue(rest)
 		if groupKey == "" {
 			return common.MakeUDFErrorResult(fmt.Errorf("sum_by: a key property name is required"), nil)
 		}
@@ -241,8 +234,8 @@ func RegisterSumBy() gojq.CompilerOption {
 // RegisterAvgBy registers avg_by, a numeric column averaged per key value.
 func RegisterAvgBy() gojq.CompilerOption {
 	return gojq.WithFunction("avg_by", 1, 3, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		groupKey, valueKey := groupAndValue(args)
+		arr, rest := rowsInput(v, args, 2)
+		groupKey, valueKey := groupAndValue(rest)
 		if groupKey == "" {
 			return common.MakeUDFErrorResult(fmt.Errorf("avg_by: a key property name is required"), nil)
 		}
@@ -277,10 +270,10 @@ func RegisterAvgBy() gojq.CompilerOption {
 // RegisterIndexBy registers index_by, the first row seen per key value.
 func RegisterIndexBy() gojq.CompilerOption {
 	return gojq.WithFunction("index_by", 1, 2, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		key, err := keyArg(args)
+		arr, rest := rowsInput(v, args, 1)
+		key, err := keyArg("index_by", rest, 0)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("index_by: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		index := make(map[string]any)
 		for _, row := range arr {
@@ -301,7 +294,7 @@ func RegisterIndexBy() gojq.CompilerOption {
 // array as {value: count}.
 func RegisterValueCounts() gojq.CompilerOption {
 	return gojq.WithFunction("value_counts", 0, 1, func(v any, args []any) any {
-		arr := arrInput(v, args)
+		arr, _ := rowsInput(v, args, 0)
 		counts := make(map[string]any)
 		order := []string{}
 		for _, item := range arr {
@@ -325,8 +318,8 @@ func RegisterValueCounts() gojq.CompilerOption {
 // column.
 func RegisterSummarizeBy() gojq.CompilerOption {
 	return gojq.WithFunction("summarize_by", 1, 3, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		groupKey, valueKey := groupAndValue(args)
+		arr, rest := rowsInput(v, args, 2)
+		groupKey, valueKey := groupAndValue(rest)
 		if groupKey == "" {
 			return common.MakeUDFErrorResult(fmt.Errorf("summarize_by: a key property name is required"), nil)
 		}
@@ -382,17 +375,19 @@ func RegisterSummarizeBy() gojq.CompilerOption {
 
 // options reads a parameter object like {rows: "dept", cols: "year",
 // values: "amount"} into a map of string options.
-func options(args []any) (map[string]string, error) {
+// options reads an options object from a positional operand.
+func options(fn string, args []any, i int) (map[string]string, error) {
 	opts := make(map[string]string)
-	for _, a := range args {
-		m, ok := common.BindValue(a).(map[string]any)
-		if !ok {
-			continue
-		}
-		for k, val := range m {
-			if s, ok := val.(string); ok {
-				opts[toLower(k)] = s
-			}
+	if i >= len(args) {
+		return nil, fmt.Errorf("%s: an options object is required", fn)
+	}
+	m, ok := common.BindValue(args[i]).(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s: options must be an object, got %T", fn, common.BindValue(args[i]))
+	}
+	for k, val := range m {
+		if s, ok := val.(string); ok {
+			opts[toLower(k)] = s
 		}
 	}
 	return opts, nil
@@ -403,10 +398,10 @@ func options(args []any) (map[string]string, error) {
 // [{dept:"eng",year:2020,amount:10}, ...] into {eng: {2020: 10, ...}, ...}.
 func RegisterPivot() gojq.CompilerOption {
 	return gojq.WithFunction("pivot", 1, 2, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		opts, err := options(args)
+		arr, rest := rowsInput(v, args, 1)
+		opts, err := options("pivot", rest, 0)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("pivot: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		rowKey, colKey, valKey := opts["rows"], opts["cols"], opts["values"]
 		if rowKey == "" || colKey == "" || valKey == "" {
@@ -444,10 +439,10 @@ func RegisterPivot() gojq.CompilerOption {
 // melted key and value.
 func RegisterUnpivot() gojq.CompilerOption {
 	return gojq.WithFunction("unpivot", 1, 2, func(v any, args []any) any {
-		arr := arrInput(v, args)
+		arr, rest := rowsInput(v, args, 1)
 		var cols []string
 		idKey := ""
-		for _, a := range args {
+		for _, a := range rest {
 			switch val := common.BindValue(a).(type) {
 			case map[string]any:
 				if list, ok := val["cols"].([]any); ok {
@@ -499,7 +494,7 @@ func RegisterUnpivot() gojq.CompilerOption {
 // numeric property, sorted descending.
 func RegisterTopBy() gojq.CompilerOption {
 	return gojq.WithFunction("top_by", 1, 3, func(v any, args []any) any {
-		return rankedBy(v, args, false)
+		return rankedBy("top_by", v, args, false)
 	})
 }
 
@@ -507,21 +502,23 @@ func RegisterTopBy() gojq.CompilerOption {
 // a numeric property, sorted ascending.
 func RegisterBottomBy() gojq.CompilerOption {
 	return gojq.WithFunction("bottom_by", 1, 3, func(v any, args []any) any {
-		return rankedBy(v, args, true)
+		return rankedBy("bottom_by", v, args, true)
 	})
 }
 
-func rankedBy(v any, args []any, ascending bool) any {
-	arr := arrInput(v, args)
-	key, err := keyArg(args)
+func rankedBy(fn string, v any, args []any, ascending bool) any {
+	arr, rest := rowsInput(v, args, 2)
+	key, err := keyArg(fn, rest, 0)
 	if err != nil {
-		return common.MakeUDFErrorResult(fmt.Errorf("rankedBy: %v", err), nil)
+		return common.MakeUDFErrorResult(err, nil)
 	}
 	n := 1
-	if argsLen := len(args); argsLen > 0 {
-		if cnt, ok := common.ToInt(args[argsLen-1]); ok {
-			n = cnt
+	if len(rest) > 1 {
+		cnt, ok := common.ToInt(common.BindValue(rest[1]))
+		if !ok || cnt < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: count must be a non-negative integer, got %v", fn, rest[1]), nil)
 		}
+		n = cnt
 	}
 	type scored struct {
 		value float64
@@ -552,17 +549,4 @@ func rankedBy(v any, args []any, ascending bool) any {
 		out[i] = scoredList[i].row
 	}
 	return common.MakeUDFSuccessResult(out, nil)
-}
-
-// RegisterDistinctCount registers distinct_count, how many distinct values an
-// array holds.
-func RegisterDistinctCount() gojq.CompilerOption {
-	return gojq.WithFunction("distinct_count", 0, 1, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		seen := make(map[string]bool, len(arr))
-		for _, item := range arr {
-			seen[keyString(common.BindValue(item))] = true
-		}
-		return common.MakeUDFSuccessResult(len(seen), nil)
-	})
 }

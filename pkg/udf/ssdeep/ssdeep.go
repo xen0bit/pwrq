@@ -68,7 +68,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 			} else {
 				meta["input_length"] = len(inputBytes)
 			}
-			
+
 			// Check if it's the "file too small" error
 			if err.Error() == "did not process files large enough to produce meaningful results" {
 				return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: input too small (minimum 4096 bytes required, got %d bytes)", len(inputBytes)), meta)
@@ -77,7 +77,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 		}
 
 		meta := map[string]any{
-			"algorithm": "ssdeep",
+			"algorithm":   "ssdeep",
 			"hash_length": len(hash),
 		}
 
@@ -151,4 +151,3 @@ func RegisterSSDeepCompare() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(score, meta)
 	})
 }
-

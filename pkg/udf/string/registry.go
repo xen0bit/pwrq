@@ -6,9 +6,6 @@ import "github.com/itchyny/gojq"
 // text, predicate and pattern utilities.
 func RegisterAll() []gojq.CompilerOption {
 	return []gojq.CompilerOption{
-		RegisterUpper(),
-		RegisterLower(),
-		RegisterReverse(),
 		RegisterReplace(),
 		RegisterSlugify(),
 		RegisterSnakeCase(),
@@ -39,15 +36,8 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterTemplate(),
 		RegisterWrapText(),
 		RegisterIndent(),
-		RegisterPluralize(),
 		// Regex
-		RegisterRegexFindAll(),
-		RegisterRegexExtractFirst(),
-		RegisterRegexReplaceFirst(),
-		RegisterRegexSplit(),
-		RegisterRegexCount(),
 		// Text tools
-		RegisterIsPalindrome(),
 		RegisterReverseWords(),
 		RegisterTruncateWords(),
 		RegisterRemoveAccents(),
@@ -56,9 +46,6 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterDedent(),
 		RegisterSwapCase(),
 		RegisterCharFrequencies(),
-		RegisterAnagram(),
-		RegisterFirstLine(),
-		RegisterLastLine(),
 		RegisterReverseLines(),
 		RegisterUniqueLines(),
 		RegisterSortLines(),
@@ -69,11 +56,9 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterAfterFirst(),
 		RegisterSurround(),
 		RegisterSoundex(),
-		RegisterIsIsogram(),
 		RegisterCountVowels(),
 		RegisterCountConsonants(),
 		RegisterCapitalizeFirst(),
-		RegisterRegexGroups(),
 		RegisterUnicodeEscape(),
 		RegisterUnicodeUnescape(),
 		RegisterDiffLines(),
@@ -84,6 +69,5 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterFirstLines(),
 		RegisterLastLines(),
 		RegisterIsBalanced(),
-		RegisterRegexLastMatch(),
 	}
 }

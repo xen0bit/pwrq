@@ -1,9 +1,9 @@
+// Arrays as sets, and looking a row up inside one.
 package collection
 
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
@@ -150,9 +150,9 @@ func RegisterSymmetricDifference() gojq.CompilerOption {
 // the same value. An empty array is all-equal.
 func RegisterAllEqual() gojq.CompilerOption {
 	return gojq.WithFunction("all_equal", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "all_equal")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("all_equal: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		if len(arr) < 2 {
 			return common.MakeUDFSuccessResult(true, nil)
@@ -171,9 +171,9 @@ func RegisterAllEqual() gojq.CompilerOption {
 // appears more than once.
 func RegisterContainsDuplicates() gojq.CompilerOption {
 	return gojq.WithFunction("contains_duplicates", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "contains_duplicates")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("contains_duplicates: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		seen := make(map[string]bool, len(arr))
 		for _, item := range arr {
@@ -184,42 +184,6 @@ func RegisterContainsDuplicates() gojq.CompilerOption {
 			seen[key] = true
 		}
 		return common.MakeUDFSuccessResult(false, nil)
-	})
-}
-
-// RegisterTake registers take, the first n elements of an array.
-func RegisterTake() gojq.CompilerOption {
-	return gojq.WithFunction("take", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("take: count must be a non-negative integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("take: %v", err), nil)
-		}
-		if n > len(arr) {
-			n = len(arr)
-		}
-		return common.MakeUDFSuccessResult(append([]any{}, arr[:n]...), nil)
-	})
-}
-
-// RegisterDrop registers drop, an array without its first n elements.
-func RegisterDrop() gojq.CompilerOption {
-	return gojq.WithFunction("drop", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("drop: count must be a non-negative integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("drop: %v", err), nil)
-		}
-		if n > len(arr) {
-			n = len(arr)
-		}
-		return common.MakeUDFSuccessResult(append([]any{}, arr[n:]...), nil)
 	})
 }
 
@@ -241,26 +205,22 @@ func RegisterCartesian() gojq.CompilerOption {
 	})
 }
 
-// RegisterColumn registers column, the nth element of every row of an array of
-// arrays.
-func RegisterColumn() gojq.CompilerOption {
-	return gojq.WithFunction("column", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("column: index must be a non-negative integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+// RegisterDedupe registers dedupe, removing duplicate values while keeping
+// first-occurrence order.
+func RegisterDedupe() gojq.CompilerOption {
+	return gojq.WithFunction("dedupe", 0, 1, func(v any, args []any) any {
+		arr, _, err := arrInput(v, args, 0, "dedupe")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("column: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
+		seen := make(map[string]bool, len(arr))
 		out := make([]any, 0, len(arr))
-		for _, row := range arr {
-			rowArr, ok := common.BindValue(row).([]any)
-			if !ok || n >= len(rowArr) {
-				out = append(out, nil)
-				continue
+		for _, item := range arr {
+			key, _ := json.Marshal(item)
+			if !seen[string(key)] {
+				seen[string(key)] = true
+				out = append(out, item)
 			}
-			out = append(out, rowArr[n])
 		}
 		return common.MakeUDFSuccessResult(out, nil)
 	})
@@ -270,15 +230,15 @@ func RegisterColumn() gojq.CompilerOption {
 // property equals a value: lookup("name"; "ada").
 func RegisterLookup() gojq.CompilerOption {
 	return gojq.WithFunction("lookup", 2, 3, func(v any, args []any) any {
-		key, ok := common.BindValue(args[0]).(string)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("lookup: key must be a string, got %T", args[0]), nil)
-		}
-		want := common.BindValue(args[1])
-		arr, err := arrInput(v, args[2:])
+		arr, rest, err := arrInput(v, args, 2, "lookup")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("lookup: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
+		key, ok := common.BindValue(rest[0]).(string)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("lookup: key must be a string, got %T", rest[0]), nil)
+		}
+		want := common.BindValue(rest[1])
 		wantKey := keyOf(want)
 		for _, row := range arr {
 			if m, ok := common.BindValue(row).(map[string]any); ok {
@@ -290,73 +250,3 @@ func RegisterLookup() gojq.CompilerOption {
 		return common.MakeUDFSuccessResult(nil, nil)
 	})
 }
-
-// RegisterNaturalSort registers natural_sort, an array of strings in human
-// order, where "file2" sorts before "file10".
-func RegisterNaturalSort() gojq.CompilerOption {
-	return gojq.WithFunction("natural_sort", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("natural_sort: %v", err), nil)
-		}
-		out := append([]any{}, arr...)
-		sort.SliceStable(out, func(i, j int) bool {
-			return naturalLess(stringify(out[i]), stringify(out[j]))
-		})
-		return common.MakeUDFSuccessResult(out, nil)
-	})
-}
-
-func stringify(v any) string {
-	switch val := common.BindValue(v).(type) {
-	case string:
-		return val
-	case nil:
-		return ""
-	default:
-		b, err := json.Marshal(val)
-		if err != nil {
-			return fmt.Sprint(val)
-		}
-		return string(b)
-	}
-}
-
-// naturalLess compares two strings digit-run by digit-run, so "a2" < "a10".
-func naturalLess(a, b string) bool {
-	for len(a) > 0 && len(b) > 0 {
-		if isDigit(a[0]) && isDigit(b[0]) {
-			i, j := 0, 0
-			for i < len(a) && isDigit(a[i]) {
-				i++
-			}
-			for j < len(b) && isDigit(b[j]) {
-				j++
-			}
-			na, nb := a[:i], b[:j]
-			// Skip leading zeros for length comparison.
-			ta, tb := na, nb
-			for len(ta) > 1 && ta[0] == '0' {
-				ta = ta[1:]
-			}
-			for len(tb) > 1 && tb[0] == '0' {
-				tb = tb[1:]
-			}
-			if len(ta) != len(tb) {
-				return len(ta) < len(tb)
-			}
-			if ta != tb {
-				return ta < tb
-			}
-			a, b = a[i:], b[j:]
-			continue
-		}
-		if a[0] != b[0] {
-			return a[0] < b[0]
-		}
-		a, b = a[1:], b[1:]
-	}
-	return len(a) < len(b)
-}
-
-func isDigit(c byte) bool { return c >= '0' && c <= '9' }

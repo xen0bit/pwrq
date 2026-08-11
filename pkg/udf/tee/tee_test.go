@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
 )
 
 // Helper to compile and run a gojq query with tee and other UDFs
@@ -202,9 +201,9 @@ func TestTeeGojqIntegration(t *testing.T) {
 		{
 			name:     "tee in pipeline",
 			input:    "hello",
-			query:    `tee | upper`,
+			query:    `tee | ascii_upcase`,
 			expected: "HELLO",
-			options:  []gojq.CompilerOption{RegisterTee(), stringudf.RegisterUpper()},
+			options:  []gojq.CompilerOption{RegisterTee()},
 		},
 	}
 

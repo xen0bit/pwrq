@@ -17,7 +17,6 @@ func TestTextExtrasPartThree(t *testing.T) {
 		{`"a\nb\nc\nd" | last_lines(2)`, "c\nd"},
 		{`"(a[b]{c})" | is_balanced`, "true"},
 		{`"([)]" | is_balanced`, "false"},
-		{`"a1 b2 c3" | regex_last_match("[0-9]+")`, "3"},
 	}
 	for _, tt := range tests {
 		got := fmt.Sprint(run(t, tt.query, nil, RegisterAll()...))

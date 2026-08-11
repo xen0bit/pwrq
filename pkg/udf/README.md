@@ -50,6 +50,43 @@ Pipeline input reaches a function through one of two helpers in `common`:
   ByPropertyName rule. This is what lets `find(".") | cat` (a stream of strings)
   and `get_childitem(".") | cat` (a stream of objects) both work.
 
+### Where the input goes when it is an argument
+
+Most cmdlets accept their input either from the pipeline or as an argument, so
+the same function reads naturally in a pipeline and on its own. `SplitInput`
+states the rule once:
+
+> A cmdlet with *n* operands registers the arity range *n*..*n+1*. At the lower
+> arity the input comes from the pipeline and every argument is an operand. At
+> the upper arity — the explicit form — the **first** argument is the input and
+> the operands follow it.
+
+```
+[1,2,3,4] | chunks(2)      # input from the pipeline
+chunks([1,2,3,4]; 2)       # input as the leading argument
+```
+
+Two things follow, and both are deliberate.
+
+**Binding is positional.** The operands are never inspected to work out which
+one was "meant" to be the input. An earlier version of the collection helpers
+returned whichever argument happened to be an array, which made
+`count_by(rows; "key")` and `count_by("key"; rows)` both succeed — a genuine
+mistake passing silently — and made `zip_arrays(a; b)` pair its operands in the
+opposite order from `a | zip_arrays(b)`.
+
+**The explicit form is the maximum arity.** That keeps it unambiguous for
+cmdlets whose last operand is itself optional. `summarize_by(key; column)` reads
+from the pipeline; only `summarize_by(rows; key; column)` supplies an input.
+Where a cmdlet has both an optional trailing options object and an explicit
+input — `select_string`, `compare_object` — the options are available only in
+the explicit form, and passing both is an error rather than a guess.
+
+A cmdlet that offers both forms should have a test asserting they agree.
+`TestCallingFormsAgree` in `pkg/udf/binding_test.go` is where they live; its
+absence is what let the `zip_arrays` reversal ship, because the piped form was
+correct and was the only one anyone had tried.
+
 ## Adding a function
 
 1. Create a package under `pkg/udf/`.

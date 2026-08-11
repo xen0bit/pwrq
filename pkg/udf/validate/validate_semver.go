@@ -1,24 +1,25 @@
+// Semantic versions: validating, parsing and ordering them.
 package validate
 
 import (
-	"encoding/hex"
 	"fmt"
-	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
-var (
-	slugPattern        = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-	isoDatePattern     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
-	iso8601Pattern     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2}(:[0-9]{2})?([.,][0-9]+)?(Z|[+-][0-9]{2}:?[0-9]{2})?)?$`)
-	extractDatePattern = regexp.MustCompile(`\b[0-9]{4}-[0-9]{2}-[0-9]{2}\b`)
-)
+var semverPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+
+// RegisterIsSemver registers is_semver, whether a string is a semantic version
+// like 1.2.3 or 2.0.0-rc.1+build.
+func RegisterIsSemver() gojq.CompilerOption {
+	return registerBool("is_semver", func(s string) bool {
+		return semverPattern.MatchString(strings.TrimSpace(s))
+	})
+}
 
 // RegisterSemverCompare registers semver_compare, -1, 0 or 1 comparing two
 // semantic versions: semver_compare(a; b), or a from the pipeline.
@@ -166,90 +167,4 @@ func RegisterSemverParts() gojq.CompilerOption {
 		}
 		return common.MakeUDFSuccessResult(out, nil)
 	})
-}
-
-// RegisterIsHex registers is_hex, whether a string is a hexadecimal number.
-func RegisterIsHex() gojq.CompilerOption {
-	return registerBool("is_hex", func(s string) bool {
-		s = strings.TrimSpace(s)
-		if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
-			s = s[2:]
-		}
-		if s == "" {
-			return false
-		}
-		_, err := hex.DecodeString(s)
-		return err == nil
-	})
-}
-
-// RegisterIsCIDR registers is_cidr, whether a string is an IP/CIDR block.
-func RegisterIsCIDR() gojq.CompilerOption {
-	return registerBool("is_cidr", func(s string) bool {
-		_, err := netip.ParsePrefix(strings.TrimSpace(s))
-		return err == nil
-	})
-}
-
-// RegisterIsPort registers is_port, whether a number is a valid port (1-65535).
-func RegisterIsPort() gojq.CompilerOption {
-	return gojq.WithFunction("is_port", 0, 1, func(v any, args []any) any {
-		input := v
-		if len(args) > 0 {
-			input = args[0]
-		}
-		if f, ok := common.ToFloat64(common.BindValue(input)); ok {
-			return common.MakeUDFSuccessResult(f >= 1 && f <= 65535 && f == float64(int(f)), nil)
-		}
-		if s, ok := common.BindValue(input).(string); ok {
-			n, err := strconv.Atoi(strings.TrimSpace(s))
-			return common.MakeUDFSuccessResult(err == nil && n >= 1 && n <= 65535, nil)
-		}
-		return common.MakeUDFErrorResult(fmt.Errorf("is_port: expected a number or port string, got %T", input), nil)
-	})
-}
-
-// RegisterIsDate registers is_date, whether a string is a YYYY-MM-DD date.
-func RegisterIsDate() gojq.CompilerOption {
-	return registerBool("is_date", func(s string) bool {
-		if !isoDatePattern.MatchString(strings.TrimSpace(s)) {
-			return false
-		}
-		_, err := time.Parse("2006-01-02", strings.TrimSpace(s))
-		return err == nil
-	})
-}
-
-// RegisterIsISO8601 registers is_iso8601, whether a string is an ISO 8601
-// timestamp or date.
-func RegisterIsISO8601() gojq.CompilerOption {
-	return registerBool("is_iso8601", func(s string) bool {
-		s = strings.TrimSpace(s)
-		if !iso8601Pattern.MatchString(s) {
-			return false
-		}
-		for _, layout := range []string{
-			time.RFC3339, time.RFC3339Nano, "2006-01-02",
-			"2006-01-02T15:04:05", "2006-01-02 15:04:05",
-		} {
-			if _, err := time.Parse(layout, s); err == nil {
-				return true
-			}
-		}
-		return false
-	})
-}
-
-// RegisterIsSlug registers is_slug, whether a string is lowercase letters,
-// digits and hyphens, the shape slugify produces.
-func RegisterIsSlug() gojq.CompilerOption {
-	return registerBool("is_slug", func(s string) bool {
-		return slugPattern.MatchString(s)
-	})
-}
-
-// RegisterExtractDates registers extract_dates, every YYYY-MM-DD date in a
-// string.
-func RegisterExtractDates() gojq.CompilerOption {
-	return registerFindAll("extract_dates", extractDatePattern)
 }

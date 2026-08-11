@@ -101,9 +101,6 @@ func TestMeans(t *testing.T) {
 	if got := fmt.Sprint(run(t, `[1,2,3] | product`)); got != "6" {
 		t.Errorf("product = %s", got)
 	}
-	if got := fmt.Sprint(run(t, `[1,2,10] | midrange`)); got != "5.5" {
-		t.Errorf("midrange = %s", got)
-	}
 }
 
 func TestQuartilesAndTrimming(t *testing.T) {

@@ -1,13 +1,10 @@
-// Package stats provides the descriptive statistics jq lacks: mean, median,
-// mode, variance, standard deviation, percentiles and a one-call summary.
-// variance and stdev are sample statistics (n-1 denominator).
+// Package stats provides descriptive statistics and series transforms over
+// arrays of numbers.
 package stats
 
 import (
 	"encoding/json"
 	"fmt"
-	"math"
-	"sort"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
@@ -48,11 +45,9 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterStandardize(),
 		RegisterRMS(),
 		RegisterProduct(),
-		RegisterMidrange(),
 		RegisterAutocorrelation(),
 		RegisterIQR(),
 		RegisterMAD(),
-		RegisterSpread(),
 		RegisterMovingStdev(),
 		RegisterPercentileRank(),
 	}
@@ -85,74 +80,53 @@ func nums(arr []any) ([]float64, error) {
 	return out, nil
 }
 
-// RegisterMean registers mean, the arithmetic average.
-func RegisterMean() gojq.CompilerOption {
-	return gojq.WithFunction("mean", 0, 1, func(v any, args []any) any {
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("mean: %v", err), nil)
+// twoArrays reads two arrays as floats: the pipeline and one argument, or two
+// arguments. This lets both `[1,2,3] | correlation([2,4,6])` and
+// `correlation([1,2,3]; [2,4,6])` work.
+func twoArrays(v any, args []any, name string) ([]float64, []float64, error) {
+	var a, b []any
+	pipeArr, pipeIsArr := common.BindValue(v).([]any)
+	if pipeIsArr {
+		a = pipeArr
+		other := firstArr(args)
+		if other == nil {
+			return nil, nil, fmt.Errorf("%s: a second array is required", name)
 		}
-		return common.MakeUDFSuccessResult(mean(values), nil)
-	})
-}
-
-func mean(values []float64) float64 {
-	sum := 0.0
-	for _, f := range values {
-		sum += f
+		b = other
+	} else {
+		if len(args) < 2 {
+			return nil, nil, fmt.Errorf("%s: two arrays are required", name)
+		}
+		var okA, okB bool
+		a, okA = common.BindValue(args[0]).([]any)
+		b, okB = common.BindValue(args[1]).([]any)
+		if !okA || !okB {
+			return nil, nil, fmt.Errorf("%s: expected two arrays, got %T and %T", name, args[0], args[1])
+		}
 	}
-	return sum / float64(len(values))
-}
-
-// RegisterMedian registers median, the middle value of a sorted array (the
-// average of the two middles when the length is even).
-func RegisterMedian() gojq.CompilerOption {
-	return gojq.WithFunction("median", 0, 1, func(v any, args []any) any {
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("median: %v", err), nil)
-		}
-		sort.Float64s(values)
-		return common.MakeUDFSuccessResult(median(values), nil)
-	})
-}
-
-func median(values []float64) float64 {
-	n := len(values)
-	if n%2 == 1 {
-		return values[n/2]
+	if len(a) != len(b) {
+		return nil, nil, fmt.Errorf("%s: arrays must be the same length (%d vs %d)", name, len(a), len(b))
 	}
-	return (values[n/2-1] + values[n/2]) / 2
+	af := make([]float64, len(a))
+	bf := make([]float64, len(b))
+	for i := range a {
+		fa, okA := common.ToFloat64(common.BindValue(a[i]))
+		fb, okB := common.ToFloat64(common.BindValue(b[i]))
+		if !okA || !okB {
+			return nil, nil, fmt.Errorf("%s: elements must be numbers", name)
+		}
+		af[i], bf[i] = fa, fb
+	}
+	return af, bf, nil
 }
 
-// RegisterMode registers mode, the most frequent value. It works on any
-// values; on a tie it reports the value that appeared first.
-func RegisterMode() gojq.CompilerOption {
-	return gojq.WithFunction("mode", 0, 1, func(v any, args []any) any {
-		arr := arrInput(v, args)
-		if len(arr) == 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("mode: expected a non-empty array"), nil)
+func firstArr(args []any) []any {
+	for _, a := range args {
+		if arr, ok := common.BindValue(a).([]any); ok {
+			return arr
 		}
-		counts := make(map[string]int)
-		first := make(map[string]any)
-		order := []string{}
-		for _, item := range arr {
-			key := jsonKey(item)
-			if _, seen := counts[key]; !seen {
-				first[key] = item
-				order = append(order, key)
-			}
-			counts[key]++
-		}
-		bestKey, bestCount := order[0], -1
-		for _, key := range order {
-			if counts[key] > bestCount {
-				bestCount = counts[key]
-				bestKey = key
-			}
-		}
-		return common.MakeUDFSuccessResult(first[bestKey], nil)
-	})
+	}
+	return nil
 }
 
 // jsonKey renders a value as a stable key for tallying.
@@ -162,90 +136,4 @@ func jsonKey(v any) string {
 		return fmt.Sprintf("%T:%v", v, v)
 	}
 	return string(b)
-}
-
-// RegisterVariance registers variance, the sample variance (n-1).
-func RegisterVariance() gojq.CompilerOption {
-	return gojq.WithFunction("variance", 0, 1, func(v any, args []any) any {
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("variance: %v", err), nil)
-		}
-		return common.MakeUDFSuccessResult(variance(values), nil)
-	})
-}
-
-func variance(values []float64) float64 {
-	if len(values) < 2 {
-		return 0
-	}
-	m := mean(values)
-	sum := 0.0
-	for _, f := range values {
-		d := f - m
-		sum += d * d
-	}
-	return sum / float64(len(values)-1)
-}
-
-// RegisterStdev registers stdev, the square root of the sample variance.
-func RegisterStdev() gojq.CompilerOption {
-	return gojq.WithFunction("stdev", 0, 1, func(v any, args []any) any {
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("stdev: %v", err), nil)
-		}
-		return common.MakeUDFSuccessResult(math.Sqrt(variance(values)), nil)
-	})
-}
-
-// RegisterPercentile registers percentile, the value below which p percent of
-// the data falls (linear interpolation between closest ranks, p in 0..100).
-func RegisterPercentile() gojq.CompilerOption {
-	return gojq.WithFunction("percentile", 1, 2, func(v any, args []any) any {
-		p, ok := common.ToFloat64(common.BindValue(args[0]))
-		if !ok || p < 0 || p > 100 {
-			return common.MakeUDFErrorResult(fmt.Errorf("percentile: p must be a number from 0 to 100, got %v", args[0]), nil)
-		}
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("percentile: %v", err), nil)
-		}
-		sort.Float64s(values)
-		n := len(values)
-		if n == 1 {
-			return common.MakeUDFSuccessResult(values[0], nil)
-		}
-		rank := p / 100 * float64(n-1)
-		lo := int(math.Floor(rank))
-		hi := int(math.Ceil(rank))
-		if lo == hi {
-			return common.MakeUDFSuccessResult(values[lo], nil)
-		}
-		fraction := rank - float64(lo)
-		value := values[lo] + fraction*(values[hi]-values[lo])
-		return common.MakeUDFSuccessResult(value, nil)
-	})
-}
-
-// RegisterSummary registers summary, the descriptive statistics of an array in
-// one call.
-func RegisterSummary() gojq.CompilerOption {
-	return gojq.WithFunction("summary", 0, 1, func(v any, args []any) any {
-		values, err := nums(arrInput(v, args))
-		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("summary: %v", err), nil)
-		}
-		sorted := append([]float64(nil), values...)
-		sort.Float64s(sorted)
-		mn := mean(values)
-		return common.MakeUDFSuccessResult(map[string]any{
-			"count":  len(values),
-			"min":    sorted[0],
-			"max":    sorted[len(sorted)-1],
-			"mean":   mn,
-			"median": median(sorted),
-			"stdev":  math.Sqrt(variance(values)),
-		}, nil)
-	})
 }
