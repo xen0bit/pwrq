@@ -2,6 +2,7 @@ package udf
 
 import (
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/aggregate"
 	"github.com/xen0bit/pwrq/pkg/udf/base32"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
@@ -10,9 +11,11 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/checksum"
 	"github.com/xen0bit/pwrq/pkg/udf/collection"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
+	"github.com/xen0bit/pwrq/pkg/udf/config"
 	"github.com/xen0bit/pwrq/pkg/udf/crypto"
 	"github.com/xen0bit/pwrq/pkg/udf/csv"
 	"github.com/xen0bit/pwrq/pkg/udf/discovery"
+	"github.com/xen0bit/pwrq/pkg/udf/domain"
 	"github.com/xen0bit/pwrq/pkg/udf/duration"
 	"github.com/xen0bit/pwrq/pkg/udf/entropy"
 	"github.com/xen0bit/pwrq/pkg/udf/find"
@@ -142,6 +145,8 @@ func DefaultRegistry() *Registry {
 	// CSV operations
 	reg.Register(csv.RegisterCSVParse())
 	reg.Register(csv.RegisterCSVStringify())
+	reg.Register(csv.RegisterTSVParse())
+	reg.Register(csv.RegisterTSVStringify())
 
 	// XML operations
 	reg.Register(xml.RegisterXMLParse())
@@ -245,6 +250,21 @@ func DefaultRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range checksum.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Fourth round: grouping and summarising over arrays, and a domain
+	// package of unit, geo and finance cmdlets. All pure, so both appear in
+	// the browser registry too.
+	for _, opt := range aggregate.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range domain.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Config formats: INI, .env / properties and logfmt, as pure transforms.
+	for _, opt := range config.RegisterAll() {
 		reg.Register(opt)
 	}
 

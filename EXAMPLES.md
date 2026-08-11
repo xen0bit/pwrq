@@ -187,6 +187,181 @@ $ pwrq -c '[get_childitem("cli"; {Filter: "*.go"})
 Nothing here needs a pwrq-specific idiom: `sort_by`, `map` and the object
 constructor are jq's, working on cmdlet output because it is ordinary JSON.
 
+## Grouping and summarising
+
+Group-Object and Measure-Object as pure functions over arrays of JSON objects.
+Keys are property names, matched case-insensitively:
+
+```console
+$ pwrq -n -c '[{"dept":"eng","pay":90},{"dept":"eng","pay":110},{"dept":"ops","pay":80}]
+             | count_by("dept")'
+{"eng":2,"ops":1}
+
+$ pwrq -n -c '[{"dept":"eng","pay":90},{"dept":"eng","pay":110},{"dept":"ops","pay":80}]
+             | summarize_by("dept"; "pay")'
+[{"avg":100,"count":2,"key":"eng","max":110,"min":90,"sum":200},
+ {"avg":80,"count":1,"key":"ops","max":80,"min":80,"sum":80}]
+```
+
+`sum_by("dept"; "pay")` and `avg_by("dept"; "pay")` give the object form;
+`top_by("pay"; 2)` keeps the highest rows; `index_by("key")` keeps the first
+row per value; `pivot` and `unpivot` reshape between wide and long:
+
+```console
+$ pwrq -n -c '[{"dept":"eng","year":2020,"salary":90},{"dept":"eng","year":2021,"salary":110}]
+             | pivot({rows: "dept", cols: "year", values: "salary"})'
+{"eng":{"2020":90,"2021":110}}
+```
+
+## Units, geo and finance
+
+One Domain package for the everyday conversions:
+
+```console
+$ pwrq -n -c '100 | c_to_f'
+212
+
+$ pwrq -r '"1.5 MiB" | parse_size'
+1572864
+
+$ pwrq -n -c 'haversine_distance(51.5007; -0.1246; 40.7128; -74.0060)'
+5570.674455985119
+
+$ pwrq -n -c 'future_value(100; 0.05; 10)'
+162.8894626777442
+
+$ pwrq -n -c 'monthly_payment(20000; 0.06; 60)'
+386.6560318950375
+```
+
+## Time series and statistics
+
+Running totals, rolling extrema, smoothing, and relations between series:
+
+```console
+$ pwrq -n -c '[1,2,3,4] | cumsum'
+[1,3,6,10]
+
+$ pwrq -n -c '[1,2,3,4] | correlation([2,4,6,8])'
+1
+
+$ pwrq -n -c '[3,1,4,1,5] | moving_max(3)'
+[4,4,5]
+
+$ pwrq -n -c '[1,2,3,4,5,6,7,8] | quartiles'
+[1,2.75,4.5,6.25,8]
+```
+
+## Regex and text
+
+The regex cmdlets are named to keep clear of jq's own `test`/`match`/`scan`:
+
+```console
+$ pwrq -n -c '"a1 b22 c333" | regex_find_all("[0-9]+")'
+["1","22","333"]
+
+$ pwrq -n -c '"user=42" | regex_extract_first("user=(\\d+)"; 1)'
+"42"
+
+$ pwrq -n -c '"a,b;c" | regex_split("[,;]")'
+["a","b","c"]
+
+$ pwrq -n -c '"café" | remove_accents'
+"cafe"
+```
+
+## Versions, paths and sets
+
+```console
+$ pwrq -n -c 'semver_compare("1.0.0-rc.1"; "1.0.0")'
+-1
+
+$ pwrq -n -c '["file2","file10","file1"] | natural_sort'
+["file1","file2","file10"]
+
+$ pwrq -n -c '"2.1.3-rc.1+build5" | semver_parts'
+{"build":"build5","major":2,"minor":1,"patch":3,"prerelease":"rc.1"}
+
+$ pwrq -n -c '60 | prime_factors'
+[2,2,3,5]
+```
+
+## Config formats
+
+INI, .env / properties and logfmt are first-class string transforms:
+
+```console
+$ pwrq -n -r '"[server]\nhost = 10.0.0.1\nport = 8080" | ini_parse | .server.host'
+10.0.0.1
+```
+
+Piped in as raw lines, since they read their input:
+
+```console
+$ echo 'level=info n=3 ok=true' | pwrq -R -c 'logfmt_parse'
+{"level":"info","n":3,"ok":true}
+
+$ echo 'APP_NAME=my-app' | pwrq -R -c 'properties_parse'
+{"APP_NAME":"my-app"}
+
+$ pwrq -n -c '{level: "warn", msg: "disk nearly full"} | logfmt_stringify'
+"level=warn msg=\"disk nearly full\""
+```
+
+## Text and object helpers
+
+```console
+$ pwrq -n -c '"user@example.com" | {user: before_first("@"), domain: after_first("@")}'
+{"domain":"example.com","user":"user"}
+
+$ pwrq -n -c '"Robert" | soundex'
+"R163"
+
+$ pwrq -n -c '"a=1 b=22" | regex_groups("(\\w+)=(\\d+)")'
+[["a","1"],["b","22"]]
+
+$ pwrq -n -c '{"first_name":"ada","role":"admin"} | rename_keys({"first_name": "name"})'
+{"name":"ada","role":"admin"}
+
+$ pwrq -n -c '[{"metrics":{"cpu":12}},{"metrics":{"cpu":63}}] | pluck("metrics.cpu")'
+[12,63]
+
+$ pwrq -n -c '"2026-08-13T12:00:00Z" | {doy: day_of_year, week: week_of_year}'
+{"doy":225,"week":33}
+
+$ pwrq -n -c '3.14159 | to_fixed(2)'
+"3.14"
+```
+
+## Rolling windows, paths, words and money
+
+```console
+$ pwrq -n -c '[1,2,3,4,5] | windows(3)'
+[[1,2,3],[2,3,4]]
+
+$ pwrq -n -c '{a: {b: 1, c: 2}} | set_path("a.b"; 9) | get_path("a.b")'
+9
+
+$ pwrq -n -c '1234 | to_words'
+"one thousand two hundred thirty-four"
+
+$ pwrq -n -c '2026 | roman_numeral'
+"MMXXVI"
+
+$ pwrq -n -c '1234567 | group_digits, 1234.5 | format_currency'
+"1,234,567"
+"$1,234.50"
+
+$ pwrq -n -c '"a\tb\n1\t2" | tsv_parse'
+[["a","b"],["1","2"]]
+
+$ pwrq -n -c '93784 | iso_duration'
+"P1DT2H3M4S"
+
+$ pwrq -n -c 'net_present_value([-100, 50, 60]; 0.1)'
+-4.95867768595042
+```
+
 ## Aliases
 
 ```console

@@ -40,6 +40,22 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterPctChange(),
 		RegisterDigitSum(),
 		RegisterHammingWeight(),
+		// Number theory
+		RegisterSign(),
+		RegisterIsPerfectSquare(),
+		RegisterIsCoprime(),
+		RegisterNextPrime(),
+		RegisterPrimeFactors(),
+		RegisterProperDivisors(),
+		RegisterIsPerfectNumber(),
+		RegisterEulerTotient(),
+		RegisterToFixed(),
+		RegisterIsPowerOfTwo(),
+		RegisterToWords(),
+		RegisterRomanNumeral(),
+		RegisterGroupDigits(),
+		RegisterFormatCurrency(),
+		RegisterCollatzSteps(),
 	}
 }
 
@@ -171,7 +187,7 @@ func RegisterLcm() gojq.CompilerOption {
 		if x == 0 {
 			return common.MakeUDFSuccessResult(int64(0), nil)
 		}
-		return common.MakeUDFSuccessResult((origX / x) * origY, nil)
+		return common.MakeUDFSuccessResult((origX/x)*origY, nil)
 	})
 }
 

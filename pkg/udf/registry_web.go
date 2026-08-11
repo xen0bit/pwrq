@@ -1,6 +1,7 @@
 package udf
 
 import (
+	"github.com/xen0bit/pwrq/pkg/udf/aggregate"
 	"github.com/xen0bit/pwrq/pkg/udf/base32"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
@@ -8,9 +9,11 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/checksum"
 	"github.com/xen0bit/pwrq/pkg/udf/collection"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
+	"github.com/xen0bit/pwrq/pkg/udf/config"
 	"github.com/xen0bit/pwrq/pkg/udf/crypto"
 	"github.com/xen0bit/pwrq/pkg/udf/csv"
 	"github.com/xen0bit/pwrq/pkg/udf/discovery"
+	"github.com/xen0bit/pwrq/pkg/udf/domain"
 	"github.com/xen0bit/pwrq/pkg/udf/duration"
 	"github.com/xen0bit/pwrq/pkg/udf/entropy"
 	"github.com/xen0bit/pwrq/pkg/udf/hex"
@@ -97,6 +100,8 @@ func WebRegistry() *Registry {
 	}
 	reg.Register(csv.RegisterCSVParse())
 	reg.Register(csv.RegisterCSVStringify())
+	reg.Register(csv.RegisterTSVParse())
+	reg.Register(csv.RegisterTSVStringify())
 	reg.Register(xml.RegisterXMLParse())
 	reg.Register(xml.RegisterXMLStringify())
 	reg.Register(timestamp.RegisterTimestampToDate())
@@ -153,7 +158,7 @@ func WebRegistry() *Registry {
 	for _, opt := range number.RegisterAll() {
 		reg.Register(opt)
 	}
-	for _, opt := range path.RegisterAll() {
+	for _, opt := range path.RegisterWeb() {
 		reg.Register(opt)
 	}
 	for _, opt := range stats.RegisterAll() {
@@ -187,6 +192,15 @@ func WebRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range checksum.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range aggregate.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range domain.RegisterAll() {
+		reg.Register(opt)
+	}
+	for _, opt := range config.RegisterAll() {
 		reg.Register(opt)
 	}
 

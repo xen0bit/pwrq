@@ -66,6 +66,8 @@ func TestWebRegistryExcludesTheUnavailable(t *testing.T) {
 		"head", "tail", "grep_lines", "wc_lines",
 		// Host lookups and PATH searches
 		"resolve_host", "reverse_dns", "which",
+		// User-database path helpers
+		"expand_home", "home_dir",
 		// Network: these would work only where CORS allows, which is a failure
 		// mode with nothing to do with the query.
 		"http", "http_serve", "invoke_web_request", "invoke_rest_method",
