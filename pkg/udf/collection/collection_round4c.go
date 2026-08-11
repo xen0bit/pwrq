@@ -11,13 +11,13 @@ import (
 // [1,2,3,4] | windows(3) -> [[1,2,3],[2,3,4]].
 func RegisterWindows() gojq.CompilerOption {
 	return gojq.WithFunction("windows", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n <= 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("windows: size must be a positive integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "windows")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("windows: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		n, ok := common.ToInt(rest[0])
+		if !ok || n <= 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("windows: size must be a positive integer, got %v", rest[0]), nil)
 		}
 		if n > len(arr) {
 			return common.MakeUDFSuccessResult([]any{}, nil)
@@ -36,9 +36,9 @@ func RegisterWindows() gojq.CompilerOption {
 // [1,2,3] | pairs -> [[1,2],[2,3]].
 func RegisterPairs() gojq.CompilerOption {
 	return gojq.WithFunction("pairs", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "pairs")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("pairs: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		out := make([]any, 0, len(arr))
 		for i := 0; i+1 < len(arr); i++ {

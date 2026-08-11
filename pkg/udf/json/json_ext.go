@@ -15,11 +15,8 @@ import (
 // everything else replaces.
 func RegisterJSONMergePatch() gojq.CompilerOption {
 	return gojq.WithFunction("json_merge_patch", 1, 2, func(v any, args []any) any {
-		target := common.BindValue(v)
-		if len(args) > 0 {
-			target = common.BindValue(args[0])
-		}
-		patch := common.BindValue(args[1])
+		in, rest := common.SplitInput(v, args, 1)
+		target, patch := common.BindValue(in), common.BindValue(rest[0])
 		return common.MakeUDFSuccessResult(mergePatch(target, patch), nil)
 	})
 }

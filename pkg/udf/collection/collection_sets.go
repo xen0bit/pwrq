@@ -150,9 +150,9 @@ func RegisterSymmetricDifference() gojq.CompilerOption {
 // the same value. An empty array is all-equal.
 func RegisterAllEqual() gojq.CompilerOption {
 	return gojq.WithFunction("all_equal", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "all_equal")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("all_equal: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		if len(arr) < 2 {
 			return common.MakeUDFSuccessResult(true, nil)
@@ -171,9 +171,9 @@ func RegisterAllEqual() gojq.CompilerOption {
 // appears more than once.
 func RegisterContainsDuplicates() gojq.CompilerOption {
 	return gojq.WithFunction("contains_duplicates", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "contains_duplicates")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("contains_duplicates: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		seen := make(map[string]bool, len(arr))
 		for _, item := range arr {
@@ -190,13 +190,13 @@ func RegisterContainsDuplicates() gojq.CompilerOption {
 // RegisterTake registers take, the first n elements of an array.
 func RegisterTake() gojq.CompilerOption {
 	return gojq.WithFunction("take", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("take: count must be a non-negative integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "take")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("take: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		n, ok := common.ToInt(rest[0])
+		if !ok || n < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("take: count must be a non-negative integer, got %v", rest[0]), nil)
 		}
 		if n > len(arr) {
 			n = len(arr)
@@ -208,13 +208,13 @@ func RegisterTake() gojq.CompilerOption {
 // RegisterDrop registers drop, an array without its first n elements.
 func RegisterDrop() gojq.CompilerOption {
 	return gojq.WithFunction("drop", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("drop: count must be a non-negative integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "drop")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("drop: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		n, ok := common.ToInt(rest[0])
+		if !ok || n < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("drop: count must be a non-negative integer, got %v", rest[0]), nil)
 		}
 		if n > len(arr) {
 			n = len(arr)
@@ -245,13 +245,13 @@ func RegisterCartesian() gojq.CompilerOption {
 // arrays.
 func RegisterColumn() gojq.CompilerOption {
 	return gojq.WithFunction("column", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("column: index must be a non-negative integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "column")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("column: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		n, ok := common.ToInt(rest[0])
+		if !ok || n < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("column: index must be a non-negative integer, got %v", rest[0]), nil)
 		}
 		out := make([]any, 0, len(arr))
 		for _, row := range arr {
@@ -270,15 +270,15 @@ func RegisterColumn() gojq.CompilerOption {
 // property equals a value: lookup("name"; "ada").
 func RegisterLookup() gojq.CompilerOption {
 	return gojq.WithFunction("lookup", 2, 3, func(v any, args []any) any {
-		key, ok := common.BindValue(args[0]).(string)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("lookup: key must be a string, got %T", args[0]), nil)
-		}
-		want := common.BindValue(args[1])
-		arr, err := arrInput(v, args[2:])
+		arr, rest, err := arrInput(v, args, 2, "lookup")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("lookup: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
+		key, ok := common.BindValue(rest[0]).(string)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("lookup: key must be a string, got %T", rest[0]), nil)
+		}
+		want := common.BindValue(rest[1])
 		wantKey := keyOf(want)
 		for _, row := range arr {
 			if m, ok := common.BindValue(row).(map[string]any); ok {
@@ -295,9 +295,9 @@ func RegisterLookup() gojq.CompilerOption {
 // order, where "file2" sorts before "file10".
 func RegisterNaturalSort() gojq.CompilerOption {
 	return gojq.WithFunction("natural_sort", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "natural_sort")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("natural_sort: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		out := append([]any{}, arr...)
 		sort.SliceStable(out, func(i, j int) bool {

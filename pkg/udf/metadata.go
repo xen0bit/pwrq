@@ -255,7 +255,6 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"chunks", 1, 2, "Split an array into chunks of at most n (n)", "Collections", []string{`[1,2,3,4,5] | chunks(2)`}},
 		{"dedupe", 0, 1, "Remove duplicate values keeping first-occurrence order", "Collections", []string{`[3,1,2,1] | dedupe`}},
 		{"deep_merge", 1, 2, "Recursively merge two objects, the second winning", "Collections", []string{`deep_merge({a: {x: 1}}; {a: {y: 2}})`}},
-		{"sort_keys", 0, 1, "Recursively sort an object's keys", "Collections", []string{`{b: 2, a: 1} | sort_keys`}},
 		{"compact", 0, 1, "Drop null, empty and false values from an array", "Collections", []string{`[1, null, "", false, 0] | compact`}},
 		{"prune", 0, 1, "Recursively remove empty values from objects and arrays", "Collections", []string{`{a: 1, b: null, c: {d: ""}} | prune`}},
 		{"flatten_keys", 0, 1, "Turn a nested object into flat dot-and-bracket keys", "Collections", []string{`{a: {b: 1}} | flatten_keys`}},

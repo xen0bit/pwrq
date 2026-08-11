@@ -90,13 +90,13 @@ func invertKey(v any) string {
 // dot-path support.
 func RegisterPluck() gojq.CompilerOption {
 	return gojq.WithFunction("pluck", 1, 2, func(v any, args []any) any {
-		key, ok := common.BindValue(args[0]).(string)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("pluck: key must be a string, got %T", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "pluck")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("pluck: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		key, ok := common.BindValue(rest[0]).(string)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("pluck: key must be a string, got %T", rest[0]), nil)
 		}
 		out := make([]any, 0, len(arr))
 		for _, row := range arr {

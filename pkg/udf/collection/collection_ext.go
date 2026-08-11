@@ -12,13 +12,13 @@ import (
 // rotates right).
 func RegisterRotate() gojq.CompilerOption {
 	return gojq.WithFunction("rotate", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("rotate: shift must be an integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "rotate")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("rotate: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		n, ok := common.ToInt(rest[0])
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("rotate: shift must be an integer, got %v", rest[0]), nil)
 		}
 		if len(arr) == 0 {
 			return common.MakeUDFSuccessResult(arr, nil)
@@ -39,13 +39,13 @@ func RegisterRotate() gojq.CompilerOption {
 // descending.
 func RegisterTopN() gojq.CompilerOption {
 	return gojq.WithFunction("top_n", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n < 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("top_n: count must be a non-negative integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "top_n")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("top_n: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		n, ok := common.ToInt(rest[0])
+		if !ok || n < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("top_n: count must be a non-negative integer, got %v", rest[0]), nil)
 		}
 		type scored struct {
 			value float64
@@ -71,17 +71,20 @@ func RegisterTopN() gojq.CompilerOption {
 	})
 }
 
-// RegisterInterleave registers interleave, alternating the elements of an
-// array from the pipeline with one from the argument.
+// RegisterInterleave registers interleave, alternating the elements of the
+// input array with those of the argument array.
+//
+// The input supplies the first element of every pair in both calling forms:
+// `[1,2] | interleave(["a","b"])` and `interleave([1,2]; ["a","b"])` agree.
 func RegisterInterleave() gojq.CompilerOption {
 	return gojq.WithFunction("interleave", 1, 2, func(v any, args []any) any {
-		b, ok := common.BindValue(args[0]).([]any)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("interleave: argument must be an array, got %T", args[0]), nil)
-		}
-		a, err := arrInput(v, args[1:])
+		a, rest, err := arrInput(v, args, 1, "interleave")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("interleave: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		b, ok := common.BindValue(rest[0]).([]any)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("interleave: argument must be an array, got %T", rest[0]), nil)
 		}
 		n := len(a)
 		if len(b) < n {

@@ -54,13 +54,6 @@ func TestDeepMerge(t *testing.T) {
 	}
 }
 
-func TestSortKeys(t *testing.T) {
-	got := run(t, `{b: 2, a: 1} | sort_keys`)
-	if fmt.Sprint(got) != "map[a:1 b:2]" {
-		t.Errorf("sort_keys = %v", got)
-	}
-}
-
 func TestCompactPrune(t *testing.T) {
 	if got := run(t, `[1, null, "", [], false, 0, "x"] | compact`); fmt.Sprint(got) != "[1 0 x]" {
 		t.Errorf("compact = %v", got)

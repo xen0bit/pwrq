@@ -33,6 +33,9 @@ give.
 These are real defects, they exist on `main`, and they should land first as
 their own commit so they are cherry-pickable.
 
+A fourth turned up while fixing the first three: `deep_merge` and
+`json_merge_patch` both **panic** at their documented piped arity (1d).
+
 ### 1a. `zip_arrays` and `interleave` reverse their operands
 
 ```
@@ -64,6 +67,20 @@ either way round. Pick one rule and apply it package-wide.
 
 gojq has no object key order and the encoder already emits sorted keys, so
 `{b:1,a:2} | sort_keys` and `{b:1,a:2} | .` are indistinguishable. Delete it.
+
+### 1d. `deep_merge` and `json_merge_patch` panic on the piped form
+
+Both register arity 1–2, guard `args[0]`, then read `args[1]` unconditionally:
+
+```
+$ pwrq -nc '{a:1} | deep_merge({b:2})'
+panic: runtime error: index out of range [1] with length 1
+```
+
+That is the form the metadata documents for `deep_merge`, and it takes the
+process down rather than raising a jq error, so `try`/`catch` cannot contain it.
+An empirical sweep — calling every one of the 488 functions at its minimum
+arity and watching for a crash — found these two and no others.
 
 ## Phase 2 — Deletions
 

@@ -6,7 +6,6 @@ package collection
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 
 	"github.com/itchyny/gojq"
@@ -19,7 +18,6 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterChunks(),
 		RegisterDedupe(),
 		RegisterDeepMerge(),
-		RegisterSortKeys(),
 		RegisterCompact(),
 		RegisterPrune(),
 		RegisterFlattenKeys(),
@@ -50,34 +48,25 @@ func RegisterAll() []gojq.CompilerOption {
 	}
 }
 
-// arrInput resolves an array from the pipeline or the first argument.
-func arrInput(v any, args []any) ([]any, error) {
-	if len(args) > 0 {
-		if arr, ok := common.BindValue(args[0]).([]any); ok {
-			return arr, nil
-		}
-	}
-	switch val := common.BindValue(v).(type) {
-	case []any:
-		return val, nil
-	case nil:
-		return nil, fmt.Errorf("expected an array, got null")
-	default:
-		return nil, fmt.Errorf("expected an array, got %T", val)
-	}
+// arrInput resolves the array a cmdlet operates on, along with its remaining
+// operands. See common.SplitInput for the binding rule: the explicit input is
+// the leading argument at the cmdlet's maximum arity, and never inferred from
+// the operands' types.
+func arrInput(v any, args []any, operands int, fn string) ([]any, []any, error) {
+	return common.ArrayInput(v, args, operands, fn)
 }
 
 // RegisterChunks registers chunks, splitting an array into chunks of at most n
 // elements.
 func RegisterChunks() gojq.CompilerOption {
 	return gojq.WithFunction("chunks", 1, 2, func(v any, args []any) any {
-		n, ok := common.ToInt(args[0])
-		if !ok || n <= 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("chunks: size must be a positive integer, got %v", args[0]), nil)
-		}
-		arr, err := arrInput(v, args[1:])
+		arr, rest, err := arrInput(v, args, 1, "chunks")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("chunks: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		n, ok := common.ToInt(rest[0])
+		if !ok || n <= 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("chunks: size must be a positive integer, got %v", rest[0]), nil)
 		}
 		out := make([]any, 0, (len(arr)+n-1)/n)
 		for i := 0; i < len(arr); i += n {
@@ -95,9 +84,9 @@ func RegisterChunks() gojq.CompilerOption {
 // first-occurrence order.
 func RegisterDedupe() gojq.CompilerOption {
 	return gojq.WithFunction("dedupe", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "dedupe")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("dedupe: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		seen := make(map[string]bool, len(arr))
 		out := make([]any, 0, len(arr))
@@ -116,11 +105,8 @@ func RegisterDedupe() gojq.CompilerOption {
 // the second winning.
 func RegisterDeepMerge() gojq.CompilerOption {
 	return gojq.WithFunction("deep_merge", 1, 2, func(v any, args []any) any {
-		a := common.BindValue(v)
-		if len(args) > 0 {
-			a = common.BindValue(args[0])
-		}
-		b := common.BindValue(args[1])
+		in, rest := common.SplitInput(v, args, 1)
+		a, b := common.BindValue(in), common.BindValue(rest[0])
 		return common.MakeUDFSuccessResult(deepMerge(a, b), nil)
 	})
 }
@@ -145,41 +131,6 @@ func deepMerge(a, b any) any {
 	return b
 }
 
-// RegisterSortKeys registers sort_keys, recursively sorting an object's keys.
-func RegisterSortKeys() gojq.CompilerOption {
-	return gojq.WithFunction("sort_keys", 0, 1, func(v any, args []any) any {
-		input := common.BindValue(v)
-		if len(args) > 0 {
-			input = common.BindValue(args[0])
-		}
-		return common.MakeUDFSuccessResult(sortKeys(input), nil)
-	})
-}
-
-func sortKeys(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		keys := make([]string, 0, len(val))
-		for k := range val {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		out := make(map[string]any, len(val))
-		for _, k := range keys {
-			out[k] = sortKeys(val[k])
-		}
-		return out
-	case []any:
-		out := make([]any, len(val))
-		for i, item := range val {
-			out[i] = sortKeys(item)
-		}
-		return out
-	default:
-		return v
-	}
-}
-
 // isEmpty reports whether a value is null, empty, false, or a blank string.
 func isEmpty(v any) bool {
 	switch val := v.(type) {
@@ -201,9 +152,9 @@ func isEmpty(v any) bool {
 // from an array (one level deep).
 func RegisterCompact() gojq.CompilerOption {
 	return gojq.WithFunction("compact", 0, 1, func(v any, args []any) any {
-		arr, err := arrInput(v, args)
+		arr, _, err := arrInput(v, args, 0, "compact")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("compact: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
 		}
 		out := make([]any, 0, len(arr))
 		for _, item := range arr {
@@ -397,17 +348,21 @@ func newContainer(seg pathSegment) any {
 	return map[string]any{}
 }
 
-// RegisterZipArrays registers zip_arrays, pairing an array from the pipeline
-// with one from the argument, element by element up to the shorter length.
+// RegisterZipArrays registers zip_arrays, pairing the input array with the
+// argument array element by element, up to the shorter length.
+//
+// The left element of every pair comes from the input and the right from the
+// operand, in both calling forms: `[1,2] | zip_arrays(["a","b"])` and
+// `zip_arrays([1,2]; ["a","b"])` agree.
 func RegisterZipArrays() gojq.CompilerOption {
 	return gojq.WithFunction("zip_arrays", 1, 2, func(v any, args []any) any {
-		right, ok := common.BindValue(args[0]).([]any)
-		if !ok {
-			return common.MakeUDFErrorResult(fmt.Errorf("zip_arrays: argument must be an array, got %T", args[0]), nil)
-		}
-		left, err := arrInput(v, args[1:])
+		left, rest, err := arrInput(v, args, 1, "zip_arrays")
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("zip_arrays: %v", err), nil)
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		right, ok := common.BindValue(rest[0]).([]any)
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("zip_arrays: argument must be an array, got %T", rest[0]), nil)
 		}
 		n := len(left)
 		if len(right) < n {
