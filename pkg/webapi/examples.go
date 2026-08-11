@@ -1345,7 +1345,7 @@ func Examples() []Example {
 		},
 		{
 			Title:       "Encrypt and decrypt",
-			Description: "aes_encrypt and aes_decrypt round-trip with a key, and the result is hex because JSON has no byte type.",
+			Description: "aes_encrypt and aes_decrypt round-trip with a key, and the result is base64 because JSON has no byte type.",
 			Category:    "Hashes",
 			Query: `aes_encrypt(.; "0123456789abcdef0123456789abcdef") as $c
 | {ciphertext: ($c | .[0:32] + "..."),

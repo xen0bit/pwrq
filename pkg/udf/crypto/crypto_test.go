@@ -336,6 +336,144 @@ func TestChaCha20_EncryptDecrypt(t *testing.T) {
 	}
 }
 
+// Every mode that uses an IV now draws it from crypto/rand, so encrypting the
+// same plaintext under the same key twice must not produce the same bytes. The
+// old code derived the IV as 0,1,2,... which made these outputs identical and,
+// for the three stream modes, reused a keystream across every message ever
+// encrypted under a given key.
+func TestEncrypt_IVIsRandomPerCall(t *testing.T) {
+	aesKey := "12345678901234567890123456789012"
+	opts := []gojq.CompilerOption{
+		RegisterAESEncrypt(), RegisterDESEncrypt(),
+		Register3DESEncrypt(), RegisterBlowfishEncrypt(), RegisterChaCha20(),
+	}
+
+	for _, tc := range []struct{ name, query string }{
+		{"aes_cbc", `aes_encrypt("hello world"; "` + aesKey + `"; "CBC")`},
+		{"aes_cfb", `aes_encrypt("hello world"; "` + aesKey + `"; "CFB")`},
+		{"aes_ofb", `aes_encrypt("hello world"; "` + aesKey + `"; "OFB")`},
+		{"aes_ctr", `aes_encrypt("hello world"; "` + aesKey + `"; "CTR")`},
+		{"des_cbc", `des_encrypt("test data"; "12345678"; "CBC")`},
+		{"triple_des_cbc", `triple_des_encrypt("test message"; "123456789012345678901234"; "CBC")`},
+		{"blowfish_cbc", `blowfish_encrypt("test data"; "mykey123"; "CBC")`},
+		{"chacha20", `"test message" | chacha20("` + aesKey + `")`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first, ok := runGojqQuery(t, tc.query, nil, opts...).(string)
+			if !ok {
+				t.Fatalf("expected string result")
+			}
+			second, ok := runGojqQuery(t, tc.query, nil, opts...).(string)
+			if !ok {
+				t.Fatalf("expected string result")
+			}
+			if first == second {
+				t.Errorf("two encryptions of the same plaintext produced identical output %q; the IV is not random", first)
+			}
+
+			// The specific old failure: an IV of 0,1,2,... base64s to a fixed
+			// prefix. Catch a regression to any counter-derived IV directly.
+			raw, err := base64.StdEncoding.DecodeString(first)
+			if err != nil {
+				t.Fatalf("result is not base64: %v", err)
+			}
+			counter := true
+			for i := 0; i < 8 && i < len(raw); i++ {
+				if raw[i] != byte(i) {
+					counter = false
+					break
+				}
+			}
+			if counter {
+				t.Errorf("ciphertext still begins with a 0,1,2,... IV: %q", first)
+			}
+		})
+	}
+}
+
+// Ciphertext written by the old fixed-IV code must still decrypt. Every mode
+// here prepends its IV to the ciphertext and every decrypt path reads it back
+// from there, so randomising the encrypt side cannot orphan existing data.
+// These blobs were produced by the code as it stood before that change.
+func TestDecrypt_LegacyFixedIVCiphertext(t *testing.T) {
+	aesKey := "12345678901234567890123456789012"
+	opts := []gojq.CompilerOption{
+		RegisterAESDecrypt(), RegisterDESDecrypt(),
+		Register3DESDecrypt(), RegisterBlowfishDecrypt(),
+	}
+
+	for _, tc := range []struct{ name, query, want string }{
+		{"aes_cbc", `aes_decrypt("AAECAwQFBgcICQoLDA0ODybw8xFVUB4QfrWgZFETvwg="; "` + aesKey + `"; "CBC")`, "hello world"},
+		{"aes_cfb", `aes_decrypt("AAECAwQFBgcICQoLDA0OD4aEoPuL0o0LsnkT"; "` + aesKey + `"; "CFB")`, "hello world"},
+		{"aes_ofb", `aes_decrypt("AAECAwQFBgcICQoLDA0OD4aEoPuL0o0LsnkT"; "` + aesKey + `"; "OFB")`, "hello world"},
+		{"aes_ctr", `aes_decrypt("AAECAwQFBgcICQoLDA0OD4aEoPuL0o0LsnkT"; "` + aesKey + `"; "CTR")`, "hello world"},
+		{"des_cbc", `des_decrypt("AAECAwQFBgdNesWnZNtV8mn3IBAAlDjV"; "12345678"; "CBC")`, "test data"},
+		{"triple_des_cbc", `triple_des_decrypt("AAECAwQFBgeT6JE/Of33U33dPKz5709I"; "123456789012345678901234"; "CBC")`, "test message"},
+		{"blowfish_cbc", `blowfish_decrypt("AAECAwQFBgformv4k0AugXOxHo37wdi8"; "mykey123"; "CBC")`, "test data"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := runGojqQuery(t, tc.query, nil, opts...).(string)
+			if !ok {
+				t.Fatalf("expected string result")
+			}
+			if got != tc.want {
+				t.Errorf("decrypted %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// ChaCha20 is symmetric and takes its nonce as an argument, so a legacy blob is
+// read back by splitting off the leading nonce and handing it in explicitly.
+func TestChaCha20_LegacyFixedNonceCiphertext(t *testing.T) {
+	key := "12345678901234567890123456789012"
+
+	blob, err := base64.StdEncoding.DecodeString("AAECAwQFBgcICQoL7BpmSS6rxJKV6m8g")
+	if err != nil {
+		t.Fatalf("failed to decode legacy blob: %v", err)
+	}
+	nonce, ciphertext := blob[:12], blob[12:]
+
+	query := `chacha20("` + key + `"; "` + hex.EncodeToString(nonce) + `"; "raw"; "base64")`
+	got, ok := runGojqQuery(t, query, base64.StdEncoding.EncodeToString(ciphertext), RegisterChaCha20()).(string)
+	if !ok {
+		t.Fatalf("expected string result")
+	}
+
+	// The result carries the nonce back as a prefix, the same as on encrypt.
+	out, err := base64.StdEncoding.DecodeString(got)
+	if err != nil {
+		t.Fatalf("result is not base64: %v", err)
+	}
+	if len(out) < 12 {
+		t.Fatalf("result too short to carry a nonce: %d bytes", len(out))
+	}
+	if plaintext := string(out[12:]); plaintext != "test message" {
+		t.Errorf("decrypted %q, want %q", plaintext, "test message")
+	}
+}
+
+// A caller who supplies a nonce still gets exactly that nonce; only the
+// unsupplied case is randomised.
+func TestChaCha20_ExplicitNonceIsHonoured(t *testing.T) {
+	key := "12345678901234567890123456789012"
+	nonce := "000102030405060708090a0b"
+
+	query := `chacha20("` + key + `"; "` + nonce + `")`
+	got, ok := runGojqQuery(t, query, "test message", RegisterChaCha20()).(string)
+	if !ok {
+		t.Fatalf("expected string result")
+	}
+
+	out, err := base64.StdEncoding.DecodeString(got)
+	if err != nil {
+		t.Fatalf("result is not base64: %v", err)
+	}
+	if used := hex.EncodeToString(out[:12]); used != nonce {
+		t.Errorf("used nonce %s, want the supplied %s", used, nonce)
+	}
+}
+
 func TestAESEncrypt_WithUDFResultInput(t *testing.T) {
 	key := "12345678901234567890123456789012"
 	udfResult := priorCmdletOutput("test data", map[string]any{"test": "value"})
