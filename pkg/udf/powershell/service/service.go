@@ -341,51 +341,6 @@ func getServicesUnixText(opts GetServiceOptions) ([]ServiceInfo, error) {
 	return services, nil
 }
 
-// getServiceDetailsUnix gets detailed service information
-func getServiceDetailsUnix(name string) *ServiceInfo {
-	cmd := exec.Command("systemctl", "show", name, "--no-pager",
-		"-p", "Description", "-p", "MainPID", "-p", "After", "-p", "Requires")
-	output, err := cmd.Output()
-	if err != nil {
-		return nil
-	}
-
-	info := &ServiceInfo{}
-	lines := strings.Split(string(output), "\n")
-
-	for _, line := range lines {
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := parts[0]
-		value := parts[1]
-
-		switch key {
-		case "Description":
-			info.DisplayName = value
-		case "MainPID":
-			if pid, err := strconv.Atoi(value); err == nil {
-				info.ProcessId = pid
-			}
-		case "Requires", "After":
-			// Parse dependencies
-			if value != "" {
-				deps := strings.Fields(value)
-				for i, dep := range deps {
-					deps[i] = strings.TrimSuffix(dep, ".service")
-				}
-				if key == "Requires" {
-					info.ServicesDependedOn = deps
-				}
-			}
-		}
-	}
-
-	return info
-}
-
 // getServicesWindows gets service information on Windows
 // Uses sc query with a state machine parser to extract all fields
 func getServicesWindows(opts GetServiceOptions) ([]ServiceInfo, error) {

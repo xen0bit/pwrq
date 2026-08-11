@@ -218,15 +218,6 @@ func getChildItems(opts GetChildItemOptions) ([]any, error) {
 	return results, nil
 }
 
-// countPathDepth counts the number of path segments
-func countPathDepth(path string) int {
-	path = filepath.Clean(path)
-	if path == "." || path == "/" {
-		return 0
-	}
-	return strings.Count(path, string(filepath.Separator)) + 1
-}
-
 // matchPattern performs PowerShell-style wildcard matching
 // Supports * (any chars), ? (single char), and character ranges [abc]
 func matchPattern(pattern, name string) bool {

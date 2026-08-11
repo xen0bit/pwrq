@@ -473,22 +473,6 @@ func getProcessPathWindows(pid int) string {
 	return ""
 }
 
-// getProcess is the internal implementation for testing
-// Note: sessionstate parameter removed as it was unused
-func getProcess(opts GetProcessOptions) ([]ProcessInfo, error) {
-	// Use OS-specific method to get process info
-	var procInfos []ProcessInfo
-	var err error
-
-	if runtime.GOOS == "windows" {
-		procInfos, err = getProcessesWindows(opts)
-	} else {
-		procInfos, err = getProcessesUnix(opts)
-	}
-
-	return procInfos, err
-}
-
 // RegisterStopProcess registers the stop_process function with gojq
 // Supports PowerShell-style parameters: -Name, -Id, -Force
 // Usage:

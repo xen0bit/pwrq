@@ -67,34 +67,6 @@ func RegisterRenameKeys() gojq.CompilerOption {
 	})
 }
 
-func arrOrObj(v any) (map[string]any, error) {
-	m, ok := common.BindValue(v).(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("expected an object, got %T", v)
-	}
-	return m, nil
-}
-
-// invertKey renders a scalar value as a plain object key.
-func invertKey(v any) string {
-	switch val := common.BindValue(v).(type) {
-	case string:
-		return val
-	case nil:
-		return "null"
-	case bool:
-		if val {
-			return "true"
-		}
-		return "false"
-	default:
-		if f, ok := common.ToFloat64(val); ok {
-			return fmt.Sprintf("%g", f)
-		}
-		return keyOf(val)
-	}
-}
-
 // RegisterFlattenKeys registers flatten_keys, turning a nested object into a
 // flat one with dot-and-bracket keys ("a.b[0]").
 func RegisterFlattenKeys() gojq.CompilerOption {
