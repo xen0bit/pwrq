@@ -166,7 +166,7 @@ func convertValue(value any, targetType reflect.Type) (reflect.Value, error) {
 // BindParameters binds parameters from a map to a struct using reflection.
 // The struct should have tags like `param:"name"` or `param:"name,pos=0"`.
 // Tags support: param:"name" param:"name,pos=0" param:"name,mandatory" param:"name,pos=0,mandatory"
-// 
+//
 // positionalParams allows binding positional parameters by order.
 // For example, if a cmdlet has positional params at positions 0 and 1,
 // passing positionalParams = []any{"val0", "val1"} will bind them in order.
@@ -254,7 +254,7 @@ func BindParameters(params map[string]any, target any, positionalParams ...any) 
 					}
 				}
 				attr := ParameterAttribute{
-					Position: pos,
+					Position:  pos,
 					Mandatory: false,
 				}
 				if err := Parameter(paramName, value, field, attr); err != nil {

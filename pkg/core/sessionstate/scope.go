@@ -49,8 +49,8 @@ type VariableEntry struct {
 type VariableOptions int
 
 const (
-	None VariableOptions = iota
-	ReadOnly   VariableOptions = 1 << iota
+	None     VariableOptions = iota
+	ReadOnly VariableOptions = 1 << iota
 	Constant
 	Private
 	AllScope
@@ -74,12 +74,12 @@ func NewScope(scopeType ScopeType, parent *Scope) *Scope {
 
 // SessionState represents the complete session state with scope hierarchy and drives.
 type SessionState struct {
-	mu            sync.RWMutex
-	GlobalScope   *Scope
-	CurrentScope  *Scope
-	Drives        map[string]*PSDrive
-	AliasMap      map[string]string // command alias -> actual command
-	Stderr        io.Writer         // stderr output stream for verbose/debug/warning
+	mu             sync.RWMutex
+	GlobalScope    *Scope
+	CurrentScope   *Scope
+	Drives         map[string]*PSDrive
+	AliasMap       map[string]string   // command alias -> actual command
+	Stderr         io.Writer           // stderr output stream for verbose/debug/warning
 	LocationStacks map[string][]string // named location stacks for pushd/popd
 }
 
@@ -94,7 +94,7 @@ type PSDrive struct {
 // NewSessionState creates a new session state with initialized scopes and drives.
 func NewSessionState() *SessionState {
 	globalScope := NewScope(ScopeGlobal, nil)
-	
+
 	ss := &SessionState{
 		GlobalScope:    globalScope,
 		CurrentScope:   globalScope,
@@ -162,7 +162,7 @@ func (ss *SessionState) syncEnvDrive() {
 func (ss *SessionState) NewScriptScope() *Scope {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	
+
 	scriptScope := NewScope(ScopeScript, ss.CurrentScope)
 	ss.CurrentScope = scriptScope
 	return scriptScope
@@ -172,7 +172,7 @@ func (ss *SessionState) NewScriptScope() *Scope {
 func (ss *SessionState) NewLocalScope() *Scope {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	
+
 	localScope := NewScope(ScopeLocal, ss.CurrentScope)
 	ss.CurrentScope = localScope
 	return localScope
@@ -182,7 +182,7 @@ func (ss *SessionState) NewLocalScope() *Scope {
 func (ss *SessionState) PopScope() {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	
+
 	if ss.CurrentScope.Parent != nil {
 		ss.CurrentScope = ss.CurrentScope.Parent
 	}
@@ -442,7 +442,7 @@ func (ss *SessionState) GetVariables() map[string]*VariableEntry {
 
 	// Walk from global down to current, allowing shadowing
 	seen := make(map[string]bool)
-	
+
 	// Build scope chain from global to current
 	var chain []*Scope
 	scope := ss.CurrentScope

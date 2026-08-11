@@ -10,13 +10,13 @@ import (
 
 func (cli *cli) printUDFList() {
 	metadata := udf.GetFunctionMetadata()
-	
+
 	// Group by category
 	categories := make(map[string][]udf.FunctionMetadata)
 	for _, meta := range metadata {
 		categories[meta.Category] = append(categories[meta.Category], meta)
 	}
-	
+
 	// Sort categories
 	categoryOrder := []string{
 		"File Operations",
@@ -48,13 +48,13 @@ func (cli *cli) printUDFList() {
 		"SSDeep",
 		"System",
 	}
-	
+
 	// Collect all categories
 	allCategories := make(map[string]bool)
 	for _, meta := range metadata {
 		allCategories[meta.Category] = true
 	}
-	
+
 	// Add any categories not in the predefined order
 	for cat := range allCategories {
 		found := false
@@ -68,24 +68,24 @@ func (cli *cli) printUDFList() {
 			categoryOrder = append(categoryOrder, cat)
 		}
 	}
-	
+
 	fmt.Fprintf(cli.outStream, "Available User-Defined Functions (UDFs)\n\n")
 	fmt.Fprintf(cli.outStream, "Total: %d functions\n\n", len(metadata))
-	
+
 	for _, category := range categoryOrder {
 		funcs, ok := categories[category]
 		if !ok {
 			continue
 		}
-		
+
 		// Sort functions within category by name
 		sort.Slice(funcs, func(i, j int) bool {
 			return funcs[i].Name < funcs[j].Name
 		})
-		
+
 		fmt.Fprintf(cli.outStream, "%s:\n", category)
 		fmt.Fprintf(cli.outStream, "%s\n", strings.Repeat("-", len(category)+1))
-		
+
 		for _, meta := range funcs {
 			// Build argument signature
 			var argSig strings.Builder
@@ -96,9 +96,9 @@ func (cli *cli) printUDFList() {
 			} else {
 				argSig.WriteString(fmt.Sprintf("(%d-%d args)", meta.MinArgs, meta.MaxArgs))
 			}
-			
+
 			fmt.Fprintf(cli.outStream, "  %-25s %-15s %s\n", meta.Name, argSig.String(), meta.Description)
-			
+
 			// Print examples if available
 			if len(meta.Examples) > 0 {
 				for _, example := range meta.Examples {
@@ -106,10 +106,10 @@ func (cli *cli) printUDFList() {
 				}
 			}
 		}
-		
+
 		fmt.Fprintf(cli.outStream, "\n")
 	}
-	
+
 	cli.printAliases()
 
 	fmt.Fprintf(cli.outStream, "Note: Most functions support an optional 'file' boolean argument.\n")
@@ -141,4 +141,3 @@ func (cli *cli) printAliases() {
 	}
 	fmt.Fprintf(cli.outStream, "\n")
 }
-
