@@ -244,9 +244,15 @@ func (ss *SessionState) SetVariable(name string, value any, options VariableOpti
 	return nil
 }
 
+// automaticVariableNames are PowerShell automatic variables whose names are
+// not identifiers, so the identifier rules below would reject them. $? holds
+// whether the last command succeeded, and cmdlets across this repo set it.
+var automaticVariableNames = map[string]bool{"?": true}
+
 // validateVariableName validates that a variable name is legal.
 // PowerShell rules: must start with letter or underscore, can contain letters,
-// digits, underscores. No empty names.
+// digits, underscores. No empty names. The automatic variables above are
+// exempt.
 func validateVariableName(name string) error {
 	// Handle scoped names - extract just the variable part
 	if idx := strings.Index(name, ":"); idx != -1 {
@@ -255,6 +261,10 @@ func validateVariableName(name string) error {
 
 	if name == "" {
 		return fmt.Errorf("variable name cannot be empty")
+	}
+
+	if automaticVariableNames[name] {
+		return nil
 	}
 
 	// First character must be letter or underscore
