@@ -173,7 +173,7 @@ func RegisterCat() gojq.CompilerOption {
 			}
 			return common.MakeUDFErrorResult(fmt.Errorf("cat: cannot open file %q: %v", filePath, err), meta)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		// Get the encoding decoder
 		enc, err := getEncoding(encoding)
@@ -396,7 +396,7 @@ func cat(inputPath string, args []any) any {
 		}
 		return common.MakeUDFErrorResult(fmt.Errorf("cat: cannot open file %q: %v", filePath, err), meta)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Get the encoding decoder
 	enc, err := getEncoding(encoding)

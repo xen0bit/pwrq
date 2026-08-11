@@ -100,7 +100,7 @@ func RegisterTestConnection() gojq.CompilerOption {
 		if err != nil {
 			ss := common.GetSessionState()
 			if ss != nil {
-				ss.SetVariable("?", false, sessionstate.None)
+				_ = ss.SetVariable("?", false, sessionstate.None)
 			}
 
 			return common.MakeUDFErrorResult(err, map[string]any{
@@ -119,7 +119,7 @@ func RegisterTestConnection() gojq.CompilerOption {
 					break
 				}
 			}
-			ss.SetVariable("?", anySuccess, sessionstate.None)
+			_ = ss.SetVariable("?", anySuccess, sessionstate.None)
 		}
 
 		// If Quiet mode, return just success/failure
@@ -328,7 +328,7 @@ func testTCPConnectToHost(opts TestConnectionOptions, ipAddr string) ([]PingResu
 			cancel() // Explicitly cancel after each dial attempt
 
 			if err == nil {
-				conn.Close()
+				_ = conn.Close()
 				success = true
 				result.StatusCode = "Success"
 				result.Time = responseTime
@@ -387,7 +387,7 @@ func testTCPConnection(opts TestConnectionOptions) ([]PingResult, error) {
 		cancel() // Explicitly cancel after dial attempt
 
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
 			result.Success = true
 			result.StatusCode = "Success"
 			result.Time = responseTime
@@ -458,7 +458,7 @@ func testHTTPConnection(opts TestConnectionOptions) ([]PingResult, error) {
 		responseTime := time.Since(startTime)
 
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			result.Success = resp.StatusCode >= 200 && resp.StatusCode < 400
 			if result.Success {
 				result.StatusCode = "Success"

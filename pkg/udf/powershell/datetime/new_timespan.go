@@ -141,7 +141,7 @@ func RegisterNewTimeSpan() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		return common.MakeUDFSuccessResult(timeSpanToMap(timeSpan), map[string]any{

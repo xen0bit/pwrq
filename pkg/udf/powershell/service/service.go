@@ -74,7 +74,7 @@ func RegisterGetService() gojq.CompilerOption {
 		// Update $? automatic variable (last command success)
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// Convert to []any for iterator
@@ -517,7 +517,7 @@ func RegisterStartService() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", result["Status"] == "Running", sessionstate.None)
+			_ = ss.SetVariable("?", result["Status"] == "Running", sessionstate.None)
 		}
 
 		if opts.PassThru {
@@ -633,7 +633,7 @@ func RegisterStopService() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", result["Status"] == "Stopped", sessionstate.None)
+			_ = ss.SetVariable("?", result["Status"] == "Stopped", sessionstate.None)
 		}
 
 		if opts.PassThru {

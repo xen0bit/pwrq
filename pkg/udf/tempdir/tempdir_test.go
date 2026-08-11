@@ -87,7 +87,7 @@ func TestTempDir_NoArgs(t *testing.T) {
 	}
 
 	// Cleanup
-	os.RemoveAll(val)
+	_ = os.RemoveAll(val)
 
 	// Check metadata
 }
@@ -111,7 +111,7 @@ func TestTempDir_WithPrefix(t *testing.T) {
 	}
 
 	// Cleanup
-	os.RemoveAll(val)
+	_ = os.RemoveAll(val)
 
 	// Check metadata
 }
@@ -122,7 +122,7 @@ func TestTempDir_WithDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	result := runGojqQuery(t, `tempdir(""; "`+parentDir+`")`, nil, RegisterTempDir())
 
@@ -144,7 +144,7 @@ func TestTempDir_WithDir(t *testing.T) {
 	}
 
 	// Cleanup
-	os.RemoveAll(val)
+	_ = os.RemoveAll(val)
 }
 
 func TestTempDir_WithPrefixAndDir(t *testing.T) {
@@ -153,7 +153,7 @@ func TestTempDir_WithPrefixAndDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	result := runGojqQuery(t, `tempdir("pwrq_test_"; "`+parentDir+`")`, nil, RegisterTempDir())
 
@@ -181,7 +181,7 @@ func TestTempDir_WithPrefixAndDir(t *testing.T) {
 	}
 
 	// Cleanup
-	os.RemoveAll(val)
+	_ = os.RemoveAll(val)
 }
 
 func TestTempDir_InvalidDir(t *testing.T) {
@@ -224,7 +224,7 @@ func TestTempDir_FromPipe(t *testing.T) {
 	}
 
 	// Cleanup
-	os.RemoveAll(val)
+	_ = os.RemoveAll(val)
 }
 
 func TestTempDir_WithUDFResultInput(t *testing.T) {
@@ -249,5 +249,5 @@ func TestTempDir_WithUDFResultInput(t *testing.T) {
 	}
 
 	// Cleanup
-	os.RemoveAll(val)
+	_ = os.RemoveAll(val)
 }

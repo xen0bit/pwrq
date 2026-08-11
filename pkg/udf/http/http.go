@@ -184,7 +184,7 @@ func RegisterHTTP() gojq.CompilerOption {
 			}
 			return common.MakeUDFErrorResult(fmt.Errorf("http: request failed: %v", err), meta)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Read response body
 		respBody, err := io.ReadAll(resp.Body)
@@ -305,12 +305,12 @@ func RegisterHTTPServe() gojq.CompilerOption {
 
 				if inputVal != nil {
 					// Return the item as JSON
-					json.NewEncoder(w).Encode(inputVal)
+					_ = json.NewEncoder(w).Encode(inputVal)
 					// Signal that we're done with this item
 					resultChan <- inputVal
 				} else {
 					w.WriteHeader(http.StatusNoContent)
-					json.NewEncoder(w).Encode(map[string]any{
+					_ = json.NewEncoder(w).Encode(map[string]any{
 						"error": "no item available",
 					})
 					errorChan <- fmt.Errorf("no item available")
@@ -318,11 +318,11 @@ func RegisterHTTPServe() gojq.CompilerOption {
 			case "POST":
 				// POST: Insert an object into the pipeline
 				bodyBytes, err := io.ReadAll(r.Body)
-				r.Body.Close()
+				_ = r.Body.Close()
 
 				if err != nil {
 					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]any{
+					_ = json.NewEncoder(w).Encode(map[string]any{
 						"error": fmt.Sprintf("failed to read body: %v", err),
 					})
 					errorChan <- err
@@ -333,7 +333,7 @@ func RegisterHTTPServe() gojq.CompilerOption {
 				var postData any
 				if err := json.Unmarshal(bodyBytes, &postData); err != nil {
 					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]any{
+					_ = json.NewEncoder(w).Encode(map[string]any{
 						"error": fmt.Sprintf("invalid JSON: %v", err),
 					})
 					errorChan <- err
@@ -343,13 +343,13 @@ func RegisterHTTPServe() gojq.CompilerOption {
 				// Return success and send POST data to result channel
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]any{
+				_ = json.NewEncoder(w).Encode(map[string]any{
 					"status": "accepted",
 				})
 				resultChan <- postData
 			default:
 				w.WriteHeader(http.StatusMethodNotAllowed)
-				json.NewEncoder(w).Encode(map[string]any{
+				_ = json.NewEncoder(w).Encode(map[string]any{
 					"error": "method not allowed, use GET or POST",
 				})
 				errorChan <- fmt.Errorf("method not allowed")
@@ -375,8 +375,8 @@ func RegisterHTTPServe() gojq.CompilerOption {
 		select {
 		case result := <-resultChan:
 			// Close the server
-			server.Close()
-			listener.Close()
+			_ = server.Close()
+			_ = listener.Close()
 
 			// Return the result (either the input item from GET, or POST data)
 			meta := map[string]any{
@@ -389,8 +389,8 @@ func RegisterHTTPServe() gojq.CompilerOption {
 			return common.MakeUDFSuccessResult(result, meta)
 		case err := <-errorChan:
 			// Close the server on error
-			server.Close()
-			listener.Close()
+			_ = server.Close()
+			_ = listener.Close()
 
 			meta := map[string]any{
 				"operation": "http_serve",
@@ -401,7 +401,7 @@ func RegisterHTTPServe() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(err, meta)
 		case err := <-serverErr:
 			// Server error
-			listener.Close()
+			_ = listener.Close()
 			meta := map[string]any{
 				"operation": "http_serve",
 				"host":      host,

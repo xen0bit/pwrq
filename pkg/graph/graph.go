@@ -58,7 +58,7 @@ func GenerateGraphOpts(query *gojq.Query, outputPath string, opts RenderOptions)
 			// Keep the script alongside the failure so the diagram can be
 			// debugged without re-running the query.
 			scriptPath := strings.TrimSuffix(outputPath, ext) + ".d2"
-			os.WriteFile(scriptPath, []byte(script), 0644)
+			_ = os.WriteFile(scriptPath, []byte(script), 0644)
 			return fmt.Errorf("%w\nD2 script saved to: %s", err, scriptPath)
 		}
 		return os.WriteFile(outputPath, svg, 0644)

@@ -88,14 +88,14 @@ func TestGetChildItems(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create some test files
-	os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("content1"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "file2.go"), []byte("package main"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, ".hidden"), []byte("hidden"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("content1"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "file2.go"), []byte("package main"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".hidden"), []byte("hidden"), 0644)
 
 	// Create a subdirectory
 	subDir := filepath.Join(tmpDir, "subdir")
-	os.MkdirAll(subDir, 0755)
-	os.WriteFile(filepath.Join(subDir, "file3.txt"), []byte("content3"), 0644)
+	_ = os.MkdirAll(subDir, 0755)
+	_ = os.WriteFile(filepath.Join(subDir, "file3.txt"), []byte("content3"), 0644)
 
 	tests := []struct {
 		name         string

@@ -106,7 +106,7 @@ func RegisterGetVariable() gojq.CompilerOption {
 		}
 
 		// Update $? automatic variable
-		ss.SetVariable("?", true, sessionstate.None)
+		_ = ss.SetVariable("?", true, sessionstate.None)
 
 		// Return result
 		if opts.ValueOnly {

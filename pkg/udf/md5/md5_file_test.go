@@ -17,15 +17,15 @@ func TestMD5File(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Write test content
 	testContent := "hello world"
 	if _, err := tmpFile.WriteString(testContent); err != nil {
 		t.Fatalf("Failed to write test content: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Calculate expected hash
 	expectedHash := fmt.Sprintf("%x", md5.Sum([]byte(testContent)))
@@ -114,15 +114,15 @@ func TestMD5FileWithUDFResultInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Write test content
 	testContent := "test file content"
 	if _, err := tmpFile.WriteString(testContent); err != nil {
 		t.Fatalf("Failed to write test content: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Create a UDF result object
 	udfResult := map[string]any{
@@ -157,15 +157,15 @@ func TestMD5FileChaining(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Write test content
 	testContent := "chaining test"
 	if _, err := tmpFile.WriteString(testContent); err != nil {
 		t.Fatalf("Failed to write test content: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Simulate: find returns UDF result with file path
 	udfResult := map[string]any{
@@ -199,8 +199,8 @@ func TestMD5FileMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Write test content
 	testContent := "metadata test"
@@ -210,7 +210,7 @@ func TestMD5FileMetadata(t *testing.T) {
 	if err := tmpFile.Sync(); err != nil {
 		t.Fatalf("Failed to sync file: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Get file info
 	fileInfo, err := os.Stat(tmpFile.Name())

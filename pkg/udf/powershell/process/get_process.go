@@ -78,7 +78,7 @@ func RegisterGetProcess() gojq.CompilerOption {
 		// Update $? automatic variable (last command success)
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		// Convert to []any for iterator
@@ -508,7 +508,7 @@ func RegisterStopProcess() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", len(failed) == 0, sessionstate.None)
+			_ = ss.SetVariable("?", len(failed) == 0, sessionstate.None)
 		}
 
 		result := map[string]any{
@@ -662,7 +662,7 @@ func RegisterStartProcess() gojq.CompilerOption {
 		// Update $? automatic variable
 		ss := common.GetSessionState()
 		if ss != nil {
-			ss.SetVariable("?", true, sessionstate.None)
+			_ = ss.SetVariable("?", true, sessionstate.None)
 		}
 
 		if opts.PassThru {

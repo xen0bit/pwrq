@@ -69,7 +69,7 @@ func TestMkdir_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testDir := filepath.Join(parentDir, "testdir")
 
@@ -103,7 +103,7 @@ func TestMkdir_NestedPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	nestedDir := filepath.Join(parentDir, "level1", "level2", "level3")
 
@@ -134,7 +134,7 @@ func TestMkdir_AlreadyExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testDir := filepath.Join(parentDir, "existingdir")
 	err = os.MkdirAll(testDir, 0755)
@@ -199,7 +199,7 @@ func TestMkdir_InvalidPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	// A file cannot be a parent directory.
 	testFile := filepath.Join(parentDir, "testfile.txt")
@@ -218,7 +218,7 @@ func TestMkdir_Chaining(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testDir := filepath.Join(parentDir, "chaintest")
 
@@ -241,7 +241,7 @@ func TestMkdir_FromPipe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testDir := filepath.Join(parentDir, "pipetest")
 
@@ -264,7 +264,7 @@ func TestMkdir_WithUDFResultInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parent directory: %v", err)
 	}
-	defer os.RemoveAll(parentDir)
+	defer func() { _ = os.RemoveAll(parentDir) }()
 
 	testDir := filepath.Join(parentDir, "udfresulttest")
 

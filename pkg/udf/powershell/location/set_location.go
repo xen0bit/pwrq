@@ -97,8 +97,8 @@ func RegisterSetLocation() gojq.CompilerOption {
 
 		// Update $? automatic variable (last command success)
 		if ss != nil {
-			ss.SetVariable("?", true, 0)
-			ss.SetVariable("PWD", path, 0)
+			_ = ss.SetVariable("?", true, 0)
+			_ = ss.SetVariable("PWD", path, 0)
 		}
 
 		// Get the new current directory
@@ -177,7 +177,7 @@ func setLocation(path string, opts SetLocationOptions, sessionState *sessionstat
 
 	// Update session state pwd variable if available
 	if sessionState != nil {
-		sessionState.SetVariable("PWD", cwd, 0)
+		_ = sessionState.SetVariable("PWD", cwd, 0)
 	}
 
 	return cwd, nil

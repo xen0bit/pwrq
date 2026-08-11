@@ -125,7 +125,7 @@ func newItem(opts NewItemOptions) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot create file: %v", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		// Write initial value if provided
 		if opts.Value != nil {

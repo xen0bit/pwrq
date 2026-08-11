@@ -71,7 +71,7 @@ func RegisterPopLocation() gojq.CompilerOption {
 		}
 
 		// Update $? automatic variable
-		ss.SetVariable("?", true, 0)
+		_ = ss.SetVariable("?", true, 0)
 
 		// Build result object
 		result := map[string]any{

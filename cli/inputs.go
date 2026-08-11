@@ -34,7 +34,7 @@ func (ir *inputReader) getContents(offset *int64, line *int) string {
 		return buf.String()
 	}
 	if current, err := ir.rs.Seek(0, io.SeekCurrent); err == nil {
-		defer ir.rs.Seek(current, io.SeekStart)
+		defer func() { _, _ = ir.rs.Seek(current, io.SeekStart) }()
 	}
 	_, _ = ir.rs.Seek(0, io.SeekStart)
 	const bufSize = 16 * 1024
@@ -178,7 +178,7 @@ func (i *filesInputIter) Next() (any, bool) {
 			if len(i.fnames) == 0 {
 				i.err = io.EOF
 				if i.iter != nil {
-					i.iter.Close()
+					_ = i.iter.Close()
 					i.iter = nil
 				}
 				return nil, false
@@ -195,7 +195,7 @@ func (i *filesInputIter) Next() (any, bool) {
 				i.file = file
 			}
 			if i.iter != nil {
-				i.iter.Close()
+				_ = i.iter.Close()
 			}
 			i.iter = i.newIter(i.file, fname)
 		}
@@ -203,7 +203,7 @@ func (i *filesInputIter) Next() (any, bool) {
 			return v, ok
 		}
 		if r, ok := i.file.(io.Closer); ok && i.file != i.stdin {
-			r.Close()
+			_ = r.Close()
 		}
 		i.file = nil
 	}
@@ -212,7 +212,7 @@ func (i *filesInputIter) Next() (any, bool) {
 func (i *filesInputIter) Close() error {
 	if i.file != nil {
 		if r, ok := i.file.(io.Closer); ok && i.file != i.stdin {
-			r.Close()
+			_ = r.Close()
 		}
 		i.file = nil
 		i.err = io.EOF
@@ -332,7 +332,7 @@ func (i *slurpInputIter) Next() (any, bool) {
 
 func (i *slurpInputIter) Close() error {
 	if i.iter != nil {
-		i.iter.Close()
+		_ = i.iter.Close()
 		i.iter = nil
 		i.err = io.EOF
 	}
@@ -405,7 +405,7 @@ func (i *slurpRawInputIter) Next() (any, bool) {
 
 func (i *slurpRawInputIter) Close() error {
 	if i.iter != nil {
-		i.iter.Close()
+		_ = i.iter.Close()
 		i.iter = nil
 		i.err = io.EOF
 	}

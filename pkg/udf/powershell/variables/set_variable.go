@@ -127,7 +127,7 @@ func RegisterSetVariable() gojq.CompilerOption {
 		}
 
 		// Update $? automatic variable (last command success)
-		ss.SetVariable("?", true, sessionstate.None)
+		_ = ss.SetVariable("?", true, sessionstate.None)
 
 		// Return result
 		if opts.PassThru {

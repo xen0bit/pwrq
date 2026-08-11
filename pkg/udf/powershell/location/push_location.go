@@ -78,7 +78,7 @@ func RegisterPushLocation() gojq.CompilerOption {
 			err := os.Chdir(opts.Path)
 			if err != nil {
 				// Pop the location we just pushed since we failed
-				ss.PopLocationStack(stackName)
+				_, _ = ss.PopLocationStack(stackName)
 				return common.MakeUDFErrorResult(fmt.Errorf("push_location: failed to change to path %q: %v", opts.Path, err), nil)
 			}
 
@@ -90,7 +90,7 @@ func RegisterPushLocation() gojq.CompilerOption {
 		}
 
 		// Update $? automatic variable
-		ss.SetVariable("?", true, 0)
+		_ = ss.SetVariable("?", true, 0)
 
 		// Build result object
 		result := map[string]any{
@@ -158,7 +158,7 @@ func pushLocation(path string, opts PushLocationOptions, sessionState *sessionst
 		err := os.Chdir(path)
 		if err != nil {
 			// Rollback - pop the location we just pushed
-			sessionState.PopLocationStack(stackName)
+			_, _ = sessionState.PopLocationStack(stackName)
 			return "", "", fmt.Errorf("failed to change directory: %v", err)
 		}
 		targetPath, err = os.Getwd()
