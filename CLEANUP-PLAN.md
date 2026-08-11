@@ -266,3 +266,56 @@ Phases 1 → 2 → 3 → 6 are mechanical and fast. Phase 4 is new code. Phase 5
 the long pole by a wide margin: ~230 examples to rewrite by hand, and it is
 worth landing incrementally, one category per commit, rather than as one
 reviewable-by-nobody diff.
+
+---
+
+## What actually happened
+
+All six phases landed. Where the work diverged from the plan, it is because
+building it turned something up.
+
+**Phase 1 found a fourth bug.** `deep_merge` and `json_merge_patch` panicked at
+their documented piped arity. An empirical sweep — every function called at its
+minimum arity, watching for a crash — found those two and no others.
+
+**Phase 2 removed 58, not 57.** `mpg_to_l100km` was missed when the unit
+converters were counted: there were 22 pairwise converters, not 21. The catalog
+went 488 → 430.
+
+**Phase 3 deleted `number_round4c.go` outright** rather than redistributing it.
+`below1000`, `numberToWords` and `toRoman` existed only to serve `to_words` and
+`roman_numeral`, which phase 2 had removed.
+
+**Phase 4 found two defects in its own new code**, both caught by tests written
+alongside: `compare_object` built occurrence counts and then only compared them
+to zero, so a value twice on the left against once on the right reported
+nothing; and `set_content` writes no trailing newline, so appending to a file it
+produced spliced two values onto one line. 430 → 441.
+
+**Phase 5 exceeded the coverage goal.** The plan said keep roughly 1:1 coverage.
+Coverage went from 204 cmdlets with an example to all 389 the browser can
+evaluate, across 264 examples. Cmdlet examples at one or two pipeline stages
+fell from 67% to 37%, median three stages.
+
+Writing those examples was also the best API review in the exercise. It found
+that `csv_parse` yields rows rather than objects, that the JSON path cmdlets
+take a dot-and-bracket string rather than an array, that `template` uses
+`{{name}}`, and that `percentage`, `gcd`, `lerp`, `combinations_count`,
+`days_between`, `subnet_of` and the ciphers all bind differently than a reader
+would guess. None of that was reachable from examples small enough to be right
+by accident.
+
+**Finance stayed.** The seven spreadsheet functions were kept under the
+permissive reading of stdlib parity, as flagged. `rule_of_72` and
+`annual_yield` went.
+
+### Final state
+
+| | before | after |
+|---|---|---|
+| functions | 488 | 441 |
+| cmdlets with an example | 204 | 389 of 389 runnable |
+| gallery entries | 238 | 264 |
+| cmdlet examples at 1–2 stages | 67% | 37% |
+| files named after a batch | 18 | 0 |
+| known bugs | 4 | 0 |

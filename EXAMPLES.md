@@ -218,8 +218,14 @@ $ pwrq -n -c '[{"dept":"eng","year":2020,"salary":90},{"dept":"eng","year":2021,
 One Domain package for the everyday conversions:
 
 ```console
-$ pwrq -n -c '100 | c_to_f'
-212
+$ pwrq -n -c '20 | convert_unit("C"; "F")'
+68
+
+$ pwrq -n -c 'convert_unit(5; "mi"; "km")'
+8.04672
+
+$ pwrq -n -c '90 | convert_unit("min"; "h")'
+1.5
 
 $ pwrq -r '"1.5 MiB" | parse_size'
 1572864
@@ -254,20 +260,29 @@ $ pwrq -n -c '[1,2,3,4,5,6,7,8] | quartiles'
 
 ## Regex and text
 
-The regex cmdlets are named to keep clear of jq's own `test`/`match`/`scan`:
+Regular expressions are jq's own `test`, `match`, `capture`, `scan`, `sub` and
+`splits`. pwrq adds no second vocabulary for them, so what you know from jq is
+what works here:
 
 ```console
-$ pwrq -n -c '"a1 b22 c333" | regex_find_all("[0-9]+")'
+$ pwrq -n -c '"a1 b22 c333" | [scan("[0-9]+")]'
 ["1","22","333"]
 
-$ pwrq -n -c '"user=42" | regex_extract_first("user=(\\d+)"; 1)'
+$ pwrq -n -c '"user=42" | capture("user=(?<id>\\d+)").id'
 "42"
 
-$ pwrq -n -c '"a,b;c" | regex_split("[,;]")'
+$ pwrq -n -c '"a,b;c" | [splits("[,;]")]'
 ["a","b","c"]
+```
 
+What pwrq does add is the text work jq has no answer for:
+
+```console
 $ pwrq -n -c '"café" | remove_accents'
 "cafe"
+
+$ pwrq -n -c '"orders.api (v2)" | escape_regex'
+"orders\\.api \\(v2\\)"
 ```
 
 ## Versions, paths and sets
@@ -317,13 +332,13 @@ $ pwrq -n -c '"user@example.com" | {user: before_first("@"), domain: after_first
 $ pwrq -n -c '"Robert" | soundex'
 "R163"
 
-$ pwrq -n -c '"a=1 b=22" | regex_groups("(\\w+)=(\\d+)")'
+$ pwrq -n -c '"a=1 b=22" | [match("(\\w+)=(\\d+)"; "g").captures | map(.string)]'
 [["a","1"],["b","22"]]
 
 $ pwrq -n -c '{"first_name":"ada","role":"admin"} | rename_keys({"first_name": "name"})'
 {"name":"ada","role":"admin"}
 
-$ pwrq -n -c '[{"metrics":{"cpu":12}},{"metrics":{"cpu":63}}] | pluck("metrics.cpu")'
+$ pwrq -n -c '[{"metrics":{"cpu":12}},{"metrics":{"cpu":63}}] | map(.metrics.cpu)'
 [12,63]
 
 $ pwrq -n -c '"2026-08-13T12:00:00Z" | {doy: day_of_year, week: week_of_year}'
@@ -342,11 +357,11 @@ $ pwrq -n -c '[1,2,3,4,5] | windows(3)'
 $ pwrq -n -c '{a: {b: 1, c: 2}} | set_path("a.b"; 9) | get_path("a.b")'
 9
 
-$ pwrq -n -c '1234 | to_words'
-"one thousand two hundred thirty-four"
+$ pwrq -n -c '"2026-08-11T12:00:00Z" | to_timezone("Asia/Tokyo") | {DateTime, Abbreviation}'
+{"Abbreviation":"JST","DateTime":"2026-08-11T21:00:00+09:00"}
 
-$ pwrq -n -c '2026 | roman_numeral'
-"MMXXVI"
+$ pwrq -n -c '"11/08/2026" | parse_date("02/01/2006")'
+"2026-08-11T00:00:00Z"
 
 $ pwrq -n -c '1234567 | group_digits, 1234.5 | format_currency'
 "1,234,567"
@@ -361,6 +376,82 @@ $ pwrq -n -c '93784 | iso_duration'
 $ pwrq -n -c 'net_present_value([-100, 50, 60]; 0.1)'
 -4.95867768595042
 ```
+
+## Archives
+
+Reading an archive gives one object per entry, so the result flows into the
+same filters as any other cmdlet output. Run from a directory holding `src/`:
+
+```console
+$ pwrq -nc 'compress_archive("src"; "release.zip") | .Name'
+"release.zip"
+
+$ pwrq -nc 'read_archive("release.zip") | map({Name, Length})'
+[{"Length":0,"Name":"src/"},{"Length":40,"Name":"src/a.go"}]
+
+$ pwrq -nc 'expand_archive("release.zip"; "./out") | map(split("/") | last)'
+["a.go"]
+```
+
+`.tar`, `.tar.gz`/`.tgz` work the same way; `.tar.bz2` can be read but not
+written. Extraction refuses an entry whose name would land outside the
+destination directory.
+
+## Searching a tree, and writing files
+
+`select_string` reports where each match came from, which is what `grep_lines`
+cannot:
+
+```console
+$ pwrq -nc 'select_string("src"; "TODO"; {Context: 1})
+           | map({LineNumber, Line, Before, After})'
+[{"After":["func main(){}"],"Before":["package main"],"Line":"// TODO: fix","LineNumber":2}]
+```
+
+`add_content` appends where `set_content` truncates:
+
+```console
+$ pwrq -nc '"first" | add_content("run.log") | .Length'
+6
+$ pwrq -nc '"second" | add_content("run.log") | .Length'
+13
+$ pwrq -nr 'cat("run.log")'
+first
+second
+```
+
+## Time zones
+
+```console
+$ pwrq -nc '"2026-08-11T12:00:00Z" | to_timezone("Asia/Tokyo")
+           | {DateTime, Abbreviation, Offset}'
+{"Abbreviation":"JST","DateTime":"2026-08-11T21:00:00+09:00","Offset":"+09:00"}
+
+$ pwrq -nc '"2026-08-11T23:30:00Z" | format_date("date"; "Asia/Tokyo")'
+"2026-08-12"
+
+$ pwrq -nrc '"11/08/2026" | parse_date("02/01/2006")'
+2026-08-11T00:00:00Z
+```
+
+The last one is why `parse_date` exists: jq can render an instant, but only the
+layout you supply says whether `11/08` is August or November.
+
+## Comparing two collections
+
+```console
+$ pwrq -nc 'compare_object(["a","b"]; ["b","c"])
+           | map({v: .InputObject, s: .SideIndicator})'
+[{"s":"<=","v":"a"},{"s":"=>","v":"c"}]
+
+$ pwrq -nc 'compare_object([{id:1,v:"2.4.0"}]; [{id:1,v:"2.4.1"}];
+                          {Property:"id", IncludeEqual:true})
+           | map(.SideIndicator)'
+["=="]
+```
+
+Matching on a property is what makes the second one report a match: the rows
+differ, but they are the same row.
 
 ## Aliases
 

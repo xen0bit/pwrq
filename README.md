@@ -31,6 +31,11 @@ It also means pwrq's own functions never shadow jq's. `split`, `join` and `sort`
 are jq's; a UDF that collided with a builtin would never run, so the build fails
 if one is added.
 
+That holds for behaviour as well as for names. A cmdlet that merely renamed a jq
+builtin would be a second vocabulary for the same idea, so there is no
+`regex_split` beside `splits` and no `upper` beside `ascii_upcase`. Regular
+expressions, slicing and case folding are jq's, and stay jq's.
+
 ## Installation
 
 ```bash
@@ -99,6 +104,43 @@ $ pwrq -c 'test_path("go.mod")'
 
 Parameter names bind case-insensitively, as PowerShell's do, so `{Recurse: true}`
 and `{recurse: true}` are the same.
+
+Archives, searching a tree, and writing files back out:
+
+```console
+$ pwrq -nc 'read_archive("release.zip") | map(select(.Length > 100000) | .Name)'
+$ pwrq -nc 'compress_archive("src"; "src.tar.gz") | .Length'
+$ pwrq -nc 'expand_archive("release.zip"; "./out") | length'
+$ pwrq -nc 'select_string("src"; "TODO"; {Include: "*.go", Context: 1}) | length'
+$ pwrq -nc '"deploy finished" | add_content("run.log") | .Length'
+```
+
+`expand_archive` refuses any entry whose name would resolve outside the
+destination directory: an archive's entry names are data, and `../../etc/cron.d`
+is a valid one.
+
+Time zones and date formatting, which jq's UTC-only `todate` cannot reach:
+
+```console
+$ pwrq -nc '"2026-08-11T12:00:00Z" | to_timezone("Asia/Tokyo") | {DateTime, Abbreviation}'
+{"Abbreviation":"JST","DateTime":"2026-08-11T21:00:00+09:00"}
+
+$ pwrq -nrc '"2026-08-11T12:00:00Z" | format_date("http")'
+Tue, 11 Aug 2026 12:00:00 GMT
+
+$ pwrq -nrc '"11/08/2026" | parse_date("02/01/2006")'
+2026-08-11T00:00:00Z
+
+$ pwrq -nc 'list_timezones("Europe/Lo")'
+["Europe/London"]
+```
+
+Comparing two collections, where `deep_diff` compares two documents:
+
+```console
+$ pwrq -nc 'compare_object(["a","b"]; ["b","c"]) | map({v: .InputObject, s: .SideIndicator})'
+[{"s":"<=","v":"a"},{"s":"=>","v":"c"}]
+```
 
 ### Object cmdlets
 
