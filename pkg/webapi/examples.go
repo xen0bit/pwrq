@@ -71,6 +71,25 @@ const (
 
 	// releases are version strings needing ordering rather than sorting.
 	releases = `["2.0.0", "1.10.0", "1.9.0", "2.0.0-rc.1", "1.2.10", "1.2.9"]`
+
+	// releaseNotes is a corpus of documents where two entries share most of
+	// their text, the shape of thing the similarity cmdlets exist to sort.
+	releaseNotes = `[{"Name":"v2.1","Content":"## Changes in 2.1.1\n\n- fixed the order total rounding\n- payments now retry on timeout\n- the gateway honors the DNT header\n\nFull changelog:\n- order total rounding\n- payment retries\n- DNT header\n"},
+ {"Name":"v2.0","Content":"## Changes in 2.1.0\n\n- fixed the order total rounding\n- payments now retry on timeout\n- the gateway honors the DNT header\n\nFull changelog:\n- order total rounding\n- payment retries\n- DNT header\n"},
+ {"Name":"readme","Content":"pwrq is a jq superset that runs PowerShell-style cmdlets against JSON. It composes with ordinary jq filters and emits plain JSON, so logs, exports and API responses become one vocabulary."}]`
+
+	// serviceConfigs is a template and the configurations derived from it,
+	// plus one file that shares nothing with it at all.
+	serviceConfigs = `[{"Name":"template","Content":"[server]\nhost = 0.0.0.0\nport = 8080\ntls = true\n\n[database]\nurl = postgres://db-01:5432/orders\npool = 20\n\n[logging]\nlevel = info\n"},
+ {"Name":"dev","Content":"[server]\nhost = 0.0.0.0\nport = 8080\ntls = false\n\n[database]\nurl = postgres://db-dev:5432/orders\npool = 10\n\n[logging]\nlevel = debug\n"},
+ {"Name":"prod","Content":"[server]\nhost = 0.0.0.0\nport = 8443\ntls = true\n\n[database]\nurl = postgres://db-01:5432/orders\npool = 40\n\n[logging]\nlevel = info\n"},
+ {"Name":"nginx","Content":"server {\n  listen 80;\n  server_name example.org;\n  root /var/www/html;\n}\n"}]`
+
+	// incidentFiles is a triage problem: a config found on a host that is a
+	// modified copy of a known-good one, next to an unrelated file.
+	incidentFiles = `[{"Name":"known-good","Content":"[server]\nhost = 0.0.0.0\nport = 8080\ntls = true\n\n[database]\nurl = postgres://db-01:5432/orders\npool = 20\n\n[secrets]\napi_key = sk_live_9f2a\n"},
+ {"Name":"found-on-host","Content":"[server]\nhost = 0.0.0.0\nport = 8080\ntls = true\n\n[database]\nurl = postgres://db-01:5432/orders\npool = 20\n\n[secrets]\napi_key = sk_live_7b1c\n"},
+ {"Name":"nginx-conf","Content":"server {\n  listen 80;\n  server_name example.org;\n  root /var/www/html;\n}\n"}]`
 )
 
 // Examples are the page's gallery.
@@ -1597,6 +1616,96 @@ func Examples() []Example {
 			Query: `{names: (map(.Name) | {duplicated: contains_duplicates, distinct: (dedupe | length)}),
    versions: (map(.Version) | {all_same: all_equal, distinct: dedupe})}`,
 			Input: services,
+		},
+
+		// ------------------------------------------------------------------
+		// Byte similarity
+		//
+		// The compression-distance cmdlets work on values rather than paths,
+		// so they run here: a corpus is an array of anything that casts to
+		// bytes, and the browser has no filesystem to object. rncd_compare
+		// scores every pair of a corpus, and shared_chunks decomposes one
+		// value into the spans it shares with another.
+		// ------------------------------------------------------------------
+		{
+			Title:       "Rank a corpus by similarity",
+			Description: "rncd_compare scores every pair in a corpus, one object per pair and lower meaning more similar, so sort_by(.Hybrid) brings the near-duplicates to the top and a threshold flags them.",
+			Category:    "Compare",
+			Query: `. as $all
+| [rncd_compare($all)]
+| sort_by(.Hybrid)
+| map({a: .NameA, b: .NameB, hybrid: .Hybrid,
+       near_duplicate: (.Hybrid < 0.1)})`,
+			Input: releaseNotes,
+		},
+		{
+			Title:       "The bytes are close, the class is far",
+			Description: "Two unrelated ciphertexts are both incompressible, so Ncd alone can barely tell the ciphertext pair from a ciphertext beside prose. EntropyGlobal can: ~0 for two blobs of the same kind, ~0.36 for either against prose, and the Hybrid ordering follows.",
+			Category:    "Compare",
+			Query: `[
+  {Name: "cipher_a", Content: aes_encrypt(random_string(2000); "0123456789abcdef")},
+  {Name: "cipher_b", Content: aes_encrypt(random_string(2000); "fedcba9876543210")},
+  {Name: "prose", Content: ("the cat sat on the mat. " * 90)}
+]
+| [rncd_compare]
+| sort_by(.Hybrid)
+| map({a: .NameA, b: .NameB, ncd: .Ncd,
+       entropy_global: .EntropyGlobal, hybrid: .Hybrid})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Same kind, no shared bytes",
+			Description: "Two compressed streams of different text share no bytes at all, yet they rank as the closest pair: the entropy terms recognise compressed blobs as a kind, and put them above one gzip beside the very prose it compressed.",
+			Category:    "Compare",
+			Query: `[
+  {Name: "gzip_a", Content: gzip_compress("the quick brown fox jumps over the lazy dog. " * 60)},
+  {Name: "gzip_b", Content: gzip_compress("lorem ipsum dolor sit amet consectetur adipiscing elit. " * 60)},
+  {Name: "prose", Content: ("the quick brown fox jumps over the lazy dog. " * 60)}
+]
+| [rncd_compare]
+| sort_by(.Hybrid)
+| map({a: .NameA, b: .NameB, ncd: .Ncd,
+       entropy_global: .EntropyGlobal, hybrid: .Hybrid})`,
+			Input: `null`,
+		},
+		{
+			Title:       "Prove the closest pair byte for byte",
+			Description: "rncd_compare says which two values are closest; shared_chunks then says why: the exact fraction of one that appears verbatim in the other, and how many separate runs it took.",
+			Category:    "Compare",
+			Query: `. as $all
+| ([rncd_compare($all)] | sort_by(.Hybrid) | .[0]) as $closest
+| shared_chunks($all[$closest.IndexB]; $all[$closest.IndexA])
+| {closest: [$closest.NameA, $closest.NameB],
+   hybrid: $closest.Hybrid,
+   coverage: .Coverage, spans: .Spans,
+   matched_bytes: .MatchedBytes}`,
+			Input: releaseNotes,
+		},
+		{
+			Title:       "Which config was forked from this one",
+			Description: "The piped form measures every candidate against one fixed reference. Coverage is the exact fraction of each candidate that occurs verbatim in the reference, so configs derived from a template stand out from an unrelated file.",
+			Category:    "Compare",
+			Query: `. as $all
+| $all[0].Content as $ref
+| [.[] | {name: .Name,
+          coverage: (.Content | shared_chunks($ref).Coverage)}]
+| sort_by(-.coverage)
+| map(. + {copied: (.coverage > 0.5)})`,
+			Input: serviceConfigs,
+		},
+		{
+			Title:       "Triage a suspicious file",
+			Description: "A file found on a host is a modified copy of a known-good one. rncd_compare confirms which pair; shared_chunks then isolates the changed regions: the literal chunks, which carry no RefOffset, as exactly what to diff.",
+			Category:    "Compare",
+			Query: `. as $all
+| ([rncd_compare($all)] | sort_by(.Hybrid) | .[0]) as $closest
+| shared_chunks($all[$closest.IndexB]; $all[$closest.IndexA])
+| {match: [$closest.NameA, $closest.NameB],
+   hybrid: $closest.Hybrid, coverage: .Coverage,
+   tampered_bytes: ([.Chunks[] | select(.Matched | not) | .Length] | add),
+   tampered_regions: [.Chunks[] | select(.Matched | not)
+                       | {start: .Start, length: .Length}]}`,
+			Input: incidentFiles,
 		},
 
 		// ------------------------------------------------------------------
