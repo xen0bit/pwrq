@@ -119,6 +119,31 @@ $ pwrq -nc '"deploy finished" | add_content("run.log") | .Length'
 destination directory: an archive's entry names are data, and `../../etc/cron.d`
 is a valid one.
 
+Which values resemble which, and which bytes they actually share:
+
+```console
+$ pwrq -nc '["the quick brown fox jumps over the lazy dog",
+             "the quick brown cat jumps over the lazy dog",
+             "lorem ipsum dolor sit amet consectetur adipiscing"]
+            | [rncd_compare] | sort_by(.Hybrid) | .[0] | {IndexA, IndexB, Hybrid}'
+{"Hybrid":0.136479,"IndexA":0,"IndexB":1}
+```
+
+`rncd_compare` scores every pair on a blend of compression distance and
+entropy, so two encrypted blobs — incompressible, and so indistinguishable to
+compression alone — still read as the same kind of thing. `shared_chunks` then
+names the byte ranges behind a score:
+
+```console
+$ pwrq -nc 'shared_chunks("the quick brown fox"; "a quick brown fox indeed")
+           | {Coverage, MatchedBytes, Spans}'
+{"Coverage":0.842105,"MatchedBytes":16,"Spans":1}
+```
+
+Both take values, not paths, so anything that casts to bytes is a corpus:
+strings, decoded blobs, response bodies, or files read into the pipeline. See
+[EXAMPLES.md](EXAMPLES.md) for comparing files with them.
+
 Time zones and date formatting, which jq's UTC-only `todate` cannot reach:
 
 ```console
