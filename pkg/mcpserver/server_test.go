@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -162,6 +163,61 @@ func TestRunQueryNullInputRawInputs(t *testing.T) {
 	}
 	if got := strings.TrimSpace(out.Values[0]); got != `["FOO","BAR"]` {
 		t.Fatalf("got %s, want [FOO,BAR]", got)
+	}
+}
+
+// TestRunQuerySlurp pins jq -s, which the server advertises in its tool
+// schema. A slurped run is one input, so `length` counts the values rather
+// than being applied to each of them.
+func TestRunQuerySlurp(t *testing.T) {
+	server := NewServer("test")
+	cs := newTestClient(t, server)
+
+	out := runQuery(t, cs, runQueryArgs{Query: "length", Input: "1 2 3", Slurp: true, Compact: true})
+	if out.Error != "" {
+		t.Fatalf("unexpected error: %s", out.Error)
+	}
+	if out.Count != 1 || strings.TrimSpace(out.Values[0]) != "3" {
+		t.Fatalf("got %d values %q, want [3]", out.Count, out.Values)
+	}
+
+	// -R -s is the whole input as one string, trailing newline included.
+	raw := runQuery(t, cs, runQueryArgs{Query: ".", Input: "a\nb\n", RawInput: true, Slurp: true, Compact: true})
+	if raw.Count != 1 || raw.Values[0] != `"a\nb\n"` {
+		t.Fatalf("got %d values %q, want [\"a\\nb\\n\"]", raw.Count, raw.Values)
+	}
+
+	// -n -s: the program runs on null, and `inputs` sees the slurped array as
+	// the single value it now is.
+	null := runQuery(t, cs, runQueryArgs{Query: "[inputs]", Input: "1 2 3", Slurp: true, NullInput: true, Compact: true})
+	if null.Count != 1 || strings.TrimSpace(null.Values[0]) != "[[1,2,3]]" {
+		t.Fatalf("got %q, want [[[1,2,3]]]", null.Values)
+	}
+}
+
+// TestRunQueryEncodingMatchesCLI pins the values gojq itself would print.
+// encoding/json is not a substitute: it escapes <, > and & into \u sequences,
+// and refuses NaN and infinity where jq prints null and the largest float.
+func TestRunQueryEncodingMatchesCLI(t *testing.T) {
+	server := NewServer("test")
+	cs := newTestClient(t, server)
+
+	cases := []struct{ name, query, input, want string }{
+		{"html", ".", `"<a href=\"x\">&"`, `"<a href=\"x\">&"`},
+		{"nan", "nan", "", "null"},
+		{"infinite", "infinite", "", "1.7976931348623157e+308"},
+		{"bignum", ".", "123456789012345678901234567890", "123456789012345678901234567890"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out := runQuery(t, cs, runQueryArgs{Query: c.query, Input: c.input, Compact: true})
+			if out.Error != "" {
+				t.Fatalf("unexpected error: %s", out.Error)
+			}
+			if got := strings.TrimSpace(out.Values[0]); got != c.want {
+				t.Fatalf("got %s, want %s", got, c.want)
+			}
+		})
 	}
 }
 
@@ -325,6 +381,84 @@ func TestConcurrentCalls(t *testing.T) {
 	wg.Wait()
 }
 
+// TestServeHTTPRefusesOpenPort pins the one thing that separates a local tool
+// from a remote shell: run_query can read files and run commands, so a bind
+// that is reachable from the network needs a secret to gate it.
+func TestServeHTTPRefusesOpenPort(t *testing.T) {
+	t.Setenv(TokenEnv, "")
+
+	err := ServeHTTP(":0", "test")
+	if err == nil {
+		t.Fatal("expected a refusal for an unauthenticated non-loopback bind")
+	}
+	if !strings.Contains(err.Error(), TokenEnv) {
+		t.Fatalf("the refusal should name %s, got: %v", TokenEnv, err)
+	}
+}
+
+func TestIsLoopback(t *testing.T) {
+	cases := map[string]bool{
+		"127.0.0.1:0": true,
+		"[::1]:0":     true,
+		":0":          false,
+		"0.0.0.0:0":   false,
+	}
+	for addr, want := range cases {
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			t.Skipf("cannot listen on %s here: %v", addr, err)
+		}
+		got := isLoopback(listener.Addr())
+		_ = listener.Close()
+		if got != want {
+			t.Errorf("isLoopback(%s) = %v, want %v", addr, got, want)
+		}
+	}
+}
+
+func TestRequireBearer(t *testing.T) {
+	reached := false
+	handler := requireBearer("s3cret", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		reached = true
+	}))
+	ts := httptest.NewServer(handler)
+	t.Cleanup(ts.Close)
+
+	cases := []struct {
+		name   string
+		header string
+		status int
+	}{
+		{"no header", "", http.StatusUnauthorized},
+		{"wrong token", "Bearer nope", http.StatusUnauthorized},
+		{"bare token", "s3cret", http.StatusUnauthorized},
+		{"correct", "Bearer s3cret", http.StatusOK},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			reached = false
+			req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+			if err != nil {
+				t.Fatalf("new request: %v", err)
+			}
+			if c.header != "" {
+				req.Header.Set("Authorization", c.header)
+			}
+			res, err := ts.Client().Do(req)
+			if err != nil {
+				t.Fatalf("request: %v", err)
+			}
+			_ = res.Body.Close()
+			if res.StatusCode != c.status {
+				t.Fatalf("status %d, want %d", res.StatusCode, c.status)
+			}
+			if reached != (c.status == http.StatusOK) {
+				t.Fatalf("handler reached = %v at status %d", reached, res.StatusCode)
+			}
+		})
+	}
+}
+
 func TestHTTPServer(t *testing.T) {
 	server := NewServer("test")
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil)
@@ -340,7 +474,7 @@ func TestHTTPServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("http client connect: %v", err)
 	}
-	defer cs.Close()
+	defer func() { _ = cs.Close() }()
 
 	res := callTool(t, cs, "run_query", runQueryArgs{Query: `.`, Input: `{"a": 1}`, Compact: true})
 	var out runQueryResult

@@ -89,7 +89,7 @@ type flagopts struct {
 	Graph         string            `short:"g" long:"graph" args:"output.svg" description:"render the query structure as a diagram (.svg or .d2)"`
 	IDE           bool              `short:"i" long:"ide" description:"launch IDE web interface"`
 	MCP           bool              `long:"mcp" description:"serve as an MCP server over stdio"`
-	MCPHTTP       string            `long:"mcp-http" args:"addr" description:"serve as an MCP server over streamable HTTP on the given address"`
+	MCPHTTP       string            `long:"mcp-http" args:"addr" description:"serve as an MCP server over streamable HTTP on the given address (a non-loopback bind requires PWRQ_MCP_TOKEN)"`
 }
 
 var addDefaultModulePaths = true

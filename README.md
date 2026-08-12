@@ -141,7 +141,8 @@ $ pwrq -nc 'shared_chunks("the quick brown fox"; "a quick brown fox indeed")
 ```
 
 Both take values, not paths, so anything that casts to bytes is a corpus:
-strings, decoded blobs, response bodies, or files read into the pipeline. See
+strings, decoded blobs, response bodies, or files read into the pipeline with
+`read_bytes`, which is `cat` without the text decoding. See
 [EXAMPLES.md](EXAMPLES.md) for comparing files with them.
 
 Time zones and date formatting, which jq's UTC-only `todate` cannot reach:
@@ -314,8 +315,32 @@ Over stdio, which Claude Desktop, Cursor and friends launch directly:
 Or over streamable HTTP:
 
 ```bash
+pwrq --mcp-http 127.0.0.1:8000
+```
+
+### What the HTTP transport exposes
+
+`run_query` evaluates against the whole CLI vocabulary, and that vocabulary
+reads files, writes files, runs commands and makes network requests. Anyone who
+can reach the port can therefore do anything the user running `pwrq` can do.
+Over stdio that is the point — the client launched the process. Over HTTP, who
+can reach the port *is* the security model:
+
+- A loopback bind (`127.0.0.1:8000`, `[::1]:8000`) is reachable only from the
+  machine itself, and needs nothing more.
+- Any other address — including the bare `:8000`, which is every interface — is
+  refused unless `PWRQ_MCP_TOKEN` is set. Clients then send it as
+  `Authorization: Bearer <token>`.
+
+```bash
+export PWRQ_MCP_TOKEN=$(pwrq -rn 'random_string(32)')
 pwrq --mcp-http :8000
 ```
+
+The token lives in the environment rather than in a flag so it does not sit in
+the process table. Setting it on a loopback bind works too, and is worth doing
+on a machine with other users on it. The transport has no TLS of its own: put it
+behind a reverse proxy if it needs to cross a network.
 
 ## Development
 
