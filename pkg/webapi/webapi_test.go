@@ -260,8 +260,10 @@ func TestFormat(t *testing.T) {
 	if resp.Error != "" {
 		t.Fatalf("unexpected error: %s", resp.Error)
 	}
-	if !strings.Contains(resp.Query, " | ") {
-		t.Errorf("formatted query is not spaced out: %q", resp.Query)
+	// Formatting is the multi-line layout: each top-level pipe stage starts
+	// its own line.
+	if !strings.Contains(resp.Query, "\n| select(.b > 1)") {
+		t.Errorf("formatted query is not spread across lines: %q", resp.Query)
 	}
 
 	// Formatting has to be meaning-preserving, so the result must parse back
@@ -269,6 +271,36 @@ func TestFormat(t *testing.T) {
 	again := call[FormatResponse](t, "format", FormatRequest{Query: resp.Query})
 	if again.Query != resp.Query {
 		t.Errorf("formatting is not idempotent:\n%q\n%q", resp.Query, again.Query)
+	}
+}
+
+// TestMinify is the single-line form: the spacing-normalised rendering of the
+// same program, and the inverse of Format in spirit.
+func TestMinify(t *testing.T) {
+	resp := call[FormatResponse](t, "minify", FormatRequest{Query: ".a |\n select(.b)\n | {c: .d}"})
+	if resp.Error != "" {
+		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+	if want := ".a | select(.b) | { c: .d }"; resp.Query != want {
+		t.Errorf("minified query = %q, want %q", resp.Query, want)
+	}
+}
+
+// TestFormatThenMinifyRoundTrips pins the two operations as inverses: minify
+// of a formatted query is the canonical single line, and formatting that is
+// the same multi-line layout.
+func TestFormatThenMinifyRoundTrips(t *testing.T) {
+	src := ".a | .b | .c"
+	formatted := call[FormatResponse](t, "format", FormatRequest{Query: src})
+	if formatted.Error != "" {
+		t.Fatalf("format: %s", formatted.Error)
+	}
+	if want := ".a\n| .b\n| .c"; formatted.Query != want {
+		t.Errorf("formatted = %q, want %q", formatted.Query, want)
+	}
+	minified := call[FormatResponse](t, "minify", FormatRequest{Query: formatted.Query})
+	if minified.Query != ".a | .b | .c" {
+		t.Errorf("minify(formatted) = %q, want the original line", minified.Query)
 	}
 }
 
