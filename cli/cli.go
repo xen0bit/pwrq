@@ -13,6 +13,7 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
+	"github.com/xen0bit/pwrq/pkg/mcpserver"
 	"github.com/xen0bit/pwrq/pkg/udf"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -87,6 +88,8 @@ type flagopts struct {
 	UDFList       bool              `short:"u" long:"udf-list" description:"list all available user-defined functions"`
 	Graph         string            `short:"g" long:"graph" args:"output.svg" description:"render the query structure as a diagram (.svg or .d2)"`
 	IDE           bool              `short:"i" long:"ide" description:"launch IDE web interface"`
+	MCP           bool              `long:"mcp" description:"serve as an MCP server over stdio"`
+	MCPHTTP       string            `long:"mcp-http" args:"addr" description:"serve as an MCP server over streamable HTTP on the given address"`
 }
 
 var addDefaultModulePaths = true
@@ -136,6 +139,15 @@ Usage:
 	}
 	if opts.IDE {
 		return cli.launchIDE()
+	}
+	if opts.MCP && opts.MCPHTTP != "" {
+		return errors.New("flags `--mcp' and `--mcp-http' are mutually exclusive")
+	}
+	if opts.MCPHTTP != "" {
+		return mcpserver.ServeHTTP(opts.MCPHTTP, version)
+	}
+	if opts.MCP {
+		return mcpserver.Serve(version)
 	}
 
 	// Initialize session state after flag parsing

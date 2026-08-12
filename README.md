@@ -282,6 +282,41 @@ which would work only against origins that allow CORS. Codecs, hashes,
 ciphers, compression, format conversion, and the object and formatting cmdlets
 are all available. `get_command` in the page lists exactly what the page has.
 
+## MCP server
+
+pwrq can serve itself as a [Model Context Protocol](https://modelcontextprotocol.io)
+server, so an agent can evaluate queries directly. The server exposes three tools:
+
+- **run_query** — evaluate a pwrq/jq query against JSON or raw text input, with
+  the full cmdlet vocabulary and the jq flags that matter (`-r`, `-c`, `-s`,
+  `-n`), named arguments and per-call result limits and timeouts.
+- **list_functions** — the cmdlet catalogue with arity, description and
+  examples, so an agent knows what it can call.
+- **validate_query** — check that a query parses before running it.
+
+Runs are always bounded — a default timeout and result limit stop a query that
+would otherwise stream forever — and each call gets a fresh session, so no state
+leaks between calls.
+
+Over stdio, which Claude Desktop, Cursor and friends launch directly:
+
+```json
+{
+  "mcpServers": {
+    "pwrq": {
+      "command": "/path/to/pwrq",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+Or over streamable HTTP:
+
+```bash
+pwrq --mcp-http :8000
+```
+
 ## Development
 
 ```bash
