@@ -17,6 +17,7 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/graph"
+	"github.com/xen0bit/pwrq/pkg/jqfmt"
 	"github.com/xen0bit/pwrq/pkg/udf"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 	"github.com/xen0bit/pwrq/pkg/udf/discovery"
@@ -39,6 +40,8 @@ func Call(method, request string) string {
 		return Diagram(request)
 	case "format":
 		return Format(request)
+	case "minify":
+		return Minify(request)
 	case "catalog":
 		return Catalog(request)
 	default:
@@ -246,8 +249,10 @@ type FormatResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
-// Format pretty-prints a query by round-tripping it through the parser, so the
-// result is by construction the same program.
+// Format pretty-prints a query onto multiple lines, breaking top-level
+// pipelines and folding long objects, arrays and conditionals under
+// indentation. The result parses back to the same program, so formatting can
+// never change what a query does.
 func Format(request string) string {
 	var req FormatRequest
 	if err := json.Unmarshal([]byte(request), &req); err != nil {
@@ -260,7 +265,26 @@ func Format(request string) string {
 	if err != nil {
 		return marshal(FormatResponse{Query: req.Query, Error: err.Error()})
 	}
-	return marshal(FormatResponse{Query: query.String()})
+	return marshal(FormatResponse{Query: jqfmt.Format(query)})
+}
+
+// Minify renders a query on a single line: the canonical form, spacing
+// normalised and whitespace stripped. It is Format's inverse in spirit - one
+// spreads the query for reading, the other compacts it for storing or
+// sharing - and like Format it never changes what the query means.
+func Minify(request string) string {
+	var req FormatRequest
+	if err := json.Unmarshal([]byte(request), &req); err != nil {
+		return marshal(FormatResponse{Error: "malformed request: " + err.Error()})
+	}
+	if strings.TrimSpace(req.Query) == "" {
+		return marshal(FormatResponse{Query: req.Query})
+	}
+	query, err := gojq.Parse(req.Query)
+	if err != nil {
+		return marshal(FormatResponse{Query: req.Query, Error: err.Error()})
+	}
+	return marshal(FormatResponse{Query: jqfmt.Minify(query)})
 }
 
 // ---------------------------------------------------------------------------
