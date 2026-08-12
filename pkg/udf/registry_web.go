@@ -25,7 +25,6 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/number"
 	"github.com/xen0bit/pwrq/pkg/udf/path"
 	"github.com/xen0bit/pwrq/pkg/udf/random"
-	"github.com/xen0bit/pwrq/pkg/udf/rncd"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
 	"github.com/xen0bit/pwrq/pkg/udf/sha256"
@@ -181,10 +180,6 @@ func WebRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range similarity.RegisterAll() {
-		reg.Register(opt)
-	}
-	// rncd measures bytes, not paths, so nothing it does needs a filesystem.
-	for _, opt := range rncd.RegisterAll() {
 		reg.Register(opt)
 	}
 	for _, opt := range collection.RegisterAll() {

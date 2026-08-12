@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/udf/rncd"
+	"github.com/xen0bit/pwrq/pkg/udf/similarity/rncd"
 )
 
 // The corpus every query below is written against: two documents that share

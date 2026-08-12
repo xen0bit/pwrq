@@ -1,5 +1,10 @@
 // Package similarity provides string and set similarity measures, plus a
 // structural JSON diff that reports what was added, removed and changed.
+//
+// The compression-distance measures live in the rncd subpackage rather than
+// here, because they carry a zstd encoder and a match finder where everything
+// in this file is string arithmetic. They are the same vocabulary to a caller
+// — one Similarity category, registered together — so RegisterAll returns both.
 package similarity
 
 import (
@@ -10,11 +15,12 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
+	"github.com/xen0bit/pwrq/pkg/udf/similarity/rncd"
 )
 
 // RegisterAll registers every similarity cmdlet.
 func RegisterAll() []gojq.CompilerOption {
-	return []gojq.CompilerOption{
+	opts := []gojq.CompilerOption{
 		RegisterLevenshtein(),
 		RegisterHammingDistance(),
 		RegisterJaccard(),
@@ -23,6 +29,9 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterNGrams(),
 		RegisterJaroWinkler(),
 	}
+	// rncd measures bytes, not paths, so nothing it does needs a filesystem:
+	// it is registered wherever this package is, the browser included.
+	return append(opts, rncd.RegisterAll()...)
 }
 
 // RegisterLevenshtein registers levenshtein, the edit distance between two

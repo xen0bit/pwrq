@@ -27,7 +27,7 @@ const defaultMinMatch = 16
 // one fixed reference.
 //
 //	find("samples"; "file") | cat | shared_chunks($known)
-//	shared_chunks(cat("suspect.bin"); cat("known.bin"); {MinMatch: 32})
+//	shared_chunks(read_bytes("suspect.bin"); read_bytes("known.bin"); {MinMatch: 32})
 //
 // Where rncd_compare estimates, this counts. Coverage is the exact fraction of
 // the target the reference accounts for, and every span it reports can be cut
