@@ -614,5 +614,37 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"percentile_rank", 1, 2, "The percentage of an array's values at or below a value", "Statistics", []string{`[1,2,3,4,5] | percentile_rank(3)`}},
 		{"net_present_value", 2, 2, "Present value of cash flows at a rate (flows, rate)", "Domain", []string{`net_present_value([-100, 50, 60]; 0.1)`}},
 		{"iso_duration", 0, 0, "Seconds as an ISO 8601 duration", "Duration", []string{`93784 | iso_duration`}},
+
+		// Censys Platform. Every one of these authenticates with
+		// CENSYS_PLATFORM_TOKEN and bills the wallet named by
+		// CENSYS_PLATFORM_ORGID; get_censys_context reports what it resolved.
+		{"get_censys_context", 0, 1, "Which credentials and server the Censys cmdlets resolved, without the token", "Censys", []string{`get_censys_context`, `get_censys_context | .OrganizationId`}},
+		{"get_censys_host", 0, 2, "A host by IP (AtTime for a point in time)", "Censys", []string{`get_censys_host("1.1.1.1")`, `"1.1.1.1" | get_censys_host({AtTime: "2026-01-01T00:00:00Z"})`}},
+		{"get_censys_certificate", 0, 2, "A certificate by SHA-256 fingerprint (Raw for the PEM)", "Censys", []string{`get_censys_certificate($fp)`, `get_censys_certificate($fp; {Raw: true})`}},
+		{"get_censys_webproperty", 0, 2, "A web property by hostname:port (AtTime for a point in time)", "Censys", []string{`get_censys_webproperty("example.com:443")`}},
+		{"get_censys_enrichment", 0, 2, "The lightweight enrichment record for a host IP", "Censys", []string{`"1.1.1.1" | get_censys_enrichment`}},
+		{"get_censys_host_timeline", 0, 2, "One object per host event (StartTime is the recent end, EndTime the older)", "Censys", []string{`[get_censys_host_timeline("1.1.1.1")] | length`}},
+		{"get_censys_webproperty_timeline", 0, 2, "One object per web property event", "Censys", []string{`[get_censys_webproperty_timeline("example.com:443")] | length`}},
+		{"get_censys_host_service", 0, 2, "One object per observed service range on a host (Port, Protocol, Pages)", "Censys", []string{`[get_censys_host_service("1.1.1.1"; {Port: 443})]`}},
+		{"search_censys", 0, 2, "One object per CenQL search hit (Fields, PageSize, Pages, CollectionId)", "Censys", []string{`[search_censys("host.services.port=22")] | length`, `search_censys("host.location.country=\"Chile\""; {Pages: 3})`}},
+		{"get_censys_aggregate", 1, 3, "Bucket counts for a CenQL query (query, field; Buckets, CollectionId)", "Censys", []string{`get_censys_aggregate("host.services.port=443"; "host.location.country")`}},
+		{"get_censys_collection", 0, 2, "A collection by UID, or every collection when given none", "Censys", []string{`[get_censys_collection] | map(.name)`, `get_censys_collection($uid)`}},
+		{"new_censys_collection", 0, 1, "Create a collection (Name, Query, Description)", "Censys", []string{`new_censys_collection({Name: "edge", Query: "host.services.port=8080"})`}},
+		{"set_censys_collection", 1, 2, "Replace a collection's name, query and description", "Censys", []string{`set_censys_collection($uid; {Name: "edge", Query: "host.services.port=8443"})`}},
+		{"remove_censys_collection", 0, 2, "Delete a collection, returning its UID", "Censys", []string{`remove_censys_collection($uid)`}},
+		{"get_censys_collection_event", 0, 2, "One object per change in a collection (ChangeType, StartTime, Pages)", "Censys", []string{`[get_censys_collection_event($uid)] | length`}},
+		{"new_censys_censeye_job", 0, 2, "Start a CensEye pivot analysis on an asset (Type: host, webproperty, certificate)", "Censys", []string{`new_censys_censeye_job("1.1.1.1")`}},
+		{"get_censys_censeye_job", 0, 2, "A CensEye job by ID, or every job when given none", "Censys", []string{`get_censys_censeye_job($id) | .status`, `[get_censys_censeye_job({HostId: "1.1.1.1"})]`}},
+		{"get_censys_censeye_result", 0, 2, "One object per pivot a finished CensEye job found", "Censys", []string{`[get_censys_censeye_result($id)] | length`}},
+		{"get_censys_threat", 0, 2, "One object per tracked threat, optionally filtered by a CenQL query", "Censys", []string{`[get_censys_threat] | length`}},
+		{"get_censys_tag", 0, 2, "A tag by ID or name, or every tag when given none (Privacy, OrderBy, Pages)", "Censys", []string{`[get_censys_tag] | map(.name)`}},
+		{"new_censys_tag", 0, 1, "Create a tag (Name, Description, Privacy: shared or private)", "Censys", []string{`new_censys_tag({Name: "compromised"})`}},
+		{"set_censys_tag", 1, 2, "Change a tag's name, description or privacy", "Censys", []string{`set_censys_tag($id; {Description: "seen in incident 42"})`}},
+		{"remove_censys_tag", 0, 2, "Delete a tag, returning its ID", "Censys", []string{`remove_censys_tag($id)`}},
+		{"get_censys_tag_assignment", 0, 2, "One object per asset a tag is attached to (AssetType, Pages)", "Censys", []string{`[get_censys_tag_assignment($id)] | map(.asset_id)`}},
+		{"add_censys_tag_assignment", 1, 3, "Attach a tag to an asset (tag; asset, or the asset piped in)", "Censys", []string{`add_censys_tag_assignment($tag; "1.1.1.1")`, `search_censys("...") | .host.ip | add_censys_tag_assignment($tag)`}},
+		{"remove_censys_tag_assignment", 1, 3, "Detach a tag by assignment ID, returning that ID", "Censys", []string{`remove_censys_tag_assignment($tag; $assignment)`}},
+		{"get_censys_organization", 0, 2, "Organization details (IncludeMemberCounts)", "Censys", []string{`get_censys_organization`, `get_censys_organization($orgId; {IncludeMemberCounts: true})`}},
+		{"get_censys_credits", 0, 1, "The credit balance being spent (Scope: user or organization)", "Censys", []string{`get_censys_credits`, `get_censys_credits({Scope: "user"})`}},
 	}
 }

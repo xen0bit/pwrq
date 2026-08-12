@@ -9,6 +9,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
 	"github.com/xen0bit/pwrq/pkg/udf/binary"
 	"github.com/xen0bit/pwrq/pkg/udf/cat"
+	"github.com/xen0bit/pwrq/pkg/udf/censys"
 	"github.com/xen0bit/pwrq/pkg/udf/checksum"
 	"github.com/xen0bit/pwrq/pkg/udf/collection"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
@@ -286,6 +287,13 @@ func DefaultRegistry() *Registry {
 	// Host lookups and PATH searches. They need the network or the
 	// filesystem, so they are CLI-only like the log readers.
 	for _, opt := range system.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// The Censys Platform. Every one of these is a network call against an
+	// authenticated API, so like the log readers they are CLI-only and
+	// WebRegistry leaves them out.
+	for _, opt := range censys.RegisterAll() {
 		reg.Register(opt)
 	}
 
