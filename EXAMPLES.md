@@ -495,8 +495,7 @@ for either against the prose, and the `Hybrid` ordering follows.
 *kind* of thing.
 
 ```console
-$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
-            rncd_compare([bytes("/usr/bin/cp"), bytes("/usr/bin/gzip")])
+$ pwrq -nc 'rncd_compare([read_bytes("/usr/bin/cp"), read_bytes("/usr/bin/gzip")])
            | {Ncd, NcdFingerprint, EntropyGlobal, EntropyProfile, Hybrid}'
 {"EntropyGlobal":0.019835,"EntropyProfile":0.133677,"Hybrid":0.710976,
  "Ncd":0.955143,"NcdFingerprint":0.856863}
@@ -509,14 +508,13 @@ terms. `{Alpha: 1, Beta: 0}` scores on bytes alone.
 ### Comparing files
 
 Nothing here reads the disk, so a corpus of files is assembled in the query.
-`cat` decodes text, which is what you want for logs and source but not for
-binaries — it replaces every byte that is not valid UTF-8. Read those through
-`hex_encode(path; true) | hex_decode`, which round-trips byte for byte:
+Read them with `read_bytes`, not with `cat`: `cat` decodes text, which is what
+you want for logs and source but not for binaries, because it replaces every
+byte that is not valid UTF-8. `read_bytes` does no decoding at all.
 
 ```console
-$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
-            [["cp", "mv", "cat", "gzip", "tar"][]
-             | {Name: ., Content: bytes("/usr/bin/" + .)}]
+$ pwrq -nc '[["cp", "mv", "cat", "gzip", "tar"][]
+             | {Name: ., Content: read_bytes("/usr/bin/" + .)}]
            | [rncd_compare] | sort_by(.Hybrid) | .[0:3] | map({NameA, NameB, Ncd, Hybrid})'
 [{"Hybrid":0.422155,"NameA":"cp","NameB":"mv","Ncd":0.42095},
  {"Hybrid":0.707604,"NameA":"mv","NameB":"gzip","Ncd":0.951845},
@@ -528,9 +526,8 @@ score says. Any cmdlet that produces paths can feed the corpus, so filtering is
 `get_childitem` and `select` rather than a second set of flags:
 
 ```console
-$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
-            [get_childitem("samples"; {Recurse: true, Filter: "*.bin"})
-             | select(.Length > 4096) | {Name: .FullName, Content: bytes(.FullName)}]
+$ pwrq -nc '[get_childitem("samples"; {Recurse: true, Filter: "*.bin"})
+             | select(.Length > 4096) | {Name: .FullName, Content: read_bytes(.FullName)}]
            | [rncd_compare | select(.Hybrid < 0.4)] | length'
 ```
 
@@ -561,13 +558,11 @@ four bytes somewhere, so the default of 16 is what separates structure from
 coincidence.
 
 ```console
-$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
-            bytes("/usr/bin/mv") | shared_chunks(bytes("/usr/bin/cp"))
+$ pwrq -nc 'read_bytes("/usr/bin/mv") | shared_chunks(read_bytes("/usr/bin/cp"))
            | {Coverage, MatchedBytes, Spans}'
 {"Coverage":0.657682,"MatchedBytes":90597,"Spans":1593}
 
-$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
-            bytes("/usr/bin/mv") | shared_chunks(bytes("/usr/bin/cp")).Chunks
+$ pwrq -nc 'read_bytes("/usr/bin/mv") | shared_chunks(read_bytes("/usr/bin/cp")).Chunks
            | map(select(.Matched)) | max_by(.Length)'
 {"End":14615,"Length":2285,"Matched":true,"PSTypeName":"Pwrq.SharedChunk",
  "RefOffset":16426,"Start":12330}
@@ -581,10 +576,9 @@ The input is the value being explained and the argument is what explains it, so
 the piped form measures a stream of candidates against one reference:
 
 ```console
-$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
-            [["bzip2", "cat", "cp", "mv", "tar"][]
-             | {Name: ., Coverage: (bytes("/usr/bin/" + .)
-                                    | shared_chunks(bytes("/usr/bin/cp")).Coverage)}
+$ pwrq -nc '[["bzip2", "cat", "cp", "mv", "tar"][]
+             | {Name: ., Coverage: (read_bytes("/usr/bin/" + .)
+                                    | shared_chunks(read_bytes("/usr/bin/cp")).Coverage)}
              | select(.Coverage > 0.3)]'
 [{"Coverage":0.371972,"Name":"bzip2"},{"Coverage":0.652372,"Name":"cat"},
  {"Coverage":1,"Name":"cp"},{"Coverage":0.657682,"Name":"mv"}]

@@ -98,6 +98,7 @@ func DefaultRegistry() *Registry {
 	// Register all built-in UDFs
 	reg.Register(find.RegisterFind())
 	reg.Register(cat.RegisterCat())
+	reg.Register(cat.RegisterReadBytes())
 	reg.Register(mkdir.RegisterMkdir())
 	reg.Register(rm.RegisterRm())
 
