@@ -453,6 +453,143 @@ $ pwrq -nc 'compare_object([{id:1,v:"2.4.0"}]; [{id:1,v:"2.4.1"}];
 Matching on a property is what makes the second one report a match: the rows
 differ, but they are the same row.
 
+## Comparing byte strings
+
+`rncd_compare` scores every pair in a corpus, so a collection of samples can be
+sorted by what resembles what. Lower is more similar. The input is an array of
+values — anything that casts to bytes — and each pair comes back as an object:
+
+```console
+$ pwrq -nc '["the quick brown fox jumps over the lazy dog",
+             "the quick brown cat jumps over the lazy dog",
+             "lorem ipsum dolor sit amet consectetur adipiscing"]
+            | [rncd_compare] | sort_by(.Hybrid) | map({IndexA, IndexB, Hybrid})'
+[{"Hybrid":0.136479,"IndexA":0,"IndexB":1},{"Hybrid":0.32082,"IndexA":1,"IndexB":2},
+ {"Hybrid":0.340915,"IndexA":0,"IndexB":2}]
+```
+
+`IndexA` and `IndexB` are positions in the array you passed in. Give a value a
+name and it is reported instead — an element can be an object carrying its
+bytes under `Content` and its label under `Name`:
+
+```console
+$ pwrq -nc '[{Name: "cipher_a", Content: aes_encrypt(random_string(4000); "0123456789abcdef")},
+             {Name: "cipher_b", Content: aes_encrypt(random_string(4000); "fedcba9876543210")},
+             {Name: "prose",    Content: ("the cat sat on the mat. " * 170)}]
+            | [rncd_compare] | sort_by(.Hybrid)
+            | map({NameA, NameB, Ncd, EntropyGlobal, Hybrid})'
+[{"EntropyGlobal":0.000042,"Hybrid":0.523936,"NameA":"cipher_a","NameB":"cipher_b","Ncd":0.987993},
+ {"EntropyGlobal":0.362379,"Hybrid":0.654094,"NameA":"cipher_a","NameB":"prose","Ncd":1},
+ {"EntropyGlobal":0.362337,"Hybrid":0.668635,"NameA":"cipher_b","NameB":"prose","Ncd":1}]
+```
+
+That is the whole argument for the blend. Two unrelated ciphertexts are both
+incompressible, so `Ncd` alone (0.988 against 1.0) barely separates "two
+encrypted blobs" from "an encrypted blob and a paragraph of English". The
+entropy terms do: `EntropyGlobal` is 0.000042 for the two ciphertexts and 0.36
+for either against the prose, and the `Hybrid` ordering follows.
+
+`Hybrid` blends four distances, all in `[0, 1]` and all reported beside it:
+`Ncd` — do the bytes compress well together — and `NcdFingerprint`,
+`EntropyGlobal` and `EntropyProfile`, which ask whether these are the same
+*kind* of thing.
+
+```console
+$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
+            rncd_compare([bytes("/usr/bin/cp"), bytes("/usr/bin/gzip")])
+           | {Ncd, NcdFingerprint, EntropyGlobal, EntropyProfile, Hybrid}'
+{"EntropyGlobal":0.019835,"EntropyProfile":0.133677,"Hybrid":0.710976,
+ "Ncd":0.955143,"NcdFingerprint":0.856863}
+```
+
+`{Alpha: a, Beta: b}` moves the weight between them: `Alpha` is `Ncd`'s share,
+`Beta` is `NcdFingerprint`'s, and what is left is split between the two entropy
+terms. `{Alpha: 1, Beta: 0}` scores on bytes alone.
+
+### Comparing files
+
+Nothing here reads the disk, so a corpus of files is assembled in the query.
+`cat` decodes text, which is what you want for logs and source but not for
+binaries — it replaces every byte that is not valid UTF-8. Read those through
+`hex_encode(path; true) | hex_decode`, which round-trips byte for byte:
+
+```console
+$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
+            [["cp", "mv", "cat", "gzip", "tar"][]
+             | {Name: ., Content: bytes("/usr/bin/" + .)}]
+           | [rncd_compare] | sort_by(.Hybrid) | .[0:3] | map({NameA, NameB, Ncd, Hybrid})'
+[{"Hybrid":0.422155,"NameA":"cp","NameB":"mv","Ncd":0.42095},
+ {"Hybrid":0.707604,"NameA":"mv","NameB":"gzip","Ncd":0.951845},
+ {"Hybrid":0.710976,"NameA":"cp","NameB":"gzip","Ncd":0.955143}]
+```
+
+`cp` and `mv` are two builds of nearly the same program, and that is what the
+score says. Any cmdlet that produces paths can feed the corpus, so filtering is
+`get_childitem` and `select` rather than a second set of flags:
+
+```console
+$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
+            [get_childitem("samples"; {Recurse: true, Filter: "*.bin"})
+             | select(.Length > 4096) | {Name: .FullName, Content: bytes(.FullName)}]
+           | [rncd_compare | select(.Hybrid < 0.4)] | length'
+```
+
+Pairs grow as N², so `rncd_compare` refuses a corpus above `MaxPairs` (100,000,
+about 450 values) rather than filling memory with results. `{MaxPairs: 0}`
+lifts the limit.
+
+### Which bytes, exactly
+
+`shared_chunks` answers the follow-up question — *which* bytes two values share:
+
+```console
+$ pwrq -nc 'shared_chunks("the quick brown fox"; "a quick brown fox indeed")'
+{"Chunks":[{"End":3,"Length":3,"Matched":false,"PSTypeName":"Pwrq.SharedChunk",
+            "RefOffset":null,"Start":0},
+           {"End":19,"Length":16,"Matched":true,"PSTypeName":"Pwrq.SharedChunk",
+            "RefOffset":1,"Start":3}],
+ "Coverage":0.842105,"MatchedBytes":16,"MinMatch":16,"PSTypeName":"Pwrq.SharedChunks",
+ "ReferenceLength":24,"Spans":1,"TargetLength":19}
+```
+
+Every matched chunk is a run of the target that occurs verbatim in the
+reference at `RefOffset`; literal chunks have `RefOffset: null`. They tile the
+target with no gaps, so `Coverage` is a fraction of the whole and a similarity
+signal in its own right — and unlike the compression distances, an exact one.
+`{MinMatch: n}` sets how long a run has to be to count: any two values share
+four bytes somewhere, so the default of 16 is what separates structure from
+coincidence.
+
+```console
+$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
+            bytes("/usr/bin/mv") | shared_chunks(bytes("/usr/bin/cp"))
+           | {Coverage, MatchedBytes, Spans}'
+{"Coverage":0.657682,"MatchedBytes":90597,"Spans":1593}
+
+$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
+            bytes("/usr/bin/mv") | shared_chunks(bytes("/usr/bin/cp")).Chunks
+           | map(select(.Matched)) | max_by(.Length)'
+{"End":14615,"Length":2285,"Matched":true,"PSTypeName":"Pwrq.SharedChunk",
+ "RefOffset":16426,"Start":12330}
+```
+
+Two thirds of `mv` occurs verbatim inside `cp`, in 1593 separate runs, the
+longest of them 2285 bytes starting at offset 16426 of `cp` — and because the
+offsets are exact, that claim is checkable with `dd` and `sha256sum`.
+
+The input is the value being explained and the argument is what explains it, so
+the piped form measures a stream of candidates against one reference:
+
+```console
+$ pwrq -nc 'def bytes($p): hex_encode($p; true) | hex_decode;
+            [["bzip2", "cat", "cp", "mv", "tar"][]
+             | {Name: ., Coverage: (bytes("/usr/bin/" + .)
+                                    | shared_chunks(bytes("/usr/bin/cp")).Coverage)}
+             | select(.Coverage > 0.3)]'
+[{"Coverage":0.371972,"Name":"bzip2"},{"Coverage":0.652372,"Name":"cat"},
+ {"Coverage":1,"Name":"cp"},{"Coverage":0.657682,"Name":"mv"}]
+```
+
 ## Censys Platform
 
 These need credentials. `pwrq` reads the same environment variables the Censys
