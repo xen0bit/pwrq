@@ -34,7 +34,6 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/path"
 	"github.com/xen0bit/pwrq/pkg/udf/random"
 	"github.com/xen0bit/pwrq/pkg/udf/rm"
-	"github.com/xen0bit/pwrq/pkg/udf/rncd"
 	"github.com/xen0bit/pwrq/pkg/udf/sh"
 	"github.com/xen0bit/pwrq/pkg/udf/sha1"
 	"github.com/xen0bit/pwrq/pkg/udf/sha224"
@@ -99,6 +98,7 @@ func DefaultRegistry() *Registry {
 	// Register all built-in UDFs
 	reg.Register(find.RegisterFind())
 	reg.Register(cat.RegisterCat())
+	reg.Register(cat.RegisterReadBytes())
 	reg.Register(mkdir.RegisterMkdir())
 	reg.Register(rm.RegisterRm())
 
@@ -242,12 +242,6 @@ func DefaultRegistry() *Registry {
 		reg.Register(opt)
 	}
 	for _, opt := range similarity.RegisterAll() {
-		reg.Register(opt)
-	}
-	// Compression-distance similarity is its own package rather than part of
-	// similarity: it carries a zstd encoder and a match finder, where the rest
-	// of that package is string arithmetic.
-	for _, opt := range rncd.RegisterAll() {
 		reg.Register(opt)
 	}
 	for _, opt := range collection.RegisterAll() {

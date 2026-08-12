@@ -1,4 +1,4 @@
-package webapi
+package queryrun
 
 import (
 	"strings"
@@ -10,25 +10,23 @@ import (
 //
 // Values are marshalled by gojq itself, so numbers, string escapes and key
 // order match what the command line would print; only the whitespace is this
-// package's business.
+// package's business. encoding/json is not a substitute: it escapes <, > and &
+// into \u sequences, and refuses NaN and infinity outright where jq prints
+// null.
 type encoder struct {
 	raw     bool
 	compact bool
 	indent  string
 }
 
-func newEncoder(req *RunRequest) *encoder {
+func newEncoder(req *Request) *encoder {
 	e := &encoder{raw: req.Raw, compact: req.Compact}
 	switch {
 	case req.Compact:
 	case req.Tab:
 		e.indent = "\t"
 	case req.Indent > 0:
-		width := req.Indent
-		if width > 8 {
-			width = 8
-		}
-		e.indent = strings.Repeat(" ", width)
+		e.indent = strings.Repeat(" ", min(req.Indent, 8))
 	default:
 		e.indent = "  "
 	}

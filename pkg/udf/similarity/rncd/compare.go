@@ -46,9 +46,9 @@ func defaultCompareOptions() CompareOptions {
 // query, which is what lets the same cmdlet compare HTTP bodies, decoded
 // blobs or literals.
 //
-//	[cat("a.bin"), cat("b.bin")] | rncd_compare
+//	[read_bytes("a.bin"), read_bytes("b.bin")] | rncd_compare
 //	rncd_compare([$a, $b]; {Alpha: 0.7})
-//	[find("samples"; "file") | {Name: ., Content: cat(.)}] | rncd_compare
+//	[find("samples"; "file") | {Name: ., Content: read_bytes(.)}] | rncd_compare
 func RegisterCompare() gojq.CompilerOption {
 	return gojq.WithIterFunction("rncd_compare", 0, 2, func(v any, args []any) gojq.Iter {
 		results, err := compare(common.SplitInput(v, args, 0))

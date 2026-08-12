@@ -7,6 +7,7 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/xen0bit/pwrq/pkg/jqfmt"
 	"github.com/xen0bit/pwrq/pkg/udf"
 )
 
@@ -50,9 +51,12 @@ func registerTools(server *mcp.Server) {
 		Description: "Check whether a pwrq/jq query parses, and return the formatted program when it does. Cheap: use it to iterate on a query before running it.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args validateQueryArgs) (*mcp.CallToolResult, validateQueryResult, error) {
 		res := validateQuery(args)
-		if res.Error != "" {
+		if !res.OK {
+			// Not a tool error: "this does not parse" is the answer the tool
+			// was asked for, and the caller wants it as an answer rather than
+			// as a failure it has to recover from.
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: "parse error: " + res.Error}},
+				Content: []mcp.Content{&mcp.TextContent{Text: res.Error}},
 			}, res, nil
 		}
 		return &mcp.CallToolResult{
@@ -103,13 +107,18 @@ func listFunctions(args listFunctionsArgs) listFunctionsResult {
 }
 
 // validateQuery parses a program and reports whether it is well-formed.
+//
+// A valid query comes back laid out by jqfmt - the same formatting the browser
+// IDE offers - rather than as the canonical single line. A model that asked
+// whether its query parses is about to read the answer, and a pipeline broken
+// one stage per line is what shows it the shape of what it wrote.
 func validateQuery(args validateQueryArgs) validateQueryResult {
 	if strings.TrimSpace(args.Query) == "" {
-		return validateQueryResult{}
+		return validateQueryResult{Error: "query is empty"}
 	}
 	query, err := gojq.Parse(args.Query)
 	if err != nil {
 		return validateQueryResult{Error: err.Error()}
 	}
-	return validateQueryResult{OK: true, Formatted: query.String()}
+	return validateQueryResult{OK: true, Formatted: jqfmt.Format(query)}
 }

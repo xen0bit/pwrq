@@ -15,7 +15,8 @@ func GetFunctionMetadata() []FunctionMetadata {
 	return []FunctionMetadata{
 		// File operations
 		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("path"; "file")`, `find("path"; "dir")`}},
-		{"cat", 0, 1, "Read and return contents of a file (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`}},
+		{"cat", 0, 2, "Read and return contents of a file, decoded as text (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`, `cat("app.log"; {tail: 20})`}},
+		{"read_bytes", 0, 1, "Read a file's bytes verbatim, with no text decoding", "File Operations", []string{`read_bytes("a.bin") | sha256`, `"a.bin" | read_bytes | length`}},
 		{"mkdir", 1, 1, "Create a directory (creates parent directories if needed)", "File Operations", []string{`mkdir("/tmp/mydir")`, `mkdir("nested/path/to/dir")`}},
 		{"rm", 2, 2, "Remove a file or folder (path, type: 'file' or 'folder')", "File Operations", []string{`rm("/tmp/file.txt"; "file")`, `rm("/tmp/mydir"; "folder")`}},
 
@@ -220,8 +221,8 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"hamming_distance", 2, 2, "Positions at which two equal-length strings differ", "Similarity", []string{`hamming_distance("karolin"; "kathrin")`}},
 		{"jaccard", 2, 2, "Jaccard similarity of two strings or arrays, 0 to 1", "Similarity", []string{`jaccard([1,2,3]; [2,3,4])`}},
 		{"deep_diff", 2, 2, "Structural JSON diff as {added, removed, changed}", "Similarity", []string{`deep_diff({a:1}; {a:2, b:3})`}},
-		{"rncd_compare", 0, 2, "One object per pair of values, scored by compression distance and entropy", "Similarity", []string{`[$a, $b, $c] | rncd_compare`, `[cat("a.bin"), cat("b.bin")] | rncd_compare | .Hybrid`, `[find("samples"; "file") | {Name: ., Content: cat(.)}] | [rncd_compare] | sort_by(.Hybrid)`}},
-		{"shared_chunks", 1, 3, "Byte ranges of one value that occur verbatim in another, plus coverage", "Similarity", []string{`shared_chunks("the quick brown fox"; "the quick red fox")`, `cat("suspect.bin") | shared_chunks(cat("known.bin")) | .Coverage`}},
+		{"rncd_compare", 0, 2, "One object per pair of values, scored by compression distance and entropy", "Similarity", []string{`[$a, $b, $c] | rncd_compare`, `[read_bytes("a.bin"), read_bytes("b.bin")] | rncd_compare | .Hybrid`, `[find("samples"; "file") | {Name: ., Content: read_bytes(.)}] | [rncd_compare] | sort_by(.Hybrid)`}},
+		{"shared_chunks", 1, 3, "Byte ranges of one value that occur verbatim in another, plus coverage", "Similarity", []string{`shared_chunks("the quick brown fox"; "the quick red fox")`, `read_bytes("suspect.bin") | shared_chunks(read_bytes("known.bin")) | .Coverage`}},
 
 		// YAML
 		{"yaml_parse", 0, 2, "A YAML document to a JSON value", "YAML", []string{`"name: ada\nrole: engineer\n" | yaml_parse`}},

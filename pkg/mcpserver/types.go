@@ -87,7 +87,8 @@ type validateQueryArgs struct {
 	Query string `json:"query" jsonschema:"the pwrq/jq program to parse"`
 }
 
-// validateQueryResult reports the answer, and the formatted query when valid.
+// validateQueryResult reports the answer, and the query laid out over multiple
+// lines when it is valid.
 type validateQueryResult struct {
 	OK        bool   `json:"ok"`
 	Error     string `json:"error,omitempty"`
