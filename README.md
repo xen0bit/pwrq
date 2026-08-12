@@ -156,6 +156,40 @@ $ pwrq -c 'where_object(.; {property: "Name", operator: "like", value: "A*"})'
 A script block is jq — any expression, not a subset. Note that jq's own `select`
 is usually shorter: `map(select(.Age > 26))`.
 
+### The Censys Platform
+
+`pwrq` speaks the Censys Platform API through Censys' own Go SDK, with a
+vocabulary that follows their CLI: view an asset, enrich a host, search,
+aggregate, run CensEye, manage collections and tags, read the organization and
+its credits.
+
+```console
+$ pwrq -c 'get_censys_host("1.1.1.1") | .resource | {ip, service_count}'
+$ pwrq -c '[search_censys("host.services.protocol=SSH")] | length'
+$ pwrq -c 'get_censys_aggregate("host.services.port=443"; "host.location.country")'
+$ pwrq -c '[get_censys_tag] | map(.name)'
+```
+
+Credentials come from `CENSYS_PLATFORM_TOKEN` and `CENSYS_PLATFORM_ORGID` — the
+names the Platform documents, so a shell set up for `censys` needs no change —
+or from `{Token, OrganizationId}` on any cmdlet, which is what lets one query
+reach two organizations. `get_censys_context` reports what was resolved, and
+never the token.
+
+Search emits one object per hit, so `select`, `map` and `group_by` work on
+results directly. It stops after one page unless asked for more, because each
+page costs credits:
+
+```console
+$ pwrq -c '[search_censys("host.location.country=\"Chile\""; {Pages: 3})
+           | .host_v1.resource.ip]'
+```
+
+Objects keep the API's own field names, so what the Censys documentation and
+CenQL call `autonomous_system` is what you write here. The payload is the SDK's
+model of the response, so a field a newer API version adds arrives by upgrading
+`censys-sdk-go`.
+
 ### Codecs, hashes and crypto
 
 Encodings (base64/32/85, hex, binary, url, html), hashes (md5 through sha512,

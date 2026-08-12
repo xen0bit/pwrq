@@ -453,6 +453,87 @@ $ pwrq -nc 'compare_object([{id:1,v:"2.4.0"}]; [{id:1,v:"2.4.1"}];
 Matching on a property is what makes the second one report a match: the rows
 differ, but they are the same row.
 
+## Censys Platform
+
+These need credentials. `pwrq` reads the same environment variables the Censys
+Platform documents, so a shell already set up for `censys` or for the Go SDK
+works unchanged:
+
+```console
+$ export CENSYS_PLATFORM_TOKEN=... CENSYS_PLATFORM_ORGID=...
+$ pwrq -c 'get_censys_context'
+{"HasToken":true,"OrgIdSource":"CENSYS_PLATFORM_ORGID","OrganizationId":"…",
+ "PSTypeName":"Censys.Platform.Context","ServerUrl":"https://api.platform.censys.io",
+ "TimeoutSeconds":30,"TokenSource":"CENSYS_PLATFORM_TOKEN"}
+```
+
+`get_censys_context` never prints the token itself — query output ends up in
+logs and scrollback.
+
+Looking at one asset, the way `censys view` and `censys enrich` do:
+
+```console
+$ pwrq -c 'get_censys_host("1.1.1.1") | .resource | {ip, service_count}'
+$ pwrq -c '"1.1.1.1" | get_censys_enrichment'
+$ pwrq -c 'get_censys_host("1.1.1.1"; {AtTime: "2026-01-01T00:00:00Z"})'
+$ pwrq -r 'get_censys_certificate($fp; {Raw: true})'   # the PEM text
+```
+
+Searching emits one object per hit, so jq's own verbs apply directly:
+
+```console
+$ pwrq -c '[search_censys("host.services.protocol=SSH")] | length'
+$ pwrq -c '[search_censys("host.location.country=\"Chile\""; {Pages: 3})
+           | .host_v1.resource.ip]'
+$ pwrq -c 'get_censys_aggregate("host.services.port=443"; "host.location.country")
+           | .buckets[0]'
+```
+
+A search costs credits per page, so it stops after one page unless you say
+otherwise. `{Pages: 3}` fetches three, `{Pages: 0}` follows the cursor to the
+end.
+
+Cmdlets compose with the rest of pwrq, which is the point of having them here
+rather than shelling out to `censys`:
+
+```console
+$ pwrq -c '[search_censys("host.services.port=8080")
+           | .host_v1.resource.ip
+           | select(is_public_ip)] | length'
+
+$ pwrq -c '[search_censys("host.services.protocol=SSH")
+           | .host_v1.resource.location.country]
+          | value_counts'
+```
+
+Tagging what a search found, which is `censys tags assign` over a result set:
+
+```console
+$ pwrq -c '[search_censys("host.labels.value=\"c2\"")
+           | .host_v1.resource.ip
+           | add_censys_tag_assignment($tag)] | length'
+
+$ pwrq -c '[get_censys_tag] | map({name, id})'
+$ pwrq -c '[get_censys_tag_assignment($tag) | .asset_id]'
+```
+
+CensEye is asynchronous, so starting a job and reading it are two cmdlets
+rather than one that blocks:
+
+```console
+$ pwrq -c 'new_censys_censeye_job("1.1.1.1") | .job_id'
+$ pwrq -c 'get_censys_censeye_job($id) | .status'
+$ pwrq -c '[get_censys_censeye_result($id)] | length'
+```
+
+Every cmdlet takes `{Token, OrganizationId, ServerUrl, Timeout}` as options, so
+one query can reach two organizations:
+
+```console
+$ pwrq -c '[get_censys_credits({Scope: "user"}),
+            get_censys_credits({OrganizationId: $other})]'
+```
+
 ## Aliases
 
 ```console

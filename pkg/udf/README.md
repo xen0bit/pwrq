@@ -153,3 +153,25 @@ if err := pipeline.BindParameters(optsMap, &opts); err != nil { ... }
 
 Names match case-insensitively, as PowerShell's parameters do, and JSON arrays
 convert to typed slices.
+
+`BindParameters` ignores names the struct does not declare, which is fine for a
+cmdlet whose options are all local flags and wrong for one that talks to an
+API — there, a misspelled `{PageSze: 5}` would quietly fetch the default page
+and the caller would believe they had asked for something. The `censys` package
+therefore wraps it in a `bindOptions` that rejects unknown names first; a
+cmdlet whose options change what a remote call *asks for* should do the same.
+
+## Remote APIs
+
+`censys` is the one family of cmdlets that authenticates against a third-party
+service, and it settles three questions the others never face:
+
+- **Credentials** come from the environment variables the vendor documents, or
+  from per-call options so one query can reach two accounts. They are never
+  echoed back into the pipeline — query output ends up in logs.
+- **Paging** is opt-in. A cursor followed to its end is an unbounded number of
+  billed requests, so the list cmdlets fetch one page unless `{Pages: n}` says
+  otherwise, and `{Pages: 0}` is how you ask for all of them.
+- **Field names** stay the vendor's. Renaming `autonomous_system` to
+  `AutonomousSystem` would be a second vocabulary for a schema the user already
+  knows from the service's own query language.

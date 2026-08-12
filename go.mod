@@ -1,8 +1,9 @@
 module github.com/xen0bit/pwrq
 
-go 1.24.2
+go 1.25.10
 
 require (
+	github.com/censys/censys-sdk-go v0.25.27
 	github.com/glaslos/ssdeep v0.4.0
 	github.com/google/go-cmp v0.7.0
 	github.com/itchyny/go-yaml v0.0.0-20251001235044-fca9a0999f15
@@ -10,6 +11,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.19
 	golang.org/x/crypto v0.46.0
+	golang.org/x/net v0.47.0
 	golang.org/x/text v0.32.0
 	oss.terrastruct.com/d2 v0.7.1
 )
@@ -33,7 +35,6 @@ require (
 	github.com/yuin/goldmark v1.7.4 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
 	golang.org/x/image v0.20.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	oss.terrastruct.com/util-go v0.0.0-20250213174338-243d8661088a // indirect
