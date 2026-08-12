@@ -1,15 +1,11 @@
 package webapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
-	"strings"
 	"time"
 
-	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/queryrun"
 )
 
 // Limits the page runs under. A browser tab has no Ctrl-C: a query like
@@ -91,291 +87,37 @@ func Run(request string) string {
 }
 
 func run(req *RunRequest) RunResponse {
-	var resp RunResponse
-
-	if strings.TrimSpace(req.Query) == "" {
-		resp.Error = "query is empty"
-		resp.Kind = "parse"
-		return resp
-	}
-
 	e := getEngine()
 
-	query, err := e.prepare(req.Query)
-	if err != nil {
-		resp.Error = err.Error()
-		resp.Kind = "parse"
-		return resp
+	args := make([]queryrun.Arg, len(req.Args))
+	for i, arg := range req.Args {
+		args[i] = queryrun.Arg{Name: arg.Name, Value: arg.Value}
 	}
 
-	names, values, err := bindArgs(req.Args)
-	if err != nil {
-		resp.Error = err.Error()
-		resp.Kind = "args"
-		return resp
-	}
+	ctx := newDeadline(time.Duration(queryrun.Clamp(req.TimeoutMs, defaultTimeoutMs, maxTimeoutMs)) * time.Millisecond)
+	res := e.runner.Run(ctx, &queryrun.Request{
+		Query:          req.Query,
+		Input:          req.Input,
+		Slurp:          req.Slurp,
+		NullInput:      req.NullInput,
+		Raw:            req.Raw,
+		Compact:        req.Compact,
+		Indent:         req.Indent,
+		Tab:            req.Tab,
+		Args:           args,
+		MaxResults:     queryrun.Clamp(req.Limit, defaultMaxResults, maxMaxResults),
+		MaxOutputBytes: maxOutputBytes,
+	})
 
-	inputs, err := decodeInputs(req.Input)
-	if err != nil {
-		resp.Error = fmt.Sprintf("input is not JSON: %v", err)
-		resp.Kind = "input"
-		return resp
+	return RunResponse{
+		Values:     res.Values,
+		Count:      res.Count,
+		InputCount: res.InputCount,
+		Truncated:  res.Truncated,
+		Halted:     res.Halted,
+		Error:      res.Error,
+		Kind:       res.Kind,
 	}
-	resp.InputCount = len(inputs)
-
-	switch {
-	case req.NullInput:
-		// jq -n: the inputs are still readable through `input`/`inputs`, they
-		// are just not fed to the program.
-		inputs = nil
-	case req.Slurp:
-		all := make([]any, len(inputs))
-		copy(all, inputs)
-		inputs = []any{all}
-	}
-
-	options := append([]gojq.CompilerOption{}, e.options...)
-	if len(names) > 0 {
-		options = append(options, gojq.WithVariables(names))
-	}
-	// `input` and `inputs` read whatever the program was not handed, which is
-	// how jq behaves and what makes -n useful on a multi-value input.
-	remaining := &sliceIter{}
-	options = append(options, gojq.WithInputIter(remaining))
-	// A browser tab has no environment. Reporting the WASM runtime's is
-	// meaningless, so `env` and `$ENV` are empty rather than misleading.
-	options = append(options, gojq.WithEnvironLoader(func() []string { return nil }))
-
-	code, err := gojq.Compile(query, options...)
-	if err != nil {
-		resp.Error = err.Error()
-		resp.Kind = "compile"
-		return resp
-	}
-
-	limit := req.Limit
-	if limit <= 0 {
-		limit = defaultMaxResults
-	}
-	if limit > maxMaxResults {
-		limit = maxMaxResults
-	}
-
-	timeout := req.TimeoutMs
-	if timeout <= 0 {
-		timeout = defaultTimeoutMs
-	}
-	if timeout > maxTimeoutMs {
-		timeout = maxTimeoutMs
-	}
-	ctx := newDeadline(time.Duration(timeout) * time.Millisecond)
-
-	enc := newEncoder(req)
-	program := inputs
-	if req.NullInput {
-		// The program runs once, on null; `inputs` still sees the file.
-		program = []any{nil}
-		remaining.values = decodedOrEmpty(req.Input)
-	}
-
-	bytesOut := 0
-	for i, input := range program {
-		// Whatever this run has not consumed yet is what `input` returns.
-		if !req.NullInput {
-			remaining.values = program[i+1:]
-			remaining.pos = 0
-		}
-
-		iter := code.RunWithContext(ctx, input, values...)
-		for {
-			v, ok := iter.Next()
-			if !ok {
-				break
-			}
-
-			if err, isErr := v.(error); isErr {
-				// `halt` and `halt_error` end the run deliberately, so what
-				// they carry is the message, not a failure of the page. Match
-				// the concrete type: the interface every gojq error satisfies
-				// would swallow `error("boom")` as a clean stop.
-				if halt, ok := err.(*gojq.HaltError); ok {
-					resp.Halted = true
-					resp.Kind = "halt"
-					resp.Error = haltMessage(halt)
-					return resp
-				}
-				if ctx.expired() {
-					resp.Kind = "timeout"
-					resp.Error = fmt.Sprintf("stopped after %dms; the query is still running", timeout)
-					return resp
-				}
-				resp.Kind = "runtime"
-				resp.Error = err.Error()
-				return resp
-			}
-
-			text, err := enc.encode(v)
-			if err != nil {
-				resp.Kind = "runtime"
-				resp.Error = err.Error()
-				return resp
-			}
-			resp.Values = append(resp.Values, text)
-			resp.Count++
-			bytesOut += len(text)
-
-			if resp.Count >= limit {
-				resp.Truncated = true
-				resp.Error = fmt.Sprintf("stopped after %d results; the query may produce an unbounded stream", limit)
-				resp.Kind = "limit"
-				return resp
-			}
-			if bytesOut >= maxOutputBytes {
-				resp.Truncated = true
-				resp.Error = fmt.Sprintf("stopped after %d MB of output", maxOutputBytes>>20)
-				resp.Kind = "limit"
-				return resp
-			}
-		}
-	}
-
-	return resp
-}
-
-// bindArgs turns named JSON arguments into the variable names and values gojq
-// wants. Names may be written with or without the dollar.
-func bindArgs(args []Arg) ([]string, []any, error) {
-	if len(args) == 0 {
-		return nil, nil, nil
-	}
-	names := make([]string, 0, len(args))
-	values := make([]any, 0, len(args))
-	seen := make(map[string]bool, len(args))
-
-	for _, arg := range args {
-		name := strings.TrimSpace(arg.Name)
-		if name == "" {
-			continue
-		}
-		if !strings.HasPrefix(name, "$") {
-			name = "$" + name
-		}
-		if !validVariableName(name) {
-			return nil, nil, fmt.Errorf("%q is not a valid variable name", arg.Name)
-		}
-		if seen[name] {
-			return nil, nil, fmt.Errorf("%s is bound twice", name)
-		}
-		seen[name] = true
-
-		text := strings.TrimSpace(arg.Value)
-		if text == "" {
-			text = "null"
-		}
-		dec := json.NewDecoder(strings.NewReader(text))
-		dec.UseNumber()
-		var value any
-		if err := dec.Decode(&value); err != nil {
-			return nil, nil, fmt.Errorf("%s is not JSON: %w", name, err)
-		}
-		names = append(names, name)
-		values = append(values, value)
-	}
-	return names, values, nil
-}
-
-func validVariableName(name string) bool {
-	if len(name) < 2 || name[0] != '$' {
-		return false
-	}
-	for i := 1; i < len(name); i++ {
-		c := name[i]
-		switch {
-		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c == '_':
-		case c >= '0' && c <= '9' && i > 1:
-		default:
-			return false
-		}
-	}
-	return true
-}
-
-// decodeInputs reads the sample input as a stream of JSON values, matching how
-// the CLI reads a file: `{"a":1} {"a":2}` is two inputs, not a syntax error.
-// Empty input is a single null, so a generator query like `[limit(3; repeat(1))]`
-// still runs.
-func decodeInputs(s string) ([]any, error) {
-	if strings.TrimSpace(s) == "" {
-		return []any{nil}, nil
-	}
-
-	dec := json.NewDecoder(bytes.NewReader([]byte(s)))
-	// The CLI decodes with UseNumber() and so must this: json.Number is a
-	// fmt.Stringer, and without it every number in the input is silently
-	// turned into a string somewhere downstream.
-	dec.UseNumber()
-
-	var inputs []any
-	for {
-		var v any
-		if err := dec.Decode(&v); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
-		inputs = append(inputs, v)
-	}
-	if len(inputs) == 0 {
-		return []any{nil}, nil
-	}
-	return inputs, nil
-}
-
-// decodedOrEmpty is decodeInputs for the -n case, where a malformed input has
-// already been reported and must not stop the program from running.
-func decodedOrEmpty(s string) []any {
-	inputs, err := decodeInputs(s)
-	if err != nil {
-		return nil
-	}
-	if strings.TrimSpace(s) == "" {
-		return nil
-	}
-	return inputs
-}
-
-// sliceIter feeds `input` and `inputs` from a slice.
-type sliceIter struct {
-	values []any
-	pos    int
-}
-
-func (s *sliceIter) Next() (any, bool) {
-	if s.pos >= len(s.values) {
-		return nil, false
-	}
-	v := s.values[s.pos]
-	s.pos++
-	return v, true
-}
-
-// haltMessage renders what a halt carried, mirroring how the CLI writes it to
-// stderr: a string goes out as text, anything else as JSON, and a bare `halt`
-// carries nothing at all.
-func haltMessage(halt *gojq.HaltError) string {
-	v := halt.Value()
-	if v == nil {
-		return ""
-	}
-	if s, ok := v.(string); ok {
-		return s
-	}
-	encoded, err := gojq.Marshal(v)
-	if err != nil {
-		return halt.Error()
-	}
-	return string(encoded)
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +177,3 @@ func (d *deadline) Err() error {
 }
 
 func (d *deadline) Value(any) any { return nil }
-
-// expired reports whether the deadline is what stopped the run.
-func (d *deadline) expired() bool { return d.closed }

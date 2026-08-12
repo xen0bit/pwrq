@@ -1,9 +1,11 @@
 package mcpserver
 
 import (
+	"os"
 	"sync"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/queryrun"
 	"github.com/xen0bit/pwrq/pkg/udf"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -12,14 +14,13 @@ import (
 // free - alias resolution compiles a program - and a server may serve hundreds
 // of calls, so it is built once.
 //
-// The registry, its compiler options and the alias definitions are immutable
-// after construction, so concurrent queries share them freely. What is not
-// shared is the session state: the cmdlets read it through a package-level
-// global, and the go-sdk dispatches tool calls asynchronously, so a fresh,
-// private session is installed under execMu for the duration of each run.
+// The runner and everything it holds are immutable after construction, so
+// concurrent queries share them freely. What is not shared is the session
+// state: the cmdlets read it through a package-level global, and the go-sdk
+// dispatches tool calls asynchronously, so a fresh, private session is
+// installed under execMu for the duration of each run.
 type engine struct {
-	options   []gojq.CompilerOption
-	aliasDefs []*gojq.FuncDef
+	runner *queryrun.Runner
 
 	// execMu serializes query execution. Every run installs its own session
 	// state into the shared global; without the mutex two concurrent runs
@@ -48,10 +49,24 @@ func getEngine() *engine {
 		// can reach the UDFs.
 		common.SetScriptBlockOptions(reg.Options())
 
-		eng = &engine{
-			options:   reg.Options(),
-			aliasDefs: aliasDefs,
-		}
+		options := append([]gojq.CompilerOption{}, reg.Options()...)
+		options = append(options, gojq.WithEnvironLoader(os.Environ))
+		// debug and stderr are registered here exactly as the CLI registers
+		// them; gojq has no such builtins. stderr is the only safe sink: it
+		// never corrupts the JSON-RPC channel the client is listening on.
+		options = append(options,
+			gojq.WithFunction("debug", 0, 0, writeToStderr),
+			gojq.WithFunction("stderr", 0, 0, writeToStderr),
+		)
+
+		eng = &engine{runner: &queryrun.Runner{Options: options, AliasDefs: aliasDefs}}
 	})
 	return eng
+}
+
+func writeToStderr(v any, _ []any) any {
+	if b, err := gojq.Marshal(v); err == nil {
+		_, _ = os.Stderr.Write(append(b, '\n'))
+	}
+	return v
 }

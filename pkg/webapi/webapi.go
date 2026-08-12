@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/queryrun"
 	"github.com/xen0bit/pwrq/pkg/graph"
 	"github.com/xen0bit/pwrq/pkg/jqfmt"
 	"github.com/xen0bit/pwrq/pkg/udf"
@@ -65,6 +66,11 @@ type engine struct {
 	aliasDefs []*gojq.FuncDef
 	cmdlets   map[string]bool
 	names     []string
+
+	// runner evaluates against the vocabulary above. It is the same runner the
+	// MCP server uses, so the page and an agent get the same jq semantics out
+	// of the same query.
+	runner *queryrun.Runner
 }
 
 var (
@@ -96,23 +102,10 @@ func getEngine() *engine {
 		// as the surrounding query.
 		common.SetScriptBlockOptions(e.options)
 
+		e.runner = &queryrun.Runner{Options: e.options, AliasDefs: e.aliasDefs}
 		eng = e
 	})
 	return eng
-}
-
-// prepare parses a query and prepends the alias definitions, which is the only
-// point at which `ft` can come to mean format_table: gojq binds function names
-// at compile time and never consults session state.
-func (e *engine) prepare(src string) (*gojq.Query, error) {
-	query, err := gojq.Parse(src)
-	if err != nil {
-		return nil, err
-	}
-	if len(e.aliasDefs) > 0 {
-		query.FuncDefs = append(append([]*gojq.FuncDef{}, e.aliasDefs...), query.FuncDefs...)
-	}
-	return query, nil
 }
 
 // ---------------------------------------------------------------------------
