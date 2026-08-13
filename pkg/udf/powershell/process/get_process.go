@@ -87,23 +87,8 @@ func RegisterGetProcess() gojq.CompilerOption {
 			results[i] = p
 		}
 
-		return &anySliceIter{values: results, index: 0}
+		return common.SliceIter(results)
 	})
-}
-
-// anySliceIter is an iterator over a slice of any
-type anySliceIter struct {
-	values []any
-	index  int
-}
-
-func (iter *anySliceIter) Next() (any, bool) {
-	if iter.index >= len(iter.values) {
-		return nil, false
-	}
-	value := iter.values[iter.index]
-	iter.index++
-	return value, true
 }
 
 // parseGetProcessOptions parses options from a map

@@ -103,7 +103,7 @@ func RegisterGetCommand() gojq.CompilerOption {
 		for i, c := range matches {
 			results[i] = c.toObject()
 		}
-		return &sliceIter{values: results}
+		return common.SliceIter(results)
 	})
 }
 
@@ -196,18 +196,4 @@ func args(n int) string {
 		parts[i] = fmt.Sprintf("arg%d", i+1)
 	}
 	return strings.Join(parts, "; ")
-}
-
-type sliceIter struct {
-	values []any
-	index  int
-}
-
-func (it *sliceIter) Next() (any, bool) {
-	if it.index >= len(it.values) {
-		return nil, false
-	}
-	v := it.values[it.index]
-	it.index++
-	return v, true
 }

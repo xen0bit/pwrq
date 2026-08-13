@@ -66,13 +66,20 @@ Because it is JSON, everything jq knows how to do applies — `select`, `map`,
 ### One value or a stream
 
 A cmdlet either emits a single value or streams one value per result, and which
-it does decides whether you collect with `[...]`. `get_childitem` and `find`
-stream; `select_string` returns one array:
+it does decides whether you collect with `[...]`. The rule is that a cmdlet
+enumerating something — files, processes, services, matching lines — streams,
+and one computing a single answer does not:
 
 ```console
-$ pwrq -c '[get_childitem(".")] | map(.Name) | length'   # stream: collect it
-$ pwrq -c 'select_string("src"; "TODO") | map(.Path)'    # array: already collected
+$ pwrq -c '[get_childitem(".")] | map(.Name) | length'          # stream: collect it
+$ pwrq -c '[select_string("src"; "TODO")] | map(.Path)'         # stream: collect it
+$ pwrq -c 'get_childitem(".") | select(.Length > 1000) | .Name' # or filter it as it goes
+$ pwrq -nc 'sha256("go.mod")'                                   # one value: no brackets
 ```
+
+Because the stream is lazy, filtering it costs only what it reads:
+`first(select_string("."; "needle"))` stops at the first match rather than
+grepping the whole tree and throwing the rest away.
 
 Collecting a stream is the common case, and the mistake it guards against is
 worth spelling out: without the brackets, `get_childitem(".") | map(...)` runs
@@ -170,7 +177,7 @@ Archives, searching a tree, and writing files back out:
 $ pwrq -nc 'read_archive("release.zip") | map(select(.Length > 100000) | .Name)'
 $ pwrq -nc 'compress_archive("src"; "src.tar.gz") | .Length'
 $ pwrq -nc 'expand_archive("release.zip"; "./out") | length'
-$ pwrq -nc 'select_string("src"; "TODO"; {Include: "*.go", Context: 1}) | length'
+$ pwrq -nc '[select_string("src"; "TODO"; {Include: "*.go", Context: 1})] | length'
 $ pwrq -nc '"deploy finished" | add_content("run.log") | .Length'
 ```
 
