@@ -100,7 +100,7 @@ func resolvePath(opts ResolvePathOptions) ([]any, error) {
 
 // RegisterResolvePath registers the resolve_path function with gojq
 func RegisterResolvePath() gojq.CompilerOption {
-	return gojq.WithIterFunction("resolve_path", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("resolve_path", 0, 2, func(v any, args []any) gojq.Iter {
 		opts, err := parseResolvePathArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

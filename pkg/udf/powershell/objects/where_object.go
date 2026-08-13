@@ -87,7 +87,7 @@ type WhereObjectOptions struct {
 //
 // Usage: where_object(objects) or where_object(objects; options)
 func RegisterWhereObject() gojq.CompilerOption {
-	return gojq.WithFunction("where_object", 1, 2, func(input any, args []any) any {
+	return common.WithFunction("where_object", 1, 2, func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseWhereObjectArgs(args)
 		if err != nil {

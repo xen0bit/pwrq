@@ -6,6 +6,7 @@ import (
 	"github.com/censys/censys-sdk-go/models/components"
 	"github.com/censys/censys-sdk-go/models/operations"
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // RegisterGetCollection registers get_censys_collection.
@@ -15,7 +16,7 @@ import (
 // CollectionId option wants.
 func RegisterGetCollection() gojq.CompilerOption {
 	const op = "get_censys_collection"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		uid, rawOpts, err := optionalIdentifier(op, "CollectionId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -96,7 +97,7 @@ type collectionBody struct {
 // RegisterNewCollection registers new_censys_collection.
 func RegisterNewCollection() gojq.CompilerOption {
 	const op = "new_censys_collection"
-	return gojq.WithFunction(op, 0, 1, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 1, func(v any, args []any) any {
 		props, err := propertyArgs(op, v, args)
 		if err != nil {
 			return err
@@ -142,7 +143,7 @@ func RegisterNewCollection() gojq.CompilerOption {
 // are both required, and omitting Description clears it.
 func RegisterSetCollection() gojq.CompilerOption {
 	const op = "set_censys_collection"
-	return gojq.WithFunction(op, 1, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 1, 2, func(v any, args []any) any {
 		uid, props, err := identifier(op, "CollectionId", v, args)
 		if err != nil {
 			return err
@@ -188,7 +189,7 @@ func RegisterSetCollection() gojq.CompilerOption {
 // pipeline instead of vanishing into a null.
 func RegisterRemoveCollection() gojq.CompilerOption {
 	const op = "remove_censys_collection"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		uid, rawOpts, err := identifier(op, "CollectionId", v, args)
 		if err != nil {
 			return err
@@ -213,7 +214,7 @@ func RegisterRemoveCollection() gojq.CompilerOption {
 // changed in a collection, one object per event.
 func RegisterGetCollectionEvent() gojq.CompilerOption {
 	const op = "get_censys_collection_event"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		uid, rawOpts, err := identifier(op, "CollectionId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)

@@ -186,7 +186,7 @@ func newItem(opts NewItemOptions) (any, error) {
 
 // RegisterNewItem registers the new_item function with gojq
 func RegisterNewItem() gojq.CompilerOption {
-	return gojq.WithIterFunction("new_item", 0, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("new_item", 0, 3, func(v any, args []any) gojq.Iter {
 		opts, err := parseNewItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

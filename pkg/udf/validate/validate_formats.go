@@ -73,7 +73,7 @@ func RegisterIsCIDR() gojq.CompilerOption {
 
 // RegisterIsPort registers is_port, whether a number is a valid port (1-65535).
 func RegisterIsPort() gojq.CompilerOption {
-	return gojq.WithFunction("is_port", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("is_port", 0, 1, func(v any, args []any) any {
 		input := v
 		if len(args) > 0 {
 			input = args[0]

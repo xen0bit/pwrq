@@ -11,7 +11,7 @@ import (
 
 // RegisterSHA256 registers the sha256 function with gojq
 func RegisterSHA256() gojq.CompilerOption {
-	return gojq.WithFunction("sha256", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("sha256", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("sha256: %v", err), nil)

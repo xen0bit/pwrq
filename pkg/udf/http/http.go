@@ -18,7 +18,7 @@ import (
 
 // RegisterHTTP registers the http function with gojq
 func RegisterHTTP() gojq.CompilerOption {
-	return gojq.WithFunction("http", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("http", 0, 2, func(v any, args []any) any {
 		var method = "POST" // default method
 		var url string
 
@@ -233,7 +233,7 @@ func RegisterHTTP() gojq.CompilerOption {
 
 // RegisterHTTPServe registers the http_serve function with gojq
 func RegisterHTTPServe() gojq.CompilerOption {
-	return gojq.WithFunction("http_serve", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("http_serve", 2, 2, func(v any, args []any) any {
 		// Parse arguments: host, port
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: expected 2 arguments (host, port), got %d", len(args)), nil)

@@ -12,7 +12,7 @@ import (
 
 // RegisterMean registers mean, the arithmetic average.
 func RegisterMean() gojq.CompilerOption {
-	return gojq.WithFunction("mean", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("mean", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("mean: %v", err), nil)
@@ -32,7 +32,7 @@ func mean(values []float64) float64 {
 // RegisterMedian registers median, the middle value of a sorted array (the
 // average of the two middles when the length is even).
 func RegisterMedian() gojq.CompilerOption {
-	return gojq.WithFunction("median", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("median", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("median: %v", err), nil)
@@ -53,7 +53,7 @@ func median(values []float64) float64 {
 // RegisterMode registers mode, the most frequent value. It works on any
 // values; on a tie it reports the value that appeared first.
 func RegisterMode() gojq.CompilerOption {
-	return gojq.WithFunction("mode", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("mode", 0, 1, func(v any, args []any) any {
 		arr := arrInput(v, args)
 		if len(arr) == 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("mode: expected a non-empty array"), nil)
@@ -82,7 +82,7 @@ func RegisterMode() gojq.CompilerOption {
 
 // RegisterVariance registers variance, the sample variance (n-1).
 func RegisterVariance() gojq.CompilerOption {
-	return gojq.WithFunction("variance", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("variance", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("variance: %v", err), nil)
@@ -106,7 +106,7 @@ func variance(values []float64) float64 {
 
 // RegisterStdev registers stdev, the square root of the sample variance.
 func RegisterStdev() gojq.CompilerOption {
-	return gojq.WithFunction("stdev", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("stdev", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("stdev: %v", err), nil)
@@ -118,7 +118,7 @@ func RegisterStdev() gojq.CompilerOption {
 // RegisterPercentile registers percentile, the value below which p percent of
 // the data falls (linear interpolation between closest ranks, p in 0..100).
 func RegisterPercentile() gojq.CompilerOption {
-	return gojq.WithFunction("percentile", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("percentile", 1, 2, func(v any, args []any) any {
 		p, ok := common.ToFloat64(common.BindValue(args[0]))
 		if !ok || p < 0 || p > 100 {
 			return common.MakeUDFErrorResult(fmt.Errorf("percentile: p must be a number from 0 to 100, got %v", args[0]), nil)
@@ -163,7 +163,7 @@ func percentileAt(sorted []float64, p float64) float64 {
 // RegisterPercentileRank registers percentile_rank, the percentage of an
 // array's values at or below a given value: percentile_rank(arr; value).
 func RegisterPercentileRank() gojq.CompilerOption {
-	return gojq.WithFunction("percentile_rank", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("percentile_rank", 1, 2, func(v any, args []any) any {
 		want, ok := common.ToFloat64(common.BindValue(args[0]))
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("percentile_rank: value must be a number, got %T", args[0]), nil)
@@ -186,7 +186,7 @@ func RegisterPercentileRank() gojq.CompilerOption {
 // RegisterQuartiles registers quartiles, the five-number summary
 // [minimum, q1, median, q3, maximum] of an array.
 func RegisterQuartiles() gojq.CompilerOption {
-	return gojq.WithFunction("quartiles", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("quartiles", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("quartiles: %v", err), nil)
@@ -202,7 +202,7 @@ func RegisterQuartiles() gojq.CompilerOption {
 
 // RegisterIQR registers iqr, the interquartile range (q3 - q1) of an array.
 func RegisterIQR() gojq.CompilerOption {
-	return gojq.WithFunction("iqr", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("iqr", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("iqr: %v", err), nil)
@@ -215,7 +215,7 @@ func RegisterIQR() gojq.CompilerOption {
 // RegisterMAD registers mad, the median absolute deviation: the median of the
 // distances from each value to the median.
 func RegisterMAD() gojq.CompilerOption {
-	return gojq.WithFunction("mad", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("mad", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("mad: %v", err), nil)
@@ -239,7 +239,7 @@ func RegisterMAD() gojq.CompilerOption {
 // RegisterSummary registers summary, the descriptive statistics of an array in
 // one call.
 func RegisterSummary() gojq.CompilerOption {
-	return gojq.WithFunction("summary", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("summary", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("summary: %v", err), nil)
@@ -261,7 +261,7 @@ func RegisterSummary() gojq.CompilerOption {
 // RegisterGeomean registers geomean, the geometric mean of an array of
 // positive numbers.
 func RegisterGeomean() gojq.CompilerOption {
-	return gojq.WithFunction("geomean", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("geomean", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("geomean: %v", err), nil)
@@ -280,7 +280,7 @@ func RegisterGeomean() gojq.CompilerOption {
 // RegisterHarmonicMean registers harmonic_mean, the harmonic mean of an array
 // of positive numbers.
 func RegisterHarmonicMean() gojq.CompilerOption {
-	return gojq.WithFunction("harmonic_mean", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("harmonic_mean", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("harmonic_mean: %v", err), nil)
@@ -299,7 +299,7 @@ func RegisterHarmonicMean() gojq.CompilerOption {
 // RegisterWeightedMean registers weighted_mean, the mean of values weighted by
 // parallel weights.
 func RegisterWeightedMean() gojq.CompilerOption {
-	return gojq.WithFunction("weighted_mean", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("weighted_mean", 1, 2, func(v any, args []any) any {
 		values, weights, err := twoArrays(v, args, "weighted_mean")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -319,7 +319,7 @@ func RegisterWeightedMean() gojq.CompilerOption {
 // RegisterTrimmedMean registers trimmed_mean, the mean of an array with the
 // given fraction trimmed from each end (fraction in 0..0.5).
 func RegisterTrimmedMean() gojq.CompilerOption {
-	return gojq.WithFunction("trimmed_mean", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("trimmed_mean", 1, 2, func(v any, args []any) any {
 		fraction, ok := common.ToFloat64(common.BindValue(args[0]))
 		if !ok || fraction < 0 || fraction > 0.5 {
 			return common.MakeUDFErrorResult(fmt.Errorf("trimmed_mean: fraction must be from 0 to 0.5, got %v", args[0]), nil)
@@ -340,7 +340,7 @@ func RegisterTrimmedMean() gojq.CompilerOption {
 
 // RegisterRMS registers rms, the root mean square of an array.
 func RegisterRMS() gojq.CompilerOption {
-	return gojq.WithFunction("rms", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("rms", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("rms: %v", err), nil)
@@ -356,7 +356,7 @@ func RegisterRMS() gojq.CompilerOption {
 // RegisterProduct registers product, the product of an array's numbers (jq's
 // add sums; this multiplies).
 func RegisterProduct() gojq.CompilerOption {
-	return gojq.WithFunction("product", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("product", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("product: %v", err), nil)
@@ -372,7 +372,7 @@ func RegisterProduct() gojq.CompilerOption {
 // RegisterSkewness registers skewness, the sample skewness of an array
 // (adjusted Fisher-Pearson). 0 for an array too small to measure.
 func RegisterSkewness() gojq.CompilerOption {
-	return gojq.WithFunction("skewness", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("skewness", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("skewness: %v", err), nil)
@@ -399,7 +399,7 @@ func RegisterSkewness() gojq.CompilerOption {
 // RegisterKurtosis registers kurtosis, the sample excess kurtosis of an array
 // (0 for a normal distribution). 0 for an array too small to measure.
 func RegisterKurtosis() gojq.CompilerOption {
-	return gojq.WithFunction("kurtosis", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("kurtosis", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("kurtosis: %v", err), nil)
@@ -428,7 +428,7 @@ func RegisterKurtosis() gojq.CompilerOption {
 // RegisterCorrelation registers correlation, the Pearson product-moment
 // correlation of two equal-length arrays.
 func RegisterCorrelation() gojq.CompilerOption {
-	return gojq.WithFunction("correlation", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("correlation", 1, 2, func(v any, args []any) any {
 		a, b, err := twoArrays(v, args, "correlation")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -451,7 +451,7 @@ func RegisterCorrelation() gojq.CompilerOption {
 // RegisterCovariance registers covariance, the sample covariance (n-1) of two
 // equal-length arrays.
 func RegisterCovariance() gojq.CompilerOption {
-	return gojq.WithFunction("covariance", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("covariance", 1, 2, func(v any, args []any) any {
 		a, b, err := twoArrays(v, args, "covariance")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

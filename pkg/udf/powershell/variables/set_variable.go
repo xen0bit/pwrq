@@ -26,7 +26,7 @@ type SetVariableOptions struct {
 //   - set_variable("name"; "value") - basic usage
 //   - set_variable("name"; "value"; {"Description": "my var"; "Scope": "global"; "PassThru": true})
 func RegisterSetVariable() gojq.CompilerOption {
-	return gojq.WithFunction("set_variable", 0, 3, func(v any, args []any) any {
+	return common.WithFunction("set_variable", 0, 3, func(v any, args []any) any {
 		var name string
 		var value any
 		opts := SetVariableOptions{

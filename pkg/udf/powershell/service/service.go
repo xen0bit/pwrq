@@ -49,7 +49,7 @@ type GetServiceOptions struct {
 //   - get_service("ssh") - get services by name (wildcard supported)
 //   - get_service({"Name": "*service*"; "Exclude": "disabled"})
 func RegisterGetService() gojq.CompilerOption {
-	return gojq.WithIterFunction("get_service", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("get_service", 0, 2, func(v any, args []any) gojq.Iter {
 		opts := GetServiceOptions{}
 
 		// Parse arguments
@@ -489,7 +489,7 @@ func parseServiceState(stateStr string) string {
 //   - start_service("ssh")
 //   - start_service({"Name": "nginx"})
 func RegisterStartService() gojq.CompilerOption {
-	return gojq.WithFunction("start_service", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("start_service", 0, 2, func(v any, args []any) any {
 		opts := StartServiceOptions{}
 
 		// Parse arguments
@@ -605,7 +605,7 @@ func startServiceWindows(name string) error {
 //   - stop_service("ssh")
 //   - stop_service({"Name": "nginx"; "Force": true})
 func RegisterStopService() gojq.CompilerOption {
-	return gojq.WithFunction("stop_service", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("stop_service", 0, 2, func(v any, args []any) any {
 		opts := StopServiceOptions{}
 
 		// Parse arguments

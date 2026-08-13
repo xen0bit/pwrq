@@ -64,7 +64,7 @@ func toAny(lines []string) []any {
 
 // RegisterHead registers head, the first n lines of a file (10 by default).
 func RegisterHead() gojq.CompilerOption {
-	return gojq.WithFunction("head", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("head", 0, 2, func(v any, args []any) any {
 		path, err := pathArg(v, args, "head")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("head: %v", err), nil)
@@ -91,7 +91,7 @@ func RegisterHead() gojq.CompilerOption {
 
 // RegisterTail registers tail, the last n lines of a file (10 by default).
 func RegisterTail() gojq.CompilerOption {
-	return gojq.WithFunction("tail", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("tail", 0, 2, func(v any, args []any) any {
 		path, err := pathArg(v, args, "tail")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("tail: %v", err), nil)
@@ -119,7 +119,7 @@ func RegisterTail() gojq.CompilerOption {
 // RegisterGrepLines registers grep_lines, the lines of a file matching a
 // regular expression. Usage: grep_lines(path; pattern) or "path" | grep_lines(pattern).
 func RegisterGrepLines() gojq.CompilerOption {
-	return gojq.WithFunction("grep_lines", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("grep_lines", 1, 2, func(v any, args []any) any {
 		var path, pattern string
 		switch len(args) {
 		case 2:
@@ -161,7 +161,7 @@ func RegisterGrepLines() gojq.CompilerOption {
 
 // RegisterWcLines registers wc_lines, the number of lines in a file.
 func RegisterWcLines() gojq.CompilerOption {
-	return gojq.WithFunction("wc_lines", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("wc_lines", 0, 1, func(v any, args []any) any {
 		path, err := pathArg(v, args, "wc_lines")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("wc_lines: %v", err), nil)

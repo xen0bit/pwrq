@@ -7,6 +7,7 @@ import (
 	"github.com/censys/censys-sdk-go/models/components"
 	"github.com/censys/censys-sdk-go/models/operations"
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // RegisterNewCenseyeJob registers new_censys_censeye_job, the first half of
@@ -21,7 +22,7 @@ import (
 // "certificate"} analyses the other two asset kinds.
 func RegisterNewCenseyeJob() gojq.CompilerOption {
 	const op = "new_censys_censeye_job"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		id, rawOpts, err := identifier(op, "AssetId", v, args)
 		if err != nil {
 			return err
@@ -72,7 +73,7 @@ func RegisterNewCenseyeJob() gojq.CompilerOption {
 // the list of them when no ID is given.
 func RegisterGetCenseyeJob() gojq.CompilerOption {
 	const op = "get_censys_censeye_job"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		jobID, rawOpts, err := optionalIdentifier(op, "JobId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -146,7 +147,7 @@ func RegisterGetCenseyeJob() gojq.CompilerOption {
 // finished CensEye job found, one per output.
 func RegisterGetCenseyeResult() gojq.CompilerOption {
 	const op = "get_censys_censeye_result"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		jobID, rawOpts, err := identifier(op, "JobId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -201,7 +202,7 @@ func RegisterGetCenseyeResult() gojq.CompilerOption {
 // whole list in one response, so there is nothing to page through.
 func RegisterGetThreat() gojq.CompilerOption {
 	const op = "get_censys_threat"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		query, rawOpts, err := optionalIdentifier(op, "Query", v, args)
 		if err != nil {
 			return gojq.NewIter(err)

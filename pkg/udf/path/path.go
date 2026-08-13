@@ -61,7 +61,7 @@ func pathInput(v any, args []any, name string) (string, error) {
 
 // RegisterBasename registers basename, the last path component.
 func RegisterBasename() gojq.CompilerOption {
-	return gojq.WithFunction("basename", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("basename", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "basename")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -72,7 +72,7 @@ func RegisterBasename() gojq.CompilerOption {
 
 // RegisterDirname registers dirname, the path minus the last component.
 func RegisterDirname() gojq.CompilerOption {
-	return gojq.WithFunction("dirname", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("dirname", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "dirname")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -84,7 +84,7 @@ func RegisterDirname() gojq.CompilerOption {
 // RegisterFileExtension registers file_extension, the suffix after the final
 // dot (".txt"), or the empty string when there is none.
 func RegisterFileExtension() gojq.CompilerOption {
-	return gojq.WithFunction("file_extension", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("file_extension", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "file_extension")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -95,7 +95,7 @@ func RegisterFileExtension() gojq.CompilerOption {
 
 // RegisterIsAbsolute registers is_absolute, whether a path is absolute.
 func RegisterIsAbsolute() gojq.CompilerOption {
-	return gojq.WithFunction("is_absolute", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("is_absolute", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "is_absolute")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -107,7 +107,7 @@ func RegisterIsAbsolute() gojq.CompilerOption {
 // RegisterNormalizePath registers normalize_path, a path with redundant
 // separators and ".." resolved lexically, without touching the filesystem.
 func RegisterNormalizePath() gojq.CompilerOption {
-	return gojq.WithFunction("normalize_path", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("normalize_path", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "normalize_path")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -119,7 +119,7 @@ func RegisterNormalizePath() gojq.CompilerOption {
 // RegisterRelativePath registers relative_path, target expressed relative to
 // base: relative_path(base; [target]), or target from the pipeline.
 func RegisterRelativePath() gojq.CompilerOption {
-	return gojq.WithFunction("relative_path", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("relative_path", 1, 2, func(v any, args []any) any {
 		base, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("relative_path: base must be a string, got %T", args[0]), nil)
@@ -148,7 +148,7 @@ func RegisterRelativePath() gojq.CompilerOption {
 // RegisterStem registers stem, the file name without its extension:
 // "/tmp/a/b.tar.gz" -> "b.tar".
 func RegisterStem() gojq.CompilerOption {
-	return gojq.WithFunction("stem", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("stem", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "stem")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -162,7 +162,7 @@ func RegisterStem() gojq.CompilerOption {
 // RegisterWithExtension registers with_extension, a file name with its
 // extension replaced: with_extension(".md"; [input]) or from the pipeline.
 func RegisterWithExtension() gojq.CompilerOption {
-	return gojq.WithFunction("with_extension", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("with_extension", 1, 2, func(v any, args []any) any {
 		ext, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("with_extension: extension must be a string, got %T", args[0]), nil)
@@ -192,7 +192,7 @@ func RegisterWithExtension() gojq.CompilerOption {
 // RegisterHasExtension registers has_extension, whether a path's final
 // component carries an extension.
 func RegisterHasExtension() gojq.CompilerOption {
-	return gojq.WithFunction("has_extension", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("has_extension", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "has_extension")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -204,7 +204,7 @@ func RegisterHasExtension() gojq.CompilerOption {
 // RegisterIsDirPath registers is_dir_path, whether a path reads as a directory
 // (trailing separator).
 func RegisterIsDirPath() gojq.CompilerOption {
-	return gojq.WithFunction("is_dir_path", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("is_dir_path", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "is_dir_path")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -215,7 +215,7 @@ func RegisterIsDirPath() gojq.CompilerOption {
 
 // RegisterPathSep registers path_sep, the OS path separator as a string.
 func RegisterPathSep() gojq.CompilerOption {
-	return gojq.WithFunction("path_sep", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("path_sep", 0, 0, func(v any, args []any) any {
 		return common.MakeUDFSuccessResult(string(filepath.Separator), nil)
 	})
 }
@@ -223,7 +223,7 @@ func RegisterPathSep() gojq.CompilerOption {
 // RegisterExpandHome registers expand_home, "~" and "~/..." expanded to the
 // current user's home directory. It needs the user database, so it is CLI-only.
 func RegisterExpandHome() gojq.CompilerOption {
-	return gojq.WithFunction("expand_home", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("expand_home", 0, 1, func(v any, args []any) any {
 		p, err := pathInput(v, args, "expand_home")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -246,7 +246,7 @@ func RegisterExpandHome() gojq.CompilerOption {
 // RegisterHomeDir registers home_dir, the current user's home directory.
 // CLI-only, like expand_home.
 func RegisterHomeDir() gojq.CompilerOption {
-	return gojq.WithFunction("home_dir", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("home_dir", 0, 0, func(v any, args []any) any {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("home_dir: cannot determine home directory: %v", err), nil)

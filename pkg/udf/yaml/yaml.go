@@ -20,7 +20,7 @@ func RegisterAll() []gojq.CompilerOption {
 
 // RegisterYAMLParse registers yaml_parse, a YAML document to a JSON value.
 func RegisterYAMLParse() gojq.CompilerOption {
-	return gojq.WithFunction("yaml_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("yaml_parse", 0, 2, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("yaml_parse: %v", err), nil)
@@ -44,7 +44,7 @@ func RegisterYAMLParse() gojq.CompilerOption {
 
 // RegisterYAMLStringify registers yaml_stringify, a value to a YAML document.
 func RegisterYAMLStringify() gojq.CompilerOption {
-	return gojq.WithFunction("yaml_stringify", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("yaml_stringify", 0, 1, func(v any, args []any) any {
 		input := common.BindValue(v)
 		if len(args) > 0 {
 			input = common.BindValue(args[0])

@@ -169,7 +169,7 @@ func RegisterGlobToRegex() gojq.CompilerOption {
 // RegisterMatchGlob registers match_glob, whether a string matches a glob
 // pattern.
 func RegisterMatchGlob() gojq.CompilerOption {
-	return gojq.WithFunction("match_glob", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("match_glob", 1, 2, func(v any, args []any) any {
 		glob, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("match_glob: pattern must be a string, got %T", args[0]), nil)

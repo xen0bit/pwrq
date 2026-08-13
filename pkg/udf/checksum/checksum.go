@@ -63,7 +63,7 @@ func inputBytes(v any, args []any, name string) ([]byte, error) {
 // registerDigest builds a 0-2 arity cmdlet that hex-encodes a hash over its
 // input.
 func registerDigest(name string, newHash func() hash.Hash) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, name)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
@@ -105,7 +105,7 @@ func RegisterAdler32() gojq.CompilerOption {
 
 // RegisterBlake2b256 registers blake2b_256, BLAKE2b truncated to 256 bits.
 func RegisterBlake2b256() gojq.CompilerOption {
-	return gojq.WithFunction("blake2b_256", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("blake2b_256", 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, "blake2b_256")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("blake2b_256: %v", err), nil)
@@ -117,7 +117,7 @@ func RegisterBlake2b256() gojq.CompilerOption {
 
 // RegisterBlake2b512 registers blake2b_512, full BLAKE2b-512.
 func RegisterBlake2b512() gojq.CompilerOption {
-	return gojq.WithFunction("blake2b_512", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("blake2b_512", 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, "blake2b_512")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("blake2b_512: %v", err), nil)
@@ -130,7 +130,7 @@ func RegisterBlake2b512() gojq.CompilerOption {
 // RegisterBcryptHash registers bcrypt_hash, a bcrypt password hash with an
 // optional cost (default 10).
 func RegisterBcryptHash() gojq.CompilerOption {
-	return gojq.WithFunction("bcrypt_hash", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("bcrypt_hash", 0, 2, func(v any, args []any) any {
 		cost := bcrypt.DefaultCost
 		isFile := false
 		if len(args) > 0 {
@@ -177,7 +177,7 @@ func RegisterBcryptHash() gojq.CompilerOption {
 // RegisterBcryptVerify registers bcrypt_verify, whether a password matches a
 // bcrypt hash.
 func RegisterBcryptVerify() gojq.CompilerOption {
-	return gojq.WithFunction("bcrypt_verify", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("bcrypt_verify", 1, 2, func(v any, args []any) any {
 		hashValue, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("bcrypt_verify: hash must be a string, got %T", args[0]), nil)
@@ -254,7 +254,7 @@ func RegisterCRC16() gojq.CompilerOption {
 // RegisterPBKDF2SHA256 registers pbkdf2_sha256, a password-derived key from the
 // PBKDF2 key derivation function with SHA-256, as hex.
 func RegisterPBKDF2SHA256() gojq.CompilerOption {
-	return gojq.WithFunction("pbkdf2_sha256", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("pbkdf2_sha256", 1, 3, func(v any, args []any) any {
 		salt, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("pbkdf2_sha256: salt must be a string, got %T", args[0]), nil)
@@ -286,7 +286,7 @@ func RegisterPBKDF2SHA256() gojq.CompilerOption {
 // RegisterArgon2ID registers argon2id_hash, a password-derived key from the
 // Argon2id memory-hard function, as hex.
 func RegisterArgon2ID() gojq.CompilerOption {
-	return gojq.WithFunction("argon2id_hash", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("argon2id_hash", 1, 3, func(v any, args []any) any {
 		salt, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("argon2id_hash: salt must be a string, got %T", args[0]), nil)
@@ -321,7 +321,7 @@ func RegisterArgon2ID() gojq.CompilerOption {
 // RegisterRandomHex registers random_hex, n cryptographically random bytes as a
 // hex string.
 func RegisterRandomHex() gojq.CompilerOption {
-	return gojq.WithFunction("random_hex", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("random_hex", 0, 1, func(v any, args []any) any {
 		n := 16
 		if len(args) > 0 {
 			if m, ok := common.ToInt(args[0]); ok && m >= 0 {

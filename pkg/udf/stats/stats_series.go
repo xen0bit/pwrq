@@ -11,7 +11,7 @@ import (
 
 // RegisterCumsum registers cumsum, the running total of an array.
 func RegisterCumsum() gojq.CompilerOption {
-	return gojq.WithFunction("cumsum", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("cumsum", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cumsum: %v", err), nil)
@@ -29,7 +29,7 @@ func RegisterCumsum() gojq.CompilerOption {
 // RegisterCumulativeMax registers cumulative_max, the largest value seen so
 // far at each position.
 func RegisterCumulativeMax() gojq.CompilerOption {
-	return gojq.WithFunction("cumulative_max", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("cumulative_max", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cumulative_max: %v", err), nil)
@@ -49,7 +49,7 @@ func RegisterCumulativeMax() gojq.CompilerOption {
 // RegisterCumulativeMin registers cumulative_min, the smallest value seen so
 // far at each position.
 func RegisterCumulativeMin() gojq.CompilerOption {
-	return gojq.WithFunction("cumulative_min", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("cumulative_min", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cumulative_min: %v", err), nil)
@@ -69,7 +69,7 @@ func RegisterCumulativeMin() gojq.CompilerOption {
 // RegisterDeltas registers deltas, the first differences between consecutive
 // values, one shorter than the input.
 func RegisterDeltas() gojq.CompilerOption {
-	return gojq.WithFunction("deltas", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("deltas", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("deltas: %v", err), nil)
@@ -88,7 +88,7 @@ func RegisterDeltas() gojq.CompilerOption {
 // RegisterLag registers lag, shifting an array right by n positions and
 // filling the gap with null. A negative n shifts left.
 func RegisterLag() gojq.CompilerOption {
-	return gojq.WithFunction("lag", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("lag", 1, 2, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("lag: shift must be an integer, got %v", args[0]), nil)
@@ -111,7 +111,7 @@ func RegisterLag() gojq.CompilerOption {
 // RegisterFillForward registers fill_forward, carrying the last non-null value
 // forward over nulls. Leading nulls stay null.
 func RegisterFillForward() gojq.CompilerOption {
-	return gojq.WithFunction("fill_forward", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("fill_forward", 0, 1, func(v any, args []any) any {
 		values := arrInput(v, args)
 		out := make([]any, len(values))
 		var carry any = nil
@@ -129,7 +129,7 @@ func RegisterFillForward() gojq.CompilerOption {
 // RegisterEma registers ema, the exponential moving average with smoothing
 // factor alpha (0 < alpha <= 1), seeded with the first value.
 func RegisterEma() gojq.CompilerOption {
-	return gojq.WithFunction("ema", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("ema", 1, 2, func(v any, args []any) any {
 		alpha, ok := common.ToFloat64(common.BindValue(args[0]))
 		if !ok || alpha <= 0 || alpha > 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("ema: alpha must be in (0, 1], got %v", args[0]), nil)
@@ -151,7 +151,7 @@ func RegisterEma() gojq.CompilerOption {
 
 // rollingMinMax registers a rolling window extrema cmdlet.
 func rollingExtrema(name string, wantMax bool) gojq.CompilerOption {
-	return gojq.WithFunction(name, 1, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 1, 2, func(v any, args []any) any {
 		window, ok := common.ToInt(args[0])
 		if !ok || window <= 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: window must be a positive integer, got %v", name, args[0]), nil)
@@ -195,7 +195,7 @@ func RegisterMovingMin() gojq.CompilerOption {
 // RegisterMovingAverage registers moving_average, the rolling mean over a
 // window of n values.
 func RegisterMovingAverage() gojq.CompilerOption {
-	return gojq.WithFunction("moving_average", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("moving_average", 1, 2, func(v any, args []any) any {
 		window, ok := common.ToInt(args[0])
 		if !ok || window <= 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("moving_average: window must be a positive integer, got %v", args[0]), nil)
@@ -224,7 +224,7 @@ func RegisterMovingAverage() gojq.CompilerOption {
 // RegisterMovingStdev registers moving_stdev, the rolling sample standard
 // deviation over a window of n values.
 func RegisterMovingStdev() gojq.CompilerOption {
-	return gojq.WithFunction("moving_stdev", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("moving_stdev", 1, 2, func(v any, args []any) any {
 		window, ok := common.ToInt(args[0])
 		if !ok || window <= 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("moving_stdev: window must be a positive integer, got %v", args[0]), nil)
@@ -248,7 +248,7 @@ func RegisterMovingStdev() gojq.CompilerOption {
 // array with itself lag steps back: autocorrelation(arr; [lag]), lag
 // defaulting to 1.
 func RegisterAutocorrelation() gojq.CompilerOption {
-	return gojq.WithFunction("autocorrelation", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("autocorrelation", 0, 2, func(v any, args []any) any {
 		lag := 1
 		for _, a := range args {
 			if n, ok := common.ToInt(a); ok {
@@ -283,7 +283,7 @@ func RegisterAutocorrelation() gojq.CompilerOption {
 
 // RegisterNormalize registers normalize, min-max scaling an array to [0,1].
 func RegisterNormalize() gojq.CompilerOption {
-	return gojq.WithFunction("normalize", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("normalize", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("normalize: %v", err), nil)
@@ -315,7 +315,7 @@ func RegisterNormalize() gojq.CompilerOption {
 // RegisterStandardize registers standardize, each value as its z-score: how
 // many sample standard deviations it lies from the mean.
 func RegisterStandardize() gojq.CompilerOption {
-	return gojq.WithFunction("standardize", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("standardize", 0, 1, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("standardize: %v", err), nil)

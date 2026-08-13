@@ -27,15 +27,15 @@ func nest(depth int) any {
 func TestEncodeRejectsDeepValues(t *testing.T) {
 	e := newEncoder(&Request{Compact: true})
 
-	if _, err := e.encode(nest(maxEncodeDepth - 1)); err != nil {
+	if _, err := e.encode(nest(psobject.MaxJSONDepth - 1)); err != nil {
 		t.Fatalf("value just inside the limit should encode, got %v", err)
 	}
 
-	_, err := e.encode(nest(maxEncodeDepth + 1))
+	_, err := e.encode(nest(psobject.MaxJSONDepth + 1))
 	if err == nil {
 		t.Fatal("value past the limit encoded; it should be refused")
 	}
-	if !strings.Contains(err.Error(), "nests more than") {
+	if !strings.Contains(err.Error(), "nests too deeply") {
 		t.Errorf("error does not name the cause: %v", err)
 	}
 }
@@ -91,22 +91,5 @@ func TestEncodeDoesNotPanicOnUnknownTypes(t *testing.T) {
 		if _, err := e.encode(v); err != nil {
 			t.Logf("%T -> %v", v, err)
 		}
-	}
-}
-
-func TestCheckDepthCountsThroughPSObjects(t *testing.T) {
-	// A PSObject's note property is a level of nesting, the same way a map
-	// entry is: NormalizeJSON descends into it.
-	var v any = "leaf"
-	for range 10 {
-		obj := psobject.NewPSObject(nil)
-		obj.AddNoteProperty("next", v)
-		v = obj
-	}
-	if err := checkDepth(v, 5); err == nil {
-		t.Error("checkDepth did not descend into PSObject note properties")
-	}
-	if err := checkDepth(v, 1000); err != nil {
-		t.Errorf("shallow PSObject chain rejected: %v", err)
 	}
 }

@@ -10,7 +10,7 @@ import (
 
 // RegisterSSDeep registers the ssdeep function with gojq
 func RegisterSSDeep() gojq.CompilerOption {
-	return gojq.WithFunction("ssdeep", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("ssdeep", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep: %v", err), nil)
@@ -94,7 +94,7 @@ func RegisterSSDeep() gojq.CompilerOption {
 
 // RegisterSSDeepCompare registers the ssdeep_compare function with gojq
 func RegisterSSDeepCompare() gojq.CompilerOption {
-	return gojq.WithFunction("ssdeep_compare", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("ssdeep_compare", 2, 2, func(v any, args []any) any {
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("ssdeep_compare: expected 2 arguments (hash1, hash2)"), nil)
 		}

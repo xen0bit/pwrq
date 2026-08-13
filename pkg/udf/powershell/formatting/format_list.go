@@ -39,7 +39,7 @@ type PropertyDisplay struct {
 //
 // Usage: format_list(objects) or format_list(objects; options)
 func RegisterFormatList() gojq.CompilerOption {
-	return gojq.WithFunction("format_list", 1, 2, func(input any, args []any) any {
+	return common.WithFunction("format_list", 1, 2, func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseFormatListArgs(args)
 		if err != nil {

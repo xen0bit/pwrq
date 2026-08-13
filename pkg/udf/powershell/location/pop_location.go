@@ -25,7 +25,7 @@ type PopLocationOptions struct {
 //   - pop_location() - pop from default stack and change to that location
 //   - pop_location({"StackName": "myStack"}) - pop from named stack
 func RegisterPopLocation() gojq.CompilerOption {
-	return gojq.WithFunction("pop_location", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("pop_location", 0, 1, func(v any, args []any) any {
 		var opts PopLocationOptions
 
 		// Parse options if provided

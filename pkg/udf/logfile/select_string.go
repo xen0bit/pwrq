@@ -31,7 +31,7 @@ import (
 // one operand, so at two arguments the leading one is always the path. Piping a
 // path and passing options at the same time is an error rather than a guess.
 func RegisterSelectString() gojq.CompilerOption {
-	return gojq.WithFunction("select_string", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("select_string", 1, 3, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		root, ok := common.BindPath(in)
 		if !ok {

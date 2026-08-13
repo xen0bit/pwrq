@@ -38,7 +38,7 @@ func RegisterAll() []gojq.CompilerOption {
 // strings: the minimum insertions, deletions and substitutions to turn one
 // into the other.
 func RegisterLevenshtein() gojq.CompilerOption {
-	return gojq.WithFunction("levenshtein", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("levenshtein", 2, 2, func(v any, args []any) any {
 		a, err := stringArg(v, args, 0)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("levenshtein: %v", err), nil)
@@ -85,7 +85,7 @@ func min3(a, b, c int) int {
 // RegisterHammingDistance registers hamming_distance, the number of positions
 // at which two equal-length strings differ.
 func RegisterHammingDistance() gojq.CompilerOption {
-	return gojq.WithFunction("hamming_distance", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("hamming_distance", 2, 2, func(v any, args []any) any {
 		a, err := stringArg(v, args, 0)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("hamming_distance: %v", err), nil)
@@ -111,7 +111,7 @@ func RegisterHammingDistance() gojq.CompilerOption {
 // RegisterJaccard registers jaccard, the Jaccard similarity between two
 // strings (sets of characters) or two arrays (sets of elements), from 0 to 1.
 func RegisterJaccard() gojq.CompilerOption {
-	return gojq.WithFunction("jaccard", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("jaccard", 2, 2, func(v any, args []any) any {
 		a := common.BindValue(args[0])
 		b := common.BindValue(args[1])
 		if _, ok := a.(string); !ok {
@@ -184,7 +184,7 @@ type diffResult struct {
 // RegisterDeepDiff registers deep_diff, a structural JSON diff summarized as
 // {added, removed, changed}, each a list of {path, ...} entries.
 func RegisterDeepDiff() gojq.CompilerOption {
-	return gojq.WithFunction("deep_diff", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("deep_diff", 2, 2, func(v any, args []any) any {
 		a := common.BindValue(v)
 		if len(args) > 0 {
 			a = common.BindValue(args[0])
@@ -267,7 +267,7 @@ func joinPath(path, key string) string {
 // RegisterSimilarityPercent registers similarity_percent, 1 minus the
 // normalized Levenshtein distance, as a value from 0 to 1.
 func RegisterSimilarityPercent() gojq.CompilerOption {
-	return gojq.WithFunction("similarity_percent", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("similarity_percent", 2, 2, func(v any, args []any) any {
 		a, err := stringArg(v, args, 0)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("similarity_percent: %v", err), nil)
@@ -291,7 +291,7 @@ func RegisterSimilarityPercent() gojq.CompilerOption {
 // RegisterNGrams registers n_grams, the array of n-character substrings of a
 // string.
 func RegisterNGrams() gojq.CompilerOption {
-	return gojq.WithFunction("n_grams", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("n_grams", 1, 2, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok || n <= 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("n_grams: size must be a positive integer, got %v", args[0]), nil)
@@ -322,7 +322,7 @@ func RegisterNGrams() gojq.CompilerOption {
 // two strings, from 0 to 1. It weights a shared prefix, which suits name
 // matching.
 func RegisterJaroWinkler() gojq.CompilerOption {
-	return gojq.WithFunction("jaro_winkler", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("jaro_winkler", 2, 2, func(v any, args []any) any {
 		a, err := stringArg(v, args, 0)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("jaro_winkler: %v", err), nil)

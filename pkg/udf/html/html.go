@@ -10,7 +10,7 @@ import (
 
 // RegisterHTMLEncode registers the html_encode function with gojq
 func RegisterHTMLEncode() gojq.CompilerOption {
-	return gojq.WithFunction("html_encode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("html_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("html_encode: %v", err), nil)
@@ -73,7 +73,7 @@ func RegisterHTMLEncode() gojq.CompilerOption {
 
 // RegisterHTMLDecode registers the html_decode function with gojq
 func RegisterHTMLDecode() gojq.CompilerOption {
-	return gojq.WithFunction("html_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("html_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("html_decode: %v", err), nil)

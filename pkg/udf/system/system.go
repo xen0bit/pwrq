@@ -39,7 +39,7 @@ func hostArg(v any, args []any, name string) (string, error) {
 // RegisterResolveHost registers resolve_host, the addresses a hostname
 // resolves to.
 func RegisterResolveHost() gojq.CompilerOption {
-	return gojq.WithFunction("resolve_host", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("resolve_host", 0, 1, func(v any, args []any) any {
 		host, err := hostArg(v, args, "resolve_host")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("resolve_host: %v", err), nil)
@@ -59,7 +59,7 @@ func RegisterResolveHost() gojq.CompilerOption {
 // RegisterReverseDNS registers reverse_dns, the hostnames an address points
 // back to.
 func RegisterReverseDNS() gojq.CompilerOption {
-	return gojq.WithFunction("reverse_dns", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("reverse_dns", 0, 1, func(v any, args []any) any {
 		ip, err := hostArg(v, args, "reverse_dns")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("reverse_dns: %v", err), nil)
@@ -78,7 +78,7 @@ func RegisterReverseDNS() gojq.CompilerOption {
 
 // RegisterWhich registers which, the path to an executable on PATH.
 func RegisterWhich() gojq.CompilerOption {
-	return gojq.WithFunction("which", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("which", 0, 1, func(v any, args []any) any {
 		command, err := hostArg(v, args, "which")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("which: %v", err), nil)

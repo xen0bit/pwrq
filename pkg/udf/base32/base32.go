@@ -10,7 +10,7 @@ import (
 
 // RegisterBase32Encode registers the base32_encode function with gojq
 func RegisterBase32Encode() gojq.CompilerOption {
-	return gojq.WithFunction("base32_encode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("base32_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("base32_encode: %v", err), nil)
@@ -73,7 +73,7 @@ func RegisterBase32Encode() gojq.CompilerOption {
 
 // RegisterBase32Decode registers the base32_decode function with gojq
 func RegisterBase32Decode() gojq.CompilerOption {
-	return gojq.WithFunction("base32_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("base32_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: %v", err), nil)

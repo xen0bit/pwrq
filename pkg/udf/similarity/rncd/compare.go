@@ -50,7 +50,7 @@ func defaultCompareOptions() CompareOptions {
 //	rncd_compare([$a, $b]; {Alpha: 0.7})
 //	[find("samples"; "file") | {Name: ., Content: read_bytes(.)}] | rncd_compare
 func RegisterCompare() gojq.CompilerOption {
-	return gojq.WithIterFunction("rncd_compare", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("rncd_compare", 0, 2, func(v any, args []any) gojq.Iter {
 		results, err := compare(common.SplitInput(v, args, 0))
 		if err != nil {
 			return gojq.NewIter(err)

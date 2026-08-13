@@ -28,7 +28,7 @@ import (
 // JSON spelling, so send it on to a hash, a codec or a comparison rather than
 // to stdout.
 func RegisterReadBytes() gojq.CompilerOption {
-	return gojq.WithFunction("read_bytes", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("read_bytes", 0, 1, func(v any, args []any) any {
 		in, _ := common.SplitInput(v, args, 0)
 
 		path, ok := common.BindValue(in).(string)

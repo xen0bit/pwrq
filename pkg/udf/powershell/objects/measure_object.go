@@ -39,7 +39,7 @@ type MeasurementResult struct {
 //
 // Usage: measure_object(objects) or measure_object(objects; options)
 func RegisterMeasureObject() gojq.CompilerOption {
-	return gojq.WithFunction("measure_object", 1, 2, func(input any, args []any) any {
+	return common.WithFunction("measure_object", 1, 2, func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseMeasureObjectArgs(args)
 		if err != nil {

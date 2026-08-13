@@ -29,7 +29,7 @@ func RegisterReverseWords() gojq.CompilerOption {
 // RegisterTruncateWords registers truncate_words, a string cut to at most n
 // words with an ellipsis when it had to give anything up.
 func RegisterTruncateWords() gojq.CompilerOption {
-	return gojq.WithFunction("truncate_words", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("truncate_words", 1, 2, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("truncate_words: count must be a non-negative integer, got %v", args[0]), nil)
@@ -49,7 +49,7 @@ func RegisterTruncateWords() gojq.CompilerOption {
 // RegisterTruncate registers truncate, cutting a string to a length and
 // appending a suffix (an ellipsis by default).
 func RegisterTruncate() gojq.CompilerOption {
-	return gojq.WithFunction("truncate", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("truncate", 1, 3, func(v any, args []any) any {
 		maxLen, ok := common.ToInt(args[0])
 		if !ok || maxLen < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("truncate: length must be a non-negative number, got %v", args[0]), nil)
@@ -164,7 +164,7 @@ func RegisterCountConsonants() gojq.CompilerOption {
 // RegisterCountOccurrences registers count_occurrences, counting non-overlapping
 // occurrences of a substring.
 func RegisterCountOccurrences() gojq.CompilerOption {
-	return gojq.WithFunction("count_occurrences", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("count_occurrences", 1, 2, func(v any, args []any) any {
 		sub, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("count_occurrences: substring must be a string, got %T", args[0]), nil)
@@ -190,7 +190,7 @@ func RegisterCountOccurrences() gojq.CompilerOption {
 // RegisterWordCount registers word_count, how many whitespace-separated words a
 // string has.
 func RegisterWordCount() gojq.CompilerOption {
-	return gojq.WithFunction("word_count", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("word_count", 0, 2, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("word_count: %v", err), nil)
@@ -266,7 +266,7 @@ func soundex(s string) string {
 // RegisterPadLeft registers pad_left, left-padding a string to a width with a
 // repeated padding character.
 func RegisterPadLeft() gojq.CompilerOption {
-	return gojq.WithFunction("pad_left", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("pad_left", 1, 3, func(v any, args []any) any {
 		width, ok := common.ToInt(args[0])
 		if !ok || width < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("pad_left: width must be a non-negative number, got %v", args[0]), nil)
@@ -293,7 +293,7 @@ func RegisterPadLeft() gojq.CompilerOption {
 
 // RegisterPadRight registers pad_right, right-padding a string to a width.
 func RegisterPadRight() gojq.CompilerOption {
-	return gojq.WithFunction("pad_right", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("pad_right", 1, 3, func(v any, args []any) any {
 		width, ok := common.ToInt(args[0])
 		if !ok || width < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("pad_right: width must be a non-negative number, got %v", args[0]), nil)
@@ -321,7 +321,7 @@ func RegisterPadRight() gojq.CompilerOption {
 // RegisterPadCenter registers pad_center, a string centered in a field of n
 // characters, padded with a repeated character (default space).
 func RegisterPadCenter() gojq.CompilerOption {
-	return gojq.WithFunction("pad_center", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("pad_center", 1, 2, func(v any, args []any) any {
 		width, ok := common.ToInt(args[0])
 		if !ok || width < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("pad_center: width must be a non-negative integer, got %v", args[0]), nil)
@@ -384,7 +384,7 @@ func padArgs(args []any, start int) (string, bool, error) {
 // RegisterMask registers mask, hiding the middle of a string and keeping the
 // first and last visible characters, so credentials keep their shape.
 func RegisterMask() gojq.CompilerOption {
-	return gojq.WithFunction("mask", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("mask", 0, 2, func(v any, args []any) any {
 		visible := 0
 		isFile := false
 		if len(args) > 0 {
@@ -431,7 +431,7 @@ func RegisterMask() gojq.CompilerOption {
 // RegisterTemplate registers template, replacing {{key}} placeholders in a
 // string with values from an object.
 func RegisterTemplate() gojq.CompilerOption {
-	return gojq.WithFunction("template", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("template", 1, 1, func(v any, args []any) any {
 		vars, ok := common.BindValue(args[0]).(map[string]any)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("template: variables must be an object, got %T", args[0]), nil)

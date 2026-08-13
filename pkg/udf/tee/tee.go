@@ -12,7 +12,7 @@ import (
 
 // RegisterTee registers the tee function with gojq
 func RegisterTee() gojq.CompilerOption {
-	return gojq.WithFunction("tee", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("tee", 0, 1, func(v any, args []any) any {
 		inputVal := common.BindValue(v)
 
 		var filePath string

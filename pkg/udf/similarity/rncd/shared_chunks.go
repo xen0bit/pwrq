@@ -33,7 +33,7 @@ const defaultMinMatch = 16
 // the target the reference accounts for, and every span it reports can be cut
 // out of both values and compared byte for byte.
 func RegisterSharedChunks() gojq.CompilerOption {
-	return gojq.WithFunction("shared_chunks", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("shared_chunks", 1, 3, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		result, err := sharedChunks(in, rest)
 		if err != nil {

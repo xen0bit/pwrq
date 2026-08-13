@@ -42,7 +42,7 @@ func getEncoding(encodingName string) (encoding.Encoding, error) {
 // Supports PowerShell-style parameters: -Tail, -TotalCount, -Encoding
 // Usage: cat(path) or cat(path; {tail: n, totalcount: n, encoding: "utf8"})
 func RegisterCat() gojq.CompilerOption {
-	return gojq.WithFunction("cat", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("cat", 0, 2, func(v any, args []any) any {
 		var filePath string
 		var tailLines = -1  // -1 means no tail limit
 		var totalCount = -1 // -1 means no total count limit

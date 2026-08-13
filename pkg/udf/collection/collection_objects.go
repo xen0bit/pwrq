@@ -12,7 +12,7 @@ import (
 // RegisterDeepMerge registers deep_merge, recursively merging two objects with
 // the second winning.
 func RegisterDeepMerge() gojq.CompilerOption {
-	return gojq.WithFunction("deep_merge", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("deep_merge", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		a, b := common.BindValue(in), common.BindValue(rest[0])
 		return common.MakeUDFSuccessResult(deepMerge(a, b), nil)
@@ -42,7 +42,7 @@ func deepMerge(a, b any) any {
 // RegisterRenameKeys registers rename_keys, an object's keys renamed by a
 // {old: new} mapping. Unmapped keys are kept as they are.
 func RegisterRenameKeys() gojq.CompilerOption {
-	return gojq.WithFunction("rename_keys", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("rename_keys", 1, 2, func(v any, args []any) any {
 		mapping, ok := common.BindValue(args[len(args)-1]).(map[string]any)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("rename_keys: the mapping must be an object, got %T", args[len(args)-1]), nil)
@@ -70,7 +70,7 @@ func RegisterRenameKeys() gojq.CompilerOption {
 // RegisterFlattenKeys registers flatten_keys, turning a nested object into a
 // flat one with dot-and-bracket keys ("a.b[0]").
 func RegisterFlattenKeys() gojq.CompilerOption {
-	return gojq.WithFunction("flatten_keys", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("flatten_keys", 0, 1, func(v any, args []any) any {
 		input := common.BindValue(v)
 		if len(args) > 0 {
 			input = common.BindValue(args[0])
@@ -103,7 +103,7 @@ func flatten(v any, prefix string, out map[string]any) {
 // RegisterUnflattenKeys registers unflatten_keys, the inverse of
 // flatten_keys.
 func RegisterUnflattenKeys() gojq.CompilerOption {
-	return gojq.WithFunction("unflatten_keys", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("unflatten_keys", 0, 1, func(v any, args []any) any {
 		input := common.BindValue(v)
 		if len(args) > 0 {
 			input = common.BindValue(args[0])
@@ -215,7 +215,7 @@ func newContainer(seg pathSegment) any {
 // RegisterPrune registers prune, recursively removing empty values from
 // objects and arrays.
 func RegisterPrune() gojq.CompilerOption {
-	return gojq.WithFunction("prune", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("prune", 0, 1, func(v any, args []any) any {
 		input := common.BindValue(v)
 		if len(args) > 0 {
 			input = common.BindValue(args[0])

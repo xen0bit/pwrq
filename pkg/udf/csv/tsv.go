@@ -28,7 +28,7 @@ func strInput(v any, args []any, name string) (string, error) {
 // RegisterTSVParse registers tsv_parse, a tab-separated document to an array of
 // rows, honouring quoted fields.
 func RegisterTSVParse() gojq.CompilerOption {
-	return gojq.WithFunction("tsv_parse", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("tsv_parse", 0, 1, func(v any, args []any) any {
 		s, err := strInput(v, args, "tsv_parse")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -54,7 +54,7 @@ func RegisterTSVParse() gojq.CompilerOption {
 // RegisterTSVStringify registers tsv_stringify, an array of rows to a
 // tab-separated document, quoting cells that need it.
 func RegisterTSVStringify() gojq.CompilerOption {
-	return gojq.WithFunction("tsv_stringify", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("tsv_stringify", 0, 1, func(v any, args []any) any {
 		input := common.BindValue(v)
 		if len(args) > 0 {
 			input = common.BindValue(args[0])

@@ -10,7 +10,7 @@ import (
 
 // RegisterEntropy registers the entropy function with gojq
 func RegisterEntropy() gojq.CompilerOption {
-	return gojq.WithFunction("entropy", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("entropy", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("entropy: %v", err), nil)

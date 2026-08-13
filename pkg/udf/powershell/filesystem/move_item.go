@@ -185,7 +185,7 @@ func moveItem(opts MoveItemOptions) (any, error) {
 
 // RegisterMoveItem registers the move_item function with gojq
 func RegisterMoveItem() gojq.CompilerOption {
-	return gojq.WithIterFunction("move_item", 1, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("move_item", 1, 3, func(v any, args []any) gojq.Iter {
 		opts, err := parseMoveItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

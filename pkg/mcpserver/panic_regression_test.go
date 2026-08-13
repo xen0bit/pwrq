@@ -149,7 +149,7 @@ func TestDeeplyNestedOutput(t *testing.T) {
 	if res.Error == "" {
 		t.Fatal("deeply nested output was accepted; it must be refused")
 	}
-	if !strings.Contains(res.Error, "nests more than") {
+	if !strings.Contains(res.Error, "nests too deeply") {
 		t.Errorf("error does not name the cause: %s", res.Error)
 	}
 }

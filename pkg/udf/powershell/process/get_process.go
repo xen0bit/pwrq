@@ -51,7 +51,7 @@ type GetProcessOptions struct {
 //   - get_process("notepad") - get processes by name
 //   - get_process({"Name": "chrome"; "Id": 1234}) - get by options
 func RegisterGetProcess() gojq.CompilerOption {
-	return gojq.WithIterFunction("get_process", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("get_process", 0, 2, func(v any, args []any) gojq.Iter {
 		opts := GetProcessOptions{}
 
 		// Parse arguments
@@ -486,7 +486,7 @@ func getProcessPathWindows(pid int) string {
 //   - stop_process({"Id": 1234}) - stop by process ID
 //   - stop_process("chrome"; {"Force": true}) - force kill
 func RegisterStopProcess() gojq.CompilerOption {
-	return gojq.WithFunction("stop_process", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("stop_process", 0, 2, func(v any, args []any) any {
 		opts := StopProcessOptions{}
 
 		// Parse arguments
@@ -654,7 +654,7 @@ func stopProcesses(opts StopProcessOptions) (stopped []int, failed []map[string]
 //   - start_process("cmd"; {"/c"; "echo hello"})
 //   - start_process({"FilePath": "python"; "ArgumentList": ["script.py"]; "PassThru": true})
 func RegisterStartProcess() gojq.CompilerOption {
-	return gojq.WithFunction("start_process", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("start_process", 0, 2, func(v any, args []any) any {
 		opts := StartProcessOptions{}
 
 		// Parse arguments

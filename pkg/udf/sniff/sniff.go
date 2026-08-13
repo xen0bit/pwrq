@@ -41,7 +41,7 @@ func inputBytes(v any, args []any, name string) ([]byte, error) {
 // RegisterFileType registers file_type, the kind of file the bytes are,
 // detected from magic numbers.
 func RegisterFileType() gojq.CompilerOption {
-	return gojq.WithFunction("file_type", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("file_type", 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, "file_type")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("file_type: %v", err), nil)
@@ -86,7 +86,7 @@ func fileType(data []byte) string {
 // RegisterIsBinary registers is_binary, whether the bytes contain a NUL byte
 // or a high share of control characters.
 func RegisterIsBinary() gojq.CompilerOption {
-	return gojq.WithFunction("is_binary", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("is_binary", 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, "is_binary")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("is_binary: %v", err), nil)
@@ -113,7 +113,7 @@ func isBinary(data []byte) bool {
 
 // RegisterIsUTF8 registers is_utf8, whether the bytes are valid UTF-8.
 func RegisterIsUTF8() gojq.CompilerOption {
-	return gojq.WithFunction("is_utf8", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("is_utf8", 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, "is_utf8")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("is_utf8: %v", err), nil)

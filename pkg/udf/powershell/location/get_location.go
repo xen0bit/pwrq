@@ -26,7 +26,7 @@ type GetLocationOptions struct {
 //   - get_location({"PSDrive": "FileSystem"}) - get location from specific drive
 //   - get_location({"StackName": "myStack"}) - get top of named stack
 func RegisterGetLocation() gojq.CompilerOption {
-	return gojq.WithFunction("get_location", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("get_location", 0, 1, func(v any, args []any) any {
 		var opts GetLocationOptions
 
 		// Parse options if provided

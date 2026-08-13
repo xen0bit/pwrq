@@ -25,7 +25,7 @@ type SetDateOptions struct {
 //
 // Note: On Unix systems, this typically requires root privileges
 func RegisterSetDate() gojq.CompilerOption {
-	return gojq.WithFunction("set_date", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("set_date", 0, 2, func(v any, args []any) any {
 		opts := SetDateOptions{}
 
 		// Parse arguments

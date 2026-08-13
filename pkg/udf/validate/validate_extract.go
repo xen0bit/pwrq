@@ -34,7 +34,7 @@ func RegisterExtractDates() gojq.CompilerOption {
 // RegisterStripTags registers strip_tags, HTML tags removed from a string,
 // leaving the text.
 func RegisterStripTags() gojq.CompilerOption {
-	return gojq.WithFunction("strip_tags", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("strip_tags", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "strip_tags")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("strip_tags: %v", err), nil)

@@ -11,7 +11,7 @@ import (
 
 // RegisterMkdir registers the mkdir function with gojq
 func RegisterMkdir() gojq.CompilerOption {
-	return gojq.WithFunction("mkdir", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("mkdir", 1, 1, func(v any, args []any) any {
 		var dirPath string
 
 		// Parse required argument: directory path

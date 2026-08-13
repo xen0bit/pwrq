@@ -31,7 +31,7 @@ type SelectObjectOptions struct {
 //   - select_object(objects, "Name", "Length") - positional property args
 //   - select_object(objects; {first: n, last: n, skip: n, property: ["Name", "Value"]}) - options map
 func RegisterSelectObject() gojq.CompilerOption {
-	return gojq.WithFunction("select_object", 0, 20, func(v any, args []any) any {
+	return common.WithFunction("select_object", 0, 20, func(v any, args []any) any {
 		var objects []any
 		opts := SelectObjectOptions{
 			First:      -1,

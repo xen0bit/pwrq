@@ -6,6 +6,7 @@ import (
 	"github.com/censys/censys-sdk-go/models/components"
 	"github.com/censys/censys-sdk-go/models/operations"
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // defaultBuckets is how many buckets an aggregate asks for when the caller does
@@ -22,7 +23,7 @@ const defaultBuckets = 50
 // for.
 func RegisterSearch() gojq.CompilerOption {
 	const op = "search_censys"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		query, rawOpts, err := identifier(op, "Query", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -104,7 +105,7 @@ func RegisterSearch() gojq.CompilerOption {
 // returns the result object rather than streaming the buckets out of it.
 func RegisterGetAggregate() gojq.CompilerOption {
 	const op = "get_censys_aggregate"
-	return gojq.WithFunction(op, 1, 3, func(v any, args []any) any {
+	return common.WithFunction(op, 1, 3, func(v any, args []any) any {
 		// The field is always given explicitly, so the query is the half that
 		// can come from the pipeline.
 		query, field, rawOpts, err := pairArgs(op, "Query", "Field", 0, v, args)

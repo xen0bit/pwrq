@@ -53,7 +53,7 @@ func keyOf(item any) string {
 // RegisterIntersection registers intersection, the elements present in both
 // arrays, in first-array order.
 func RegisterIntersection() gojq.CompilerOption {
-	return gojq.WithFunction("intersection", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("intersection", 1, 2, func(v any, args []any) any {
 		a, b, err := twoArrs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("intersection: %v", err), nil)
@@ -75,7 +75,7 @@ func RegisterIntersection() gojq.CompilerOption {
 // RegisterUnion registers union, the unique elements of both arrays, in
 // first-array order then second-array.
 func RegisterUnion() gojq.CompilerOption {
-	return gojq.WithFunction("union", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("union", 1, 2, func(v any, args []any) any {
 		a, b, err := twoArrs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("union: %v", err), nil)
@@ -96,7 +96,7 @@ func RegisterUnion() gojq.CompilerOption {
 // RegisterDifference registers difference, the elements of the first array
 // that are not in the second.
 func RegisterDifference() gojq.CompilerOption {
-	return gojq.WithFunction("difference", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("difference", 1, 2, func(v any, args []any) any {
 		a, b, err := twoArrs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("difference: %v", err), nil)
@@ -118,7 +118,7 @@ func RegisterDifference() gojq.CompilerOption {
 // RegisterSymmetricDifference registers symmetric_difference, the elements in
 // exactly one of the two arrays.
 func RegisterSymmetricDifference() gojq.CompilerOption {
-	return gojq.WithFunction("symmetric_difference", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("symmetric_difference", 1, 2, func(v any, args []any) any {
 		a, b, err := twoArrs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("symmetric_difference: %v", err), nil)
@@ -149,7 +149,7 @@ func RegisterSymmetricDifference() gojq.CompilerOption {
 // RegisterAllEqual registers all_equal, whether every element of an array is
 // the same value. An empty array is all-equal.
 func RegisterAllEqual() gojq.CompilerOption {
-	return gojq.WithFunction("all_equal", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("all_equal", 0, 1, func(v any, args []any) any {
 		arr, _, err := arrInput(v, args, 0, "all_equal")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -170,7 +170,7 @@ func RegisterAllEqual() gojq.CompilerOption {
 // RegisterContainsDuplicates registers contains_duplicates, whether any value
 // appears more than once.
 func RegisterContainsDuplicates() gojq.CompilerOption {
-	return gojq.WithFunction("contains_duplicates", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("contains_duplicates", 0, 1, func(v any, args []any) any {
 		arr, _, err := arrInput(v, args, 0, "contains_duplicates")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -190,7 +190,7 @@ func RegisterContainsDuplicates() gojq.CompilerOption {
 // RegisterCartesian registers cartesian, the array of [a, b] pairs from two
 // arrays.
 func RegisterCartesian() gojq.CompilerOption {
-	return gojq.WithFunction("cartesian", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("cartesian", 1, 2, func(v any, args []any) any {
 		a, b, err := twoArrs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cartesian: %v", err), nil)
@@ -208,7 +208,7 @@ func RegisterCartesian() gojq.CompilerOption {
 // RegisterDedupe registers dedupe, removing duplicate values while keeping
 // first-occurrence order.
 func RegisterDedupe() gojq.CompilerOption {
-	return gojq.WithFunction("dedupe", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("dedupe", 0, 1, func(v any, args []any) any {
 		arr, _, err := arrInput(v, args, 0, "dedupe")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -229,7 +229,7 @@ func RegisterDedupe() gojq.CompilerOption {
 // RegisterLookup registers lookup, the first row of an array of objects whose
 // property equals a value: lookup("name"; "ada").
 func RegisterLookup() gojq.CompilerOption {
-	return gojq.WithFunction("lookup", 2, 3, func(v any, args []any) any {
+	return common.WithFunction("lookup", 2, 3, func(v any, args []any) any {
 		arr, rest, err := arrInput(v, args, 2, "lookup")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

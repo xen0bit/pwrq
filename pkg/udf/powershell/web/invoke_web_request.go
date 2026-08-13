@@ -57,7 +57,7 @@ type InvokeWebRequestOptions struct {
 //   - invoke_web_request({"Uri": "https://api.example.com"; "Method": "POST"; "Body": {"key": "value"}})
 //   - invoke_web_request("https://example.com"; {"Headers": {"Authorization": "Bearer token"}})
 func RegisterInvokeWebRequest() gojq.CompilerOption {
-	return gojq.WithFunction("invoke_web_request", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("invoke_web_request", 0, 2, func(v any, args []any) any {
 		opts := InvokeWebRequestOptions{
 			Method:             "GET",
 			Timeout:            30,
@@ -348,7 +348,7 @@ func invokeWebRequest(opts InvokeWebRequestOptions) (*WebResponse, error) {
 // PowerShell compatibility: Invoke-RestMethod
 // Similar to Invoke-WebRequest but automatically parses JSON/XML responses
 func RegisterInvokeRestMethod() gojq.CompilerOption {
-	return gojq.WithFunction("invoke_rest_method", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("invoke_rest_method", 0, 2, func(v any, args []any) any {
 		opts := InvokeWebRequestOptions{
 			Method:             "GET",
 			Timeout:            30,

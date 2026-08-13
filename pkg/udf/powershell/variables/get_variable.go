@@ -30,7 +30,7 @@ type GetVariableOptions struct {
 //   - get_variable("name"; {"ValueOnly": true}) - get only the value
 //   - get_variable("name"; {"Scope": "global"})
 func RegisterGetVariable() gojq.CompilerOption {
-	return gojq.WithFunction("get_variable", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("get_variable", 0, 2, func(v any, args []any) any {
 		var name string
 		opts := GetVariableOptions{
 			ValueOnly: false,
