@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -333,6 +334,204 @@ func TestListFunctions(t *testing.T) {
 	}
 	if filtered.Count < 1 {
 		t.Fatal("expected at least sha256 in the filtered list")
+	}
+}
+
+// TestToolResultsCarryText pins the content blocks. A client is only obliged
+// to show the model the content of a result, and several drop
+// structuredContent entirely, so a tool whose answer lives only in the
+// structured result answers nobody.
+func TestToolResultsCarryText(t *testing.T) {
+	server := NewServer("test")
+	cs := newTestClient(t, server)
+
+	cases := []struct {
+		tool     string
+		args     any
+		contains []string
+	}{
+		{"run_query", runQueryArgs{Query: ".a", Input: `{"a": 42}`}, []string{"42"}},
+		{"run_query", runQueryArgs{Query: "empty"}, []string{"no output"}},
+		{"validate_query", validateQueryArgs{Query: ".a"}, []string{".a"}},
+		// The catalogue itself, not a count of it: a filtered list carries the
+		// name, the arity, the category and the examples.
+		{"list_functions", listFunctionsArgs{Filter: "sha256"}, []string{"sha256/0", "[Hash]", "e.g."}},
+		// Unfiltered it is still the catalogue, with the count as a header.
+		{"list_functions", listFunctionsArgs{}, []string{"pass filter to narrow", "sha256/0", "get_childitem"}},
+		{"list_functions", listFunctionsArgs{Filter: "no-such-cmdlet"}, []string{"no functions match"}},
+	}
+	for _, c := range cases {
+		t.Run(c.tool+"/"+fmt.Sprint(c.args), func(t *testing.T) {
+			text := contentText(callTool(t, cs, c.tool, c.args))
+			if strings.TrimSpace(text) == "" {
+				t.Fatal("result has no text content")
+			}
+			for _, want := range c.contains {
+				if !strings.Contains(text, want) {
+					t.Errorf("text content lacks %q; got:\n%s", want, truncate(text))
+				}
+			}
+		})
+	}
+}
+
+func truncate(s string) string {
+	if len(s) > 400 {
+		return s[:400] + "..."
+	}
+	return s
+}
+
+// TestInputSchemasArePortable pins the shape of what we advertise. A client
+// hands the input schema to the model provider as the function's parameters,
+// and the stricter providers reject a type union such as ["null", "array"]
+// with a 400 that takes the whole request down with it.
+func TestInputSchemasArePortable(t *testing.T) {
+	server := NewServer("test")
+	cs := newTestClient(t, server)
+
+	res, err := cs.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	if len(res.Tools) != 3 {
+		t.Fatalf("got %d tools, want 3", len(res.Tools))
+	}
+
+	for _, tool := range res.Tools {
+		t.Run(tool.Name, func(t *testing.T) {
+			var schema map[string]any
+			encoded, err := json.Marshal(tool.InputSchema)
+			if err != nil {
+				t.Fatalf("marshal input schema: %v", err)
+			}
+			if err := json.Unmarshal(encoded, &schema); err != nil {
+				t.Fatalf("decode input schema: %v", err)
+			}
+			if schema["type"] != "object" {
+				t.Errorf("root type is %v, want object", schema["type"])
+			}
+			// Kept, not dropped: OpenAI's strict function calling requires it,
+			// and arguments are normalized before validation so a model that
+			// invents a property is not punished for it.
+			if schema["additionalProperties"] != false {
+				t.Errorf(`additionalProperties is %v, want false`, schema["additionalProperties"])
+			}
+			walkSchema(schema, func(node map[string]any) {
+				if types, ok := node["type"].([]any); ok {
+					t.Errorf("type union %v; a single type is what strict providers accept", types)
+				}
+			})
+		})
+	}
+}
+
+// walkSchema calls f on every subschema of a decoded JSON Schema.
+func walkSchema(node map[string]any, f func(map[string]any)) {
+	f(node)
+	for _, child := range node {
+		switch child := child.(type) {
+		case map[string]any:
+			// Either a subschema or a map of them; both are worth descending.
+			if _, isSchema := child["type"]; isSchema {
+				walkSchema(child, f)
+				continue
+			}
+			for _, grandchild := range child {
+				if sub, ok := grandchild.(map[string]any); ok {
+					walkSchema(sub, f)
+				}
+			}
+		case []any:
+			for _, elem := range child {
+				if sub, ok := elem.(map[string]any); ok {
+					walkSchema(sub, f)
+				}
+			}
+		}
+	}
+}
+
+// TestArgumentCoercion covers what a language model actually sends, as opposed
+// to what the schema asked for. None of these should fail the call.
+func TestArgumentCoercion(t *testing.T) {
+	server := NewServer("test")
+	cs := newTestClient(t, server)
+
+	cases := []struct {
+		name string
+		args map[string]any
+		want string
+	}{{
+		// The data itself where JSON text was asked for. This is the single
+		// most common thing a model does with run_query.
+		name: "object input",
+		args: map[string]any{"query": ".a", "input": map[string]any{"a": 1}},
+		want: "1",
+	}, {
+		name: "array input",
+		args: map[string]any{"query": ".[0]", "input": []any{7, 8}},
+		want: "7",
+	}, {
+		name: "quoted number",
+		args: map[string]any{"query": "1, 2", "limit": "5", "timeoutMs": "5000"},
+		want: "1\n2",
+	}, {
+		name: "quoted boolean",
+		args: map[string]any{"query": `"x"`, "raw": "true"},
+		want: "x",
+	}, {
+		// An optional the model mentioned and then declined to use.
+		name: "explicit null",
+		args: map[string]any{"query": "1", "input": nil, "args": nil},
+		want: "1",
+	}, {
+		// A flag that does not exist. One invented property should not cost
+		// the model the whole call.
+		name: "invented property",
+		args: map[string]any{"query": "1", "pretty": true},
+		want: "1",
+	}, {
+		// Coercion reaches into arrays: a named argument's value is JSON text,
+		// and a model will send the number.
+		name: "named argument value",
+		args: map[string]any{"query": "$x + 1", "args": []any{map[string]any{"name": "x", "value": 41}}},
+		want: "42",
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			res := callTool(t, cs, "run_query", c.args)
+			if res.IsError {
+				t.Fatalf("tool error: %s", contentText(res))
+			}
+			if got := contentText(res); got != c.want {
+				t.Fatalf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// TestArgumentCoercionStopsAtTheAmbiguous pins the other half: what cannot be
+// read as the declared type is still rejected, so the model gets told.
+func TestArgumentCoercionStopsAtTheAmbiguous(t *testing.T) {
+	server := NewServer("test")
+	cs := newTestClient(t, server)
+
+	cases := map[string]map[string]any{
+		"unparseable number": {"query": "1", "limit": "ten"},
+		"missing required":   {"input": "1"},
+		// A bare string where a list of named arguments was declared: there is
+		// no obvious reading of it, so it is not invented.
+		"wrong type": {"query": "1", "args": "x"},
+	}
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			res := callTool(t, cs, "run_query", args)
+			if !res.IsError {
+				t.Fatalf("expected a tool error, got %q", contentText(res))
+			}
+		})
 	}
 }
 
