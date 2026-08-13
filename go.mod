@@ -6,6 +6,7 @@ require (
 	github.com/censys/censys-sdk-go v0.25.27
 	github.com/glaslos/ssdeep v0.4.0
 	github.com/google/go-cmp v0.7.0
+	github.com/google/jsonschema-go v0.4.3
 	github.com/itchyny/go-yaml v0.0.0-20251001235044-fca9a0999f15
 	github.com/itchyny/gojq v0.12.18
 	github.com/klauspost/compress v1.19.2
@@ -29,7 +30,6 @@ require (
 	github.com/dop251/goja v0.0.0-20240927123429-241b342198c2 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
-	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/pprof v0.0.0-20240927180334-d43a67379298 // indirect
 	github.com/itchyny/timefmt-go v0.1.7 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect

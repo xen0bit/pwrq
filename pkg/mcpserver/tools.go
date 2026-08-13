@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/itchyny/gojq"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/xen0bit/pwrq/pkg/jqfmt"
@@ -14,10 +15,24 @@ import (
 // registerTools installs the server's three tools: run_query for evaluating
 // programs, list_functions for discovering the cmdlet vocabulary, and
 // validate_query for checking a program before running it.
+//
+// Every tool sets Content as well as returning a typed result. The structured
+// result is the same data in a form a client can decode, but a client is only
+// obliged to show the model the content blocks, and several - Open WebUI among
+// them - drop structuredContent entirely. So the text has to carry the answer
+// rather than a summary of it.
 func registerTools(server *mcp.Server) {
+	schemas := map[string]*jsonschema.Schema{
+		"run_query":      portableSchema[runQueryArgs](),
+		"list_functions": portableSchema[listFunctionsArgs](),
+		"validate_query": portableSchema[validateQueryArgs](),
+	}
+	server.AddReceivingMiddleware(normalizeArguments(schemas))
+
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "run_query",
 		Description: "Evaluate a pwrq/jq query against input data. The query language is jq augmented with ~470 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output.",
+		InputSchema: schemas["run_query"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args runQueryArgs) (*mcp.CallToolResult, runQueryResult, error) {
 		e := getEngine()
 		e.execMu.Lock()
@@ -38,17 +53,19 @@ func registerTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_functions",
-		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description and example invocations, so a caller can find what it needs and write a correct query.",
+		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description and example invocations, so a caller can find what it needs and write a correct query. Pass filter to narrow the list: unfiltered it is long.",
+		InputSchema: schemas["list_functions"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args listFunctionsArgs) (*mcp.CallToolResult, listFunctionsResult, error) {
 		res := listFunctions(args)
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("%d functions listed", res.Count)}},
+			Content: []mcp.Content{&mcp.TextContent{Text: describeFunctions(args, res)}},
 		}, res, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_query",
 		Description: "Check whether a pwrq/jq query parses, and return the formatted program when it does. Cheap: use it to iterate on a query before running it.",
+		InputSchema: schemas["validate_query"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args validateQueryArgs) (*mcp.CallToolResult, validateQueryResult, error) {
 		res := validateQuery(args)
 		if !res.OK {
@@ -78,8 +95,55 @@ func summarize(res runQueryResult) string {
 		fmt.Fprintf(&sb, "(%s)", res.Error)
 	case res.Error != "":
 		fmt.Fprintf(&sb, "(%s: %s)", res.Kind, res.Error)
+	case res.Count == 0:
+		// A query can succeed and emit nothing - `empty`, or a filter that
+		// matched no input. Say so, rather than handing back a blank result
+		// that reads like the tool failed.
+		sb.WriteString("(no output)")
 	}
 	return strings.TrimSuffix(sb.String(), "\n")
+}
+
+// examplesUpTo is the size of catalogue below which describeFunctions prints
+// each function's examples. Unfiltered the catalogue runs to several hundred
+// entries, and the examples would then be most of what the model reads.
+const examplesUpTo = 40
+
+// describeFunctions renders the cmdlet catalogue as text, one function per
+// line: name, arity, category and description, plus examples when the list is
+// short enough to afford them.
+func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
+	filter := strings.TrimSpace(args.Filter)
+	if res.Count == 0 {
+		return fmt.Sprintf("no functions match filter %q", filter)
+	}
+
+	var sb strings.Builder
+	if filter == "" {
+		fmt.Fprintf(&sb, "%d functions (pass filter to narrow the list)\n", res.Count)
+	} else {
+		fmt.Fprintf(&sb, "%d functions matching %q\n", res.Count, filter)
+	}
+
+	withExamples := res.Count <= examplesUpTo
+	for _, fn := range res.Functions {
+		fmt.Fprintf(&sb, "%s%s [%s] %s\n", fn.Name, arity(fn), fn.Category, fn.Description)
+		if withExamples {
+			for _, example := range fn.Examples {
+				fmt.Fprintf(&sb, "    e.g. %s\n", example)
+			}
+		}
+	}
+	return strings.TrimSuffix(sb.String(), "\n")
+}
+
+// arity renders how many arguments a function takes, in the jq notation the
+// model will write: /0, or /1-2 for a range.
+func arity(fn functionInfo) string {
+	if fn.MinArgs == fn.MaxArgs {
+		return fmt.Sprintf("/%d", fn.MinArgs)
+	}
+	return fmt.Sprintf("/%d-%d", fn.MinArgs, fn.MaxArgs)
 }
 
 // listFunctions returns the documented cmdlet catalog, filtered by a substring

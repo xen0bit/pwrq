@@ -318,6 +318,27 @@ Or over streamable HTTP:
 pwrq --mcp-http 127.0.0.1:8000
 ```
 
+which is the transport a hosted client such as Open WebUI wants: add it under
+*Admin Settings → External Tools* as an **MCP Streamable HTTP** server pointed
+at that address, with `PWRQ_MCP_TOKEN` as the bearer key if you set one.
+
+### Meeting clients where they are
+
+Two things about a tool call are decided by software that is not this server,
+and both are catered for here rather than assumed away:
+
+- **A result is read as text.** The MCP spec has structured results, but a
+  client is only obliged to pass the content blocks to the model, and several
+  popular ones ignore the structured half entirely. So every tool returns its
+  whole answer as text as well: `list_functions` renders the catalogue, not a
+  count of it.
+- **The input schema outlives the client.** It is handed to the model provider
+  verbatim as the function's parameters, and the stricter providers reject a
+  type union such as `["null", "array"]` outright. Nothing advertised here uses
+  one. In the other direction, a model that sends an object where JSON text was
+  asked for, a quoted number where an integer was, or a flag that does not
+  exist, gets its arguments read as intended rather than a validation error.
+
 ### What the HTTP transport exposes
 
 `run_query` evaluates against the whole CLI vocabulary, and that vocabulary
