@@ -404,8 +404,16 @@ cannot:
 
 ```console
 $ pwrq -nc 'select_string("src"; "TODO"; {Context: 1})
-           | map({LineNumber, Line, Before, After})'
-[{"After":["func main(){}"],"Before":["package main"],"Line":"// TODO: fix","LineNumber":2}]
+           | {LineNumber, Line, Before, After}'
+{"After":["func main(){}"],"Before":["package main"],"Line":"// TODO: fix","LineNumber":2}
+```
+
+It streams one object per match, so `[...]` collects them and `first` stops
+early — the walk only goes as far as what you read:
+
+```console
+$ pwrq -nc 'first(select_string("src"; "TODO")) | .Path'
+"src/main.go"
 ```
 
 `add_content` appends where `set_content` truncates:

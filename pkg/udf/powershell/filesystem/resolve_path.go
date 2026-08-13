@@ -111,11 +111,6 @@ func RegisterResolvePath() gojq.CompilerOption {
 			return gojq.NewIter(fmt.Errorf("resolve_path: %v", err))
 		}
 
-		if len(results) == 0 {
-			return gojq.NewIter[string]()
-		}
-
-		iter := &anySliceIter{values: results, index: 0}
-		return iter
+		return common.SliceIter(results)
 	})
 }

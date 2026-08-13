@@ -201,28 +201,6 @@ func RegisterFind() gojq.CompilerOption {
 			return gojq.NewIter(fmt.Errorf("find: %v", err))
 		}
 
-		// Convert []any to variadic arguments for NewIter
-		if len(results) == 0 {
-			return gojq.NewIter[string]()
-		}
-
-		// Create a slice iterator manually since NewIter needs type parameter
-		iter := &stringSliceIter{values: results, index: 0}
-		return iter
+		return common.SliceIter(results)
 	})
-}
-
-// stringSliceIter is an iterator over a slice of strings
-type stringSliceIter struct {
-	values []any
-	index  int
-}
-
-func (iter *stringSliceIter) Next() (any, bool) {
-	if iter.index >= len(iter.values) {
-		return nil, false
-	}
-	value := iter.values[iter.index]
-	iter.index++
-	return value, true
 }

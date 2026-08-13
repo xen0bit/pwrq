@@ -302,26 +302,6 @@ func RegisterGetChildItem() gojq.CompilerOption {
 			return gojq.NewIter(fmt.Errorf("get_childitem: %v", err))
 		}
 
-		if len(results) == 0 {
-			return gojq.NewIter[string]()
-		}
-
-		iter := &anySliceIter{values: results, index: 0}
-		return iter
+		return common.SliceIter(results)
 	})
-}
-
-// anySliceIter is an iterator over a slice of any
-type anySliceIter struct {
-	values []any
-	index  int
-}
-
-func (iter *anySliceIter) Next() (any, bool) {
-	if iter.index >= len(iter.values) {
-		return nil, false
-	}
-	value := iter.values[iter.index]
-	iter.index++
-	return value, true
 }

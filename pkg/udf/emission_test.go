@@ -42,13 +42,15 @@ func TestEveryDocumentedCommandHasKnownEmission(t *testing.T) {
 func TestStreamingCommandsReportStreaming(t *testing.T) {
 	DefaultRegistry()
 
-	// get_childitem streams and select_string does not. That pair is the exact
-	// inconsistency callers trip over, so it is the pair worth pinning.
+	// The cmdlets that enumerate something stream, one value per result; the
+	// ones that compute a single answer do not. select_string is pinned here
+	// because it used to be the exception - it returned one array while every
+	// other enumerator streamed, which is the inconsistency callers tripped over.
 	want := map[string]bool{
 		"get_childitem": true,
 		"find":          true,
 		"get_process":   true,
-		"select_string": false,
+		"select_string": true,
 		"cat":           false,
 		"sha256":        false,
 	}
