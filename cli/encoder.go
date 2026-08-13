@@ -34,12 +34,21 @@ func (e *encoder) flush() error {
 	return err
 }
 
+// maxJSONDepth bounds how deeply a value may nest before it is refused. The
+// encoder recurses over arrays and objects, and an unbounded depth overflows
+// the goroutine stack - a fatal error that takes the whole process down.
+// encoding/json refuses the same situation with a limit of 10000.
+const maxJSONDepth = 10000
+
 func (e *encoder) marshal(v any, w io.Writer) error {
 	e.out = w
-	return cmp.Or(e.encode(v), e.flush())
+	return cmp.Or(e.encode(v, 0), e.flush())
 }
 
-func (e *encoder) encode(v any) error {
+func (e *encoder) encode(v any, depth int) error {
+	if depth > maxJSONDepth {
+		return fmt.Errorf("cannot encode a value nested more than %d levels deep", maxJSONDepth)
+	}
 	switch v := v.(type) {
 	case nil:
 		e.write([]byte("null"), nullColor)
@@ -62,11 +71,11 @@ func (e *encoder) encode(v any) error {
 	case time.Time:
 		e.encodeString(v.Format(time.RFC3339), stringColor)
 	case []any:
-		if err := e.encodeArray(v); err != nil {
+		if err := e.encodeArray(v, depth); err != nil {
 			return err
 		}
 	case map[string]any:
-		if err := e.encodeObject(v); err != nil {
+		if err := e.encodeObject(v, depth); err != nil {
 			return err
 		}
 	default:
@@ -165,7 +174,7 @@ func (e *encoder) encodeString(s string, color []byte) {
 	}
 }
 
-func (e *encoder) encodeArray(vs []any) error {
+func (e *encoder) encodeArray(vs []any, depth int) error {
 	e.writeByte('[', arrayColor)
 	e.depth += e.indent
 	for i, v := range vs {
@@ -175,7 +184,7 @@ func (e *encoder) encodeArray(vs []any) error {
 		if e.indent >= 0 {
 			e.writeIndent()
 		}
-		if err := e.encode(v); err != nil {
+		if err := e.encode(v, depth+1); err != nil {
 			return err
 		}
 	}
@@ -187,7 +196,7 @@ func (e *encoder) encodeArray(vs []any) error {
 	return nil
 }
 
-func (e *encoder) encodeObject(vs map[string]any) error {
+func (e *encoder) encodeObject(vs map[string]any, depth int) error {
 	e.writeByte('{', objectColor)
 	e.depth += e.indent
 	type keyVal struct {
@@ -215,7 +224,7 @@ func (e *encoder) encodeObject(vs map[string]any) error {
 		if e.indent >= 0 {
 			e.w.WriteByte(' ')
 		}
-		if err := e.encode(kv.val); err != nil {
+		if err := e.encode(kv.val, depth+1); err != nil {
 			return err
 		}
 	}

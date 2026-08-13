@@ -156,17 +156,23 @@ func getProcesses(opts GetProcessOptions) ([]map[string]any, error) {
 			continue
 		}
 
+		// Every value here must already be in gojq's value space (nil, bool,
+		// int, float64, *big.Int, string, []any, map[string]any). WorkingSet
+		// and VirtualMemory are int64 and Handles is int32 on the struct, and
+		// gojq panics on those: not only in the encoder, but inside any
+		// builtin that touches the value, so `get_process | .Handles | type`
+		// would take the process down. Widen them to int at the boundary.
 		processMap := map[string]any{
 			"Id":                 proc.ID,
 			"Name":               proc.Name,
 			"Path":               proc.Path,
 			"CPU":                proc.CPU,
-			"WorkingSet":         proc.WorkingSet,
-			"VirtualMemory":      proc.VirtualMemory,
+			"WorkingSet":         int(proc.WorkingSet),
+			"VirtualMemory":      int(proc.VirtualMemory),
 			"StartTime":          proc.StartTime.Format(time.RFC3339),
 			"PriorityClass":      proc.PriorityClass,
 			"Threads":            proc.ThreadCount,
-			"Handles":            proc.Handles,
+			"Handles":            int(proc.Handles),
 			"ResponseTime":       proc.ResponseTime.String(),
 			"TotalProcessorTime": proc.TotalProcessorTime.String(),
 			"UserProcessorTime":  proc.UserProcessorTime.String(),
@@ -551,6 +557,18 @@ func parseStopProcessOptions(opts *StopProcessOptions, optsMap map[string]any) {
 	}
 }
 
+// toPID reads a process id out of a result map, accepting the int the cmdlets
+// produce and the float64 the same map takes on after a JSON round trip.
+func toPID(v any) (int, bool) {
+	switch id := v.(type) {
+	case int:
+		return id, true
+	case float64:
+		return int(id), true
+	}
+	return 0, false
+}
+
 // stopProcesses stops processes based on options
 func stopProcesses(opts StopProcessOptions) (stopped []int, failed []map[string]any, err error) {
 	// First get the processes to stop
@@ -565,8 +583,21 @@ func stopProcesses(opts StopProcessOptions) (stopped []int, failed []map[string]
 	}
 
 	for _, proc := range processes {
-		pid := int(proc["Id"].(float64))
-		name := proc["Name"].(string)
+		name, _ := proc["Name"].(string)
+
+		// getProcesses fills Id as int; accept the float64 form too in case a
+		// map was hand-built or round-tripped through JSON. A missing or
+		// unusable Id must not fall through as 0: on Unix, signalling pid 0
+		// signals every process in this process group.
+		pid, ok := toPID(proc["Id"])
+		if !ok || pid <= 0 {
+			failed = append(failed, map[string]any{
+				"Id":    proc["Id"],
+				"Name":  name,
+				"Error": fmt.Sprintf("unusable process id %v", proc["Id"]),
+			})
+			continue
+		}
 
 		// Skip self
 		if pid == os.Getpid() {

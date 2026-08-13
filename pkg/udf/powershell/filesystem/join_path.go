@@ -153,9 +153,11 @@ func RegisterJoinPath() gojq.CompilerOption {
 		}
 		psobj.AddNoteProperty("Drive", drive)
 
-		// Return PSObject directly - let the pipeline handle serialization
-		// Do NOT call ToMap() here to preserve type info through the pipeline
-		return psobj
+		// Hand the PSObject to MakeUDFSuccessResult rather than returning it
+		// raw: it normalizes to the wire form. A raw *psobject.PSObject is not
+		// in gojq's value space, so any filter that touched it - and the
+		// encoder in the end - would panic.
+		return common.MakeUDFSuccessResult(psobj, nil)
 	})
 }
 
@@ -212,6 +214,6 @@ func RegisterSplitPath() gojq.CompilerOption {
 		}
 		psobj.AddNoteProperty("Drive", drive)
 
-		return psobj
+		return common.MakeUDFSuccessResult(psobj, nil)
 	})
 }
