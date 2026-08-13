@@ -1,9 +1,11 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -617,7 +619,7 @@ func TestIsLoopback(t *testing.T) {
 
 func TestRequireBearer(t *testing.T) {
 	reached := false
-	handler := requireBearer("s3cret", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	handler := requireBearer(slog.New(slog.DiscardHandler), "s3cret", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		reached = true
 	}))
 	ts := httptest.NewServer(handler)
@@ -680,5 +682,82 @@ func TestHTTPServer(t *testing.T) {
 	decodeStructured(t, res, &out)
 	if got := strings.TrimSpace(out.Values[0]); got != `{"a":1}` {
 		t.Fatalf("http run_query got %s, want {a:1}", got)
+	}
+}
+
+// TestLogRequests pins that every HTTP request, including one rejected before
+// it reaches the MCP session, produces a log line carrying the status code and
+// session. Without this the transport is opaque: the SDK's own streamable
+// handler discards its logs by default.
+func TestLogRequests(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Fail") != "" {
+			http.Error(w, "nope", http.StatusTeapot)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	ts := httptest.NewServer(logRequests(logger, inner))
+	t.Cleanup(ts.Close)
+
+	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Mcp-Session-Id", "SESS123")
+	res, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	_ = res.Body.Close()
+
+	req2, _ := http.NewRequest(http.MethodGet, ts.URL, nil)
+	req2.Header.Set("X-Fail", "1")
+	req2.Header.Set("Mcp-Session-Id", "SESS456")
+	res2, err := ts.Client().Do(req2)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	_ = res2.Body.Close()
+
+	logged := buf.String()
+	for _, want := range []string{"http request", "status=200", "status=418", "session=SESS123", "session=SESS456"} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("request log lacks %q; got:\n%s", want, logged)
+		}
+	}
+}
+
+// TestLogRequestsPreservesFlush pins that the request-logging middleware does
+// not break streaming. The SDK flushes SSE through http.ResponseController,
+// which reaches the real ResponseWriter by calling Unwrap on each wrapper. A
+// wrapper without Unwrap makes every Flush fail - and the SDK ignores the
+// flush error, so the only symptom would be an event stream that delivers
+// nothing until the handler returns.
+func TestLogRequestsPreservesFlush(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+
+	flushed := make(chan error, 1)
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(": ok\n\n"))
+		flushed <- http.NewResponseController(w).Flush()
+	})
+	ts := httptest.NewServer(logRequests(logger, inner))
+	t.Cleanup(ts.Close)
+
+	res, err := ts.Client().Get(ts.URL)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	_ = res.Body.Close()
+
+	if err := <-flushed; err != nil {
+		t.Fatalf("flush through the logging middleware failed: %v", err)
 	}
 }

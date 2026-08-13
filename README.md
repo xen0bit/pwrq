@@ -297,7 +297,9 @@ server, so an agent can evaluate queries directly. The server exposes three tool
 
 Runs are always bounded — a default timeout and result limit stop a query that
 would otherwise stream forever — and each call gets a fresh session, so no state
-leaks between calls.
+leaks between calls. A result nested more than 10000 levels deep is refused as a
+query error rather than encoded, because encoding it recurses deeply enough to
+exhaust the goroutine stack, which no `recover` can catch.
 
 Over stdio, which Claude Desktop, Cursor and friends launch directly:
 
@@ -362,6 +364,30 @@ The token lives in the environment rather than in a flag so it does not sit in
 the process table. Setting it on a loopback bind works too, and is worth doing
 on a machine with other users on it. The transport has no TLS of its own: put it
 behind a reverse proxy if it needs to cross a network.
+
+### What the server logs
+
+The HTTP transport logs to stderr, and because the MCP protocol owns stdout,
+stdio logs there too. At the default `info` level you see, in order, what the
+server did:
+
+```text
+time=... level=INFO msg="mcp http server listening" addr=127.0.0.1:8000 auth="loopback, no token required"
+time=... level=INFO msg="http request" method=POST path=/ status=200 remote=127.0.0.1:41080 session=4A3LFAS4... duration=7ms
+time=... level=INFO msg="tool call" tool=run_query query="[1,2,3] | map(. * 2)" count=1 kind="" truncated=false duration=7ms
+```
+
+Every HTTP request gets a line — method, path, status, remote address, session
+and duration, including requests rejected before they reach the session — and
+each tool call gets one with the query (truncated), its result count and how
+long it took. A rejected bearer token is logged at `warn` with the remote
+address, since a burst of those from a non-loopback address is an attack rather
+than a misconfigured client.
+
+Set `PWRQ_LOG_LEVEL` to `debug`, `info`, `warn` or `error` to tune it; absent,
+the HTTP transport logs at `info` (its behaviour is otherwise invisible) and
+stdio at `warn`, so a single client's conversation stays quiet unless asked
+for.
 
 ## Development
 

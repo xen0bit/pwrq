@@ -75,6 +75,9 @@ func RegisterHead() gojq.CompilerOption {
 				n = m
 			}
 		}
+		if n < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("head: n must not be negative, got %d", n), nil)
+		}
 		lines, err := readLines(path)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("head: %v", err), nil)
@@ -98,6 +101,9 @@ func RegisterTail() gojq.CompilerOption {
 			if m, ok := common.ToInt(args[len(args)-1]); ok {
 				n = m
 			}
+		}
+		if n < 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("tail: n must not be negative, got %d", n), nil)
 		}
 		lines, err := readLines(path)
 		if err != nil {

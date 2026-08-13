@@ -3,7 +3,10 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/itchyny/gojq"
@@ -21,7 +24,7 @@ import (
 // obliged to show the model the content blocks, and several - Open WebUI among
 // them - drop structuredContent entirely. So the text has to carry the answer
 // rather than a summary of it.
-func registerTools(server *mcp.Server) {
+func registerTools(server *mcp.Server, logger *slog.Logger) {
 	schemas := map[string]*jsonschema.Schema{
 		"run_query":      portableSchema[runQueryArgs](),
 		"list_functions": portableSchema[listFunctionsArgs](),
@@ -33,7 +36,36 @@ func registerTools(server *mcp.Server) {
 		Name:        "run_query",
 		Description: "Evaluate a pwrq/jq query against input data. The query language is jq augmented with ~470 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output.",
 		InputSchema: schemas["run_query"],
-	}, func(_ context.Context, _ *mcp.CallToolRequest, args runQueryArgs) (*mcp.CallToolResult, runQueryResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args runQueryArgs) (result *mcp.CallToolResult, structured runQueryResult, err error) {
+		started := time.Now()
+		// Logged last, so a panic recovered below is reflected in the line.
+		defer func() {
+			attrs := []any{
+				"tool", "run_query",
+				"query", truncateForLog(args.Query),
+				"count", structured.Count,
+				"kind", structured.Kind,
+				"truncated", structured.Truncated,
+				"duration", time.Since(started).Round(time.Millisecond).String(),
+			}
+			level := slog.LevelInfo
+			if err != nil {
+				level = slog.LevelError
+				attrs = append(attrs, "error", err.Error())
+			}
+			logger.Log(ctx, level, "tool call", attrs...)
+		}()
+
+		// A query can panic in a cmdlet or in gojq itself. The HTTP transport
+		// has no recover anywhere in its dispatch path, so a panic in this
+		// handler would take the whole server down. Turn it into a tool error
+		// instead: the agent asked for a result and gets told the run failed.
+		defer func() {
+			if r := recover(); r != nil {
+				result, structured, err = nil, runQueryResult{}, fmt.Errorf("run_query panicked: %v", r)
+			}
+		}()
+
 		e := getEngine()
 		e.execMu.Lock()
 		res := e.execute(args)
@@ -56,7 +88,14 @@ func registerTools(server *mcp.Server) {
 		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description and example invocations, so a caller can find what it needs and write a correct query. Pass filter to narrow the list: unfiltered it is long.",
 		InputSchema: schemas["list_functions"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args listFunctionsArgs) (*mcp.CallToolResult, listFunctionsResult, error) {
+		started := time.Now()
 		res := listFunctions(args)
+		logger.Info("tool call",
+			"tool", "list_functions",
+			"filter", args.Filter,
+			"count", res.Count,
+			"duration", time.Since(started).Round(time.Millisecond).String(),
+		)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: describeFunctions(args, res)}},
 		}, res, nil
@@ -67,7 +106,14 @@ func registerTools(server *mcp.Server) {
 		Description: "Check whether a pwrq/jq query parses, and return the formatted program when it does. Cheap: use it to iterate on a query before running it.",
 		InputSchema: schemas["validate_query"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args validateQueryArgs) (*mcp.CallToolResult, validateQueryResult, error) {
+		started := time.Now()
 		res := validateQuery(args)
+		logger.Info("tool call",
+			"tool", "validate_query",
+			"query", truncateForLog(args.Query),
+			"ok", res.OK,
+			"duration", time.Since(started).Round(time.Millisecond).String(),
+		)
 		if !res.OK {
 			// Not a tool error: "this does not parse" is the answer the tool
 			// was asked for, and the caller wants it as an answer rather than
@@ -80,6 +126,22 @@ func registerTools(server *mcp.Server) {
 			Content: []mcp.Content{&mcp.TextContent{Text: res.Formatted}},
 		}, res, nil
 	})
+}
+
+// truncateForLog caps a query or filter before it is logged, so a program the
+// model wrote cannot balloon the log line. The cut is made on a rune boundary:
+// half a UTF-8 sequence would render as a replacement character and make the
+// logged query harder to recognise than the truncation already does.
+func truncateForLog(s string) string {
+	const max = 200
+	if len(s) <= max {
+		return s
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "..."
 }
 
 // summarize renders a run's output as plain text for the LLM, one result per
