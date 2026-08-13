@@ -63,6 +63,65 @@ $ pwrq -c 'get_childitem(".") | select(.Name == "go.mod")'
 Because it is JSON, everything jq knows how to do applies — `select`, `map`,
 `group_by`, `to_entries`, string interpolation, all of it.
 
+### One value or a stream
+
+A cmdlet either emits a single value or streams one value per result, and which
+it does decides whether you collect with `[...]`. `get_childitem` and `find`
+stream; `select_string` returns one array:
+
+```console
+$ pwrq -c '[get_childitem(".")] | map(.Name) | length'   # stream: collect it
+$ pwrq -c 'select_string("src"; "TODO") | map(.Path)'    # array: already collected
+```
+
+Collecting a stream is the common case, and the mistake it guards against is
+worth spelling out: without the brackets, `get_childitem(".") | map(...)` runs
+`map` against *each* object rather than the list, so `.[]` iterates that
+object's property values and you get `expected an object but got: string`.
+
+You never have to guess which kind a cmdlet is. `get_help` prints it, and the
+answer is read out of the registration itself rather than a hand-kept table, so
+it cannot drift from the code:
+
+```console
+$ pwrq -r 'get_help("get_childitem")' | grep -A1 OUTPUT
+OUTPUT
+    a stream of values, one per result — collect with [...] to get an array
+```
+
+`get_command` carries the same fact as data, as `.Streaming` and `.Output`.
+
+### Bytes survive the pipeline
+
+A jq string is a byte string, so cmdlets pass binary content through unchanged —
+`read_bytes`, `http`'s `.Content`, the codecs, the compressors and the write
+cmdlets are all byte-exact:
+
+```console
+$ pwrq -n 'http("GET"; "https://example.com/a.tar.gz") | .Content | out_file("a.tar.gz")'
+$ pwrq -n 'gzip_decompress("a.tar.gz"; true) | utf8bytelength'
+```
+
+Two things about such a value are worth knowing. Use `utf8bytelength` to measure
+it — jq's `length` counts codepoints, so on non-text bytes it reports a smaller
+number that is not the file size. And do not print it: bytes that are not valid
+UTF-8 have no JSON spelling, so send the value on to a hash, a codec or a file
+rather than to stdout.
+
+### Reading a file: by value or by path
+
+The codec, hash and compression cmdlets take their input *by value*, and read a
+file only when told to with a trailing `true`:
+
+```console
+$ pwrq -n 'gzip_decompress("a.tar.gz"; true)'          # read the file
+$ pwrq -n 'read_bytes("a.tar.gz") | gzip_decompress'   # already the bytes
+```
+
+Passing a path without the flag decompresses the path *string*, so if you see
+`invalid header` on an archive you know is good, the error will tell you which
+mistake you made.
+
 ### Failures are jq errors
 
 A cmdlet that fails raises an error rather than returning a value that looks

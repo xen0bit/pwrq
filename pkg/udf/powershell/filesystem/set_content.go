@@ -84,7 +84,10 @@ func parseSetContentArgs(args []any) (SetContentOptions, error) {
 func getEncoding(name string) (encoding.Encoding, error) {
 	switch strings.ToLower(name) {
 	case "utf8", "utf-8", "utf8mb3":
-		return unicode.UTF8, nil
+		// nil means "no transcoding": see convertToEncoding. Returning
+		// unicode.UTF8 here would route the content through a decoder that
+		// cannot round-trip bytes which are not valid UTF-8.
+		return nil, nil
 	case "utf16le", "utf-16le", "ucs2le":
 		return unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM), nil
 	case "utf16be", "utf-16be", "ucs2be":
@@ -181,21 +184,29 @@ func getEncoding(name string) (encoding.Encoding, error) {
 	}
 }
 
-// convertToEncoding converts a string to the specified encoding
-// Unsupported characters are replaced with '?'
+// convertToEncoding converts a string to the specified encoding. A nil
+// encoding means UTF-8, which is written verbatim; runes the target encoding
+// cannot represent are replaced with its substitute character.
 func convertToEncoding(s string, enc encoding.Encoding) ([]byte, error) {
-	// First, pre-process the string to replace potentially problematic runes
-	// with a safe replacement character
-	safe := strings.Map(func(r rune) rune {
-		// Keep ASCII and common Unicode, replace others that might cause issues
-		if r < 128 || (r >= 0x00A0 && r <= 0xFFFD) {
-			return r
-		}
-		return '?'
-	}, s)
+	// UTF-8 is the identity transform on a jq string, so the bytes go to disk
+	// as they are. This is not an optimization, it is the only correct answer:
+	// a jq string is a byte string, and the bytes reaching here may not be
+	// valid UTF-8 at all. read_bytes and http's .Content both hand over raw
+	// bytes, and decoding those to runes to re-encode them would rewrite every
+	// invalid byte as U+FFFD — silently corrupting the very content the caller
+	// asked to be written unchanged.
+	if enc == nil {
+		return []byte(s), nil
+	}
 
-	encoder := enc.NewEncoder()
-	result, _, err := transform.String(encoder, safe)
+	// Every other encoding is a real transcode, and some runes genuinely have
+	// no spelling in the target. ReplaceUnsupported substitutes those and
+	// leaves the rest alone, which is what the encoding's own tables say is
+	// representable — the previous hand-rolled rune filter guessed at that
+	// range and mangled everything above U+FFFD, so an emoji became '?' even
+	// when writing UTF-16, which represents it perfectly well.
+	encoder := encoding.ReplaceUnsupported(enc.NewEncoder())
+	result, _, err := transform.String(encoder, s)
 	if err != nil {
 		return nil, fmt.Errorf("encoding conversion failed: %w", err)
 	}

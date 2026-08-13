@@ -132,13 +132,13 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 		// Decompress with gzip
 		reader, err := gzip.NewReader(bytes.NewReader(inputBytes))
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to create reader: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to create reader: %v%s", err, common.FileFlagHint("gzip_decompress", inputVal)), nil)
 		}
 		defer func() { _ = reader.Close() }()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to decompress: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to decompress: %v%s", err, common.FileFlagHint("gzip_decompress", inputVal)), nil)
 		}
 
 		meta := map[string]any{
@@ -277,13 +277,13 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 		// Decompress with zlib
 		reader, err := zlib.NewReader(bytes.NewReader(inputBytes))
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to create reader: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to create reader: %v%s", err, common.FileFlagHint("zlib_decompress", inputVal)), nil)
 		}
 		defer func() { _ = reader.Close() }()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to decompress: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to decompress: %v%s", err, common.FileFlagHint("zlib_decompress", inputVal)), nil)
 		}
 
 		meta := map[string]any{
@@ -428,7 +428,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: failed to decompress: %v", err), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: failed to decompress: %v%s", err, common.FileFlagHint("deflate_decompress", inputVal)), nil)
 		}
 
 		meta := map[string]any{

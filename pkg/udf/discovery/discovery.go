@@ -30,6 +30,19 @@ type Command struct {
 	// table or service manager, so the commands that need one are documented
 	// but marked unavailable rather than hidden.
 	Available bool
+	// Streaming reports whether the command emits a stream of values rather
+	// than a single one. The registry fills this in from what the registration
+	// wrappers observed, so it describes the code rather than restating it.
+	Streaming bool
+}
+
+// EmitsDescription explains the command's output cardinality, which is what
+// decides whether a caller has to collect the results with [...].
+func (c Command) EmitsDescription() string {
+	if c.Streaming {
+		return "a stream of values, one per result — collect with [...] to get an array"
+	}
+	return "a single value — already collected, do not wrap in [...]"
 }
 
 // catalog is supplied by the registry at startup. It is a hook rather than a
@@ -66,6 +79,8 @@ func (c Command) toObject() map[string]any {
 		"Description":          c.Description,
 		"Examples":             examples,
 		"Available":            c.Available,
+		"Streaming":            c.Streaming,
+		"Output":               c.EmitsDescription(),
 		psobject.PSTypeNameKey: "System.Management.Automation.CommandInfo",
 	}
 }
@@ -150,6 +165,7 @@ func renderHelp(commands []Command) string {
 			fmt.Fprintf(&b, "\nSYNOPSIS\n    %s\n", c.Description)
 		}
 		fmt.Fprintf(&b, "\nSYNTAX\n    %s\n", syntax(c))
+		fmt.Fprintf(&b, "\nOUTPUT\n    %s\n", c.EmitsDescription())
 		if len(c.Aliases) > 0 {
 			fmt.Fprintf(&b, "\nALIASES\n    %s\n", strings.Join(c.Aliases, ", "))
 		}
