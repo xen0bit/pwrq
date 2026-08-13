@@ -12,6 +12,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/censys"
 	"github.com/xen0bit/pwrq/pkg/udf/checksum"
 	"github.com/xen0bit/pwrq/pkg/udf/collection"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 	"github.com/xen0bit/pwrq/pkg/udf/compress"
 	"github.com/xen0bit/pwrq/pkg/udf/config"
 	"github.com/xen0bit/pwrq/pkg/udf/crypto"
@@ -344,6 +345,10 @@ func buildCatalog() []discovery.Command {
 	metadata := GetFunctionMetadata()
 	commands := make([]discovery.Command, 0, len(metadata))
 	for _, meta := range metadata {
+		// Read back from the registration wrappers rather than from a column
+		// in the metadata table: the wrappers saw which one the cmdlet was
+		// registered with, so this cannot disagree with the code.
+		streaming, _ := common.IsStreaming(meta.Name)
 		commands = append(commands, discovery.Command{
 			Name:        meta.Name,
 			Aliases:     aliasesFor[meta.Name],
@@ -352,6 +357,7 @@ func buildCatalog() []discovery.Command {
 			Category:    meta.Category,
 			Description: meta.Description,
 			Examples:    meta.Examples,
+			Streaming:   streaming,
 			// The CLI registers every documented command, so its catalog marks
 			// them all runnable. browserCatalog overrides this per command.
 			Available: true,

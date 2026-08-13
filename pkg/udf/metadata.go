@@ -16,7 +16,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		// File operations
 		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("path"; "file")`, `find("path"; "dir")`}},
 		{"cat", 0, 2, "Read and return contents of a file, decoded as text (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`, `cat("app.log"; {tail: 20})`}},
-		{"read_bytes", 0, 1, "Read a file's bytes verbatim, with no text decoding", "File Operations", []string{`read_bytes("a.bin") | sha256`, `"a.bin" | read_bytes | length`}},
+		{"read_bytes", 0, 1, "Read a file's bytes verbatim, with no text decoding (use utf8bytelength, not length, to count them)", "File Operations", []string{`read_bytes("a.bin") | sha256`, `"a.bin" | read_bytes | utf8bytelength`}},
 		{"mkdir", 1, 1, "Create a directory (creates parent directories if needed)", "File Operations", []string{`mkdir("/tmp/mydir")`, `mkdir("nested/path/to/dir")`}},
 		{"rm", 2, 2, "Remove a file or folder (path, type: 'file' or 'folder')", "File Operations", []string{`rm("/tmp/file.txt"; "file")`, `rm("/tmp/mydir"; "folder")`}},
 
@@ -105,7 +105,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"tempdir", 0, 2, "Create a temporary directory (optional prefix, optional dir)", "File Operations", []string{`tempdir`, `tempdir("prefix_")`, `tempdir("prefix_"; "/tmp")`, `tempdir(""; "/tmp")`}},
 
 		// HTTP requests
-		{"http", 0, 2, "Make HTTP request (method default POST, url required)", "HTTP", []string{`http("https://example.com")`, `"https://example.com" | http`, `http("GET"; "https://example.com")`, `{"key":"value"} | http("POST"; "https://api.example.com")`}},
+		{"http", 0, 2, "Make an HTTP request, returning a response object whose .Content is the undecoded body", "HTTP", []string{`http("GET"; "https://example.com") | .StatusCode`, `http("GET"; "https://api.example.com/x") | .Content | json_parse`, `"https://example.com" | http`, `{"key":"value"} | http("POST"; "https://api.example.com")`, `http("GET"; "https://example.com/a.tar.gz") | .Content | out_file("a.tar.gz")`}},
 		{"http_serve", 2, 2, "Start HTTP server (host, port) - returns server URL", "HTTP", []string{`http_serve("127.0.0.1"; 8080)`, `http_serve("0.0.0.0"; 0)`}},
 
 		// Encryption/Decryption
@@ -243,7 +243,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"head", 0, 2, "The first n lines of a file (path, [n])", "File Operations", []string{`head("app.log")`, `head("app.log"; 5)`}},
 		{"tail", 0, 2, "The last n lines of a file (path, [n])", "File Operations", []string{`tail("app.log"; 5)`}},
 		{"grep_lines", 1, 2, "The lines of a file matching a pattern (path, pattern)", "File Operations", []string{`grep_lines("app.log"; "error")`}},
-		{"select_string", 1, 3, "Matching lines across a file or tree, with path, line number and context (pattern, [options])", "File Operations", []string{`select_string("src"; "TODO")`, `select_string("src"; "panic"; {Include: "*.go", Context: 2})`}},
+		{"select_string", 1, 3, `Matching lines across a file or tree, with path, line number and context (pattern, [options]). The pattern is a jq string literal first and a regex second, so a backslash must be doubled: "\\.html", "join\\(".`, "File Operations", []string{`select_string("src"; "TODO")`, `select_string("src"; "panic"; {Include: "*.go", Context: 2})`, `select_string("src"; "\\.html$")`, `select_string("src"; "join\\(|walk\\(")`}},
 		{"wc_lines", 0, 1, "The number of lines in a file", "File Operations", []string{`wc_lines("app.log")`}},
 
 		// Text predicates and inspection
