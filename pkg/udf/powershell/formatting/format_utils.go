@@ -79,7 +79,12 @@ func matchProperty(prop, pattern string, caseSensitive bool) bool {
 	return err == nil && matched
 }
 
-// getPropertyValue extracts a property value from an object, handling all member types
+// getPropertyValue extracts a property value from an object.
+//
+// Pipeline values are always maps by the time they get here - a cmdlet's
+// PSObject is flattened to its wire form on the way out - but a formatting
+// helper may still be handed one directly by the cmdlet that built it, so both
+// are accepted.
 func getPropertyValue(value any, propertyName string) any {
 	switch v := value.(type) {
 	case map[string]any:
@@ -87,30 +92,10 @@ func getPropertyValue(value any, propertyName string) any {
 			return val
 		}
 	case *psobject.PSObject:
-		// Direct PSObject access - handle all member types
 		if member, ok := v.Members[propertyName]; ok {
-			switch member.MemberType {
-			case psobject.MemberTypeNoteProperty:
-				return member.Value
-			case psobject.MemberTypeScriptProperty:
-				if member.Getter != nil {
-					val, err := member.Getter()
-					if err == nil {
-						return val
-					}
-					return fmt.Sprintf("<ScriptProperty error: %v>", err)
-				}
-				if member.Description != "" {
-					return fmt.Sprintf("<ScriptProperty: %s>", member.Description)
-				}
-				return "<ScriptProperty>"
-			case psobject.MemberTypeAliasProperty:
-				if targetName, ok := member.Value.(string); ok {
-					return getPropertyValue(v, targetName)
-				}
-			}
+			return member.Value
 		}
-		// Try the underlying value
+		// Fall back to the underlying value's own keys.
 		if valMap, ok := v.Value.(map[string]any); ok {
 			if val, exists := valMap[propertyName]; exists {
 				return val

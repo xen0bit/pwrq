@@ -39,7 +39,7 @@ type GetDateOptions struct {
 //   - get_date({"Format": "yyyy-MM-dd"})
 //   - get_date("2024-01-15"; {"Format": "dddd, MMMM dd"})
 func RegisterGetDate() gojq.CompilerOption {
-	return gojq.WithFunction("get_date", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("get_date", 0, 2, func(v any, args []any) any {
 		opts := GetDateOptions{}
 
 		// Parse arguments

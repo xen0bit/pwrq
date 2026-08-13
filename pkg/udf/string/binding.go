@@ -53,7 +53,7 @@ func bindInput(v any, isFile bool) (any, error) {
 
 // registerTextFn registers a 0-2 arity string-in, value-out cmdlet.
 func registerTextFn(name string, fn func(string) any) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
@@ -68,7 +68,7 @@ func registerTextFn(name string, fn func(string) any) gojq.CompilerOption {
 
 // registerPredicate registers a 0-2 arity string-in, boolean-out cmdlet.
 func registerPredicate(name string, fn func(string) bool) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
@@ -84,7 +84,7 @@ func registerPredicate(name string, fn func(string) bool) gojq.CompilerOption {
 // registerCaseConverter builds a 0-2 arity string-in, string-out cmdlet that
 // applies transform to the pipeline input, mirroring upper/lower.
 func registerCaseConverter(name string, transform func(string) string) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)

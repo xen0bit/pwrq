@@ -13,7 +13,7 @@ import (
 
 // RegisterToBase registers to_base, rendering a number in any base from 2 to 36.
 func RegisterToBase() gojq.CompilerOption {
-	return gojq.WithFunction("to_base", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("to_base", 1, 1, func(v any, args []any) any {
 		base, ok := common.ToInt(args[0])
 		if !ok || base < 2 || base > 36 {
 			return common.MakeUDFErrorResult(fmt.Errorf("to_base: base must be 2-36, got %v", args[0]), nil)
@@ -29,7 +29,7 @@ func RegisterToBase() gojq.CompilerOption {
 // RegisterFromBase registers from_base, parsing a number written in any base
 // from 2 to 36.
 func RegisterFromBase() gojq.CompilerOption {
-	return gojq.WithFunction("from_base", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("from_base", 1, 1, func(v any, args []any) any {
 		base, ok := common.ToInt(args[0])
 		if !ok || base < 2 || base > 36 {
 			return common.MakeUDFErrorResult(fmt.Errorf("from_base: base must be 2-36, got %v", args[0]), nil)
@@ -49,7 +49,7 @@ func RegisterFromBase() gojq.CompilerOption {
 // RegisterToHexNumber registers to_hex_number, a number to a hex string (the
 // byte-oriented hex_encode is the sibling for text).
 func RegisterToHexNumber() gojq.CompilerOption {
-	return gojq.WithFunction("to_hex_number", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("to_hex_number", 0, 0, func(v any, args []any) any {
 		n, err := num(v, "to_hex_number")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -60,7 +60,7 @@ func RegisterToHexNumber() gojq.CompilerOption {
 
 // RegisterFromHexNumber registers from_hex_number, a hex string to a number.
 func RegisterFromHexNumber() gojq.CompilerOption {
-	return gojq.WithFunction("from_hex_number", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("from_hex_number", 0, 0, func(v any, args []any) any {
 		s, ok := common.BindValue(v).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("from_hex_number: expected a string, got %T", v), nil)
@@ -76,7 +76,7 @@ func RegisterFromHexNumber() gojq.CompilerOption {
 // RegisterHumanBytes registers human_bytes, rendering a byte count in binary
 // units (KiB, MiB, GiB, ...).
 func RegisterHumanBytes() gojq.CompilerOption {
-	return gojq.WithFunction("human_bytes", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("human_bytes", 0, 0, func(v any, args []any) any {
 		n, err := num(v, "human_bytes")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -106,7 +106,7 @@ func humanBytes(n float64) string {
 // RegisterHumanNumber registers human_number, a count rendered compactly with
 // k, M, B and T suffixes.
 func RegisterHumanNumber() gojq.CompilerOption {
-	return gojq.WithFunction("human_number", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("human_number", 0, 0, func(v any, args []any) any {
 		n, ok := common.ToFloat64(common.BindValue(v))
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("human_number: expected a number, got %T", v), nil)
@@ -148,7 +148,7 @@ func trim1(f float64) string {
 // RegisterGroupDigits registers group_digits, an integer with thousands
 // separators: 1234567 | group_digits -> "1,234,567".
 func RegisterGroupDigits() gojq.CompilerOption {
-	return gojq.WithFunction("group_digits", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("group_digits", 0, 1, func(v any, args []any) any {
 		input := common.BindValue(v)
 		if len(args) > 0 {
 			input = common.BindValue(args[0])
@@ -212,7 +212,7 @@ func groupDigits(n int64) string {
 // RegisterFormatCurrency registers format_currency, a number as a currency
 // string: format_currency(n; [symbol]) -> "$1,234.57".
 func RegisterFormatCurrency() gojq.CompilerOption {
-	return gojq.WithFunction("format_currency", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("format_currency", 0, 1, func(v any, args []any) any {
 		symbol := "$"
 		if len(args) > 0 {
 			if s, ok := common.BindValue(args[0]).(string); ok {
@@ -244,7 +244,7 @@ func RegisterFormatCurrency() gojq.CompilerOption {
 
 // RegisterOrdinal registers ordinal, an integer as "1st", "2nd", "3rd", ...
 func RegisterOrdinal() gojq.CompilerOption {
-	return gojq.WithFunction("ordinal", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("ordinal", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "ordinal")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

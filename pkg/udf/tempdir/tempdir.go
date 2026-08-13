@@ -11,7 +11,7 @@ import (
 
 // RegisterTempDir registers the tempdir function with gojq
 func RegisterTempDir() gojq.CompilerOption {
-	return gojq.WithFunction("tempdir", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("tempdir", 0, 2, func(v any, args []any) any {
 		var prefix string
 		var dir string
 

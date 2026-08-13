@@ -6,13 +6,14 @@ import (
 	"github.com/censys/censys-sdk-go/models/components"
 	"github.com/censys/censys-sdk-go/models/operations"
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // RegisterGetTag registers get_censys_tag, cencli's `tags get` and
 // `tags list`: one tag when given an ID or name, otherwise all of them.
 func RegisterGetTag() gojq.CompilerOption {
 	const op = "get_censys_tag"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		tagID, rawOpts, err := optionalIdentifier(op, "TagId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -102,7 +103,7 @@ func RegisterGetTag() gojq.CompilerOption {
 // is what a tag is usually for.
 func RegisterNewTag() gojq.CompilerOption {
 	const op = "new_censys_tag"
-	return gojq.WithFunction(op, 0, 1, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 1, func(v any, args []any) any {
 		props, err := propertyArgs(op, v, args)
 		if err != nil {
 			return err
@@ -153,7 +154,7 @@ func RegisterNewTag() gojq.CompilerOption {
 // of the body is optional, so this one really is a patch.
 func RegisterSetTag() gojq.CompilerOption {
 	const op = "set_censys_tag"
-	return gojq.WithFunction(op, 1, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 1, 2, func(v any, args []any) any {
 		tagID, props, err := identifier(op, "TagId", v, args)
 		if err != nil {
 			return err
@@ -207,7 +208,7 @@ func RegisterSetTag() gojq.CompilerOption {
 // RegisterRemoveTag registers remove_censys_tag, cencli's `tags delete`.
 func RegisterRemoveTag() gojq.CompilerOption {
 	const op = "remove_censys_tag"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		tagID, rawOpts, err := identifier(op, "TagId", v, args)
 		if err != nil {
 			return err
@@ -232,7 +233,7 @@ func RegisterRemoveTag() gojq.CompilerOption {
 // `tags assignments`: what a tag is currently attached to.
 func RegisterGetTagAssignment() gojq.CompilerOption {
 	const op = "get_censys_tag_assignment"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		tagID, rawOpts, err := identifier(op, "TagId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -322,7 +323,7 @@ func RegisterGetTagAssignment() gojq.CompilerOption {
 //	search_censys("...") | .host.ip | add_censys_tag_assignment("compromised")
 func RegisterAddTagAssignment() gojq.CompilerOption {
 	const op = "add_censys_tag_assignment"
-	return gojq.WithFunction(op, 1, 3, func(v any, args []any) any {
+	return common.WithFunction(op, 1, 3, func(v any, args []any) any {
 		tagID, assetID, rawOpts, err := pairArgs(op, "TagId", "AssetId", 1, v, args)
 		if err != nil {
 			return err
@@ -361,7 +362,7 @@ func RegisterAddTagAssignment() gojq.CompilerOption {
 // get_censys_tag_assignment reports — not the asset ID.
 func RegisterRemoveTagAssignment() gojq.CompilerOption {
 	const op = "remove_censys_tag_assignment"
-	return gojq.WithFunction(op, 1, 3, func(v any, args []any) any {
+	return common.WithFunction(op, 1, 3, func(v any, args []any) any {
 		tagID, assignmentID, rawOpts, err := pairArgs(op, "TagId", "AssignmentId", 1, v, args)
 		if err != nil {
 			return err

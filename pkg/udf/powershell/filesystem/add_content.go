@@ -19,7 +19,7 @@ import (
 //	"a line" | add_content("out.log")
 //	add_content("out.log"; "a line")
 func RegisterAddContent() gojq.CompilerOption {
-	return gojq.WithFunction("add_content", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("add_content", 1, 3, func(v any, args []any) any {
 		opts, err := parseAppendArgs(v, args, "add_content")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -40,7 +40,7 @@ func RegisterAddContent() gojq.CompilerOption {
 // way set_content does, and takes {Append: true}, which is the combination
 // reporting pipelines actually need.
 func RegisterOutFile() gojq.CompilerOption {
-	return gojq.WithFunction("out_file", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("out_file", 1, 3, func(v any, args []any) any {
 		opts, err := parseAppendArgs(v, args, "out_file")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

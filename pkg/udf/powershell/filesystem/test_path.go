@@ -159,7 +159,7 @@ func isValidPathSyntax(path string) bool {
 
 // RegisterTestPath registers the test_path function with gojq
 func RegisterTestPath() gojq.CompilerOption {
-	return gojq.WithFunction("test_path", 0, 3, func(v any, args []any) any {
+	return common.WithFunction("test_path", 0, 3, func(v any, args []any) any {
 		opts, err := parseTestPathArgs(args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

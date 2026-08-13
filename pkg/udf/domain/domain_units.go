@@ -75,7 +75,7 @@ var fuelEfficiency = map[string]bool{"mpg": true, "l100km": true}
 // Unit names are case-insensitive. Converting between different quantities is
 // an error rather than a silently wrong number.
 func RegisterConvertUnit() gojq.CompilerOption {
-	return gojq.WithFunction("convert_unit", 2, 3, func(v any, args []any) any {
+	return common.WithFunction("convert_unit", 2, 3, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 2)
 		value, ok := common.ToFloat64(common.BindValue(in))
 		if !ok {
@@ -152,7 +152,7 @@ func tidy(f float64) float64 {
 // units: suffixes b, k/kb/kib, m/mb/mib, g/gb/gib, t/tb/tib and their
 // p/e larger forms, all powers of 1024.
 func RegisterParseSize() gojq.CompilerOption {
-	return gojq.WithFunction("parse_size", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("parse_size", 0, 1, func(v any, args []any) any {
 		input := v
 		if len(args) > 0 {
 			input = args[0]

@@ -60,7 +60,7 @@ func strInput(v any, args []any, name string) (string, error) {
 
 // RegisterUUID4 registers uuid4, a freshly generated version-4 UUID.
 func RegisterUUID4() gojq.CompilerOption {
-	return gojq.WithFunction("uuid4", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("uuid4", 0, 0, func(v any, args []any) any {
 		var b [16]byte
 		if _, err := rand.Read(b[:]); err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -81,7 +81,7 @@ var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 // RegisterIsUUID registers is_uuid, whether a string is a UUID in canonical
 // hyphenated form.
 func RegisterIsUUID() gojq.CompilerOption {
-	return gojq.WithFunction("is_uuid", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("is_uuid", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "is_uuid")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("is_uuid: %v", err), nil)
@@ -93,7 +93,7 @@ func RegisterIsUUID() gojq.CompilerOption {
 // RegisterUUIDVersion registers uuid_version, the version nibble of a UUID, or
 // null when the string is not a UUID.
 func RegisterUUIDVersion() gojq.CompilerOption {
-	return gojq.WithFunction("uuid_version", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("uuid_version", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "uuid_version")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("uuid_version: %v", err), nil)
@@ -123,7 +123,7 @@ func base64urlDecode(s string) ([]byte, error) {
 // RegisterJWTDecode registers jwt_decode, splitting a JWT into its decoded
 // header and payload and its signature.
 func RegisterJWTDecode() gojq.CompilerOption {
-	return gojq.WithFunction("jwt_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("jwt_decode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "jwt_decode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("jwt_decode: %v", err), nil)
@@ -159,7 +159,7 @@ func jsonValue(raw []byte) any {
 
 // RegisterIsJWT registers is_jwt, whether a string is three base64url segments.
 func RegisterIsJWT() gojq.CompilerOption {
-	return gojq.WithFunction("is_jwt", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("is_jwt", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "is_jwt")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("is_jwt: %v", err), nil)
@@ -179,7 +179,7 @@ func RegisterIsJWT() gojq.CompilerOption {
 
 // RegisterBase64URLEncode registers base64url_encode, unpadded URL-safe base64.
 func RegisterBase64URLEncode() gojq.CompilerOption {
-	return gojq.WithFunction("base64url_encode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("base64url_encode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base64url_encode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("base64url_encode: %v", err), nil)
@@ -191,7 +191,7 @@ func RegisterBase64URLEncode() gojq.CompilerOption {
 // RegisterBase64URLDecode registers base64url_decode, the inverse of
 // base64url_encode.
 func RegisterBase64URLDecode() gojq.CompilerOption {
-	return gojq.WithFunction("base64url_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("base64url_decode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base64url_decode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("base64url_decode: %v", err), nil)
@@ -206,7 +206,7 @@ func RegisterBase64URLDecode() gojq.CompilerOption {
 
 // RegisterRot13 registers rot13, ROT-13 over ASCII letters.
 func RegisterRot13() gojq.CompilerOption {
-	return gojq.WithFunction("rot13", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("rot13", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "rot13")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("rot13: %v", err), nil)
@@ -217,7 +217,7 @@ func RegisterRot13() gojq.CompilerOption {
 
 // RegisterRot registers rot, a Caesar cipher over ASCII letters with a shift.
 func RegisterRot() gojq.CompilerOption {
-	return gojq.WithFunction("rot", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("rot", 1, 2, func(v any, args []any) any {
 		shift, ok := common.ToInt(args[0])
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("rot: shift must be an integer, got %v", args[0]), nil)
@@ -278,7 +278,7 @@ func rot(s string, shift int) string {
 // RegisterUUID7 registers uuid7, a time-ordered version-7 UUID whose leading
 // bytes sort by creation time.
 func RegisterUUID7() gojq.CompilerOption {
-	return gojq.WithFunction("uuid7", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("uuid7", 0, 0, func(v any, args []any) any {
 		ms := uint64(time.Now().UnixMilli())
 		var b [16]byte
 		binary.BigEndian.PutUint64(b[0:8], ms<<16) // 48 bits of milliseconds
@@ -305,7 +305,7 @@ func randBelow(n int) (int, error) {
 // RegisterNanoID registers nanoid, n URL-safe characters (21 by default) drawn
 // from the nanoid alphabet.
 func RegisterNanoID() gojq.CompilerOption {
-	return gojq.WithFunction("nanoid", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("nanoid", 0, 1, func(v any, args []any) any {
 		n := 21
 		if len(args) > 0 {
 			if m, ok := common.ToInt(args[0]); ok && m >= 0 {
@@ -357,7 +357,7 @@ const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwx
 // RegisterBase58Encode registers base58_encode, the byte string as the compact
 // base58 alphabet used by Bitcoin addresses.
 func RegisterBase58Encode() gojq.CompilerOption {
-	return gojq.WithFunction("base58_encode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("base58_encode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base58_encode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("base58_encode: %v", err), nil)
@@ -368,7 +368,7 @@ func RegisterBase58Encode() gojq.CompilerOption {
 
 // RegisterBase58Decode registers base58_decode, the inverse of base58_encode.
 func RegisterBase58Decode() gojq.CompilerOption {
-	return gojq.WithFunction("base58_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("base58_decode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base58_decode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("base58_decode: %v", err), nil)
@@ -430,7 +430,7 @@ func base58Decode(s string) ([]byte, error) {
 
 // registerBoolToken registers a 0-2 arity string-in, boolean-out cmdlet.
 func registerBoolToken(name string, fn func(string) bool) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, name)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
@@ -442,7 +442,7 @@ func registerBoolToken(name string, fn func(string) bool) gojq.CompilerOption {
 // RegisterPunycodeEncode registers punycode_encode, an internationalized
 // domain or label to its ASCII (punycode) form.
 func RegisterPunycodeEncode() gojq.CompilerOption {
-	return gojq.WithFunction("punycode_encode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("punycode_encode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "punycode_encode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("punycode_encode: %v", err), nil)
@@ -458,7 +458,7 @@ func RegisterPunycodeEncode() gojq.CompilerOption {
 // RegisterPunycodeDecode registers punycode_decode, a punycode (ASCII) domain
 // back to its internationalized form.
 func RegisterPunycodeDecode() gojq.CompilerOption {
-	return gojq.WithFunction("punycode_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("punycode_decode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "punycode_decode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("punycode_decode: %v", err), nil)

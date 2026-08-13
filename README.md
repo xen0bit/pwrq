@@ -389,6 +389,20 @@ the HTTP transport logs at `info` (its behaviour is otherwise invisible) and
 stdio at `warn`, so a single client's conversation stays quiet unless asked
 for.
 
+## Writing a cmdlet
+
+Register with `common.WithFunction` or `common.WithIterFunction`, never with
+`gojq.WithFunction` directly. The wrappers put every result into the value space
+gojq operates on — `nil`, `bool`, `int`, `float64`, `*big.Int`, `json.Number`,
+`string`, `[]any`, `map[string]any` — and gojq *panics* on anything else, not
+only when encoding but inside any builtin that inspects the value. A cmdlet that
+returns an `int32` in a map encodes fine and then crashes the first query that
+calls `type` on that field, a long way from the mistake. A test fails if a
+cmdlet registers directly.
+
+Return errors as `error`; they travel on jq's error channel, where `try`/`catch`
+and the exit status can see them, and they are deliberately left unnormalized.
+
 ## Development
 
 ```bash

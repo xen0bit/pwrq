@@ -39,7 +39,7 @@ type FormattedTable struct {
 //
 // Usage: format_table(objects) or format_table(objects; options)
 func RegisterFormatTable() gojq.CompilerOption {
-	return gojq.WithFunction("format_table", 1, 2, func(input any, args []any) any {
+	return common.WithFunction("format_table", 1, 2, func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseFormatTableArgs(args)
 		if err != nil {

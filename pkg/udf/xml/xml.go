@@ -11,7 +11,7 @@ import (
 
 // RegisterXMLParse registers the xml_parse function with gojq
 func RegisterXMLParse() gojq.CompilerOption {
-	return gojq.WithFunction("xml_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("xml_parse", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: %v", err), nil)
@@ -101,7 +101,7 @@ func RegisterXMLParse() gojq.CompilerOption {
 
 // RegisterXMLStringify registers the xml_stringify function with gojq
 func RegisterXMLStringify() gojq.CompilerOption {
-	return gojq.WithFunction("xml_stringify", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("xml_stringify", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("xml_stringify: %v", err), nil)

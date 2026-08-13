@@ -12,7 +12,7 @@ import (
 
 // RegisterClamp registers clamp, bounding a number to a range.
 func RegisterClamp() gojq.CompilerOption {
-	return gojq.WithFunction("clamp", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("clamp", 2, 2, func(v any, args []any) any {
 		n, err := num(v, "clamp")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -32,7 +32,7 @@ func RegisterClamp() gojq.CompilerOption {
 // RegisterRoundTo registers round_to, rounding a number to a number of decimal
 // places (negative places round to tens, hundreds and so on).
 func RegisterRoundTo() gojq.CompilerOption {
-	return gojq.WithFunction("round_to", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("round_to", 1, 1, func(v any, args []any) any {
 		places, ok := common.ToInt(args[0])
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("round_to: places must be an integer, got %v", args[0]), nil)
@@ -49,7 +49,7 @@ func RegisterRoundTo() gojq.CompilerOption {
 // RegisterToFixed registers to_fixed, a number rendered with a fixed number of
 // decimal places as a string: to_fixed(n; places).
 func RegisterToFixed() gojq.CompilerOption {
-	return gojq.WithFunction("to_fixed", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("to_fixed", 1, 1, func(v any, args []any) any {
 		places, ok := common.ToInt(args[0])
 		if !ok || places < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("to_fixed: places must be a non-negative integer, got %v", args[0]), nil)
@@ -64,7 +64,7 @@ func RegisterToFixed() gojq.CompilerOption {
 
 // RegisterSign registers sign, -1, 0 or 1 for a number.
 func RegisterSign() gojq.CompilerOption {
-	return gojq.WithFunction("sign", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("sign", 0, 1, func(v any, args []any) any {
 		f, ok := common.ToFloat64(common.BindValue(v))
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("sign: expected a number, got %T", v), nil)
@@ -82,7 +82,7 @@ func RegisterSign() gojq.CompilerOption {
 
 // RegisterIsEven registers is_even, whether an integer is even.
 func RegisterIsEven() gojq.CompilerOption {
-	return gojq.WithFunction("is_even", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("is_even", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "is_even")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -93,7 +93,7 @@ func RegisterIsEven() gojq.CompilerOption {
 
 // RegisterIsOdd registers is_odd, whether an integer is odd.
 func RegisterIsOdd() gojq.CompilerOption {
-	return gojq.WithFunction("is_odd", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("is_odd", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "is_odd")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -105,7 +105,7 @@ func RegisterIsOdd() gojq.CompilerOption {
 // RegisterIsPowerOfTwo registers is_power_of_two, whether a positive integer
 // is a power of two.
 func RegisterIsPowerOfTwo() gojq.CompilerOption {
-	return gojq.WithFunction("is_power_of_two", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("is_power_of_two", 0, 1, func(v any, args []any) any {
 		n, err := intIn(v, args, "is_power_of_two")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -120,7 +120,7 @@ func RegisterIsPowerOfTwo() gojq.CompilerOption {
 // RegisterLerp registers lerp, linear interpolation between a and b at t in
 // [0,1].
 func RegisterLerp() gojq.CompilerOption {
-	return gojq.WithFunction("lerp", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("lerp", 2, 2, func(v any, args []any) any {
 		a, aOK := common.ToFloat64(common.BindValue(v))
 		b, bOK := common.ToFloat64(common.BindValue(args[0]))
 		t, tOK := common.ToFloat64(common.BindValue(args[1]))
@@ -134,7 +134,7 @@ func RegisterLerp() gojq.CompilerOption {
 // RegisterRescale registers rescale, mapping a value from one range to
 // another: rescale(v; fromLo; fromHi; toLo; toHi).
 func RegisterRescale() gojq.CompilerOption {
-	return gojq.WithFunction("rescale", 4, 4, func(v any, args []any) any {
+	return common.WithFunction("rescale", 4, 4, func(v any, args []any) any {
 		vals := make([]float64, 4)
 		for i := 0; i < 4; i++ {
 			f, ok := common.ToFloat64(common.BindValue(args[i]))
@@ -158,7 +158,7 @@ func RegisterRescale() gojq.CompilerOption {
 // RegisterPctChange registers pct_change, the percentage change from one value
 // to another.
 func RegisterPctChange() gojq.CompilerOption {
-	return gojq.WithFunction("pct_change", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("pct_change", 1, 1, func(v any, args []any) any {
 		a, aOK := common.ToFloat64(common.BindValue(v))
 		b, bOK := common.ToFloat64(common.BindValue(args[0]))
 		if !aOK || !bOK {
@@ -173,7 +173,7 @@ func RegisterPctChange() gojq.CompilerOption {
 
 // RegisterPercentage registers percentage, part as a percentage of whole.
 func RegisterPercentage() gojq.CompilerOption {
-	return gojq.WithFunction("percentage", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("percentage", 1, 1, func(v any, args []any) any {
 		part, err := num(v, "percentage")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

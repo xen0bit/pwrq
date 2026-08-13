@@ -61,56 +61,6 @@ func TestAddNoteProperty(t *testing.T) {
 	}
 }
 
-func TestAddScriptProperty(t *testing.T) {
-	psobj := NewPSObject(42)
-	psobj.AddScriptProperty("Doubled", func() (any, error) {
-		return 84, nil
-	})
-
-	val, err := psobj.GetPropertyValue("Doubled")
-	if err != nil {
-		t.Fatalf("GetPropertyValue failed: %v", err)
-	}
-	if val != 84 {
-		t.Errorf("Expected 84, got %v", val)
-	}
-}
-
-func TestAddAliasProperty(t *testing.T) {
-	psobj := NewPSObject("test")
-	psobj.AddNoteProperty("FullName", "John Doe")
-	psobj.AddAliasProperty("Name", "FullName")
-
-	val, err := psobj.GetPropertyValue("Name")
-	if err != nil {
-		t.Fatalf("GetPropertyValue failed: %v", err)
-	}
-	if val != "John Doe" {
-		t.Errorf("Expected 'John Doe', got %v", val)
-	}
-}
-
-func TestAddMethod(t *testing.T) {
-	psobj := NewPSObject(10)
-	psobj.AddMethod("Add", func(args ...any) any {
-		if len(args) == 0 {
-			return nil
-		}
-		if num, ok := args[0].(int); ok {
-			return psobj.Value.(int) + num
-		}
-		return nil
-	})
-
-	result, err := psobj.InvokeMethod("Add", 5)
-	if err != nil {
-		t.Fatalf("InvokeMethod failed: %v", err)
-	}
-	if result != 15 {
-		t.Errorf("Expected 15, got %v", result)
-	}
-}
-
 func TestGetPropertyValue(t *testing.T) {
 	psobj := NewPSObject("test")
 	psobj.AddNoteProperty("Prop1", "value1")
@@ -126,26 +76,6 @@ func TestGetPropertyValue(t *testing.T) {
 	_, err = psobj.GetPropertyValue("NonExistent")
 	if err == nil {
 		t.Error("Expected error for non-existent member")
-	}
-}
-
-func TestInvokeMethod(t *testing.T) {
-	psobj := NewPSObject("test")
-	psobj.AddMethod("TestMethod", func(args ...any) any {
-		return "result"
-	})
-
-	result, err := psobj.InvokeMethod("TestMethod")
-	if err != nil {
-		t.Fatalf("InvokeMethod failed: %v", err)
-	}
-	if result != "result" {
-		t.Errorf("Expected 'result', got %v", result)
-	}
-
-	_, err = psobj.InvokeMethod("NonExistent")
-	if err == nil {
-		t.Error("Expected error for non-existent method")
 	}
 }
 
@@ -239,47 +169,6 @@ func TestToMapFlattensProperties(t *testing.T) {
 	for _, retired := range []string{"_val", "_meta", "_err"} {
 		if _, present := got[retired]; present {
 			t.Errorf("wire format must not carry %q", retired)
-		}
-	}
-}
-
-func TestToMapEvaluatesScriptProperties(t *testing.T) {
-	// A computed property that is never evaluated is a property that does not
-	// exist as far as the user is concerned.
-	psobj := NewPSObject("base")
-	psobj.AddScriptProperty("Computed", func() (any, error) { return 42, nil })
-	psobj.AddScriptProperty("Broken", func() (any, error) { return nil, errTest })
-
-	got := psobj.ToMap()
-
-	if got["Computed"] != 42 {
-		t.Errorf("Computed = %#v, want 42", got["Computed"])
-	}
-	if v, present := got["Broken"]; !present || v != nil {
-		t.Errorf("a failing getter should yield null, got %#v (present=%v)", v, present)
-	}
-}
-
-func TestToMapResolvesAliasProperties(t *testing.T) {
-	psobj := NewPSObject("base")
-	psobj.AddNoteProperty("Length", 7)
-	psobj.AddAliasProperty("Size", "Length")
-
-	if got := psobj.ToMap(); got["Size"] != 7 {
-		t.Errorf("Size = %#v, want 7 (aliased to Length)", got["Size"])
-	}
-}
-
-func TestToMapOmitsMethodsAndEvents(t *testing.T) {
-	psobj := NewPSObject("base")
-	psobj.AddNoteProperty("Name", "n")
-	psobj.AddMethod("Refresh", func(args ...any) any { return nil })
-	psobj.AddMember("Changed", MemberTypeEvent, nil)
-
-	got := psobj.ToMap()
-	for _, name := range []string{"Refresh", "Changed"} {
-		if _, present := got[name]; present {
-			t.Errorf("%s has no JSON representation and should be omitted", name)
 		}
 	}
 }
@@ -378,9 +267,3 @@ func TestNormalizeJSONProducesJQValues(t *testing.T) {
 		})
 	}
 }
-
-var errTest = &testError{"boom"}
-
-type testError struct{ msg string }
-
-func (e *testError) Error() string { return e.msg }

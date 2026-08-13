@@ -43,7 +43,7 @@ type SortObjectOptions struct {
 //
 // Usage: sort_object(objects) or sort_object(objects; options)
 func RegisterSortObject() gojq.CompilerOption {
-	return gojq.WithFunction("sort_object", 1, 2, func(input any, args []any) any {
+	return common.WithFunction("sort_object", 1, 2, func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseSortObjectArgs(args)
 		if err != nil {

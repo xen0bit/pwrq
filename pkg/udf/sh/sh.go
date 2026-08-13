@@ -11,7 +11,7 @@ import (
 
 // RegisterSh registers the sh function with gojq
 func RegisterSh() gojq.CompilerOption {
-	return gojq.WithFunction("sh", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("sh", 0, 1, func(v any, args []any) any {
 		var command string
 
 		// Parse argument: command string can come from pipe or as argument

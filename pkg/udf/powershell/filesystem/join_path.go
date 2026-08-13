@@ -102,7 +102,7 @@ func joinPath(paths []string, resolve bool) (string, error) {
 // Signature: join_path(path1, path2, ..., resolve?: bool)
 // Returns a PSObject with the joined path and metadata.
 func RegisterJoinPath() gojq.CompilerOption {
-	return gojq.WithFunction("join_path", 1, 10, func(v any, args []any) any {
+	return common.WithFunction("join_path", 1, 10, func(v any, args []any) any {
 		// Combine pipeline input with arguments
 		allArgs := args
 		if v != nil {
@@ -165,7 +165,7 @@ func RegisterJoinPath() gojq.CompilerOption {
 // Signature: split_path(path?: string)
 // Returns a PSObject with split path components.
 func RegisterSplitPath() gojq.CompilerOption {
-	return gojq.WithFunction("split_path", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("split_path", 0, 2, func(v any, args []any) any {
 		var path string
 
 		// Get path from argument or pipeline input

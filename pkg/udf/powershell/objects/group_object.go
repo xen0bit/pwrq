@@ -44,7 +44,7 @@ type GroupedObject struct {
 //
 // Usage: group_object(objects) or group_object(objects; options)
 func RegisterGroupObject() gojq.CompilerOption {
-	return gojq.WithFunction("group_object", 1, 2, func(input any, args []any) any {
+	return common.WithFunction("group_object", 1, 2, func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseGroupObjectArgs(args)
 		if err != nil {

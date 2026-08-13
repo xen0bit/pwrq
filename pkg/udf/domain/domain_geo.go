@@ -12,7 +12,7 @@ import (
 // registerCoords4 registers a cmdlet taking four numeric arguments: lat1, lon1,
 // lat2, lon2.
 func registerCoords4(name string, fn func(lat1, lon1, lat2, lon2 float64) any) gojq.CompilerOption {
-	return gojq.WithFunction(name, 4, 4, func(v any, args []any) any {
+	return common.WithFunction(name, 4, 4, func(v any, args []any) any {
 		nums := make([]float64, 4)
 		for i := range nums {
 			f, ok := common.ToFloat64(common.BindValue(args[i]))
@@ -77,7 +77,7 @@ func RegisterGeoMidpoint() gojq.CompilerOption {
 // RegisterWithinRadius registers within_radius, whether a point is within km of
 // a centre: within_radius(lat; lon; centerLat; centerLon; km).
 func RegisterWithinRadius() gojq.CompilerOption {
-	return gojq.WithFunction("within_radius", 5, 5, func(v any, args []any) any {
+	return common.WithFunction("within_radius", 5, 5, func(v any, args []any) any {
 		nums := make([]float64, 5)
 		for i := range nums {
 			f, ok := common.ToFloat64(common.BindValue(args[i]))
@@ -99,7 +99,7 @@ func RegisterWithinRadius() gojq.CompilerOption {
 
 // RegisterParseCoords registers parse_coords, a "lat, lon" string to an object.
 func RegisterParseCoords() gojq.CompilerOption {
-	return gojq.WithFunction("parse_coords", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("parse_coords", 0, 1, func(v any, args []any) any {
 		input := v
 		if len(args) > 0 {
 			input = args[0]
@@ -144,7 +144,7 @@ const geohashAlphabet = "0123456789bcdefghjkmnpqrstuvwxyz"
 // RegisterGeohashEncode registers geohash_encode, a coordinate to a geohash
 // string: geohash_encode(lat; lon; [precision]).
 func RegisterGeohashEncode() gojq.CompilerOption {
-	return gojq.WithFunction("geohash_encode", 2, 3, func(v any, args []any) any {
+	return common.WithFunction("geohash_encode", 2, 3, func(v any, args []any) any {
 		lat, ok1 := common.ToFloat64(common.BindValue(args[0]))
 		lon, ok2 := common.ToFloat64(common.BindValue(args[1]))
 		if !ok1 || !ok2 {
@@ -204,7 +204,7 @@ func geohashEncode(lat, lon float64, precision int) string {
 // RegisterGeohashDecode registers geohash_decode, a geohash to its centre
 // coordinate as {lat, lon, latErr, lonErr}.
 func RegisterGeohashDecode() gojq.CompilerOption {
-	return gojq.WithFunction("geohash_decode", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("geohash_decode", 0, 1, func(v any, args []any) any {
 		input := v
 		if len(args) > 0 {
 			input = args[0]

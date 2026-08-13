@@ -190,7 +190,7 @@ func parseFindArgs(args []any) (FindOptions, error) {
 
 // RegisterFind registers the find function with gojq
 func RegisterFind() gojq.CompilerOption {
-	return gojq.WithIterFunction("find", 1, 4, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("find", 1, 4, func(v any, args []any) gojq.Iter {
 		opts, err := parseFindArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

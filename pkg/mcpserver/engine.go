@@ -55,8 +55,8 @@ func getEngine() *engine {
 		// them; gojq has no such builtins. stderr is the only safe sink: it
 		// never corrupts the JSON-RPC channel the client is listening on.
 		options = append(options,
-			gojq.WithFunction("debug", 0, 0, writeToStderr),
-			gojq.WithFunction("stderr", 0, 0, writeToStderr),
+			common.WithFunction("debug", 0, 0, writeToStderr),
+			common.WithFunction("stderr", 0, 0, writeToStderr),
 		)
 
 		eng = &engine{runner: &queryrun.Runner{Options: options, AliasDefs: aliasDefs}}

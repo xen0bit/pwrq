@@ -24,7 +24,7 @@ func RegisterIsSemver() gojq.CompilerOption {
 // RegisterSemverCompare registers semver_compare, -1, 0 or 1 comparing two
 // semantic versions: semver_compare(a; b), or a from the pipeline.
 func RegisterSemverCompare() gojq.CompilerOption {
-	return gojq.WithFunction("semver_compare", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("semver_compare", 1, 2, func(v any, args []any) any {
 		a, okA := common.BindValue(v).(string)
 		b, okB := common.BindValue(args[len(args)-1]).(string)
 		if len(args) > 1 {
@@ -139,7 +139,7 @@ func comparePrerelease(a, b string) int {
 // RegisterSemverParts registers semver_parts, a semantic version split into
 // {major, minor, patch, prerelease, build}.
 func RegisterSemverParts() gojq.CompilerOption {
-	return gojq.WithFunction("semver_parts", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("semver_parts", 0, 1, func(v any, args []any) any {
 		s, err := strInput(v, args, "semver_parts")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

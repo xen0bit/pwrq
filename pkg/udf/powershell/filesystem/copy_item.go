@@ -415,7 +415,7 @@ func copyDirectoryContents(src, dst string, opts CopyItemOptions) (any, error) {
 
 // RegisterCopyItem registers the copy_item function with gojq
 func RegisterCopyItem() gojq.CompilerOption {
-	return gojq.WithIterFunction("copy_item", 1, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("copy_item", 1, 3, func(v any, args []any) gojq.Iter {
 		opts, err := parseCopyItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

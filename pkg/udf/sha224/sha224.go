@@ -11,7 +11,7 @@ import (
 
 // RegisterSHA224 registers the sha224 function with gojq
 func RegisterSHA224() gojq.CompilerOption {
-	return gojq.WithFunction("sha224", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("sha224", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("sha224: %v", err), nil)

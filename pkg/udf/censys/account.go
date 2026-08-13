@@ -6,6 +6,7 @@ import (
 	"github.com/censys/censys-sdk-go/models/operations"
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // RegisterGetContext registers get_censys_context, the answer to "why is this
@@ -16,7 +17,7 @@ import (
 // cmdlet that printed a personal access token would be a way to leak one.
 func RegisterGetContext() gojq.CompilerOption {
 	const op = "get_censys_context"
-	return gojq.WithFunction(op, 0, 1, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 1, func(v any, args []any) any {
 		var rawOpts map[string]any
 		if len(args) == 1 {
 			var err error
@@ -74,7 +75,7 @@ func defaultServerURL() string {
 // `org details`.
 func RegisterGetOrganization() gojq.CompilerOption {
 	const op = "get_censys_organization"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		orgID, rawOpts, err := optionalIdentifier(op, "OrganizationId", v, args)
 		if err != nil {
 			return err
@@ -128,7 +129,7 @@ func RegisterGetOrganization() gojq.CompilerOption {
 // in this package.
 func RegisterGetCredits() gojq.CompilerOption {
 	const op = "get_censys_credits"
-	return gojq.WithFunction(op, 0, 1, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 1, func(v any, args []any) any {
 		var rawOpts map[string]any
 		if len(args) == 1 {
 			var err error

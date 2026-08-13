@@ -13,7 +13,7 @@ import (
 // RegisterDurationBetween registers duration_between, the number of seconds
 // between two timestamps or dates (second minus first).
 func RegisterDurationBetween() gojq.CompilerOption {
-	return gojq.WithFunction("duration_between", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("duration_between", 1, 1, func(v any, args []any) any {
 		a, err := parseTime(v)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("duration_between: %v", err), nil)
@@ -29,7 +29,7 @@ func RegisterDurationBetween() gojq.CompilerOption {
 // RegisterHumanDuration registers human_duration, rendering seconds as a
 // compact "1d 2h 3m 4s" string.
 func RegisterHumanDuration() gojq.CompilerOption {
-	return gojq.WithFunction("human_duration", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("human_duration", 0, 0, func(v any, args []any) any {
 		sec, ok := common.ToFloat64(common.BindValue(v))
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("human_duration: expected a number of seconds, got %T", v), nil)
@@ -69,7 +69,7 @@ func humanDuration(sec float64) string {
 // RegisterParseDuration registers parse_duration, turning a Go-style duration
 // like "2h30m" into seconds.
 func RegisterParseDuration() gojq.CompilerOption {
-	return gojq.WithFunction("parse_duration", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("parse_duration", 0, 0, func(v any, args []any) any {
 		s, ok := common.BindValue(v).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("parse_duration: expected a duration string, got %T", v), nil)
@@ -85,7 +85,7 @@ func RegisterParseDuration() gojq.CompilerOption {
 // RegisterIsoDuration registers iso_duration, seconds as an ISO 8601 duration
 // like "P1DT2H3M4S".
 func RegisterIsoDuration() gojq.CompilerOption {
-	return gojq.WithFunction("iso_duration", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("iso_duration", 0, 0, func(v any, args []any) any {
 		sec, ok := common.ToFloat64(common.BindValue(v))
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("iso_duration: expected a number of seconds, got %T", v), nil)
@@ -128,7 +128,7 @@ func isoDuration(total int64) string {
 
 // RegisterTimeAgo registers time_ago, a timestamp rendered relative to now.
 func RegisterTimeAgo() gojq.CompilerOption {
-	return gojq.WithFunction("time_ago", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("time_ago", 0, 0, func(v any, args []any) any {
 		t, err := parseTime(v)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("time_ago: %v", err), nil)

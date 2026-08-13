@@ -104,7 +104,7 @@ func tarReader(f *os.File, k kind) (*tar.Reader, error) {
 // RegisterReadArchive registers read_archive, one object per entry in an
 // archive without extracting anything.
 func RegisterReadArchive() gojq.CompilerOption {
-	return gojq.WithFunction("read_archive", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("read_archive", 0, 1, func(v any, args []any) any {
 		path, err := archivePath(v, args, "read_archive")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -179,7 +179,7 @@ func listArchive(path string) ([]entry, error) {
 // RegisterExpandArchive registers expand_archive, extracting an archive into a
 // destination directory and returning the paths written.
 func RegisterExpandArchive() gojq.CompilerOption {
-	return gojq.WithFunction("expand_archive", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("expand_archive", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		path, ok := common.BindPath(in)
 		if !ok {
@@ -316,7 +316,7 @@ func expand(path, dest string) ([]string, error) {
 // RegisterCompressArchive registers compress_archive, building an archive from
 // a path or a list of paths and returning the archive's own FileInfo.
 func RegisterCompressArchive() gojq.CompilerOption {
-	return gojq.WithFunction("compress_archive", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("compress_archive", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		sources, err := sourcePaths(in)
 		if err != nil {

@@ -14,7 +14,7 @@ import (
 
 // RegisterReplace registers the replace function with gojq
 func RegisterReplace() gojq.CompilerOption {
-	return gojq.WithFunction("replace", 2, 4, func(v any, args []any) any {
+	return common.WithFunction("replace", 2, 4, func(v any, args []any) any {
 		// Parse arguments: old, new, optional input, optional file flag
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("replace: expected at least 2 arguments (old, new)"), nil)
@@ -107,7 +107,7 @@ func RegisterReplace() gojq.CompilerOption {
 
 // RegisterTrim registers the trim function with gojq
 func RegisterTrim() gojq.CompilerOption {
-	return gojq.WithFunction("trim", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("trim", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("trim: %v", err), nil)
@@ -168,7 +168,7 @@ func RegisterTrim() gojq.CompilerOption {
 
 // RegisterSplit registers the split function with gojq
 func RegisterSplit() gojq.CompilerOption {
-	return gojq.WithFunction("split", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("split", 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("split: expected at least 1 argument (separator)"), nil)
 		}
@@ -258,7 +258,7 @@ func RegisterSplit() gojq.CompilerOption {
 
 // RegisterJoin registers the join_string function with gojq (renamed to avoid conflict with gojq's built-in join)
 func RegisterJoin() gojq.CompilerOption {
-	return gojq.WithFunction("join_string", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("join_string", 1, 1, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("join_string: expected at least 1 argument (separator)"), nil)
 		}
@@ -309,7 +309,7 @@ func RegisterJoin() gojq.CompilerOption {
 // RegisterSurround registers surround, a string wrapped in a prefix and suffix:
 // surround("x"; "[ "; " ]") -> "[ x ]".
 func RegisterSurround() gojq.CompilerOption {
-	return gojq.WithFunction("surround", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("surround", 2, 2, func(v any, args []any) any {
 		prefix, okP := common.BindValue(args[0]).(string)
 		suffix, okS := common.BindValue(args[1]).(string)
 		if !okP || !okS {
@@ -326,7 +326,7 @@ func RegisterSurround() gojq.CompilerOption {
 // RegisterBeforeFirst registers before_first, the part of a string before the
 // first occurrence of a separator (the whole string when there is none).
 func RegisterBeforeFirst() gojq.CompilerOption {
-	return gojq.WithFunction("before_first", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("before_first", 1, 1, func(v any, args []any) any {
 		sep, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("before_first: separator must be a string, got %T", args[0]), nil)
@@ -345,7 +345,7 @@ func RegisterBeforeFirst() gojq.CompilerOption {
 // RegisterAfterFirst registers after_first, the part of a string after the
 // first occurrence of a separator (the empty string when there is none).
 func RegisterAfterFirst() gojq.CompilerOption {
-	return gojq.WithFunction("after_first", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("after_first", 1, 1, func(v any, args []any) any {
 		sep, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("after_first: separator must be a string, got %T", args[0]), nil)

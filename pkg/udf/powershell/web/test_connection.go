@@ -52,7 +52,7 @@ type TestConnectionOptions struct {
 //   - test_connection("google.com"; {"Count": 4; "Timeout": 5})
 //   - test_connection({"Target": "8.8.8.8"; "Count": 2; "TcpPort": 443})
 func RegisterTestConnection() gojq.CompilerOption {
-	return gojq.WithFunction("test_connection", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("test_connection", 0, 2, func(v any, args []any) any {
 		opts := TestConnectionOptions{
 			Count:      4,
 			Timeout:    5,

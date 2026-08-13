@@ -7,6 +7,7 @@ import (
 
 	"github.com/censys/censys-sdk-go/models/operations"
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // timelineWindow is how far back a timeline reaches when the caller does not
@@ -17,7 +18,7 @@ const timelineWindow = 7 * 24 * time.Hour
 // RegisterGetHost registers get_censys_host, cencli's `view host`.
 func RegisterGetHost() gojq.CompilerOption {
 	const op = "get_censys_host"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		id, rawOpts, err := identifier(op, "HostId", v, args)
 		if err != nil {
 			return err
@@ -62,7 +63,7 @@ func RegisterGetHost() gojq.CompilerOption {
 // asset, which is what you need to hand the certificate to another tool.
 func RegisterGetCertificate() gojq.CompilerOption {
 	const op = "get_censys_certificate"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		id, rawOpts, err := identifier(op, "CertificateId", v, args)
 		if err != nil {
 			return err
@@ -120,7 +121,7 @@ func RegisterGetCertificate() gojq.CompilerOption {
 // `view web-property`. The identifier is hostname:port.
 func RegisterGetWebProperty() gojq.CompilerOption {
 	const op = "get_censys_webproperty"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		id, rawOpts, err := identifier(op, "WebPropertyId", v, args)
 		if err != nil {
 			return err
@@ -164,7 +165,7 @@ func RegisterGetWebProperty() gojq.CompilerOption {
 // the lightweight host lookup meant for high-volume automation.
 func RegisterGetEnrichment() gojq.CompilerOption {
 	const op = "get_censys_enrichment"
-	return gojq.WithFunction(op, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
 		id, rawOpts, err := identifier(op, "HostIp", v, args)
 		if err != nil {
 			return err
@@ -240,7 +241,7 @@ func (o timelineOptions) window(op string) (start, end time.Time, err error) {
 // `history host`. It emits one object per event.
 func RegisterGetHostTimeline() gojq.CompilerOption {
 	const op = "get_censys_host_timeline"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		id, rawOpts, err := identifier(op, "HostId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -283,7 +284,7 @@ func RegisterGetHostTimeline() gojq.CompilerOption {
 // cencli's `history web-property`.
 func RegisterGetWebPropertyTimeline() gojq.CompilerOption {
 	const op = "get_censys_webproperty_timeline"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		id, rawOpts, err := identifier(op, "WebPropertyId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)
@@ -326,7 +327,7 @@ func RegisterGetWebPropertyTimeline() gojq.CompilerOption {
 // observation history behind cencli's host view, one range per output.
 func RegisterGetHostService() gojq.CompilerOption {
 	const op = "get_censys_host_service"
-	return gojq.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction(op, 0, 2, func(v any, args []any) gojq.Iter {
 		id, rawOpts, err := identifier(op, "HostId", v, args)
 		if err != nil {
 			return gojq.NewIter(err)

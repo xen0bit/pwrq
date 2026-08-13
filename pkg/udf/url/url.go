@@ -10,7 +10,7 @@ import (
 
 // RegisterURLEncode registers the url_encode function with gojq
 func RegisterURLEncode() gojq.CompilerOption {
-	return gojq.WithFunction("url_encode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("url_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("url_encode: %v", err), nil)
@@ -73,7 +73,7 @@ func RegisterURLEncode() gojq.CompilerOption {
 
 // RegisterURLDecode registers the url_decode function with gojq
 func RegisterURLDecode() gojq.CompilerOption {
-	return gojq.WithFunction("url_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("url_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("url_decode: %v", err), nil)

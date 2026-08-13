@@ -11,7 +11,7 @@ import (
 
 // RegisterCSVParse registers the csv_parse function with gojq
 func RegisterCSVParse() gojq.CompilerOption {
-	return gojq.WithFunction("csv_parse", 0, 3, func(v any, args []any) any {
+	return common.WithFunction("csv_parse", 0, 3, func(v any, args []any) any {
 		// Parse arguments: optional delimiter, optional file flag
 		var delimiter = ','
 		var inputVal any
@@ -120,7 +120,7 @@ func RegisterCSVParse() gojq.CompilerOption {
 
 // RegisterCSVStringify registers the csv_stringify function with gojq
 func RegisterCSVStringify() gojq.CompilerOption {
-	return gojq.WithFunction("csv_stringify", 0, 3, func(v any, args []any) any {
+	return common.WithFunction("csv_stringify", 0, 3, func(v any, args []any) any {
 		// Parse arguments: optional delimiter, optional file flag
 		var delimiter = ','
 		var inputVal any

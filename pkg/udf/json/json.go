@@ -12,7 +12,7 @@ import (
 
 // RegisterJSONParse registers the json_parse function with gojq
 func RegisterJSONParse() gojq.CompilerOption {
-	return gojq.WithFunction("json_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("json_parse", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("json_parse: %v", err), nil)
@@ -87,7 +87,7 @@ func RegisterJSONParse() gojq.CompilerOption {
 
 // RegisterJSONStringify registers the json_stringify function with gojq
 func RegisterJSONStringify() gojq.CompilerOption {
-	return gojq.WithFunction("json_stringify", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("json_stringify", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("json_stringify: %v", err), nil)
@@ -127,7 +127,7 @@ func RegisterJSONStringify() gojq.CompilerOption {
 // patch: null in the patch deletes a key, objects merge recursively, and
 // everything else replaces.
 func RegisterJSONMergePatch() gojq.CompilerOption {
-	return gojq.WithFunction("json_merge_patch", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("json_merge_patch", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		target, patch := common.BindValue(in), common.BindValue(rest[0])
 		return common.MakeUDFSuccessResult(mergePatch(target, patch), nil)
@@ -171,7 +171,7 @@ func mergePatch(target, patch any) any {
 // RegisterJSONLParse registers jsonl_parse, parsing newline-delimited JSON into
 // an array, skipping blank lines.
 func RegisterJSONLParse() gojq.CompilerOption {
-	return gojq.WithFunction("jsonl_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("jsonl_parse", 0, 2, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("jsonl_parse: %v", err), nil)
@@ -201,7 +201,7 @@ func RegisterJSONLParse() gojq.CompilerOption {
 // RegisterGetPath registers get_path, reading the value at a dot-and-bracket
 // path like "a.b[0]".
 func RegisterGetPath() gojq.CompilerOption {
-	return gojq.WithFunction("get_path", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("get_path", 1, 1, func(v any, args []any) any {
 		path, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("get_path: path must be a string, got %T", args[0]), nil)

@@ -68,7 +68,7 @@ func strInput(v any, args []any, name string) (string, error) {
 
 // registerBool registers a 0-2 arity predicate over a string.
 func registerBool(name string, fn func(string) bool) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, name)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
@@ -80,7 +80,7 @@ func registerBool(name string, fn func(string) bool) gojq.CompilerOption {
 // registerFindAll registers a 0-2 arity cmdlet that returns the regex matches
 // in a string as an array.
 func registerFindAll(name string, re *regexp.Regexp) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, name)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)

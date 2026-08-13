@@ -29,7 +29,7 @@ type PushLocationOptions struct {
 //   - push_location("/path") - push current location and change to path
 //   - push_location("/path"; {"StackName": "myStack"}) - use named stack
 func RegisterPushLocation() gojq.CompilerOption {
-	return gojq.WithFunction("push_location", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("push_location", 0, 2, func(v any, args []any) any {
 		var opts PushLocationOptions
 
 		// Parse arguments

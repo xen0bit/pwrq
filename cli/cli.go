@@ -315,9 +315,9 @@ Usage:
 		gojq.WithModuleLoader(gojq.NewModuleLoader(modulePaths)),
 		gojq.WithEnvironLoader(os.Environ),
 		gojq.WithVariables(cli.argnames),
-		gojq.WithFunction("debug", 0, 0, cli.funcDebug),
-		gojq.WithFunction("stderr", 0, 0, cli.funcStderr),
-		gojq.WithFunction("input_filename", 0, 0,
+		common.WithFunction("debug", 0, 0, cli.funcDebug),
+		common.WithFunction("stderr", 0, 0, cli.funcStderr),
+		common.WithFunction("input_filename", 0, 0,
 			func(iter inputIter) func(any, []any) any {
 				return func(any, []any) any {
 					if fname := iter.Name(); fname != "" && (len(args) > 0 || !opts.InputNull) {

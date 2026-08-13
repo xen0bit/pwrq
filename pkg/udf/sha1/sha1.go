@@ -11,7 +11,7 @@ import (
 
 // RegisterSHA1 registers the sha1 function with gojq
 func RegisterSHA1() gojq.CompilerOption {
-	return gojq.WithFunction("sha1", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("sha1", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("sha1: %v", err), nil)

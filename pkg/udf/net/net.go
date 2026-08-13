@@ -88,7 +88,7 @@ func strInput(v any, args []any, name string) (string, error) {
 
 // registerBool registers a 0-2 arity predicate over a string.
 func registerBool(name string, fn func(string) bool) gojq.CompilerOption {
-	return gojq.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, name)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
@@ -126,7 +126,7 @@ func RegisterIsIPv6() gojq.CompilerOption {
 // number for IPv4, a 128-bit decimal for IPv6 — returned as text so no
 // precision is lost).
 func RegisterIPToInt() gojq.CompilerOption {
-	return gojq.WithFunction("ip_to_int", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("ip_to_int", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "ip_to_int")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("ip_to_int: %v", err), nil)
@@ -148,7 +148,7 @@ func RegisterIPToInt() gojq.CompilerOption {
 // RegisterIntToIP registers int_to_ip, a decimal integer back to an address.
 // Values up to 2^32-1 become IPv4; larger values become IPv6.
 func RegisterIntToIP() gojq.CompilerOption {
-	return gojq.WithFunction("int_to_ip", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("int_to_ip", 0, 1, func(v any, args []any) any {
 		var f float64
 		var ok bool
 		if len(args) > 0 {
@@ -179,7 +179,7 @@ func RegisterIntToIP() gojq.CompilerOption {
 // RegisterInCidr registers in_cidr, whether an address falls inside a CIDR
 // block.
 func RegisterInCidr() gojq.CompilerOption {
-	return gojq.WithFunction("in_cidr", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("in_cidr", 1, 1, func(v any, args []any) any {
 		cidr, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("in_cidr: expected a CIDR string, got %T", args[0]), nil)
@@ -202,7 +202,7 @@ func RegisterInCidr() gojq.CompilerOption {
 
 // RegisterCidrSize registers cidr_size, how many addresses a CIDR block holds.
 func RegisterCidrSize() gojq.CompilerOption {
-	return gojq.WithFunction("cidr_size", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("cidr_size", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "cidr_size")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cidr_size: %v", err), nil)
@@ -241,7 +241,7 @@ func RegisterIsMac() gojq.CompilerOption {
 // RegisterMacNormalize registers mac_normalize, lowercasing a MAC address and
 // rendering it colon-separated.
 func RegisterMacNormalize() gojq.CompilerOption {
-	return gojq.WithFunction("mac_normalize", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("mac_normalize", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "mac_normalize")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("mac_normalize: %v", err), nil)
@@ -266,7 +266,7 @@ func RegisterMacNormalize() gojq.CompilerOption {
 
 // RegisterIPVersion registers ip_version, "v4" or "v6" for an address.
 func RegisterIPVersion() gojq.CompilerOption {
-	return gojq.WithFunction("ip_version", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("ip_version", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "ip_version")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("ip_version: %v", err), nil)
@@ -302,7 +302,7 @@ func RegisterIsLoopback() gojq.CompilerOption {
 // RegisterCidrNetwork registers cidr_network, the base address of a CIDR
 // block.
 func RegisterCidrNetwork() gojq.CompilerOption {
-	return gojq.WithFunction("cidr_network", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("cidr_network", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "cidr_network")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cidr_network: %v", err), nil)
@@ -318,7 +318,7 @@ func RegisterCidrNetwork() gojq.CompilerOption {
 // RegisterCidrBroadcast registers cidr_broadcast, the last address of a CIDR
 // block.
 func RegisterCidrBroadcast() gojq.CompilerOption {
-	return gojq.WithFunction("cidr_broadcast", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("cidr_broadcast", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "cidr_broadcast")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cidr_broadcast: %v", err), nil)
@@ -353,7 +353,7 @@ func lastAddress(prefix netip.Prefix) netip.Addr {
 // RegisterIPAdd registers ip_add, an address shifted by n (which may be
 // negative). The result wraps within the address family.
 func RegisterIPAdd() gojq.CompilerOption {
-	return gojq.WithFunction("ip_add", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("ip_add", 1, 1, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("ip_add: expected an integer offset, got %v", args[0]), nil)
@@ -386,7 +386,7 @@ func RegisterIPAdd() gojq.CompilerOption {
 // RegisterIPv6Expand registers ipv6_expand, an IPv6 address in full
 // eight-group form.
 func RegisterIPv6Expand() gojq.CompilerOption {
-	return gojq.WithFunction("ipv6_expand", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("ipv6_expand", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "ipv6_expand")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("ipv6_expand: %v", err), nil)
@@ -409,7 +409,7 @@ func RegisterIPv6Expand() gojq.CompilerOption {
 
 // RegisterReverseIP registers reverse_ip, the PTR record name for an address.
 func RegisterReverseIP() gojq.CompilerOption {
-	return gojq.WithFunction("reverse_ip", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("reverse_ip", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "reverse_ip")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("reverse_ip: %v", err), nil)
@@ -436,7 +436,7 @@ func RegisterReverseIP() gojq.CompilerOption {
 // RegisterSubnetOf registers subnet_of, whether one CIDR block is inside
 // another.
 func RegisterSubnetOf() gojq.CompilerOption {
-	return gojq.WithFunction("subnet_of", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("subnet_of", 1, 1, func(v any, args []any) any {
 		subnet, ok := common.BindValue(v).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("subnet_of: expected a CIDR string, got %T", v), nil)
@@ -460,7 +460,7 @@ func RegisterSubnetOf() gojq.CompilerOption {
 // RegisterCidrFirstHost registers cidr_first_host, the first usable host
 // address of a CIDR block.
 func RegisterCidrFirstHost() gojq.CompilerOption {
-	return gojq.WithFunction("cidr_first_host", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("cidr_first_host", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "cidr_first_host")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cidr_first_host: %v", err), nil)
@@ -476,7 +476,7 @@ func RegisterCidrFirstHost() gojq.CompilerOption {
 // RegisterCidrLastHost registers cidr_last_host, the last usable host address
 // of a CIDR block.
 func RegisterCidrLastHost() gojq.CompilerOption {
-	return gojq.WithFunction("cidr_last_host", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("cidr_last_host", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "cidr_last_host")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("cidr_last_host: %v", err), nil)
@@ -516,7 +516,7 @@ var commonPorts = map[int64]string{
 // RegisterPortName registers port_name, the common service name for a port
 // number.
 func RegisterPortName() gojq.CompilerOption {
-	return gojq.WithFunction("port_name", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("port_name", 0, 0, func(v any, args []any) any {
 		port, ok := common.ToInt(common.BindValue(v))
 		if !ok || port < 0 || port > 65535 {
 			return common.MakeUDFErrorResult(fmt.Errorf("port_name: expected a port 0-65535, got %v", v), nil)

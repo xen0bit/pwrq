@@ -13,7 +13,7 @@ import (
 // RegisterJSONPointer registers json_pointer, reading the value at an RFC 6901
 // JSON pointer like "/a/b/0".
 func RegisterJSONPointer() gojq.CompilerOption {
-	return gojq.WithFunction("json_pointer", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("json_pointer", 1, 1, func(v any, args []any) any {
 		pointer, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("json_pointer: pointer must be a string, got %T", args[0]), nil)
@@ -29,7 +29,7 @@ func RegisterJSONPointer() gojq.CompilerOption {
 // RegisterJSONPointerSet registers json_pointer_set, returning the document
 // with a value written at an RFC 6901 JSON pointer.
 func RegisterJSONPointerSet() gojq.CompilerOption {
-	return gojq.WithFunction("json_pointer_set", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("json_pointer_set", 2, 2, func(v any, args []any) any {
 		pointer, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("json_pointer_set: pointer must be a string, got %T", args[0]), nil)
@@ -149,7 +149,7 @@ func setSlot(slot *any, tokens []string, value any) error {
 // RegisterQueryStringParse registers query_string_parse, turning a URL query
 // string like "a=1&b=two" into an object.
 func RegisterQueryStringParse() gojq.CompilerOption {
-	return gojq.WithFunction("query_string_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("query_string_parse", 0, 2, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("query_string_parse: %v", err), nil)
@@ -186,7 +186,7 @@ func RegisterQueryStringParse() gojq.CompilerOption {
 // RegisterQueryStringBuild registers query_string_build, the inverse of
 // query_string_parse.
 func RegisterQueryStringBuild() gojq.CompilerOption {
-	return gojq.WithFunction("query_string_build", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("query_string_build", 0, 1, func(v any, args []any) any {
 		input := common.BindValue(v)
 		if len(args) > 0 {
 			input = common.BindValue(args[0])
@@ -241,7 +241,7 @@ func dotInput(v any, args []any, name string, pathArg int) (any, []string, error
 // RegisterSetPath registers set_path, the document with a value written at a
 // dot-and-bracket path: set_path(obj; "a.b[0]"; value).
 func RegisterSetPath() gojq.CompilerOption {
-	return gojq.WithFunction("set_path", 2, 3, func(v any, args []any) any {
+	return common.WithFunction("set_path", 2, 3, func(v any, args []any) any {
 		doc, tokens, err := dotInput(v, args, "set_path", 2)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -258,7 +258,7 @@ func RegisterSetPath() gojq.CompilerOption {
 // RegisterHasPath registers has_path, whether a dot-and-bracket path exists in
 // a document.
 func RegisterHasPath() gojq.CompilerOption {
-	return gojq.WithFunction("has_path", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("has_path", 1, 2, func(v any, args []any) any {
 		doc, tokens, err := dotInput(v, args, "has_path", 1)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -290,7 +290,7 @@ func RegisterHasPath() gojq.CompilerOption {
 // dot-and-bracket path removed. Removing the last key of a nested object
 // leaves an empty object, matching jq's del.
 func RegisterDelPath() gojq.CompilerOption {
-	return gojq.WithFunction("del_path", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("del_path", 1, 2, func(v any, args []any) any {
 		doc, tokens, err := dotInput(v, args, "del_path", 1)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

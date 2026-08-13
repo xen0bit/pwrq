@@ -13,7 +13,7 @@ import (
 // RegisterChunks registers chunks, splitting an array into chunks of at most n
 // elements.
 func RegisterChunks() gojq.CompilerOption {
-	return gojq.WithFunction("chunks", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("chunks", 1, 2, func(v any, args []any) any {
 		arr, rest, err := arrInput(v, args, 1, "chunks")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -37,7 +37,7 @@ func RegisterChunks() gojq.CompilerOption {
 // RegisterWindows registers windows, the rolling n-element windows of an array:
 // [1,2,3,4] | windows(3) -> [[1,2,3],[2,3,4]].
 func RegisterWindows() gojq.CompilerOption {
-	return gojq.WithFunction("windows", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("windows", 1, 2, func(v any, args []any) any {
 		arr, rest, err := arrInput(v, args, 1, "windows")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -62,7 +62,7 @@ func RegisterWindows() gojq.CompilerOption {
 // RegisterRotate registers rotate, rotating an array left by n (negative
 // rotates right).
 func RegisterRotate() gojq.CompilerOption {
-	return gojq.WithFunction("rotate", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("rotate", 1, 2, func(v any, args []any) any {
 		arr, rest, err := arrInput(v, args, 1, "rotate")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -93,7 +93,7 @@ func RegisterRotate() gojq.CompilerOption {
 // operand, in both calling forms: `[1,2] | zip_arrays(["a","b"])` and
 // `zip_arrays([1,2]; ["a","b"])` agree.
 func RegisterZipArrays() gojq.CompilerOption {
-	return gojq.WithFunction("zip_arrays", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("zip_arrays", 1, 2, func(v any, args []any) any {
 		left, rest, err := arrInput(v, args, 1, "zip_arrays")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -120,7 +120,7 @@ func RegisterZipArrays() gojq.CompilerOption {
 // The input supplies the first element of every pair in both calling forms:
 // `[1,2] | interleave(["a","b"])` and `interleave([1,2]; ["a","b"])` agree.
 func RegisterInterleave() gojq.CompilerOption {
-	return gojq.WithFunction("interleave", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("interleave", 1, 2, func(v any, args []any) any {
 		a, rest, err := arrInput(v, args, 1, "interleave")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -144,7 +144,7 @@ func RegisterInterleave() gojq.CompilerOption {
 // RegisterColumn registers column, the nth element of every row of an array of
 // arrays.
 func RegisterColumn() gojq.CompilerOption {
-	return gojq.WithFunction("column", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("column", 1, 2, func(v any, args []any) any {
 		arr, rest, err := arrInput(v, args, 1, "column")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -169,7 +169,7 @@ func RegisterColumn() gojq.CompilerOption {
 // RegisterTopN registers top_n, the n largest values of an array, sorted
 // descending.
 func RegisterTopN() gojq.CompilerOption {
-	return gojq.WithFunction("top_n", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("top_n", 1, 2, func(v any, args []any) any {
 		arr, rest, err := arrInput(v, args, 1, "top_n")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -205,7 +205,7 @@ func RegisterTopN() gojq.CompilerOption {
 // RegisterNaturalSort registers natural_sort, an array of strings in human
 // order, where "file2" sorts before "file10".
 func RegisterNaturalSort() gojq.CompilerOption {
-	return gojq.WithFunction("natural_sort", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("natural_sort", 0, 1, func(v any, args []any) any {
 		arr, _, err := arrInput(v, args, 0, "natural_sort")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

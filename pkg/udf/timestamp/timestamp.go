@@ -12,7 +12,7 @@ import (
 
 // RegisterTimestampToDate registers the timestamp_to_date function with gojq
 func RegisterTimestampToDate() gojq.CompilerOption {
-	return gojq.WithFunction("timestamp_to_date", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("timestamp_to_date", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("timestamp_to_date: %v", err), nil)
@@ -100,7 +100,7 @@ func RegisterTimestampToDate() gojq.CompilerOption {
 
 // RegisterDateToTimestamp registers the date_to_timestamp function with gojq
 func RegisterDateToTimestamp() gojq.CompilerOption {
-	return gojq.WithFunction("date_to_timestamp", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("date_to_timestamp", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("date_to_timestamp: %v", err), nil)

@@ -15,7 +15,7 @@ import (
 
 // RegisterGzipCompress registers the gzip_compress function with gojq
 func RegisterGzipCompress() gojq.CompilerOption {
-	return gojq.WithFunction("gzip_compress", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("gzip_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: %v", err), nil)
@@ -86,7 +86,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 
 // RegisterGzipDecompress registers the gzip_decompress function with gojq
 func RegisterGzipDecompress() gojq.CompilerOption {
-	return gojq.WithFunction("gzip_decompress", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("gzip_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: %v", err), nil)
@@ -160,7 +160,7 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 
 // RegisterZlibCompress registers the zlib_compress function with gojq
 func RegisterZlibCompress() gojq.CompilerOption {
-	return gojq.WithFunction("zlib_compress", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("zlib_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: %v", err), nil)
@@ -231,7 +231,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 
 // RegisterZlibDecompress registers the zlib_decompress function with gojq
 func RegisterZlibDecompress() gojq.CompilerOption {
-	return gojq.WithFunction("zlib_decompress", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("zlib_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: %v", err), nil)
@@ -305,7 +305,7 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 
 // RegisterDeflateCompress registers the deflate_compress function with gojq
 func RegisterDeflateCompress() gojq.CompilerOption {
-	return gojq.WithFunction("deflate_compress", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("deflate_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: %v", err), nil)
@@ -379,7 +379,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 
 // RegisterDeflateDecompress registers the deflate_decompress function with gojq
 func RegisterDeflateDecompress() gojq.CompilerOption {
-	return gojq.WithFunction("deflate_decompress", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("deflate_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: %v", err), nil)

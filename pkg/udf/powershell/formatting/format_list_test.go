@@ -433,8 +433,9 @@ func TestGetAvailableProperties(t *testing.T) {
 	}
 }
 
-func TestFormatListScriptProperty(t *testing.T) {
-	// Create PSObject with ScriptProperty
+func TestFormatListDerivedProperty(t *testing.T) {
+	// A property a cmdlet computed and attached alongside the underlying
+	// map's own keys must be formatted like any other.
 	valueMap := map[string]any{
 		"FirstName": "John",
 		"LastName":  "Doe",
@@ -442,9 +443,7 @@ func TestFormatListScriptProperty(t *testing.T) {
 	psobj := psobject.NewPSObjectWithTypeName(valueMap, "Person")
 	psobj.AddNoteProperty("FirstName", "John")
 	psobj.AddNoteProperty("LastName", "Doe")
-	psobj.AddScriptProperty("FullName", func() (any, error) {
-		return "John Doe", nil
-	})
+	psobj.AddNoteProperty("FullName", "John Doe")
 
 	objects := []any{psobj.ToMap()}
 	opts := FormatListOptions{}
@@ -455,36 +454,33 @@ func TestFormatListScriptProperty(t *testing.T) {
 	}
 
 	props := GetFormattedProperties(result[0])
-	// Should include FirstName, LastName, and FullName (ScriptProperty)
 	if len(props) < 3 {
-		t.Errorf("expected at least 3 properties including ScriptProperty, got %d: %v", len(props), props)
+		t.Errorf("expected at least 3 properties, got %d: %v", len(props), props)
 	}
 
-	// Verify ScriptProperty is present
 	foundFullName := false
 	for _, p := range props {
 		if p.Name == "FullName" {
 			foundFullName = true
-			// ScriptProperty should show the computed value or description
 			if p.Value == nil {
-				t.Error("ScriptProperty FullName should have a value")
+				t.Error("FullName should have a value")
 			}
 			break
 		}
 	}
 	if !foundFullName {
-		t.Error("ScriptProperty 'FullName' should be included in output")
+		t.Error("'FullName' should be included in output")
 	}
 }
 
-func TestFormatListAliasProperty(t *testing.T) {
-	// Create PSObject with AliasProperty
+func TestFormatListPropertySelection(t *testing.T) {
+	// Property narrows the output to the named property and nothing else.
 	valueMap := map[string]any{
 		"DisplayName": "MyFile.txt",
 	}
 	psobj := psobject.NewPSObjectWithTypeName(valueMap, "File")
 	psobj.AddNoteProperty("DisplayName", "MyFile.txt")
-	psobj.AddAliasProperty("Name", "DisplayName") // Name aliases to DisplayName
+	psobj.AddNoteProperty("Name", "MyFile.txt")
 
 	objects := []any{psobj.ToMap()}
 	opts := FormatListOptions{
@@ -505,9 +501,9 @@ func TestFormatListAliasProperty(t *testing.T) {
 		t.Errorf("expected property 'Name', got '%s'", props[0].Name)
 	}
 
-	// AliasProperty should resolve to the target value
+	// The selected property carries its value
 	if props[0].Value != "MyFile.txt" {
-		t.Errorf("expected AliasProperty to resolve to 'MyFile.txt', got '%v'", props[0].Value)
+		t.Errorf("expected 'MyFile.txt', got '%v'", props[0].Value)
 	}
 }
 
@@ -596,8 +592,9 @@ func TestFormatValueDepthLimiting(t *testing.T) {
 	}
 }
 
-func TestFormatListPSObjectWithAliasAndScript(t *testing.T) {
-	// Comprehensive test with multiple member types
+func TestFormatListManyProperties(t *testing.T) {
+	// An object carrying both its underlying map's keys and several attached
+	// properties formats all of them.
 	valueMap := map[string]any{
 		"First": "Jane",
 		"Last":  "Smith",
@@ -605,10 +602,8 @@ func TestFormatListPSObjectWithAliasAndScript(t *testing.T) {
 	psobj := psobject.NewPSObjectWithTypeName(valueMap, "Person")
 	psobj.AddNoteProperty("First", "Jane")
 	psobj.AddNoteProperty("Last", "Smith")
-	psobj.AddAliasProperty("FullName", "First") // Alias to First
-	psobj.AddScriptProperty("DisplayName", func() (any, error) {
-		return "Jane Smith", nil
-	})
+	psobj.AddNoteProperty("FullName", "Jane")
+	psobj.AddNoteProperty("DisplayName", "Jane Smith")
 
 	objects := []any{psobj.ToMap()}
 	opts := FormatListOptions{}
@@ -620,16 +615,15 @@ func TestFormatListPSObjectWithAliasAndScript(t *testing.T) {
 
 	props := GetFormattedProperties(result[0])
 
-	// Should have at least First, Last, FullName (alias), DisplayName (script)
+	// First, Last, FullName, DisplayName
 	if len(props) < 4 {
 		t.Errorf("expected at least 4 properties, got %d: %v", len(props), props)
 	}
 
-	// Verify AliasProperty resolves correctly
 	for _, p := range props {
 		if p.Name == "FullName" {
 			if p.Value != "Jane" {
-				t.Errorf("AliasProperty 'FullName' should resolve to 'Jane', got '%v'", p.Value)
+				t.Errorf("'FullName' should be 'Jane', got '%v'", p.Value)
 			}
 		}
 	}

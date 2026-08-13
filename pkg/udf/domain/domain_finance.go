@@ -20,7 +20,7 @@ func numArg(args []any, i int, name string) (float64, error) {
 // RegisterCAGR registers cagr, the compound annual growth rate from a starting
 // value to an ending value over a number of years.
 func RegisterCAGR() gojq.CompilerOption {
-	return gojq.WithFunction("cagr", 3, 3, func(v any, args []any) any {
+	return common.WithFunction("cagr", 3, 3, func(v any, args []any) any {
 		start, err1 := numArg(args, 0, "cagr")
 		end, err2 := numArg(args, 1, "cagr")
 		years, err3 := numArg(args, 2, "cagr")
@@ -46,7 +46,7 @@ func firstErr(errs ...error) error {
 // RegisterFutureValue registers future_value, the value of a principal after
 // periods of compounding at a rate per period.
 func RegisterFutureValue() gojq.CompilerOption {
-	return gojq.WithFunction("future_value", 3, 3, func(v any, args []any) any {
+	return common.WithFunction("future_value", 3, 3, func(v any, args []any) any {
 		principal, err1 := numArg(args, 0, "future_value")
 		rate, err2 := numArg(args, 1, "future_value")
 		periods, err3 := numArg(args, 2, "future_value")
@@ -60,7 +60,7 @@ func RegisterFutureValue() gojq.CompilerOption {
 // RegisterPresentValue registers present_value, the principal that would grow
 // to a target after periods at a rate per period.
 func RegisterPresentValue() gojq.CompilerOption {
-	return gojq.WithFunction("present_value", 3, 3, func(v any, args []any) any {
+	return common.WithFunction("present_value", 3, 3, func(v any, args []any) any {
 		target, err1 := numArg(args, 0, "present_value")
 		rate, err2 := numArg(args, 1, "present_value")
 		periods, err3 := numArg(args, 2, "present_value")
@@ -74,7 +74,7 @@ func RegisterPresentValue() gojq.CompilerOption {
 // RegisterMonthlyPayment registers monthly_payment, the fixed monthly payment
 // that amortizes a loan of principal over months at an annual rate.
 func RegisterMonthlyPayment() gojq.CompilerOption {
-	return gojq.WithFunction("monthly_payment", 3, 3, func(v any, args []any) any {
+	return common.WithFunction("monthly_payment", 3, 3, func(v any, args []any) any {
 		principal, err1 := numArg(args, 0, "monthly_payment")
 		annualRate, err2 := numArg(args, 1, "monthly_payment")
 		months, err3 := numArg(args, 2, "monthly_payment")
@@ -95,7 +95,7 @@ func RegisterMonthlyPayment() gojq.CompilerOption {
 // RegisterCompoundInterest registers compound_interest, the interest earned on
 // a principal over periods at a rate per period (future value minus principal).
 func RegisterCompoundInterest() gojq.CompilerOption {
-	return gojq.WithFunction("compound_interest", 3, 3, func(v any, args []any) any {
+	return common.WithFunction("compound_interest", 3, 3, func(v any, args []any) any {
 		principal, err1 := numArg(args, 0, "compound_interest")
 		rate, err2 := numArg(args, 1, "compound_interest")
 		periods, err3 := numArg(args, 2, "compound_interest")
@@ -109,7 +109,7 @@ func RegisterCompoundInterest() gojq.CompilerOption {
 // RegisterSimpleInterest registers simple_interest, interest computed on the
 // principal only: principal * rate * years.
 func RegisterSimpleInterest() gojq.CompilerOption {
-	return gojq.WithFunction("simple_interest", 3, 3, func(v any, args []any) any {
+	return common.WithFunction("simple_interest", 3, 3, func(v any, args []any) any {
 		principal, err1 := numArg(args, 0, "simple_interest")
 		rate, err2 := numArg(args, 1, "simple_interest")
 		years, err3 := numArg(args, 2, "simple_interest")
@@ -124,7 +124,7 @@ func RegisterSimpleInterest() gojq.CompilerOption {
 // series of cash flows at a rate per period: net_present_value(flows; rate).
 // The first flow is typically the initial investment, negative.
 func RegisterNetPresentValue() gojq.CompilerOption {
-	return gojq.WithFunction("net_present_value", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("net_present_value", 2, 2, func(v any, args []any) any {
 		flows, ok := common.BindValue(args[0]).([]any)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("net_present_value: flows must be an array, got %T", args[0]), nil)

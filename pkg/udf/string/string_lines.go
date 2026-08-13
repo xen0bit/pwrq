@@ -29,7 +29,7 @@ func RegisterLineCount() gojq.CompilerOption {
 
 // RegisterFirstLines registers first_lines, the first n lines of a string.
 func RegisterFirstLines() gojq.CompilerOption {
-	return gojq.WithFunction("first_lines", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("first_lines", 1, 1, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("first_lines: count must be a non-negative integer, got %v", args[0]), nil)
@@ -48,7 +48,7 @@ func RegisterFirstLines() gojq.CompilerOption {
 
 // RegisterLastLines registers last_lines, the last n lines of a string.
 func RegisterLastLines() gojq.CompilerOption {
-	return gojq.WithFunction("last_lines", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("last_lines", 1, 1, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("last_lines: count must be a non-negative integer, got %v", args[0]), nil)
@@ -68,7 +68,7 @@ func RegisterLastLines() gojq.CompilerOption {
 // RegisterPrefixLines registers prefix_lines, every line prefixed: prefix_lines
 // ("a\nb"; "> ") -> "> a\n> b".
 func RegisterPrefixLines() gojq.CompilerOption {
-	return gojq.WithFunction("prefix_lines", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("prefix_lines", 1, 1, func(v any, args []any) any {
 		prefix, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("prefix_lines: prefix must be a string, got %T", args[0]), nil)
@@ -156,7 +156,7 @@ func RegisterDedent() gojq.CompilerOption {
 
 // RegisterIndent registers indent, prefixing every line with n spaces.
 func RegisterIndent() gojq.CompilerOption {
-	return gojq.WithFunction("indent", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("indent", 1, 2, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("indent: width must be a non-negative integer, got %v", args[0]), nil)
@@ -189,7 +189,7 @@ func RegisterIndent() gojq.CompilerOption {
 // RegisterWrapText registers wrap_text, greedy word-wrapping a string to a
 // width, returned as an array of lines.
 func RegisterWrapText() gojq.CompilerOption {
-	return gojq.WithFunction("wrap_text", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("wrap_text", 1, 2, func(v any, args []any) any {
 		width, ok := common.ToInt(args[0])
 		if !ok || width <= 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("wrap_text: width must be a positive integer, got %v", args[0]), nil)
@@ -240,7 +240,7 @@ func wrapText(s string, width int) []string {
 // RegisterDiffLines registers diff_lines, which lines are in only one of two
 // texts: {added, removed}. The sets respect multiplicity.
 func RegisterDiffLines() gojq.CompilerOption {
-	return gojq.WithFunction("diff_lines", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("diff_lines", 1, 2, func(v any, args []any) any {
 		other, ok := common.BindValue(args[len(args)-1]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("diff_lines: the other text must be a string, got %T", args[len(args)-1]), nil)

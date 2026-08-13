@@ -13,7 +13,7 @@ import (
 
 // RegisterFactorial registers factorial, n! for an integer n.
 func RegisterFactorial() gojq.CompilerOption {
-	return gojq.WithFunction("factorial", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("factorial", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "factorial")
 		if err != nil || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("factorial: expected a non-negative integer"), nil)
@@ -28,7 +28,7 @@ func RegisterFactorial() gojq.CompilerOption {
 
 // RegisterIsPrime registers is_prime, whether an integer is prime.
 func RegisterIsPrime() gojq.CompilerOption {
-	return gojq.WithFunction("is_prime", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("is_prime", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "is_prime")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -74,7 +74,7 @@ func isPrime64(n int64) bool {
 
 // RegisterNextPrime registers next_prime, the smallest prime at least n.
 func RegisterNextPrime() gojq.CompilerOption {
-	return gojq.WithFunction("next_prime", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("next_prime", 0, 1, func(v any, args []any) any {
 		n, err := intIn(v, args, "next_prime")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -92,7 +92,7 @@ func RegisterNextPrime() gojq.CompilerOption {
 // RegisterPrimeFactors registers prime_factors, the prime factors of an
 // integer with multiplicity: 60 -> [2, 2, 3, 5].
 func RegisterPrimeFactors() gojq.CompilerOption {
-	return gojq.WithFunction("prime_factors", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("prime_factors", 0, 1, func(v any, args []any) any {
 		n, err := intIn(v, args, "prime_factors")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -116,7 +116,7 @@ func RegisterPrimeFactors() gojq.CompilerOption {
 
 // RegisterFibonacci registers fibonacci, the nth Fibonacci number (0-indexed).
 func RegisterFibonacci() gojq.CompilerOption {
-	return gojq.WithFunction("fibonacci", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("fibonacci", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "fibonacci")
 		if err != nil || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("fibonacci: expected a non-negative integer"), nil)
@@ -135,7 +135,7 @@ func RegisterFibonacci() gojq.CompilerOption {
 // RegisterCombinationsCount registers combinations_count, how many ways to
 // choose k items from n.
 func RegisterCombinationsCount() gojq.CompilerOption {
-	return gojq.WithFunction("combinations_count", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("combinations_count", 1, 1, func(v any, args []any) any {
 		n, err := intInput(v, "combinations_count")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -166,7 +166,7 @@ func binomial(n, k int64) *big.Int {
 // RegisterPermutationsCount registers permutations_count, how many ways to
 // order k items chosen from n.
 func RegisterPermutationsCount() gojq.CompilerOption {
-	return gojq.WithFunction("permutations_count", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("permutations_count", 1, 1, func(v any, args []any) any {
 		n, err := intInput(v, "permutations_count")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -185,7 +185,7 @@ func RegisterPermutationsCount() gojq.CompilerOption {
 
 // RegisterGcd registers gcd, the greatest common divisor of two integers.
 func RegisterGcd() gojq.CompilerOption {
-	return gojq.WithFunction("gcd", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("gcd", 1, 1, func(v any, args []any) any {
 		a, err := num(v, "gcd")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -204,7 +204,7 @@ func RegisterGcd() gojq.CompilerOption {
 
 // RegisterLcm registers lcm, the least common multiple of two integers.
 func RegisterLcm() gojq.CompilerOption {
-	return gojq.WithFunction("lcm", 1, 1, func(v any, args []any) any {
+	return common.WithFunction("lcm", 1, 1, func(v any, args []any) any {
 		a, err := num(v, "lcm")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -227,7 +227,7 @@ func RegisterLcm() gojq.CompilerOption {
 
 // RegisterDigitSum registers digit_sum, the sum of an integer's digits.
 func RegisterDigitSum() gojq.CompilerOption {
-	return gojq.WithFunction("digit_sum", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("digit_sum", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "digit_sum")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -247,7 +247,7 @@ func RegisterDigitSum() gojq.CompilerOption {
 // RegisterHammingWeight registers hamming_weight, the number of set bits in an
 // integer.
 func RegisterHammingWeight() gojq.CompilerOption {
-	return gojq.WithFunction("hamming_weight", 0, 0, func(v any, args []any) any {
+	return common.WithFunction("hamming_weight", 0, 0, func(v any, args []any) any {
 		n, err := intInput(v, "hamming_weight")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

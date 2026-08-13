@@ -26,7 +26,7 @@ type SetLocationOptions struct {
 //   - set_location("/path/to/dir") - change directory
 //   - set_location("/path"; {"PassThru": true}) - change and return PathInfo
 func RegisterSetLocation() gojq.CompilerOption {
-	return gojq.WithFunction("set_location", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("set_location", 0, 2, func(v any, args []any) any {
 		var path string
 		opts := SetLocationOptions{}
 

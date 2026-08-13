@@ -13,42 +13,33 @@ import (
 )
 
 // MemberType enumerates the types of members a PSObject can have.
+//
+// PowerShell also has script properties, alias properties, methods and events.
+// pwrq carried all four for a while and never used any of them: a member only
+// reaches a caller by way of ToMap, which resolves it to a plain JSON value, so
+// anything that is not simply a name and a value has nowhere to go. They are
+// gone rather than sitting unused, waiting to be a special case.
 type MemberType int
 
 const (
 	MemberTypeNoteProperty MemberType = iota
-	MemberTypeScriptProperty
-	MemberTypeAliasProperty
-	MemberTypeMethod
-	MemberTypeEvent
 )
 
 func (m MemberType) String() string {
 	switch m {
 	case MemberTypeNoteProperty:
 		return "NoteProperty"
-	case MemberTypeScriptProperty:
-		return "ScriptProperty"
-	case MemberTypeAliasProperty:
-		return "AliasProperty"
-	case MemberTypeMethod:
-		return "Method"
-	case MemberTypeEvent:
-		return "Event"
 	default:
 		return "Unknown"
 	}
 }
 
-// PSMember represents a member of a PSObject (property, method, etc.)
+// PSMember represents a named property of a PSObject.
 type PSMember struct {
-	Name         string
-	MemberType   MemberType
-	Value        any
-	Getter       func() (any, error)   `json:"-"` // For ScriptProperty
-	Invoker      func(args ...any) any `json:"-"` // For Method
-	Description  string
-	Serializable bool // Indicates if this member survives JSON round-trip
+	Name        string
+	MemberType  MemberType
+	Value       any
+	Description string
 }
 
 // PSObject wraps a value with PowerShell-style type information and members.
@@ -126,78 +117,19 @@ func (p *PSObject) AddNoteProperty(name string, value any) {
 	p.AddMember(name, MemberTypeNoteProperty, value)
 }
 
-// AddScriptProperty adds a computed property with a getter function.
-func (p *PSObject) AddScriptProperty(name string, getter func() (any, error)) {
-	p.Members[name] = &PSMember{
-		Name:       name,
-		MemberType: MemberTypeScriptProperty,
-		Getter:     getter,
-	}
-}
-
-// AddAliasProperty adds an alias to another property.
-func (p *PSObject) AddAliasProperty(name string, targetProperty string) {
-	p.Members[name] = &PSMember{
-		Name:       name,
-		MemberType: MemberTypeAliasProperty,
-		Value:      targetProperty,
-	}
-}
-
-// AddMethod adds a method to the PSObject.
-func (p *PSObject) AddMethod(name string, invoker func(args ...any) any) {
-	p.Members[name] = &PSMember{
-		Name:       name,
-		MemberType: MemberTypeMethod,
-		Invoker:    invoker,
-	}
-}
-
 // GetMember retrieves a member by name.
 func (p *PSObject) GetMember(name string) (*PSMember, bool) {
 	member, ok := p.Members[name]
 	return member, ok
 }
 
-// GetPropertyValue retrieves a property value, handling different member types.
+// GetPropertyValue retrieves a property value by name.
 func (p *PSObject) GetPropertyValue(name string) (any, error) {
 	member, ok := p.Members[name]
 	if !ok {
 		return nil, fmt.Errorf("member %q not found", name)
 	}
-
-	switch member.MemberType {
-	case MemberTypeNoteProperty:
-		return member.Value, nil
-	case MemberTypeScriptProperty:
-		if member.Getter == nil {
-			return nil, fmt.Errorf("script property %q has no getter", name)
-		}
-		return member.Getter()
-	case MemberTypeAliasProperty:
-		targetName, ok := member.Value.(string)
-		if !ok {
-			return nil, fmt.Errorf("alias property %q has invalid target", name)
-		}
-		return p.GetPropertyValue(targetName)
-	default:
-		return nil, fmt.Errorf("member %q is not a property (type: %s)", name, member.MemberType)
-	}
-}
-
-// InvokeMethod calls a method on the PSObject.
-func (p *PSObject) InvokeMethod(name string, args ...any) (any, error) {
-	member, ok := p.Members[name]
-	if !ok {
-		return nil, fmt.Errorf("method %q not found", name)
-	}
-	if member.MemberType != MemberTypeMethod {
-		return nil, fmt.Errorf("member %q is not a method (type: %s)", name, member.MemberType)
-	}
-	if member.Invoker == nil {
-		return nil, fmt.Errorf("method %q has no invoker", name)
-	}
-	return member.Invoker(args...), nil
+	return member.Value, nil
 }
 
 // PSTypeNameKey is the property under which a PSObject's PowerShell type name
@@ -245,30 +177,7 @@ func (p *PSObject) ToMap() map[string]any {
 
 	// Members win over the underlying map: they are what was added on purpose.
 	for name, member := range p.Members {
-		switch member.MemberType {
-		case MemberTypeNoteProperty:
-			result[name] = NormalizeJSON(member.Value)
-		case MemberTypeScriptProperty:
-			// Evaluate the getter; a property that errors is reported as null
-			// rather than failing the whole object.
-			if member.Getter != nil {
-				if v, err := member.Getter(); err == nil {
-					result[name] = NormalizeJSON(v)
-				} else {
-					result[name] = nil
-				}
-			} else {
-				result[name] = nil
-			}
-		case MemberTypeAliasProperty:
-			if target, ok := member.Value.(string); ok {
-				if v, err := p.GetPropertyValue(target); err == nil {
-					result[name] = NormalizeJSON(v)
-				}
-			}
-		case MemberTypeMethod, MemberTypeEvent:
-			// Not representable as JSON; omitted.
-		}
+		result[name] = NormalizeJSON(member.Value)
 	}
 
 	// Preserve the underlying scalar so ByValue pipeline binding still works

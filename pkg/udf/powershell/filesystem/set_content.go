@@ -334,7 +334,7 @@ func setContent(opts SetContentOptions) (string, error) {
 
 // RegisterSetContent registers the set_content function with gojq
 func RegisterSetContent() gojq.CompilerOption {
-	return gojq.WithFunction("set_content", 0, 5, func(v any, args []any) any {
+	return common.WithFunction("set_content", 0, 5, func(v any, args []any) any {
 		opts, err := parseSetContentArgs(args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

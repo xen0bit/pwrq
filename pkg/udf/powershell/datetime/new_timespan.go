@@ -45,7 +45,7 @@ type NewTimeSpanOptions struct {
 //   - new_timespan({"Start": "2024-01-01"; "End": "2024-12-31"}) - TimeSpan between dates
 //   - new_timespan("2024-01-01"; "2024-12-31") - Start and End as separate args
 func RegisterNewTimeSpan() gojq.CompilerOption {
-	return gojq.WithFunction("new_timespan", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("new_timespan", 0, 2, func(v any, args []any) any {
 		opts := NewTimeSpanOptions{}
 
 		// Parse arguments

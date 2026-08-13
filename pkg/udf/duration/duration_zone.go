@@ -115,7 +115,7 @@ func zoneNames() []string {
 // formatted time, because "is this 09:00 UTC or 09:00 local" is exactly the
 // question the cmdlet exists to answer, and a bare string does not say.
 func RegisterToTimezone() gojq.CompilerOption {
-	return gojq.WithFunction("to_timezone", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("to_timezone", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		t, err := parseTime(in)
 		if err != nil {
@@ -147,7 +147,7 @@ func RegisterToTimezone() gojq.CompilerOption {
 // RegisterFormatDate registers format_date, an instant written out in a
 // layout, optionally in a given zone.
 func RegisterFormatDate() gojq.CompilerOption {
-	return gojq.WithFunction("format_date", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("format_date", 1, 3, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 2)
 		t, err := parseTime(in)
 		if err != nil {
@@ -186,7 +186,7 @@ func RegisterFormatDate() gojq.CompilerOption {
 // an epoch with strftime but cannot read "03/04/2026" back, and whether that is
 // March or April is a question only the caller's layout answers.
 func RegisterParseDate() gojq.CompilerOption {
-	return gojq.WithFunction("parse_date", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("parse_date", 1, 3, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 2)
 		s, ok := common.BindValue(in).(string)
 		if !ok {
@@ -220,7 +220,7 @@ func RegisterParseDate() gojq.CompilerOption {
 // Without it the only way to find out whether "Europe/Kyiv" or "Europe/Kiev"
 // resolves on a given machine is to guess and read the error.
 func RegisterListTimezones() gojq.CompilerOption {
-	return gojq.WithFunction("list_timezones", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("list_timezones", 0, 1, func(v any, args []any) any {
 		filter := ""
 		in, rest := common.SplitInput(v, args, 0)
 		if len(rest) > 0 {

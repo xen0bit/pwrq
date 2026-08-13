@@ -12,7 +12,7 @@ import (
 
 // RegisterRm registers the rm function with gojq
 func RegisterRm() gojq.CompilerOption {
-	return gojq.WithFunction("rm", 2, 2, func(v any, args []any) any {
+	return common.WithFunction("rm", 2, 2, func(v any, args []any) any {
 		var targetPath string
 		var targetType string
 

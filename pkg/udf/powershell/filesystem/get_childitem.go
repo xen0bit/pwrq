@@ -291,7 +291,7 @@ func createPSObjectFromFileInfo(path string, info os.FileInfo) (map[string]any, 
 
 // RegisterGetChildItem registers the get_childitem function with gojq
 func RegisterGetChildItem() gojq.CompilerOption {
-	return gojq.WithIterFunction("get_childitem", 0, 5, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("get_childitem", 0, 5, func(v any, args []any) gojq.Iter {
 		opts, err := parseGetChildItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

@@ -26,7 +26,7 @@ type RemoveVariableOptions struct {
 //   - remove_variable("name") - remove a variable
 //   - remove_variable("name"; {"Scope": "global"; "Force": true})
 func RegisterRemoveVariable() gojq.CompilerOption {
-	return gojq.WithFunction("remove_variable", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("remove_variable", 0, 2, func(v any, args []any) any {
 		var name string
 		opts := RemoveVariableOptions{
 			Force: false,

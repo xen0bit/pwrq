@@ -43,7 +43,7 @@ func randomIntBelow(n int64) (int64, error) {
 // RegisterRandomInt registers random_int, a uniform integer in [min, max]
 // (inclusive). With one argument it is 0..max; with none, a non-negative int.
 func RegisterRandomInt() gojq.CompilerOption {
-	return gojq.WithFunction("random_int", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("random_int", 0, 2, func(v any, args []any) any {
 		min, max := int64(0), int64(math.MaxInt32)
 		switch len(args) {
 		case 1:
@@ -80,7 +80,7 @@ func RegisterRandomInt() gojq.CompilerOption {
 // RegisterRandomFloat registers random_float, a uniform float. No arguments:
 // [0,1). One: [0,max). Two: [min,max).
 func RegisterRandomFloat() gojq.CompilerOption {
-	return gojq.WithFunction("random_float", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("random_float", 0, 2, func(v any, args []any) any {
 		min, max := 0.0, 1.0
 		if len(args) == 1 {
 			if m, ok := common.ToFloat64(common.BindValue(args[0])); ok {
@@ -115,7 +115,7 @@ func RegisterRandomFloat() gojq.CompilerOption {
 // RegisterRandomString registers random_string, n characters drawn from an
 // alphabet (alphanumeric by default).
 func RegisterRandomString() gojq.CompilerOption {
-	return gojq.WithFunction("random_string", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("random_string", 1, 2, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("random_string: length must be a non-negative integer, got %v", args[0]), nil)
@@ -161,7 +161,7 @@ func arrInput(v any, args []any) ([]any, error) {
 
 // RegisterRandomChoice registers random_choice, a uniformly chosen element.
 func RegisterRandomChoice() gojq.CompilerOption {
-	return gojq.WithFunction("random_choice", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("random_choice", 0, 1, func(v any, args []any) any {
 		arr, err := arrInput(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("random_choice: %v", err), nil)
@@ -176,7 +176,7 @@ func RegisterRandomChoice() gojq.CompilerOption {
 
 // RegisterShuffle registers shuffle, a random permutation of an array.
 func RegisterShuffle() gojq.CompilerOption {
-	return gojq.WithFunction("shuffle", 0, 1, func(v any, args []any) any {
+	return common.WithFunction("shuffle", 0, 1, func(v any, args []any) any {
 		arr, err := arrInput(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("shuffle: %v", err), nil)
@@ -196,7 +196,7 @@ func RegisterShuffle() gojq.CompilerOption {
 // RegisterSample registers sample, n distinct elements chosen at random (all
 // of them when n is at least the array's length).
 func RegisterSample() gojq.CompilerOption {
-	return gojq.WithFunction("sample", 1, 2, func(v any, args []any) any {
+	return common.WithFunction("sample", 1, 2, func(v any, args []any) any {
 		n, ok := common.ToInt(args[0])
 		if !ok || n < 0 {
 			return common.MakeUDFErrorResult(fmt.Errorf("sample: n must be a non-negative integer, got %v", args[0]), nil)

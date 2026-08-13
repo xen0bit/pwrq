@@ -10,7 +10,7 @@ import (
 
 // RegisterHexEncode registers the hex_encode function with gojq
 func RegisterHexEncode() gojq.CompilerOption {
-	return gojq.WithFunction("hex_encode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("hex_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("hex_encode: %v", err), nil)
@@ -73,7 +73,7 @@ func RegisterHexEncode() gojq.CompilerOption {
 
 // RegisterHexDecode registers the hex_decode function with gojq
 func RegisterHexDecode() gojq.CompilerOption {
-	return gojq.WithFunction("hex_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("hex_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("hex_decode: %v", err), nil)

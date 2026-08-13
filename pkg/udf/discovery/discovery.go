@@ -75,7 +75,7 @@ func (c Command) toObject() map[string]any {
 //	get_command                 every command
 //	get_command("get_*")        wildcard match on name or alias
 func RegisterGetCommand() gojq.CompilerOption {
-	return gojq.WithIterFunction("get_command", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunction("get_command", 0, 2, func(v any, args []any) gojq.Iter {
 		pattern := "*"
 		if len(args) > 0 {
 			if s, ok := common.BindValue(args[0]).(string); ok && s != "" {
@@ -95,7 +95,7 @@ func RegisterGetCommand() gojq.CompilerOption {
 // RegisterGetHelp registers get_help, which returns the same information as
 // get_command but rendered for reading.
 func RegisterGetHelp() gojq.CompilerOption {
-	return gojq.WithFunction("get_help", 0, 2, func(v any, args []any) any {
+	return common.WithFunction("get_help", 0, 2, func(v any, args []any) any {
 		pattern := "*"
 		if len(args) > 0 {
 			if s, ok := common.BindValue(args[0]).(string); ok && s != "" {
