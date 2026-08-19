@@ -161,6 +161,28 @@ and the caller would believe they had asked for something. The `censys` package
 therefore wraps it in a `bindOptions` that rejects unknown names first; a
 cmdlet whose options change what a remote call *asks for* should do the same.
 
+## Language models
+
+`llm` is the second family that authenticates against a third party, and it
+answers the same three questions the same way: credentials from the vendor's
+documented variables, unknown option names rejected rather than ignored, and
+spending bounded by default. What is new is that the boundary is not just
+network but *cost and non-determinism*, which adds three rules:
+
+- **A ceiling, not a limit.** One process makes 100 model calls before it
+  refuses, because `map(invoke_llm(...))` over a large input looks exactly like
+  the query that meant to do it. `PWRQ_LLM_MAX_CALLS` raises or removes it.
+- **Temperature 0 and an opt-in cache.** A query that cannot be re-run is one
+  whose output nobody can check, and jq's workflow re-runs constantly.
+- **Validation, not just a request.** `{Schema: ...}` is enforced on the answer,
+  because a provider that was *asked* for a shape has not promised one.
+
+`invoke_agent` adds a fourth. It compiles the model's queries against a registry
+built from the allowed cmdlets alone — see `pkg/udf/vocabulary.go` — so a denied
+cmdlet is a compile error rather than a rule checked at call time. `VocabularyFor`
+is reached through a hook (`llm.SetVocabulary`) for the same reason
+`discovery.SetCatalog` is: this package imports `llm`, so `llm` cannot import it.
+
 ## Remote APIs
 
 `censys` is the one family of cmdlets that authenticates against a third-party

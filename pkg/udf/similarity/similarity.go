@@ -10,6 +10,7 @@ package similarity
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 
@@ -28,6 +29,7 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterSimilarityPercent(),
 		RegisterNGrams(),
 		RegisterJaroWinkler(),
+		RegisterCosineSimilarity(),
 	}
 	// rncd measures bytes, not paths, so nothing it does needs a filesystem:
 	// it is registered wherever this package is, the browser included.
@@ -132,6 +134,69 @@ func RegisterJaccard() gojq.CompilerOption {
 		}
 		return common.MakeUDFSuccessResult(float64(intersection)/float64(union), nil)
 	})
+}
+
+// RegisterCosineSimilarity registers cosine_similarity, the cosine of the
+// angle between two numeric vectors.
+//
+// It is here rather than beside invoke_embedding because it is a pure
+// transform over two arrays of numbers — no network, no credentials — so it
+// belongs with the other similarity measures and, like them, works in the
+// browser. What it is for is the comparison the rest of this package cannot
+// make: levenshtein and jaccard compare spelling, and two sentences that mean
+// the same thing in different words score near zero on both. Over embeddings,
+// this scores them near one.
+func RegisterCosineSimilarity() gojq.CompilerOption {
+	const op = "cosine_similarity"
+	return common.WithFunction(op, 2, 2, func(v any, args []any) any {
+		a, err := vectorArg(op, args[0], "first")
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		b, err := vectorArg(op, args[1], "second")
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		if len(a) != len(b) {
+			return common.MakeUDFErrorResult(fmt.Errorf(
+				"%s: vectors have different lengths (%d and %d); embeddings from two different models cannot be compared",
+				op, len(a), len(b)), nil)
+		}
+		if len(a) == 0 {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: vectors are empty", op), nil)
+		}
+
+		var dot, normA, normB float64
+		for i := range a {
+			dot += a[i] * b[i]
+			normA += a[i] * a[i]
+			normB += b[i] * b[i]
+		}
+		if normA == 0 || normB == 0 {
+			// A zero vector has no direction, so there is no angle to report.
+			// Returning 0 would claim the two are unrelated, which is a
+			// different statement from "this cannot be measured".
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: a zero vector has no direction", op), nil)
+		}
+		return common.MakeUDFSuccessResult(dot/(math.Sqrt(normA)*math.Sqrt(normB)), nil)
+	})
+}
+
+// vectorArg binds an argument that must be an array of numbers.
+func vectorArg(op string, arg any, which string) ([]float64, error) {
+	raw, ok := common.BindValue(arg).([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s: the %s argument must be an array of numbers, got %T", op, which, common.BindValue(arg))
+	}
+	out := make([]float64, len(raw))
+	for i, item := range raw {
+		f, ok := common.ToFloat64(item)
+		if !ok {
+			return nil, fmt.Errorf("%s: the %s vector has a non-number at index %d", op, which, i)
+		}
+		out[i] = f
+	}
+	return out, nil
 }
 
 func setOf(v any) map[string]bool {

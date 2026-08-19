@@ -2,7 +2,10 @@ package udf
 
 import (
 	"sort"
+	"strings"
 	"testing"
+
+	"github.com/itchyny/gojq"
 )
 
 // TestNoBuiltinShadowing is the guard that keeps pwrq a gojq superset.
@@ -137,6 +140,42 @@ func TestMetadataArityMatches(t *testing.T) {
 			if !sigs[Signature{Name: meta.Name, Arity: arity}] {
 				t.Errorf("%s is documented as accepting %d argument(s), but is not registered at that arity",
 					meta.Name, arity)
+			}
+		}
+	}
+}
+
+// TestMetadataExamplesCompile runs every documented example through the
+// compiler.
+//
+// The examples are what `--udf-list` and `get_help` print, so a typo in one is
+// a user typing something that cannot work — and nothing else checks them. A
+// misspelled cmdlet name, a wrong arity or an unbalanced bracket is caught
+// here rather than by the first person to copy the line.
+//
+// Examples naming a variable are parsed but not compiled: `$rows` has no
+// binding outside the query the reader will write around it, and a compile
+// error for that would say nothing about the example.
+func TestMetadataExamplesCompile(t *testing.T) {
+	reg := DefaultRegistry()
+	defs, err := reg.AliasFuncDefs(StandardAliases)
+	if err != nil {
+		t.Fatalf("building aliases: %v", err)
+	}
+
+	for _, meta := range GetFunctionMetadata() {
+		for _, example := range meta.Examples {
+			query, err := gojq.Parse(example)
+			if err != nil {
+				t.Errorf("%s: example does not parse: %s\n    %v", meta.Name, example, err)
+				continue
+			}
+			if strings.Contains(example, "$") {
+				continue
+			}
+			query.FuncDefs = append(defs, query.FuncDefs...)
+			if _, err := gojq.Compile(query, reg.Options()...); err != nil {
+				t.Errorf("%s: example does not compile: %s\n    %v", meta.Name, example, err)
 			}
 		}
 	}

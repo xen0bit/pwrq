@@ -282,6 +282,151 @@ CenQL call `autonomous_system` is what you write here. The payload is the SDK's
 model of the response, so a field a newer API version adds arrives by upgrading
 `censys-sdk-go`.
 
+### Language models
+
+`invoke_llm` sends a prompt and returns what the model said, so a call composes
+like any other transform:
+
+```console
+$ pwrq -nr 'invoke_llm("One word for the colour of the sky")'
+Blue
+$ pwrq -c 'map(invoke_llm("Summarize in five words: \(.Body)"))'
+```
+
+The prompt is jq, which means there is no template language to learn: string
+interpolation already is one.
+
+Which model, and where it lives, is a `provider/model` name. Credentials come
+from the variables each vendor documents — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`
+— or from `{ApiKey}` on the call. `PWRQ_LLM_MODEL` sets the default:
+
+```console
+$ export PWRQ_LLM_MODEL=anthropic/claude-sonnet-4-5
+$ pwrq -nc 'get_llm_context | {Model, BaseUrl, HasApiKey, ApiKeySource}'
+```
+
+`get_llm_context` reports what a call would resolve to, and never the key.
+Anything speaking OpenAI's chat completions API is reachable by base URL, which
+covers Ollama, vLLM, OpenRouter, Groq and LM Studio:
+
+```console
+$ pwrq -nc '[get_llm_model({Model: "ollama/", BaseUrl: "http://localhost:11434/v1"})] | map(.Model)'
+```
+
+#### Typed answers
+
+A pipeline cannot do much with prose. `{Schema: ...}` takes a JSON Schema, and
+the cmdlet returns the decoded, validated value — so the answers are rows that
+`group_by` and `sort_by` can act on:
+
+```console
+$ pwrq -c 'map(invoke_llm("Classify the sentiment: \(.text)";
+    {Schema: {type: "object",
+              properties: {sentiment: {enum: ["positive","negative","neutral"]},
+                           confidence: {type: "number"}},
+              required: ["sentiment"]}}))
+  | group_by(.sentiment) | map({sentiment: .[0].sentiment, n: length})'
+```
+
+The schema is enforced on the way back, not just requested on the way out: an
+answer that does not satisfy it goes back to the model once with the validation
+error, and then fails as a jq error rather than reaching your pipeline as
+something almost right.
+
+#### Many prompts at once
+
+gojq evaluates synchronously, so `map(invoke_llm(...))` over five hundred rows
+is five hundred sequential round trips. `invoke_llm_batch` runs a bounded pool
+and emits one response object per prompt, in input order:
+
+```console
+$ pwrq -c '[.[] | "Summarize: \(.)"] | [invoke_llm_batch({Parallel: 8})] | map(.Content)'
+```
+
+`{ContinueOnError: true}` reports a failed prompt as `.Error` on its own result
+instead of failing the call.
+
+#### What a call costs
+
+Model calls are billed, and a `map` over a large input is an unbounded bill. So
+one pwrq process makes at most 100 calls before it refuses; `PWRQ_LLM_MAX_CALLS`
+or `{MaxCalls}` raises it, and `PWRQ_LLM_MAX_CALLS=0` removes it. `get_llm_usage`
+reports what has been spent:
+
+```console
+$ pwrq -c '[invoke_llm_batch($prompts)] | length, get_llm_usage'
+```
+
+`.Cost` is null unless you supply `{PriceInput, PriceOutput}` in dollars per
+million tokens. Prices are not compiled in: a table baked into a binary is stale
+the week after it ships, and a confidently wrong cost is worse than none.
+
+Temperature defaults to 0, so a query can be re-run. `{Cache: true}` — or
+`PWRQ_LLM_CACHE=1` — stores answers on disk keyed by the exact request, which is
+what makes the edit-and-rerun loop affordable while a pipeline is being built.
+Entries never expire and nothing evicts them: it is a build-time convenience, so
+`{CacheDir}` somewhere disposable is the way to keep it that way. Set
+`PWRQ_LLM_DEBUG=1` to trace every request and reply to stderr.
+
+#### Embeddings
+
+`invoke_embedding` returns the vector a model represents text by, and
+`cosine_similarity` ranks by it — semantic search as an ordinary pipeline:
+
+```console
+$ pwrq -nc '["how to bake sourdough", "naval warfare", "training a puppy"] as $docs
+  | {Model: "openai/text-embedding-3-small"} as $m
+  | invoke_embedding($docs; $m) as $vectors
+  | invoke_embedding("my dog will not listen"; $m) as $q
+  | [range(0; $docs|length) | {doc: $docs[.], score: cosine_similarity($vectors[.]; $q)}]
+  | sort_by(-.score) | .[0].doc'
+"training a puppy"
+```
+
+This is the comparison `levenshtein` and `jaccard` cannot make: they compare
+spelling, and two sentences meaning the same thing in different words score
+near zero on both.
+
+### Agents
+
+`invoke_agent` gives a model a task and lets it write pwrq queries until it can
+answer:
+
+```console
+$ pwrq -nr 'invoke_agent("Which file here is largest, and how many bytes?")'
+pwrq-viz 35913993
+$ pwrq -c 'invoke_agent_request("Which row is the outlier?") | .Steps | map(.Query)'
+```
+
+The tool surface is pwrq itself, which is what `pwrq --mcp` already offers an
+agent from the outside. `invoke_agent_request` returns the trace: an agent that
+answered from three queries has made three claims, and `.Steps` is where a
+reader checks them.
+
+**What it may call is an allowlist, and the default is read-only.** `sh`, `rm`,
+the write cmdlets and the network cmdlets are not in it. The restriction is
+structural rather than a rule checked at call time — the agent's queries compile
+against a registry built from the allowed cmdlets alone, so a denied cmdlet does
+not exist to the compiler:
+
+```console
+$ pwrq -nc 'invoke_agent("count the TODOs"; {Allow: ["select_string", "get_childitem"], MaxSteps: 6})'
+```
+
+[`examples/agent-triage.sh`](examples/agent-triage.sh) runs the whole shape end
+to end: cmdlets find the errors in a log corpus, `invoke_llm_batch` classifies
+them against a schema, jq summarises the rows, and an agent answers a question
+about the result. See [EXAMPLES.md](EXAMPLES.md) for its output.
+
+Naming an object cmdlet that takes a script block — `where_object`,
+`select_object` — hands the agent a whole query inside `{script: "..."}`; pwrq
+narrows script blocks to the same allowlist while an agent runs, but the default
+set leaves them out. The LLM cmdlets themselves can never be allowed, which is
+what stops an agent spending in a loop no ceiling anticipates. A run is bounded
+by `MaxSteps` (8), `MaxSeconds` (300) and a per-query result cap, and the agent's
+queries get no environment loader, so `env` cannot hand a model the API keys of
+the process running it.
+
 ### Codecs, hashes and crypto
 
 Encodings (base64/32/85, hex, binary, url, html), hashes (md5 through sha512,

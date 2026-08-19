@@ -27,6 +27,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/html"
 	"github.com/xen0bit/pwrq/pkg/udf/http"
 	"github.com/xen0bit/pwrq/pkg/udf/json"
+	"github.com/xen0bit/pwrq/pkg/udf/llm"
 	"github.com/xen0bit/pwrq/pkg/udf/logfile"
 	md5udf "github.com/xen0bit/pwrq/pkg/udf/md5"
 	"github.com/xen0bit/pwrq/pkg/udf/mkdir"
@@ -299,6 +300,13 @@ func DefaultRegistry() *Registry {
 		reg.Register(opt)
 	}
 
+	// Language models, and the agent that writes pwrq queries with one. Every
+	// one of these is a network call against a billed API, so like censys they
+	// are CLI-only and WebRegistry leaves them out.
+	for _, opt := range llm.RegisterAll() {
+		reg.Register(opt)
+	}
+
 	// PowerShell cmdlets
 	for _, opt := range filesystem.RegisterAll() {
 		reg.Register(opt)
@@ -331,6 +339,11 @@ func DefaultRegistry() *Registry {
 	// Publish the catalog get_command and get_help report on. Aliases are
 	// attached to the cmdlet they name so a search finds either.
 	discovery.SetCatalog(buildCatalog())
+
+	// Supply the restricted vocabulary invoke_agent compiles its queries
+	// against. It is a hook for the same reason SetCatalog is: this package
+	// imports llm, so llm cannot import it.
+	llm.SetVocabulary(VocabularyFor)
 
 	return reg
 }

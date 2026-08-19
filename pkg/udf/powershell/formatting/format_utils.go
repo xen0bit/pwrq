@@ -5,6 +5,7 @@ package formatting
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
@@ -40,6 +41,13 @@ func getAvailableProperties(value any) []string {
 		}
 	}
 
+	// Sorted, because a Go map has no order and a formatter that emitted its
+	// columns in a different order on every run would make identical input
+	// produce different output — breaking diffs, golden files and any script
+	// reading a column by position. pwrq's encoder sorts object keys for the
+	// same reason, so this is also the order the rest of the tool would print
+	// them in.
+	sort.Strings(names)
 	return names
 }
 

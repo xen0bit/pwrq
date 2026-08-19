@@ -355,7 +355,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 
 		// JSON tools
 		{"json_merge_patch", 1, 2, "Apply an RFC 7386 merge patch", "JSON", []string{`json_merge_patch({a: 1}; {a: 2, b: null})`}},
-		{"jsonl_parse", 0, 2, "Parse newline-delimited JSON into an array", "JSON", []string{`"{\\"a\\":1}\\n{\\"a\\":2}" | jsonl_parse`}},
+		{"jsonl_parse", 0, 2, "Parse newline-delimited JSON into an array", "JSON", []string{`cat("events.jsonl") | jsonl_parse`, `jsonl_parse(cat("events.jsonl"))`}},
 		{"get_path", 1, 1, "Read the value at a dot-and-bracket path", "JSON", []string{`{a: {b: [1, 2]}} | get_path("a.b[1]")`}},
 
 		// Network tools
@@ -369,6 +369,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"similarity_percent", 2, 2, "1 minus normalized Levenshtein distance", "Similarity", []string{`similarity_percent("kitten"; "sitting")`}},
 		{"n_grams", 1, 2, "The n-character substrings of a string (n)", "Similarity", []string{`"hello" | n_grams(2)`}},
 		{"soundex", 0, 2, "The four-character Soundex code of a word, for matching names that sound alike", "Similarity", []string{`"Robert" | soundex`}},
+		{"cosine_similarity", 2, 2, "Cosine of the angle between two numeric vectors, for ranking embeddings by meaning", "Similarity", []string{`cosine_similarity($a; $b)`, `[$docs[] | {text, score: cosine_similarity(.v; $q)}] | sort_by(-.score)`}},
 		{"jaro_winkler", 2, 2, "Jaro-Winkler similarity, favoring shared prefixes", "Similarity", []string{`jaro_winkler("MARTHA"; "MARHTA")`}},
 
 		// Validation tools
@@ -395,14 +396,14 @@ func GetFunctionMetadata() []FunctionMetadata {
 
 		// PowerShell - Objects
 		{"select_object", 1, 2, "Select object properties (properties, [input])", "PowerShell", []string{`select_object("Name")`, `{"Name":"test"} | select_object("Name")`}},
-		{"where_object", 1, 2, "Filter objects by condition (condition, [input])", "PowerShell", []string{`where_object({ . > 10 })`, `[1,5,10,15] | where_object({ . > 10 })`}},
+		{"where_object", 1, 2, "Filter objects by condition (objects, [options])", "PowerShell", []string{`where_object([1,5,10,15]; {script: ". > 10"})`, `where_object(.; {property: "Age", operator: "gt", value: 26})`}},
 		{"sort_object", 1, 2, "Sort objects by property (property, [input])", "PowerShell", []string{`sort_object("Name")`, `[{"Name":"b"},{"Name":"a"}] | sort_object("Name")`}},
 		{"group_object", 1, 2, "Group objects by property (property, [input])", "PowerShell", []string{`group_object("Category")`}},
-		{"measure_object", 1, 2, "Measure object properties ([property], [input])", "PowerShell", []string{`measure_object`, `[1,2,3] | measure_object`}},
+		{"measure_object", 1, 2, "Measure object properties (objects, [options])", "PowerShell", []string{`measure_object([1,2,3])`, `measure_object(.)`}},
 
 		// PowerShell - Formatting
-		{"format_list", 1, 2, "Format output as a list ([properties], [input])", "PowerShell", []string{`format_list`, `{"Name":"test"} | format_list`}},
-		{"format_table", 1, 2, "Format output as a table ([properties], [input])", "PowerShell", []string{`format_table`, `[{"Name":"a"},{"Name":"b"}] | format_table`}},
+		{"format_list", 1, 2, "Format output as a list (objects, [properties])", "PowerShell", []string{`format_list(.)`, `format_list({Name: "test"})`}},
+		{"format_table", 1, 2, "Format output as a table (objects, [properties])", "PowerShell", []string{`format_table(.)`, `format_table([{Name: "a"}, {Name: "b"}])`}},
 
 		// PowerShell - Variables
 		{"set_variable", 1, 3, "Set a variable (name, [value], [options])", "PowerShell", []string{`set_variable("count"; 42)`, `set_variable("name"; "test"; {"Scope": "global"})`}},
@@ -439,6 +440,17 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"get_date", 0, 2, "Get the current date and time as an object ([options])", "PowerShell", []string{`get_date`, `get_date | .Year`}},
 		{"set_date", 1, 2, "Set the system date (requires privileges)", "PowerShell", []string{`set_date("2026-01-01T00:00:00Z")`}},
 		{"new_timespan", 0, 2, "Create a timespan from components or two dates", "PowerShell", []string{`new_timespan({"Hours": 2})`}},
+
+		// Language models and agents
+		{"invoke_llm", 0, 2, "Send a prompt to a language model and return what it said, or the decoded value under {Schema: ...}", "LLM", []string{`invoke_llm("Summarize: \(.Body)")`, `"one word for blue" | invoke_llm`, `invoke_llm("classify"; {Schema: {type: "object"}})`}},
+		{"invoke_llm_request", 0, 2, "The same call as invoke_llm, reported as an object with the model, tokens and stop reason", "LLM", []string{`invoke_llm_request("hello") | {Content, TotalTokens}`, `invoke_llm_request("hi"; {Cache: true}) | .Cached`}},
+		{"invoke_llm_batch", 0, 2, "Run many prompts with bounded parallelism, emitting one response object per prompt in input order", "LLM", []string{`[invoke_llm_batch(["a","b"]; {Parallel: 4})] | map(.Content)`, `[.[] | "Summarize: \(.)"] | [invoke_llm_batch({ContinueOnError: true})]`}},
+		{"invoke_agent", 0, 2, "Answer a task with a model that writes pwrq queries against an allowlisted vocabulary", "LLM", []string{`invoke_agent("how many Go files are here?")`, `$rows | invoke_agent("which row is the outlier?"; {MaxSteps: 4})`}},
+		{"invoke_agent_request", 0, 2, "The same run as invoke_agent, with the full query trace on .Steps", "LLM", []string{`invoke_agent_request("count the TODOs") | .Steps | map(.Query)`}},
+		{"invoke_embedding", 0, 2, "Turn text into the vector a model represents its meaning by (a string, or an array of strings for one vector each)", "LLM", []string{`invoke_embedding("a sentence")`, `[.[] | .text] | invoke_embedding({Model: "openai/text-embedding-3-small"})`}},
+		{"get_llm_model", 0, 1, "List the models a provider serves, as .Model names other cmdlets take", "LLM", []string{`[get_llm_model] | map(.Model)`, `get_llm_model({Model: "anthropic"}) | .Id`}},
+		{"get_llm_context", 0, 1, "Report which model a call would reach and where its credentials come from, never the key itself", "LLM", []string{`get_llm_context`, `get_llm_context({Model: "openai/gpt-4o"})`}},
+		{"get_llm_usage", 0, 0, "Report the calls, tokens and cost this pwrq process has spent", "LLM", []string{`get_llm_usage`, `get_llm_usage.TotalTokens`}},
 
 		// Discovery
 		{"get_command", 0, 2, "List commands, optionally filtered by a wildcard on name or alias", "Discovery", []string{`get_command`, `get_command("get_*")`, `[get_command | select(.Category == "PowerShell") | .Name]`}},

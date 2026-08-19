@@ -628,3 +628,34 @@ func TestFormatListManyProperties(t *testing.T) {
 		}
 	}
 }
+
+// TestColumnOrderIsStable pins that identical input formats identically.
+//
+// Columns came from ranging a Go map, so the order changed between runs of the
+// same query: `format_table([{Alpha:1,Beta:2,Gamma:3}])` printed "Gamma Alpha
+// Beta" one run and "Alpha Beta Gamma" the next. Anything comparing output
+// across runs — a diff, a golden file, a script reading a column by position —
+// was reading noise.
+func TestColumnOrderIsStable(t *testing.T) {
+	row := map[string]any{"Gamma": 3, "Alpha": 1, "Beta": 2, "Delta": 4}
+
+	first := getAvailableProperties(row)
+	for range 50 {
+		got := getAvailableProperties(map[string]any{"Gamma": 3, "Alpha": 1, "Beta": 2, "Delta": 4})
+		if len(got) != len(first) {
+			t.Fatalf("got %d properties, want %d", len(got), len(first))
+		}
+		for i := range got {
+			if got[i] != first[i] {
+				t.Fatalf("column order changed between runs: %v then %v", first, got)
+			}
+		}
+	}
+
+	want := []string{"Alpha", "Beta", "Delta", "Gamma"}
+	for i := range want {
+		if first[i] != want[i] {
+			t.Errorf("columns are %v, want them sorted as %v", first, want)
+		}
+	}
+}

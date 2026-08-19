@@ -24,6 +24,9 @@ type ScriptBlock struct {
 var (
 	scriptOptionsMu sync.RWMutex
 	scriptOptions   []gojq.CompilerOption
+	// scriptSwapMu serializes temporary swaps, so two of them cannot
+	// interleave and leave the wrong vocabulary installed.
+	scriptSwapMu sync.Mutex
 )
 
 // SetScriptBlockOptions supplies the compiler options script blocks are built
@@ -34,6 +37,31 @@ func SetScriptBlockOptions(options []gojq.CompilerOption) {
 	scriptOptionsMu.Lock()
 	defer scriptOptionsMu.Unlock()
 	scriptOptions = options
+}
+
+// WithScriptBlockOptions runs fn with script blocks compiled against a
+// different vocabulary, restoring the previous one afterwards.
+//
+// This exists for invoke_agent, and it closes a hole that would otherwise make
+// its allowlist a fiction: a script block compiles against whatever the CLI
+// installed at startup, so an agent permitted to call where_object could reach
+// sh from inside `{script: "..."}`. Swapping for the duration of the agent's
+// query means the restriction holds all the way down.
+//
+// Swaps are serialized against each other. gojq evaluates a query in one
+// goroutine, so the only concurrency here is between hosts, and one waiting for
+// the other is the correct answer.
+func WithScriptBlockOptions(options []gojq.CompilerOption, fn func()) {
+	scriptSwapMu.Lock()
+	defer scriptSwapMu.Unlock()
+
+	scriptOptionsMu.RLock()
+	previous := scriptOptions
+	scriptOptionsMu.RUnlock()
+
+	SetScriptBlockOptions(options)
+	defer SetScriptBlockOptions(previous)
+	fn()
 }
 
 // CompileScriptBlock compiles a jq expression for repeated evaluation.

@@ -673,6 +673,220 @@ $ pwrq -c '[get_censys_credits({Scope: "user"}),
             get_censys_credits({OrganizationId: $other})]'
 ```
 
+## Language models
+
+These need a model and, for a hosted provider, a key. `PWRQ_LLM_MODEL` sets the
+default, and the API key comes from the variable that vendor documents:
+
+```console
+$ export PWRQ_LLM_MODEL=anthropic/claude-sonnet-4-5 ANTHROPIC_API_KEY=...
+$ pwrq -nc 'get_llm_context | {Model, Provider, HasApiKey, ApiKeySource, MaxCalls}'
+{"ApiKeySource":"ANTHROPIC_API_KEY","HasApiKey":true,"MaxCalls":100,
+ "Model":"anthropic/claude-sonnet-4-5","Provider":"anthropic"}
+```
+
+A local server works the same way, addressed by base URL. Anything speaking
+OpenAI's chat completions API qualifies:
+
+```console
+$ export PWRQ_LLM_MODEL=openai-compatible/gemma-4-e2b-it-qat
+$ export OPENAI_BASE_URL=http://127.0.0.1:1234/v1
+$ pwrq -nc '[get_llm_model] | length'
+13
+$ pwrq -nr 'invoke_llm("Reply with exactly one word: blue")'
+blue
+```
+
+The prompt is jq, so the pipeline is the template:
+
+```console
+$ pwrq -c 'map(invoke_llm("One word summary of: \(.)"))' <<< '["a book about bees","a film about cars"]'
+["Pollination","Drive"]
+```
+
+### Typed answers
+
+A schema turns prose into rows:
+
+```console
+$ pwrq -c '[.[] | invoke_llm("Classify the sentiment of this review: \(.text)";
+    {Schema: {type: "object",
+              properties: {sentiment: {type: "string", enum: ["positive","negative","neutral"]}},
+              required: ["sentiment"]}})
+   | .sentiment]' <<< '[{"text":"best thing I ever bought"},{"text":"broke after one day"},{"text":"it arrived Tuesday"}]'
+["positive","negative","neutral"]
+```
+
+Because the answer is a value rather than text, the rest of the query is
+ordinary jq:
+
+```console
+$ pwrq -c '[.[] | invoke_llm("Extract {name, org} from: \(.)"; {Schema: $S})]
+           | group_by(.org) | map({org: .[0].org, people: map(.name)})'
+```
+
+### Many prompts at once
+
+`map(invoke_llm(...))` is one round trip per row, in sequence. Batching runs a
+bounded pool and keeps input order:
+
+```console
+$ pwrq -c '[.[] | "One word summary of: \(.)"] | [invoke_llm_batch({Parallel: 6})] | map(.Content)'
+```
+
+Against a local server that is roughly twice as fast for six prompts; against a
+hosted API, where each call is a network round trip, the difference is larger.
+A failure fails the whole call, unless you ask to see the failures in band:
+
+```console
+$ pwrq -c '[invoke_llm_batch($prompts; {Parallel: 8, ContinueOnError: true})]
+           | map(select(.Error != null) | {Index, Error})'
+```
+
+### What it cost
+
+```console
+$ pwrq -nc '[invoke_llm_batch(["say a","say b"])] | length as $n | get_llm_usage'
+{"CacheHits":0,"Calls":2,"Cost":null,"InputTokens":36,"OutputTokens":389,
+ "PSTypeName":"Pwrq.LLM.Usage","TotalTokens":425}
+```
+
+`Cost` needs rates, in dollars per million tokens — pwrq does not ship a price
+table that would go stale:
+
+```console
+$ pwrq -nc 'invoke_llm_request("hi"; {PriceInput: 3, PriceOutput: 15}) | {TotalTokens, Cost}'
+```
+
+While building a pipeline, cache the answers so re-running is free:
+
+```console
+$ pwrq -nc 'invoke_llm_request("expensive question"; {Cache: true}) | .Cached'
+false
+$ pwrq -nc 'invoke_llm_request("expensive question"; {Cache: true}) | .Cached'
+true
+```
+
+### Semantic search
+
+```console
+$ pwrq -nc '["how to bake sourdough bread", "the history of naval warfare", "training a puppy to sit"] as $docs
+  | {Model: "openai-compatible/text-embedding-nomic-embed-text-v1.5"} as $m
+  | invoke_embedding($docs; $m) as $vectors
+  | invoke_embedding("my dog wont listen to commands"; $m) as $q
+  | [range(0; $docs|length) | {doc: $docs[.], score: (cosine_similarity($vectors[.]; $q) * 1000 | round / 1000)}]
+  | sort_by(-.score)'
+[{"doc":"training a puppy to sit","score":0.633},
+ {"doc":"how to bake sourdough bread","score":0.385},
+ {"doc":"the history of naval warfare","score":0.335}]
+```
+
+## Agents
+
+`invoke_agent` answers a task by writing pwrq queries until it can:
+
+```console
+$ pwrq -nc 'invoke_agent_request("Which file in the current directory is largest, and how many bytes is it?")
+           | {Content, Queries: [.Steps[] | .Query]}'
+{"Content":"pwrq-viz 35913993",
+ "Queries":["[get_childitem(\".\")] | map(select(.Name != \".\"))",
+            "[get_childitem(\".\")] | map(select(.PSTypeName == \"System.IO.FileInfo\")) | top_by(\"Length\"; 1) | .[0] | {Name, Length}",
+            null]}
+```
+
+The trace is the point: the second query above failed with `expected an object
+but got: array`, the model read the error and fixed it, and `.Steps` is where a
+reader sees that happen rather than taking the answer on faith.
+
+Piping data in puts it under `.` in every query the agent writes:
+
+```console
+$ pwrq -c 'invoke_agent("Which record has the largest Bytes value? Answer with just its Name.")' \
+      <<< '[{"Name":"alpha","Bytes":120},{"Name":"beta","Bytes":9800}]'
+"beta"
+```
+
+What the agent may call is an allowlist, and the default is read-only:
+
+```console
+$ pwrq -nc 'invoke_agent("count the TODOs in this tree";
+             {Allow: ["select_string", "get_childitem", "cat"], MaxSteps: 6})'
+```
+
+Asking for something outside it is refused before the run starts, and the model
+cmdlets can never be in it:
+
+```console
+$ pwrq -nc 'invoke_agent("x"; {Allow: ["invoke_llm"]})'
+pwrq: invoke_agent: "invoke_llm" cannot be in Allow; an agent that can call a
+model can spend without limit
+```
+
+Small models need the room: `gemma-4-e2b` answers a one-query question, and a
+12B model recovers from its own mistakes over several steps. When a run does not
+converge, `PWRQ_LLM_DEBUG=1` prints every request and reply to stderr.
+
+### A whole run, end to end
+
+[`examples/agent-triage.sh`](examples/agent-triage.sh) is the four stages
+together, over a corpus it writes itself so the run is reproducible:
+
+1. **Find the errors** — `select_string` over the log files. No model involved;
+   finding lines is a job the cmdlets already do.
+2. **Classify them** — `invoke_llm_batch` with a `Schema`, one call per line, in
+   parallel. This is the stage that turns text into rows.
+3. **Summarise** — `group_by`, `map`, `sort_by`. Plain jq, because by now the
+   model's answers are values.
+4. **Ask about them** — `invoke_agent_request`, with the triaged rows piped in,
+   writing its own queries against them.
+
+```console
+$ export PWRQ_LLM_MODEL=openai-compatible/gemma-4-e2b-it-qat
+$ export OPENAI_BASE_URL=http://127.0.0.1:1234/v1
+$ examples/agent-triage.sh
+== 1. the errors on disk ==================================================
+6 error lines
+
+== 2. classified, one call per line, in parallel ==========================
+  File       Line category severity
+  ---------- ---- -------- --------
+  api.log    2    data     high
+  api.log    4    timeout  high
+  auth.log   2    auth     high
+  worker.log 2    crash    high
+  worker.log 3    data     high
+  worker.log 4    crash    high
+
+== 3. summarised with plain jq ===========================================
+  category count files
+  -------- ----- -------------------
+  crash    2     worker.log
+  data     2     api.log, worker.log
+  auth     1     auth.log
+  timeout  1     api.log
+
+== 4. the agent, asked about the same data ===============================
+{"Answer":"The file with the most high-severity errors is worker.log, which
+ contains panics due to index out of range and nil pointer dereferences, as well
+ as JSON unmarshalling errors.",
+ "Queries":["[.[] | select(.severity == \"high\")] | group_by(.File) | map({File: .[0].File, count: length}) | sort_by(-.count) | .[0] | .File",
+            "[.[] | select(.File == \"worker.log\" and .severity == \"high\")] | .Text | unique",
+            "[.[] | select(.File == \"worker.log\" and .severity == \"high\")] | map(.Text) | unique | join(\", \")"],
+ "Tokens":13212}
+```
+
+The middle query is the loop earning its keep: `.Text` on an array is an error,
+the agent read the message and rewrote it as `map(.Text)`. That is what `.Steps`
+is for — the answer above rests on three queries, and all three are here to be
+checked.
+
+Stage 4 asks more of a model than stages 2 and 3 do: classifying one line is a
+single judgement, while writing a query, reading its result and deciding what to
+do next is a loop. `gemma-4-e2b` does the first well and the second badly — it
+writes queries that paste the data in as a literal instead of using `.` — so the
+script takes `PWRQ_AGENT_MODEL` to run that stage on a larger model. The output
+above is the 12B one; the classification is the 2B one.
+
 ## Aliases
 
 ```console

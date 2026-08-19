@@ -52,6 +52,9 @@ var StandardAliases = []Alias{
 	{"sv", "set_variable"},
 	{"rv", "remove_variable"},
 
+	// Language models
+	{"llm", "invoke_llm"},
+
 	// Objects and formatting
 	{"fl", "format_list"},
 	{"ft", "format_table"},
