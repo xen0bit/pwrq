@@ -2,6 +2,7 @@ package queryrun
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -262,8 +263,22 @@ func TestTimeout(t *testing.T) {
 	if res.Kind != KindTimeout {
 		t.Fatalf("kind = %q, want %q (error: %s)", res.Kind, KindTimeout, res.Error)
 	}
-	if !strings.Contains(res.Error, "50ms") {
+	// The message names the budget left when the run started, not the 50ms
+	// the deadline was built from - the two differ by however long it took to
+	// get from WithTimeout to Run, which is sub-millisecond idle and more than
+	// that under load. Assert the figure is a duration in the right
+	// neighbourhood rather than the exact string, which made this test fail in
+	// CI at 49ms.
+	m := regexp.MustCompile(`stopped after ([0-9.]+(?:ns|µs|ms|s))`).FindStringSubmatch(res.Error)
+	if m == nil {
 		t.Fatalf("the message should name the deadline, got: %s", res.Error)
+	}
+	named, err := time.ParseDuration(m[1])
+	if err != nil {
+		t.Fatalf("could not parse %q out of %q: %v", m[1], res.Error, err)
+	}
+	if named <= 40*time.Millisecond || named > 50*time.Millisecond {
+		t.Fatalf("named deadline %s is not near the 50ms configured, got: %s", named, res.Error)
 	}
 	if elapsed := time.Since(started); elapsed > 5*time.Second {
 		t.Fatalf("the run took %s; the deadline did not stop it promptly", elapsed)
