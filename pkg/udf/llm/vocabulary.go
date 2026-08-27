@@ -101,6 +101,10 @@ var defaultAllow = []string{
 	// Tidy text
 	"strip_ansi", "normalize_whitespace", "word_count", "extract_emails",
 	"extract_urls", "extract_ips", "dedupe", "chunks",
+	// Read a SQLite database. The query cmdlet opens it read-only and
+	// out_sqlite is absent, so this stays a vocabulary that reads and never
+	// writes.
+	"invoke_sqlite_query", "get_sqlite_table", "get_sqlite_schema",
 	// Present, and discover the rest
 	"format_table", "get_command", "get_help",
 }
