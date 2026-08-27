@@ -61,22 +61,30 @@ func (f *formatter) program(b *strings.Builder, q *gojq.Query) {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
-		b.WriteString("def ")
-		b.WriteString(fd.Name)
-		if len(fd.Args) > 0 {
-			b.WriteString("(")
-			b.WriteString(strings.Join(fd.Args, "; "))
-			b.WriteByte(')')
-		}
-		b.WriteString(": ")
-		b.WriteString(f.renderQuery(fd.Body, len("def ")+len(fd.Name), false))
-		b.WriteByte(';')
+		f.writeFuncDef(b, fd, 0)
 	}
 	if len(q.FuncDefs) > 0 {
 		b.WriteByte('\n')
 		b.WriteByte('\n')
 	}
-	b.WriteString(f.renderQuery(q, 0, true))
+	rest := *q
+	rest.FuncDefs = nil
+	b.WriteString(f.renderBody(&rest, 0, true))
+}
+
+// writeFuncDef renders one definition, `def name(args): body;`, with the body
+// laid out from the column its header ends at.
+func (f *formatter) writeFuncDef(b *strings.Builder, fd *gojq.FuncDef, col int) {
+	b.WriteString("def ")
+	b.WriteString(fd.Name)
+	if len(fd.Args) > 0 {
+		b.WriteString("(")
+		b.WriteString(strings.Join(fd.Args, "; "))
+		b.WriteByte(')')
+	}
+	b.WriteString(": ")
+	b.WriteString(f.renderQuery(fd.Body, col+len("def ")+len(fd.Name), false))
+	b.WriteByte(';')
 }
 
 // renderQuery renders a query node. breakPipes decides whether a top-level
@@ -89,6 +97,29 @@ func (f *formatter) renderQuery(q *gojq.Query, col int, breakPipes bool) string 
 	if q == nil {
 		return ""
 	}
+	if len(q.FuncDefs) == 0 {
+		return f.renderBody(q, col, breakPipes)
+	}
+	// jq lets a definition sit at the head of any query, not just the
+	// program - inside an array, a parenthesised stage, a branch of an if.
+	// Those are as much a part of what the query means as the body they
+	// precede, so they are written out here, each on its own line, with the
+	// body under them at the same column.
+	var b strings.Builder
+	for _, fd := range q.FuncDefs {
+		f.writeFuncDef(&b, fd, col)
+		b.WriteByte('\n')
+		b.WriteString(indent(col))
+	}
+	rest := *q
+	rest.FuncDefs = nil
+	b.WriteString(f.renderBody(&rest, col, breakPipes))
+	return b.String()
+}
+
+// renderBody renders a query's expression, with any definitions at its head
+// already dealt with by renderQuery.
+func (f *formatter) renderBody(q *gojq.Query, col int, breakPipes bool) string {
 	switch q.Op {
 	case gojq.OpPipe:
 		stages := pipeStages(q)
@@ -309,8 +340,17 @@ func (f *formatter) renderArray(a *gojq.Array, col int) string {
 	}
 
 	var b strings.Builder
-	switch body.Op {
-	case gojq.OpPipe:
+	switch {
+	case len(body.FuncDefs) > 0:
+		// Definitions at the head of the body are not a shape to hang the
+		// rest off, so the whole thing goes on its own indented line.
+		b.WriteString("[\n")
+		b.WriteString(indent(col + 1))
+		b.WriteString(f.renderQuery(body, col+1, false))
+		b.WriteByte('\n')
+		b.WriteString(indent(col))
+		b.WriteByte(']')
+	case body.Op == gojq.OpPipe:
 		stages := pipeStages(body)
 		b.WriteByte('[')
 		b.WriteString(f.renderStage(stages[0], col+1))
@@ -321,7 +361,7 @@ func (f *formatter) renderArray(a *gojq.Array, col int) string {
 			b.WriteString(f.renderStage(s, col+2))
 		}
 		b.WriteByte(']')
-	case gojq.OpComma:
+	case body.Op == gojq.OpComma:
 		elems := flattenComma(body)
 		b.WriteString("[\n")
 		for i, e := range elems {
