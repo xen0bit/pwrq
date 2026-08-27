@@ -50,10 +50,21 @@ jobs:
       # pinned rather than floating: a dependency that moves on its own schedule
       # turns a green release red without a change on our side, and a release is
       # the worst moment to discover that.
+      # cosign-release is 2.6.5, not 2.4.x, and the reason is not our own
+      # signing: goreleaser-action verifies the goreleaser tarball it just
+      # downloaded using whatever cosign is on PATH, and goreleaser now ships
+      # its checksums in the new sigstore bundle format. cosign 2.4.1 cannot
+      # read it - "bundle does not contain cert for verification" - and failed
+      # the release before goreleaser ran at all.
+      #
+      # Not cosign 3.x either: its sign-blob dropped --output-certificate and
+      # --output-signature in favour of --bundle, which the signs stanza in
+      # .goreleaser.yaml uses. 2.6.5 both verifies the new format and keeps
+      # those flags, so it is the version that satisfies both ends.
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
         with:
-          cosign-release: "v2.4.1"
+          cosign-release: "v2.6.5"
 
       - name: Install syft
         uses: anchore/sbom-action/download-syft@v0
