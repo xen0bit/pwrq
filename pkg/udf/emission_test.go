@@ -51,8 +51,13 @@ func TestStreamingCommandsReportStreaming(t *testing.T) {
 		"find":          true,
 		"get_process":   true,
 		"select_string": true,
-		"cat":           false,
-		"sha256":        false,
+		// The SQLite pair is the same split in a different vocabulary: a
+		// query enumerates rows, a command computes one answer about one
+		// statement.
+		"invoke_sqlite_query":   true,
+		"invoke_sqlite_command": false,
+		"cat":                   false,
+		"sha256":                false,
 	}
 
 	got := make(map[string]bool)

@@ -592,6 +592,107 @@ $ pwrq -nc '[["bzip2", "cat", "cp", "mv", "tar"][]
  {"Coverage":1,"Name":"cp"},{"Coverage":0.657682,"Name":"mv"}]
 ```
 
+## SQLite
+
+A database file is another source of objects. `invoke_sqlite_query` opens it
+read-only and emits one object per row, so jq's filters apply to a SELECT the
+same way they apply to `get_childitem`:
+
+```console
+$ pwrq -nc '[invoke_sqlite_query("app.db"; "select * from users")]'
+[{"PSTypeName":"System.Data.DataRow","email":"ada@example.com","id":1,"score":9.5},
+ {"PSTypeName":"System.Data.DataRow","email":"grace@example.com","id":2,"score":8}]
+```
+
+Values are bound, never pasted into the SQL. An array binds to `?` and an object
+binds to `:name`:
+
+```console
+$ pwrq -nrc 'invoke_sqlite_query("app.db"; "select email from users where score > ?"; [9]) | .email'
+ada@example.com
+```
+
+Statements that change the database are `invoke_sqlite_command`, which returns
+one object rather than a stream — the query cmdlet can then open the file
+read-only, so a typo in a SELECT cannot rewrite it:
+
+```console
+$ pwrq -nc 'invoke_sqlite_command("app.db"; "insert into users (email, score) values (:e, :s)"; {e: "ada@example.com", s: 9.5})'
+{"Database":"app.db","LastInsertId":1,"PSPath":"app.db",
+ "PSTypeName":"Pwrq.Sqlite.CommandResult","RowsAffected":1}
+
+$ pwrq -nc 'invoke_sqlite_query("app.db"; "delete from users")'
+pwrq: invoke_sqlite_query: attempt to write a readonly database (8)
+```
+
+What is in a database, and what a table looks like:
+
+```console
+$ pwrq -nc '[get_sqlite_table("app.db")] | map(.Name)'
+["users"]
+
+$ pwrq -nc '[get_sqlite_schema("app.db"; "users") | {Name, Type, NotNull, IsPrimaryKey}]'
+[{"IsPrimaryKey":true,"Name":"id","NotNull":false,"Type":"INTEGER"},
+ {"IsPrimaryKey":false,"Name":"email","NotNull":true,"Type":"TEXT"},
+ {"IsPrimaryKey":false,"Name":"score","NotNull":false,"Type":"REAL"}]
+```
+
+Each table object carries its database in `PSPath`, so it binds as the next
+cmdlet's database and the two compose without naming the file twice:
+
+```console
+$ pwrq -nc '[get_sqlite_table("app.db") | get_sqlite_schema(.Name) | select(.IsPrimaryKey) | .Name]'
+["id"]
+```
+
+### The other direction
+
+`out_sqlite` writes the piped objects into a table, creating it from their shape
+if it does not exist. Anything that emits objects is a table:
+
+```console
+$ pwrq -nc '[get_childitem("cli"; {Filter: "*.go"}) | {Name, Length, Extension}]
+            | out_sqlite("files.db"; "files")'
+{"Created":true,"Database":"files.db","PSPath":"files.db",
+ "PSTypeName":"Pwrq.Sqlite.WriteResult","RowCount":18,"Table":"files"}
+```
+
+Which is worth doing when the question is easier in SQL than in jq, or when the
+answer will be asked again later:
+
+```console
+$ pwrq -nr '[invoke_sqlite_query("files.db"; "select Name, Length from files order by Length desc limit 3")]
+            | format_table(.)'
+  Length Name
+  ------ ----------
+  18130  cli.go
+  7822   inputs.go
+  6025   encoder.go
+
+$ pwrq -nc 'invoke_sqlite_query("files.db"; "select count(*) as Files, sum(Length) as Bytes from files")'
+{"Bytes":66341,"Files":18,"PSTypeName":"System.Data.DataRow"}
+```
+
+Reloading the same table is `{Truncate: true}`, and a property the table has no
+column for is an error rather than a value quietly dropped:
+
+```console
+$ pwrq -nc '[get_childitem("cli"; {Filter: "*.go"}) | {Name, Length, Extension}]
+            | out_sqlite("files.db"; "files"; {Truncate: true}) | {RowCount, Created}'
+{"Created":false,"RowCount":18}
+
+$ pwrq -nc '[{Name: "x", Size: 1}] | out_sqlite("files.db"; "files")'
+pwrq: out_sqlite: table "files" has no column "Size" (its columns are "Extension", "Length", "Name")
+```
+
+The stream is lazy down to the database, so a query that only needs the first
+row reads one row rather than the table:
+
+```console
+$ pwrq -nr 'first(invoke_sqlite_query("files.db"; "select Name from files")) | .Name'
+cli.go
+```
+
 ## Censys Platform
 
 These need credentials. `pwrq` reads the same environment variables the Censys

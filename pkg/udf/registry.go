@@ -46,6 +46,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/sha512_256"
 	"github.com/xen0bit/pwrq/pkg/udf/similarity"
 	"github.com/xen0bit/pwrq/pkg/udf/sniff"
+	sqliteudf "github.com/xen0bit/pwrq/pkg/udf/sqlite"
 	"github.com/xen0bit/pwrq/pkg/udf/ssdeep"
 	"github.com/xen0bit/pwrq/pkg/udf/stats"
 	stringudf "github.com/xen0bit/pwrq/pkg/udf/string"
@@ -290,6 +291,13 @@ func DefaultRegistry() *Registry {
 	// Host lookups and PATH searches. They need the network or the
 	// filesystem, so they are CLI-only like the log readers.
 	for _, opt := range system.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// SQLite. These open a database file, so they are CLI-only like the log
+	// readers - and on js/wasm the package registers nothing at all, because
+	// its driver has no browser target. See pkg/udf/sqlite/unsupported.go.
+	for _, opt := range sqliteudf.RegisterAll() {
 		reg.Register(opt)
 	}
 

@@ -248,6 +248,44 @@ $ pwrq -c 'where_object(.; {property: "Name", operator: "like", value: "A*"})'
 A script block is jq — any expression, not a subset. Note that jq's own `select`
 is usually shorter: `map(select(.Age > 26))`.
 
+### SQLite
+
+A database file is another source of objects. Queries stream one object per row
+and are opened read-only; statements that change the database are a separate
+cmdlet, so a typo in a SELECT cannot rewrite the file being read.
+
+```console
+$ pwrq -c '[invoke_sqlite_query("app.db"; "select * from users")] | length'
+$ pwrq -c 'invoke_sqlite_query("app.db"; "select * from users where id = ?"; [42]) | .email'
+$ pwrq -c 'invoke_sqlite_command("app.db"; "delete from users where id = ?"; [42]) | .RowsAffected'
+$ pwrq -c '[get_sqlite_table("app.db")] | map(.Name)'
+$ pwrq -c '[get_sqlite_schema("app.db"; "users") | select(.IsPrimaryKey) | .Name]'
+```
+
+Values are bound rather than interpolated - an array binds to `?`, an object
+binds to `:name` - because a query built by pasting values into its own text is
+one apostrophe away from meaning something else.
+
+`out_sqlite` goes the other way, writing the piped objects into a table it
+creates from their shape:
+
+```console
+$ pwrq -nc '[get_childitem("."; {Recurse: true})] | out_sqlite("files.db"; "files") | .RowCount'
+```
+
+Values map to SQLite's storage classes and back: NULL to null, INTEGER and REAL
+to numbers, TEXT to a string, and BLOB to a jq byte string - so a blob can go
+straight on to `sha256` or `out_file`, and a string that is not valid UTF-8 is
+stored as a BLOB rather than corrupted into TEXT. A nested object or array is
+stored as JSON text, which SQLite's own `json_extract` can read.
+
+The driver is [modernc.org/sqlite](https://modernc.org/sqlite), which is SQLite
+compiled to Go rather than linked through cgo, so `go install` still needs
+nothing but a Go toolchain. It has no js/wasm target, so where the other
+CLI-only cmdlets are simply left out of the browser registry, this package
+registers nothing at all in the wasm build - the IDE lists the SQLite cmdlets
+and marks them unavailable, as it does for anything that needs a filesystem.
+
 ### The Censys Platform
 
 `pwrq` speaks the Censys Platform API through Censys' own Go SDK, with a
@@ -617,7 +655,7 @@ and the exit status can see them, and they are deliberately left unnormalized.
 ## Development
 
 ```bash
-make build       # pwrq (9.5MB)
+make build       # pwrq (19MB)
 make build-viz   # pwrq-viz
 make build-all
 make web.build   # the browser editor (needs bun)

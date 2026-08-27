@@ -630,6 +630,14 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"net_present_value", 2, 2, "Present value of cash flows at a rate (flows, rate)", "Domain", []string{`net_present_value([-100, 50, 60]; 0.1)`}},
 		{"iso_duration", 0, 0, "Seconds as an ISO 8601 duration", "Duration", []string{`93784 | iso_duration`}},
 
+		// SQLite. Each cmdlet opens the database file for the one call and
+		// closes it again; there is no connection to keep or to hand around.
+		{"invoke_sqlite_query", 1, 3, "One object per row of a SELECT, read from a database file opened read-only (db, sql, [params])", "SQLite", []string{`invoke_sqlite_query("app.db"; "select * from users")`, `invoke_sqlite_query("app.db"; "select * from users where id = ?"; [42])`, `invoke_sqlite_query("app.db"; "select * from users where email = :e"; {e: "a@b.c"})`, `"app.db" | invoke_sqlite_query("select count(*) as n from users") | .n`}},
+		{"invoke_sqlite_command", 1, 3, "Run a statement that changes the database, returning RowsAffected and LastInsertId (db, sql, [params])", "SQLite", []string{`invoke_sqlite_command("app.db"; "create table users (id integer primary key, email text)")`, `invoke_sqlite_command("app.db"; "delete from users where id = ?"; [42]) | .RowsAffected`}},
+		{"get_sqlite_table", 0, 1, "One object per table and view in a database (Name, Type, Sql)", "SQLite", []string{`[get_sqlite_table("app.db")] | map(.Name)`, `"app.db" | get_sqlite_table | select(.Type == "view") | .Sql`}},
+		{"get_sqlite_schema", 1, 2, "One object per column of a table (Name, Type, NotNull, DefaultValue, IsPrimaryKey)", "SQLite", []string{`[get_sqlite_schema("app.db"; "users")]`, `get_sqlite_table("app.db") | get_sqlite_schema(.Name)`, `[get_sqlite_schema("app.db"; "users") | select(.IsPrimaryKey) | .Name]`}},
+		{"out_sqlite", 2, 3, "Write the piped objects into a table, creating it if needed (db, table, [options])", "SQLite", []string{`[get_childitem(".")] | out_sqlite("files.db"; "files")`, `[get_childitem(".")] | out_sqlite("files.db"; "files"; {Truncate: true}) | .RowCount`}},
+
 		// Censys Platform. Every one of these authenticates with
 		// CENSYS_PLATFORM_TOKEN and bills the wallet named by
 		// CENSYS_PLATFORM_ORGID; get_censys_context reports what it resolved.
