@@ -267,8 +267,15 @@ func (r *Runner) parse(req *Request) (*gojq.Query, Result) {
 	return query, Result{}
 }
 
-// timeoutMessage describes the deadline the run hit, in the units it was set
-// in, so the message reads back as the limit the caller configured.
+// timeoutMessage describes the deadline the run hit.
+//
+// The figure is the budget that remained when the run started, which is a
+// little less than the timeout the caller configured - short by however long
+// it took to get from context.WithTimeout to here. A context exposes only an
+// absolute deadline, never the duration it was built from, so that gap cannot
+// be recovered; on a loaded machine it is easily a millisecond, which is why
+// a 50ms deadline can read back as 49ms. Close enough to tell a user which
+// limit they hit, and not something to assert an exact string against.
 func timeoutMessage(ctx context.Context, started time.Time) string {
 	at, ok := ctx.Deadline()
 	if !ok {
