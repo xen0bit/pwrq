@@ -1,6 +1,6 @@
 module github.com/xen0bit/pwrq
 
-go 1.25.10
+go 1.27.0
 
 require (
 	github.com/censys/censys-sdk-go v0.25.27
