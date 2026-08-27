@@ -51,7 +51,7 @@ jobs:
       # turns a green release red without a change on our side, and a release is
       # the worst moment to discover that.
       - name: Install cosign
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v3
         with:
           cosign-release: "v2.4.1"
 
