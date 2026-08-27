@@ -1,0 +1,216 @@
+# GoReleaser configuration for pwrq.
+# https://goreleaser.com  —  docs for every stanza below.
+#
+# Local usage:
+#   goreleaser check                      # validate this file
+#   goreleaser build --snapshot --clean   # build binaries without releasing
+#   goreleaser release --snapshot --clean # full pipeline dry-run (no publish)
+#   goreleaser release --clean            # real release (needs a git tag + GITHUB_TOKEN)
+#
+# pwrq is CGO-free — the SQLite driver is modernc.org/sqlite, which is SQLite
+# transpiled to Go rather than linked through cgo — so every Debian release
+# architecture cross-compiles from one runner with no toolchain to install.
+# That is the whole reason the apt repository can carry eight architectures.
+#
+# Releases target Linux, because that is what the apt repository serves. The
+# cmdlets themselves are portable; add other GOOS values here if you want
+# archives for them.
+
+version: 2
+
+project_name: pwrq
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+    # The IDE is compiled into pwrq-viz below, so the page has to exist before
+    # the build runs. Needs bun; release.yml installs it.
+    - make web.build
+
+# ---------------------------------------------------------------------------
+# Builds — two binaries, because they are two different products.
+#
+# pwrq is the everyday CLI. pwrq-viz adds query diagramming and the browser
+# IDE, which pull in d2, a JavaScript engine, a syntax highlighter and a PDF
+# writer — the Makefile keeps them apart for the same reason, and so does this.
+# ---------------------------------------------------------------------------
+builds:
+  - id: pwrq
+    binary: pwrq
+    main: ./cmd/pwrq
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    # Every Debian trixie release architecture: amd64, arm64, armhf (arm7),
+    # armel (arm5), i386, ppc64el, riscv64, s390x.
+    goarch: [amd64, arm64, arm, "386", ppc64le, riscv64, s390x]
+    goarm: ["5", "7"]
+    # softfloat, not Go's default sse2: Debian's i386 baseline does not include
+    # SSE2, and the default emits unguarded scalar SSE2 for every float64
+    # operation, which SIGILLs on a CPU without it.
+    go386: [softfloat]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/xen0bit/pwrq/cli.revision={{ .ShortCommit }}
+
+  - id: pwrq-viz
+    binary: pwrq-viz
+    main: ./cmd/pwrq-viz
+    # embed_web puts the editor inside the binary. Without it launchIDE looks
+    # for pkg/web/dist relative to the working directory, which is fine in a
+    # checkout and useless in a package — an installed pwrq-viz has no working
+    # tree to serve from. A packaged viz build embeds or it does not ship.
+    tags:
+      - viz
+      - embed_web
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64, arm, "386", ppc64le, riscv64, s390x]
+    goarm: ["5", "7"]
+    go386: [softfloat]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/xen0bit/pwrq/cli.revision={{ .ShortCommit }}
+      # The page reports the revision it was built from, so a shared link's
+      # behaviour can be traced back to a commit.
+      - -X github.com/xen0bit/pwrq/pkg/webapi.Version={{ .Version }}-{{ .ShortCommit }}
+
+# ---------------------------------------------------------------------------
+# Archives — one tar.gz per binary per architecture, for people who do not
+# want the apt repository.
+# ---------------------------------------------------------------------------
+archives:
+  - id: pwrq
+    ids: [pwrq]
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - EXAMPLES.md
+
+  - id: pwrq-viz
+    ids: [pwrq-viz]
+    formats: [tar.gz]
+    name_template: >-
+      pwrq-viz_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - EXAMPLES.md
+
+# ---------------------------------------------------------------------------
+# Linux packages. Two of them, matching the two binaries: `apt install pwrq`
+# gets the CLI, `apt install pwrq-viz` adds the diagram tool and the IDE.
+# ---------------------------------------------------------------------------
+nfpms:
+  - id: pwrq
+    package_name: pwrq
+    ids: [pwrq]
+    vendor: pwrq
+    homepage: https://github.com/xen0bit/pwrq
+    maintainer: Remy <21974988+xen0bit@users.noreply.github.com>
+    description: |-
+      PowerShell-style cmdlets on top of jq.
+      pwrq is gojq plus a library of cmdlets that reach the filesystem, the OS,
+      the network and a pile of codecs. Cmdlets emit ordinary JSON objects, so
+      jq's own filters work on them directly. Any valid jq program produces
+      byte-identical output.
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/pwrq/README.md
+      - src: EXAMPLES.md
+        dst: /usr/share/doc/pwrq/EXAMPLES.md
+
+  - id: pwrq-viz
+    package_name: pwrq-viz
+    ids: [pwrq-viz]
+    vendor: pwrq
+    homepage: https://github.com/xen0bit/pwrq
+    maintainer: Remy <21974988+xen0bit@users.noreply.github.com>
+    description: |-
+      Query diagrams and the browser IDE for pwrq.
+      pwrq-viz is pwrq plus `--graph`, which renders a query as a d2 diagram,
+      and `--ide`, which serves the browser editor from inside the binary. It
+      is a superset of pwrq and can be installed alongside it or instead of it.
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/pwrq-viz/README.md
+      - src: EXAMPLES.md
+        dst: /usr/share/doc/pwrq-viz/EXAMPLES.md
+
+# ---------------------------------------------------------------------------
+# Checksums, signing, SBOMs, changelog.
+# ---------------------------------------------------------------------------
+checksum:
+  name_template: "checksums.txt"
+
+# Cosign keyless signing of the checksum file, via GitHub's OIDC identity.
+#
+# One signature over checksums.txt rather than one per artifact: the checksum
+# file already covers every artifact, so signing it signs all of them, and a
+# verifier who checks the signature and then the checksums has the same
+# guarantee for a fraction of the release time.
+#
+# Keyless means there is no private key to store, rotate or lose — the identity
+# is the workflow itself, so `cosign verify-blob` checks that the signature
+# came from this repository's release workflow rather than from someone holding
+# a key.
+#
+# This is separate from the GPG key that signs the apt repository: apt only
+# understands OpenPGP, so the repository metadata is signed with APT_SIGNING_KEY
+# instead. The two cover different things — cosign covers the release
+# artifacts, GPG covers the repository index.
+signs:
+  - cmd: cosign
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+# A CycloneDX SBOM per binary, so a consumer can answer "does this contain the
+# module with today's advisory" without building anything.
+sboms:
+  - artifacts: binary
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  draft: false
+  prerelease: auto
+  footer: |
+    ## apt
+
+    ```bash
+    sudo curl -fsSL https://xen0bit.github.io/pwrq/pwrq-archive-keyring.gpg \
+         -o /usr/share/keyrings/pwrq-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/pwrq-archive-keyring.gpg] https://xen0bit.github.io/pwrq stable main" \
+         | sudo tee /etc/apt/sources.list.d/pwrq.list
+    sudo apt update && sudo apt install pwrq
+    ```
