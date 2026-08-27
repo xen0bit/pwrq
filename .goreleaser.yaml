@@ -188,8 +188,19 @@ signs:
 
 # A CycloneDX SBOM per binary, so a consumer can answer "does this contain the
 # module with today's advisory" without building anything.
+#
+# The document name has to carry the ARM variant. Two of the eight targets are
+# GOARCH=arm - armel (GOARM=5) and armhf (GOARM=7) - and the default name is
+# built from Os and Arch alone, so both landed on "..._linux_arm.sbom.json".
+# One overwrote the other on disk, and the release then failed uploading the
+# duplicate: 422 already_exists. The archives one stanza up have always spelled
+# the variant out; the SBOMs now agree with them.
 sboms:
   - artifacts: binary
+    documents:
+      - >-
+        {{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+        {{- if .Arm }}v{{ .Arm }}{{ end }}.sbom.json
 
 changelog:
   sort: asc

@@ -227,14 +227,34 @@ jobs:
       - name: Install apt repository tooling
         run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils
 
+      # cosign and syft are installed here for the same reason the release
+      # installs them, and pinned to the same versions. Three separate release
+      # failures got past a green CI because this job skipped the stages they
+      # broke in: an action ref that did not resolve, a cosign too old to read
+      # goreleaser's own signature, and two SBOMs colliding on one filename.
+      # None of that is reachable without running the tools.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: "v2.6.5"
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+        with:
+          syft-version: "v1.18.1"
+
       - name: Build a snapshot release
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: "~> v2"
-          # No signing and no SBOMs: cosign needs an OIDC identity this job
-          # does not have, and syft is not the thing under test here.
-          args: release --snapshot --clean --skip=sign,sbom,publish,announce
+          # SBOMs run: cataloguing is where the duplicate-name failure showed
+          # up, and it costs a couple of minutes. Signing still does not:
+          # cosign keyless needs an OIDC identity this job has no business
+          # holding. Installing cosign above is still worth it - it is what
+          # goreleaser-action uses to verify its own download, which is the
+          # step that failed the release twice.
+          args: release --snapshot --clean --skip=sign,publish,announce
 
       - name: Build and verify the apt repository
         run: |
