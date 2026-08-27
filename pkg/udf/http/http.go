@@ -374,9 +374,8 @@ func RegisterHTTPServe() gojq.CompilerOption {
 		// Block waiting for either GET or POST request
 		select {
 		case result := <-resultChan:
-			// Close the server
-			_ = server.Close()
-			_ = listener.Close()
+			// Stop the server without truncating the reply that unblocked it.
+			shutdownServe(server, listener)
 
 			// Return the result (either the input item from GET, or POST data)
 			meta := map[string]any{
@@ -388,9 +387,8 @@ func RegisterHTTPServe() gojq.CompilerOption {
 			}
 			return common.MakeUDFSuccessResult(result, meta)
 		case err := <-errorChan:
-			// Close the server on error
-			_ = server.Close()
-			_ = listener.Close()
+			// Same as above: the error response still has to reach the client.
+			shutdownServe(server, listener)
 
 			meta := map[string]any{
 				"operation": "http_serve",
@@ -411,4 +409,32 @@ func RegisterHTTPServe() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: server error: %v", err), meta)
 		}
 	})
+}
+
+// shutdownServe stops an http_serve server without truncating the response
+// that just unblocked it.
+//
+// The handlers signal resultChan/errorChan from inside the handler, which is
+// before net/http has written the buffered response out to the socket. The
+// select that receives on those channels therefore runs while the reply is
+// still in flight, and server.Close - which closes live connections
+// immediately rather than waiting - raced it: the client saw the connection
+// close with no response and reported EOF. Intermittently, and more often on a
+// loaded machine, which is exactly the shape of a test that passes locally and
+// fails in CI.
+//
+// Shutdown waits for the in-flight request to finish and the connection to go
+// idle, then stops accepting. It cannot deadlock on the handler here because
+// resultChan and errorChan are buffered, so the send that precedes the
+// handler's return never blocks. Close remains the fallback for the case where
+// a connection outlives the timeout.
+func shutdownServe(server *http.Server, listener net.Listener) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		_ = server.Close()
+	}
+	// Shutdown already closed the listener; this covers the fallback path and
+	// is a no-op otherwise.
+	_ = listener.Close()
 }
