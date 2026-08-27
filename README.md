@@ -42,6 +42,33 @@ expressions, slicing and case folding are jq's, and stay jq's.
 go install github.com/xen0bit/pwrq/cmd/pwrq@latest
 ```
 
+### Debian / Ubuntu
+
+A signed apt repository carries every release for all eight Debian release
+architectures — amd64, arm64, armhf, armel, i386, ppc64el, riscv64, s390x.
+pwrq is CGO-free, so they are all the same build, cross-compiled.
+
+```bash
+sudo curl -fsSL https://xen0bit.github.io/pwrq/pwrq-archive-keyring.gpg \
+     -o /usr/share/keyrings/pwrq-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/pwrq-archive-keyring.gpg] https://xen0bit.github.io/pwrq stable main" \
+     | sudo tee /etc/apt/sources.list.d/pwrq.list
+sudo apt update
+sudo apt install pwrq
+```
+
+`pwrq-viz` is the same tool plus `--graph` (renders a query as a diagram) and
+`--ide` (serves the browser editor from inside the binary). It is a superset,
+so install it instead of `pwrq` or alongside it:
+
+```bash
+sudo apt install pwrq-viz
+```
+
+The repository tracks the latest release only; older versions stay on
+[GitHub Releases](https://github.com/xen0bit/pwrq/releases), which also carries
+`.rpm` and `.apk` packages and plain tarballs.
+
 ## The object model
 
 Everything a cmdlet emits is plain JSON. There is no envelope to unwrap.

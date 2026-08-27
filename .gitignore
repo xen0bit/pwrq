@@ -2,6 +2,9 @@
 pwrq
 pwrq-viz
 
+# GoReleaser output
+/dist/
+
 # Coverage files
 coverage.out
 coverage.html

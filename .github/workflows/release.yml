@@ -1,0 +1,148 @@
+name: release
+
+# Run GoReleaser on every pushed semver tag (e.g. `git tag v1.2.3 && git push --tags`).
+#
+# Also dispatchable, because a tag push is a one-shot event: if Actions drops it
+# the tag exists, no run was ever queued, nothing reports an error, and
+# re-pushing the tag is not guaranteed to re-fire it. Dispatching against the
+# tag ref re-runs the release without inventing a new version.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    # id-token is what makes cosign's keyless signing possible: the signature is
+    # bound to this workflow's OIDC identity, so there is no private key to
+    # store, rotate or leak. contents: write is for the release itself.
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history + tags so the changelog and version resolve
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27"
+          cache: true
+
+      # bun builds the browser IDE that gets compiled into pwrq-viz. The
+      # GoReleaser before-hook runs `make web.build`, which needs it on PATH.
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Run tests
+        run: go test -race ./...
+
+      # syft produces the SBOMs and cosign signs the checksum file. Both are
+      # pinned rather than floating: a dependency that moves on its own schedule
+      # turns a green release red without a change on our side, and a release is
+      # the worst moment to discover that.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4
+        with:
+          cosign-release: "v2.4.1"
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+        with:
+          syft-version: "v1.18.1"
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Signed APT repository on GitHub Pages, so Debian/Ubuntu users can
+  # `apt install pwrq` and track releases with `apt upgrade`.
+  #
+  # Stateless: rebuilt from this release's .debs only (older versions stay on
+  # GitHub Releases). Needs the APT_SIGNING_KEY secret (armored GPG private
+  # key) and Pages enabled; configure-pages creates the site on first run.
+  apt-repo:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install apt repository tooling
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils
+
+      - name: Download this release's debs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download "${GITHUB_REF_NAME}" -p '*.deb' -D debs
+
+      - name: Import the repository signing key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          if [ -z "$APT_SIGNING_KEY" ]; then
+            echo "::error::APT_SIGNING_KEY secret is not set; refusing to publish an unsigned repo"
+            exit 1
+          fi
+          printf '%s' "$APT_SIGNING_KEY" | gpg --batch --import
+
+      - name: Build the signed repository
+        run: .github/scripts/build-apt-repo.sh debs site
+
+      # Consume the repository before publishing it. build-apt-repo.sh already
+      # refuses to emit an empty index, but that checks the metadata against
+      # itself; this checks that apt agrees, with signature verification on.
+      # A repo that fails here never reaches Pages.
+      - name: Verify the repository with apt
+        run: |
+          set -euo pipefail
+          A="$RUNNER_TEMP/aptroot"
+          mkdir -p "$A"/{etc/apt/sources.list.d,etc/apt/trusted.gpg.d,etc/apt/preferences.d,var/lib/apt/lists/partial,var/cache/apt/archives/partial,var/lib/dpkg}
+          touch "$A/var/lib/dpkg/status"
+          cp site/pwrq-archive-keyring.gpg "$A/etc/apt/trusted.gpg.d/pwrq.gpg"
+          echo "deb [signed-by=$A/etc/apt/trusted.gpg.d/pwrq.gpg arch=arm64] file://$PWD/site stable main" \
+            > "$A/etc/apt/sources.list.d/pwrq.list"
+          opts=(-o "Dir=$A" -o "Dir::State=$A/var/lib/apt"
+                -o "Dir::State::status=$A/var/lib/dpkg/status"
+                -o "Dir::Cache=$A/var/cache/apt"
+                -o "Dir::Etc::sourcelist=$A/etc/apt/sources.list.d/pwrq.list"
+                -o "Dir::Etc::sourceparts=-"
+                -o "Dir::Etc::trusted.gpg.d=$A/etc/apt/trusted.gpg.d"
+                -o "APT::Architecture=arm64")
+          apt-get "${opts[@]}" update
+          apt-cache "${opts[@]}" policy pwrq pwrq-viz
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5

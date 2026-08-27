@@ -275,8 +275,13 @@ Usage:
 
 	// Handle graph generation flag
 	if opts.Graph != "" {
-		err := generateGraph(query, opts.Graph)
-		if err != nil {
+		err := generateGraph(query, opts.Graph) //nolint:staticcheck // SA4023: see below
+		// generateGraph has two implementations. The default build's always
+		// returns an error (viz_stub.go), which is what staticcheck sees; the
+		// -tags viz one does not. Analysing one build configuration at a time
+		// cannot tell the difference, and dropping the check would break the
+		// build where it is the only thing reporting a failed render.
+		if err != nil { //nolint:staticcheck // SA4023: always-true only in the !viz build
 			return fmt.Errorf("failed to generate graph: %w", err)
 		}
 		_, _ = fmt.Fprintf(cli.outStream, "Graph generated: %s\n", opts.Graph)
