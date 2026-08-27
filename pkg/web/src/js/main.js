@@ -829,6 +829,7 @@ function wireControls() {
 
     $("format").addEventListener("click", formatQuery);
     $("minify").addEventListener("click", minifyQuery);
+    $("inline").addEventListener("click", inlineQuery);
     $("share").addEventListener("click", shareLink);
     $("palette-open").addEventListener("click", () => openPalette());
     $("help-open").addEventListener("click", () => toggleHelp(true));
@@ -1094,6 +1095,35 @@ async function minifyQuery() {
     }
 }
 
+/* Inline is Format's opposite in a different direction: rather than changing
+ * how the query is laid out, it changes where its parts are written. Every
+ * call to a definition becomes a copy of that definition's body, so the
+ * pipeline can be read straight through.
+ *
+ * A definition that survives is not a failure, and saying nothing about it
+ * would look like one - so whatever the engine could not expand is reported. */
+async function inlineQuery() {
+    const query = queryEditor.value;
+    if (!query.trim()) return;
+    try {
+        const result = await engine.call("inline", { query });
+        if (result.error) {
+            toast(`cannot inline: ${result.error}`, true);
+            return;
+        }
+        const kept = result.kept || [];
+        if (!result.expanded && kept.length === 0) {
+            toast("nothing to inline: no definition is called here");
+            return;
+        }
+        queryEditor.value = result.query;
+        queryEditor.emit("change");
+        if (kept.length) toast(`left defined: ${kept.join("; ")}`, true);
+    } catch (err) {
+        if (!isNoise(err)) toast(err.message, true);
+    }
+}
+
 function formatInput() {
     const text = inputEditor.value.trim();
     if (!text) return;
@@ -1188,6 +1218,7 @@ const SHORTCUTS = [
     ["Ctrl/⌘ + K", "Command palette"],
     ["Ctrl/⌘ + Shift + F", "Format the query"],
     ["Ctrl/⌘ + Shift + M", "Minify the query"],
+    ["Ctrl/⌘ + Shift + E", "Inline the query's definitions"],
     ["Ctrl/⌘ + Shift + I", "Tidy the input JSON"],
     ["Ctrl/⌘ + S", "Copy a share link"],
     ["Ctrl/⌘ + /", "Comment or uncomment the selected lines"],
@@ -1237,6 +1268,11 @@ function wireShortcuts() {
             minifyQuery();
             return;
         }
+        if (meta && event.shiftKey && event.key.toLowerCase() === "e") {
+            event.preventDefault();
+            inlineQuery();
+            return;
+        }
         if (meta && event.shiftKey && event.key.toLowerCase() === "i") {
             event.preventDefault();
             formatInput();
@@ -1283,6 +1319,7 @@ function paletteItems() {
         { kind: "action", title: "Run the query", run: () => runNow(true) },
         { kind: "action", title: "Format the query", run: formatQuery },
         { kind: "action", title: "Minify the query", run: minifyQuery },
+        { kind: "action", title: "Inline the query's definitions", run: inlineQuery },
         { kind: "action", title: "Tidy the input JSON", run: formatInput },
         { kind: "action", title: "Copy a share link", run: shareLink },
         { kind: "action", title: "Copy the output", run: () => $("copy-output").click() },
