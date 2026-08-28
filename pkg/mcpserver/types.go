@@ -70,9 +70,11 @@ type runQueryResult struct {
 
 // listFunctionsArgs filters the cmdlet catalog.
 type listFunctionsArgs struct {
-	// Filter is a substring matched against a function's name or category.
+	// Filter is a substring matched case-insensitively against a function's
+	// name, aliases and category, then against its description, then against
+	// nothing at all - at which point the nearest names come back instead.
 	// Empty lists everything.
-	Filter string `json:"filter,omitempty" jsonschema:"optional substring matched against function name or category; empty lists everything"`
+	Filter string `json:"filter,omitempty" jsonschema:"optional case-insensitive substring matched against function name, aliases and category, falling back to descriptions when nothing is named that way and to the nearest names when nothing matches; empty lists everything"`
 }
 
 // functionInfo is one documented cmdlet, as the catalog reports it.
@@ -101,16 +103,38 @@ type functionInfo struct {
 	// Input says where the cmdlet reads its input from, for the cmdlets that
 	// take it either from the pipeline or as a leading argument.
 	Input string `json:"input,omitempty" jsonschema:"where the cmdlet reads its input from; empty when the cmdlet has not said"`
+	// Returns says how the output is encoded, for the cmdlets whose result is
+	// a text rendering of bytes rather than the bytes themselves.
+	Returns string `json:"returns,omitempty" jsonschema:"how the cmdlet's output is encoded, when that is not obvious from the name; empty when it needs no explaining"`
+	// Options are the keys the cmdlet reads out of an options object.
+	Options []optionInfo `json:"options,omitempty" jsonschema:"the keys the cmdlet reads out of an options object; an unlisted key is ignored in silence"`
 	// Shape summarises the object the cmdlet emits, and TypeName is the key to
 	// look the full property list up by.
 	Shape    string `json:"shape,omitempty" jsonschema:"summary of the object the cmdlet emits and the keys it carries; empty when it does not emit an object"`
 	TypeName string `json:"typeName,omitempty" jsonschema:"the PwrqType the cmdlet's output carries, which identifies its shape"`
 }
 
+// optionInfo is one key a cmdlet reads out of an options object.
+type optionInfo struct {
+	Name        string `json:"name" jsonschema:"the key as it is written in the object, in its own casing"`
+	Type        string `json:"type" jsonschema:"the JSON type the value must have: string, number, boolean, object or array"`
+	Description string `json:"description" jsonschema:"what the option does"`
+}
+
 // listFunctionsResult is the full or filtered cmdlet catalog.
+//
+// Matched and Suggestions exist because a search can succeed in more than one
+// way, and the difference matters to whoever reads the answer. A cmdlet that
+// is *named* for what you asked and one that merely *mentions* it are not the
+// same claim, and a search that found neither has something better to offer
+// than an empty list.
 type listFunctionsResult struct {
 	Functions []functionInfo `json:"functions" jsonschema:"the matching cmdlets"`
 	Count     int            `json:"count" jsonschema:"how many cmdlets matched"`
+	// Matched says which tier of the search answered.
+	Matched string `json:"matched,omitempty" jsonschema:"how the filter matched: name, when it matched a name, alias or category; description, when nothing was named that way and these merely mention it; none, when nothing matched at all"`
+	// Suggestions are the nearest names when nothing matched.
+	Suggestions []string `json:"suggestions,omitempty" jsonschema:"names, aliases and categories closest to a filter that matched nothing"`
 }
 
 // validateQueryArgs asks whether a query parses.

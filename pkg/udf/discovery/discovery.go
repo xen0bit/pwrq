@@ -41,6 +41,31 @@ type Command struct {
 	// Input describes where the command reads its input from, in the terms a
 	// caller writing the call needs. Empty when the command has not said.
 	Input string
+	// Returns describes how the command's output is encoded, for the commands
+	// whose result is a text rendering of bytes rather than the bytes. Empty
+	// when the output needs no explaining.
+	Returns string
+	// Options are the keys the command reads out of an options object, for the
+	// commands that take one. Empty when the command takes no options, or when
+	// it takes them and nobody has written them down yet.
+	Options []Option
+}
+
+// Option is one key a command reads out of an options object.
+//
+// A cmdlet documented as taking `[options]` used to say only that. The keys
+// were real - invoke_web_request has honoured Headers since it was written -
+// but they appeared nowhere a caller could read, so the only way to find one
+// was to already know it. A wrong guess is not an error either: an unknown key
+// is ignored in silence, and what comes back is a request made without it.
+type Option struct {
+	// Name is the key as it is written in the object, in its own casing.
+	Name string
+	// Type is the JSON type the value must have, in jq's names: string,
+	// number, boolean, object, array.
+	Type string
+	// Description says what the option does, in one line.
+	Description string
 }
 
 // EmitsDescription explains the command's output cardinality, which is what
@@ -77,6 +102,14 @@ func (c Command) toObject() map[string]any {
 	for i, e := range c.Examples {
 		examples[i] = e
 	}
+	options := make([]any, len(c.Options))
+	for i, o := range c.Options {
+		options[i] = map[string]any{
+			"Name":        o.Name,
+			"Type":        o.Type,
+			"Description": o.Description,
+		}
+	}
 	obj := map[string]any{
 		"Name":        c.Name,
 		"Aliases":     aliases,
@@ -91,6 +124,8 @@ func (c Command) toObject() map[string]any {
 		"Shape":       c.ShapeDescription(),
 		"TypeName":    c.Shape.TypeName(),
 		"Input":       c.Input,
+		"Returns":     c.Returns,
+		"Options":     options,
 	}
 	return CommandInfoShape.Build(obj)
 }
@@ -185,8 +220,17 @@ func renderHelp(commands []Command) string {
 			fmt.Fprintf(&b, "\nINPUT\n    %s\n", c.Input)
 		}
 		fmt.Fprintf(&b, "\nOUTPUT\n    %s\n", c.EmitsDescription())
+		if c.Returns != "" {
+			fmt.Fprintf(&b, "    %s\n", c.Returns)
+		}
 		if described := c.Shape.Describe(); described != "" {
 			fmt.Fprintf(&b, "    %s\n", strings.ReplaceAll(described, "\n", "\n    "))
+		}
+		if len(c.Options) > 0 {
+			b.WriteString("\nOPTIONS\n")
+			for _, o := range c.Options {
+				fmt.Fprintf(&b, "    %s (%s)  %s\n", o.Name, o.Type, o.Description)
+			}
 		}
 		if len(c.Aliases) > 0 {
 			fmt.Fprintf(&b, "\nALIASES\n    %s\n", strings.Join(c.Aliases, ", "))

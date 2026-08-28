@@ -13,7 +13,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/xen0bit/pwrq/pkg/jqfmt"
 	"github.com/xen0bit/pwrq/pkg/udf"
-	"github.com/xen0bit/pwrq/pkg/udf/discovery"
 )
 
 // registerTools installs the server's three tools: run_query for evaluating
@@ -86,7 +85,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_functions",
-		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description, aliases and example invocations, plus what the cmdlet emits: whether it streams (and so must be collected with [...]) and the shape and property names of the object it returns. Pass filter to narrow the list: unfiltered it is long.",
+		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description, aliases and example invocations, plus what the cmdlet emits: whether it streams (and so must be collected with [...]), how its output is encoded when that is not obvious, the keys it reads out of an options object, and the shape and property names of the object it returns. Pass filter to narrow the list: unfiltered it is long. The filter is case-insensitive and matches names, aliases and categories first, falling back to descriptions when nothing is named that way, and to the nearest names when nothing matches at all.",
 		InputSchema: schemas["list_functions"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args listFunctionsArgs) (*mcp.CallToolResult, listFunctionsResult, error) {
 		started := time.Now()
@@ -185,13 +184,26 @@ const examplesUpTo = 40
 func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 	filter := strings.TrimSpace(args.Filter)
 	if res.Count == 0 {
-		return fmt.Sprintf("no functions match filter %q", filter)
+		if len(res.Suggestions) == 0 {
+			return fmt.Sprintf("no functions match %q, and nothing is named close to it", filter)
+		}
+		// A dead end is the one answer a caller cannot act on, so it never
+		// ends here: the nearest names are what turns "guess again" into a
+		// next call.
+		return fmt.Sprintf("no functions match %q; closest are %s",
+			filter, strings.Join(res.Suggestions, ", "))
 	}
 
 	var sb strings.Builder
-	if filter == "" {
+	switch {
+	case filter == "":
 		fmt.Fprintf(&sb, "%d functions (pass filter to narrow the list)\n", res.Count)
-	} else {
+	case res.Matched == matchedDescription:
+		// Said out loud, because these matched on prose rather than on a name
+		// and a caller who thinks otherwise will trust the list too far.
+		fmt.Fprintf(&sb, "%d functions whose description mentions %q; none is named or categorised that\n",
+			res.Count, filter)
+	default:
 		fmt.Fprintf(&sb, "%d functions matching %q\n", res.Count, filter)
 	}
 
@@ -201,9 +213,14 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 		// The cardinality is printed for every entry, however long the list,
 		// because it is the fact that decides whether the caller writes
 		// brackets - and getting it wrong is the most common way a query
-		// fails. The shape is printed on the same terms.
+		// fails. The shape and the output encoding are printed on the same
+		// terms: a caller who does not know that zlib_compress returns hex
+		// writes a pipeline that cannot work and blames the wrong stage.
 		if fn.Streaming {
 			sb.WriteString("    streams: collect with [...] before length, map or sort_by\n")
+		}
+		if fn.Returns != "" {
+			fmt.Fprintf(&sb, "    returns %s\n", fn.Returns)
 		}
 		if fn.Shape != "" {
 			fmt.Fprintf(&sb, "    emits %s\n", fn.Shape)
@@ -211,6 +228,9 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 		if withExamples {
 			if fn.Input != "" {
 				fmt.Fprintf(&sb, "    input: %s\n", fn.Input)
+			}
+			for _, o := range fn.Options {
+				fmt.Fprintf(&sb, "    option %s (%s): %s\n", o.Name, o.Type, o.Description)
 			}
 			if len(fn.Aliases) > 0 {
 				fmt.Fprintf(&sb, "    also called %s\n", strings.Join(fn.Aliases, ", "))
@@ -232,8 +252,9 @@ func arity(fn functionInfo) string {
 	return fmt.Sprintf("/%d-%d", fn.MinArgs, fn.MaxArgs)
 }
 
-// listFunctions returns the documented cmdlet catalog, filtered by a substring
-// of the name or category.
+// listFunctions returns the documented cmdlet catalog, filtered by a search
+// term matched against the name, alias and category first and the description
+// second. findFunctions has the reasoning; this is the plumbing.
 //
 // It reads discovery.Catalog rather than the raw metadata table, which is the
 // same catalogue get_command and get_help serve. That is the point: the three
@@ -245,30 +266,16 @@ func listFunctions(args listFunctionsArgs) listFunctionsResult {
 	// only ever lists functions would otherwise see an empty catalogue.
 	udf.DefaultRegistry()
 
-	filter := strings.TrimSpace(args.Filter)
-	out := make([]functionInfo, 0)
-	for _, c := range discovery.Catalog() {
-		if filter != "" &&
-			!strings.Contains(c.Name, filter) &&
-			!strings.Contains(c.Category, filter) {
-			continue
-		}
-		out = append(out, functionInfo{
-			Name:        c.Name,
-			MinArgs:     c.MinArgs,
-			MaxArgs:     c.MaxArgs,
-			Category:    c.Category,
-			Description: c.Description,
-			Examples:    c.Examples,
-			Aliases:     c.Aliases,
-			Streaming:   c.Streaming,
-			Output:      c.EmitsDescription(),
-			Input:       c.Input,
-			Shape:       c.ShapeDescription(),
-			TypeName:    c.Shape.TypeName(),
-		})
+	found, matched, suggestions := findFunctions(strings.TrimSpace(args.Filter))
+	if found == nil {
+		found = make([]functionInfo, 0)
 	}
-	return listFunctionsResult{Functions: out, Count: len(out)}
+	return listFunctionsResult{
+		Functions:   found,
+		Count:       len(found),
+		Matched:     matched,
+		Suggestions: suggestions,
+	}
 }
 
 // validateQuery parses a program and reports whether it is well-formed.
