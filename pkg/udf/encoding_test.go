@@ -44,6 +44,19 @@ var probes = map[string]string{
 	"argon2id_hash":   `"hello" | argon2id_hash("salt"; 1; 8)`,
 	"random_hex":      `random_hex(16)`,
 
+	// Everything registered through checksum.registerDigest, which declares hex
+	// once beside the %x that makes it true. All nine were found by that
+	// declaration rather than by anyone remembering them.
+	"crc32":      `"hello" | crc32`,
+	"crc32c":     `"hello" | crc32c`,
+	"crc64":      `"hello" | crc64`,
+	"crc16":      `"hello" | crc16`,
+	"adler32":    `"hello" | adler32`,
+	"fnv1a":      `"hello" | fnv1a`,
+	"sha3_256":   `"hello" | sha3_256`,
+	"sha3_512":   `"hello" | sha3_512`,
+	"keccak_256": `"hello" | keccak_256`,
+
 	// Text encodings and their inverses.
 	"hex_encode":       `"hello" | hex_encode`,
 	"hex_decode":       `"68656c6c6f" | hex_decode`,

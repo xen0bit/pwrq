@@ -114,6 +114,20 @@ func TestDescriptionTierAnswersWhenNamesDoNot(t *testing.T) {
 	}
 }
 
+// TestDescriptionTierSearchesOptions closes the last dead end from the
+// recorded session. Nothing in pwrq is named for redirects, and the model's
+// search for them came back empty - but invoke_web_request controls them
+// through AllowAutoRedirect, and now says so where a search can find it.
+func TestDescriptionTierSearchesOptions(t *testing.T) {
+	res := search(t, "redirect")
+	if res.Count == 0 {
+		t.Fatal("filter \"redirect\" found nothing, though invoke_web_request has AllowAutoRedirect")
+	}
+	if !slices.Contains(names(res), "invoke_web_request") {
+		t.Errorf("filter %q found %v, want invoke_web_request among them", "redirect", names(res))
+	}
+}
+
 // TestNoMatchSuggestsSomething checks that the one answer a caller cannot act
 // on is never the answer. A search that finds nothing offers the nearest names
 // instead, so the next call is a call rather than another guess.

@@ -90,10 +90,21 @@ func byName(c discovery.Command, needle string) bool {
 	return false
 }
 
-// byDescription matches the sentence a cmdlet is documented by. This is the
-// tier that turns "header" from a dead end into jwt_decode.
+// byDescription matches the prose a cmdlet is documented by: its own sentence,
+// and the options it takes. This is the tier that turns "header" from a dead
+// end into jwt_decode, and "redirect" into invoke_web_request - which really
+// does control redirects, through AllowAutoRedirect, and is named for none of
+// that.
 func byDescription(c discovery.Command, needle string) bool {
-	return contains(c.Description, needle)
+	if contains(c.Description, needle) {
+		return true
+	}
+	for _, o := range c.Options {
+		if contains(o.Name, needle) || contains(o.Description, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(haystack, lowerNeedle string) bool {

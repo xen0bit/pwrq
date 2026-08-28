@@ -57,8 +57,8 @@ func explainCompileError(message, query string) string {
 // the definitions the caller wrote and then at the cmdlet catalogue.
 func arityHint(name string, called int, query string) string {
 	if defined := localArities(name, query); len(defined) > 0 {
-		return fmt.Sprintf("you defined %s taking %s, not %s: %s",
-			name, arguments(defined), arguments([]int{called}), callForms(name, defined))
+		return fmt.Sprintf("you defined %s taking %s, but called it with %s: %s",
+			name, arguments(defined), count(called), callForms(name, defined))
 	}
 	for _, c := range discovery.Catalog() {
 		if c.Name != name && !slices.Contains(c.Aliases, name) {
@@ -70,8 +70,8 @@ func arityHint(name string, called int, query string) string {
 			// guessing would only mislead.
 			return ""
 		}
-		return fmt.Sprintf("%s takes %s, not %s: %s",
-			name, arityRange(c.MinArgs, c.MaxArgs), arguments([]int{called}), callForms(name, arities(c)))
+		return fmt.Sprintf("%s takes %s, but was called with %s: %s",
+			name, arityRange(c.MinArgs, c.MaxArgs), count(called), callForms(name, arities(c)))
 	}
 	return ""
 }
@@ -157,6 +157,15 @@ func arguments(counts []int) string {
 	}
 	return strings.Join(rendered[:len(rendered)-1], ", ") +
 		" or " + rendered[len(rendered)-1] + " arguments"
+}
+
+// count renders how many arguments a call actually passed, reading naturally
+// after "called with": "none", "1 argument", "3 arguments".
+func count(n int) string {
+	if n == 0 {
+		return "none"
+	}
+	return arguments([]int{n})
 }
 
 func arityRange(low, high int) string {

@@ -63,6 +63,10 @@ func inputBytes(v any, args []any, name string) ([]byte, error) {
 // registerDigest builds a 0-2 arity cmdlet that hex-encodes a hash over its
 // input.
 func registerDigest(name string, newHash func() hash.Hash) gojq.CompilerOption {
+	// The %x below is the whole reason the catalogue can say these are hex, so
+	// the declaration goes beside it rather than at each of the four call
+	// sites, where one of them would eventually be forgotten.
+	common.DeclareEncoding(name, common.EncodingHex, "")
 	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, name)
 		if err != nil {

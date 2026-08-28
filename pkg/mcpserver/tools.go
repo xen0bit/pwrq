@@ -209,7 +209,7 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 	case res.Matched == matchedDescription:
 		// Said out loud, because these matched on prose rather than on a name
 		// and a caller who thinks otherwise will trust the list too far.
-		fmt.Fprintf(&sb, "%d functions whose description mentions %q; none is named or categorised that\n",
+		fmt.Fprintf(&sb, "%d functions whose description or options mention %q; none is named or categorised that\n",
 			res.Count, filter)
 	default:
 		fmt.Fprintf(&sb, "%d functions matching %q\n", res.Count, filter)
