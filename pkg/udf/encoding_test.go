@@ -275,3 +275,112 @@ func truncate(s string) string {
 	}
 	return s[:60] + "..."
 }
+
+// TestEveryConsumerIsACmdlet checks that nothing declares an input encoding for
+// a name that is not registered - the way a declaration goes stale is a rename
+// that leaves the DeclareConsumes call behind, and a side table nobody checks
+// is exactly what the registration-site rule exists to avoid.
+func TestEveryConsumerIsACmdlet(t *testing.T) {
+	DefaultRegistry()
+
+	known := make(map[string]bool)
+	for _, meta := range GetFunctionMetadata() {
+		known[meta.Name] = true
+	}
+
+	for _, meta := range GetFunctionMetadata() {
+		for _, e := range common.ConsumesOf(meta.Name) {
+			if e == common.EncodingUnspecified {
+				t.Errorf("%s declares an unspecified input encoding, which says nothing", meta.Name)
+			}
+		}
+	}
+
+	// The declarations live beside the registrations, so anything declared for
+	// an unregistered name is a leftover.
+	for _, name := range declaredConsumers(t) {
+		if !known[name] {
+			t.Errorf("%s declares an input encoding but is not a registered cmdlet", name)
+		}
+	}
+}
+
+// TestInversesAgreeAboutTheirEncoding is the guard that makes the mismatch
+// check trustworthy. If zlib_compress says "reverse it with zlib_decompress"
+// and returns hex, then zlib_decompress must accept hex - otherwise the
+// catalogue advises a round trip that the checker will then warn about, and the
+// two halves of the same fact contradict each other.
+func TestInversesAgreeAboutTheirEncoding(t *testing.T) {
+	DefaultRegistry()
+
+	for _, meta := range GetFunctionMetadata() {
+		produced, inverse := common.EncodingOf(meta.Name)
+		if inverse == "" || produced == common.EncodingUnspecified {
+			continue
+		}
+		name, _, _ := strings.Cut(inverse, ",")
+		name = strings.TrimSpace(name)
+		if len(common.ConsumesOf(name)) == 0 {
+			continue
+		}
+		if !common.Accepts(name, produced) {
+			t.Errorf("%s returns %s and names %s as its inverse, but %s does not accept that",
+				meta.Name, produced.Describe(), name, name)
+		}
+	}
+}
+
+// TestDeclaredConsumersAcceptWhatTheyClaim runs the claim rather than reading
+// it: each decoder is fed the output of the encoder it names, and has to
+// return the original.
+func TestDeclaredConsumersAcceptWhatTheyClaim(t *testing.T) {
+	DefaultRegistry()
+
+	roundTrips := map[string]string{
+		"hex_encode":       "hex_decode",
+		"base64_encode":    "base64_decode",
+		"base64url_encode": "base64url_decode",
+		"base32_encode":    "base32_decode",
+		"base58_encode":    "base58_decode",
+		"base85_encode":    "base85_decode",
+		"binary_encode":    "binary_decode",
+	}
+
+	reg := DefaultRegistry()
+	options := reg.Options()
+	for encoder, decoder := range roundTrips {
+		if !common.Accepts(decoder, mustEncoding(t, encoder)) {
+			t.Errorf("%s does not accept what %s returns", decoder, encoder)
+		}
+		got, err := runProbe(options, `"round trip" | `+encoder+` | `+decoder)
+		if err != nil {
+			t.Errorf("%s | %s: %v", encoder, decoder, err)
+			continue
+		}
+		if got != "round trip" {
+			t.Errorf("%s | %s returned %v, want the original", encoder, decoder, got)
+		}
+	}
+}
+
+func mustEncoding(t *testing.T, name string) common.Encoding {
+	t.Helper()
+	e, _ := common.EncodingOf(name)
+	if e == common.EncodingUnspecified {
+		t.Fatalf("%s declares no output encoding", name)
+	}
+	return e
+}
+
+// declaredConsumers lists the cmdlets that declared an input encoding, by
+// asking the registry rather than by grepping for the call.
+func declaredConsumers(t *testing.T) []string {
+	t.Helper()
+	var out []string
+	for _, meta := range GetFunctionMetadata() {
+		if len(common.ConsumesOf(meta.Name)) > 0 {
+			out = append(out, meta.Name)
+		}
+	}
+	return out
+}
