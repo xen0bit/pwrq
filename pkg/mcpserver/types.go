@@ -28,6 +28,9 @@ type runQueryArgs struct {
 	Indent int `json:"indent,omitempty" jsonschema:"spaces of indentation when not compact"`
 	// Limit caps the number of results. Zero means the default; it is clamped.
 	Limit int `json:"limit,omitempty" jsonschema:"maximum number of results, default 1000, capped at 100000"`
+	// MaxBytes caps how large one rendered value may be, which Limit does not:
+	// a single fetched document is one result. Zero means the default.
+	MaxBytes int `json:"maxBytes,omitempty" jsonschema:"maximum size of any one result in bytes, default 8192, capped at 1048576; a larger value is cut with a marker saying how much was dropped, so raise this only when you mean to read the whole thing"`
 	// TimeoutMs caps how long the run may take. Zero means the default; it is clamped.
 	TimeoutMs int `json:"timeoutMs,omitempty" jsonschema:"timeout in milliseconds, default 30000"`
 	// Args binds named variables reachable from the query as $name, like jq --argjson.
@@ -51,11 +54,14 @@ type namedArg struct {
 // wrong reading.
 type runQueryResult struct {
 	// Values are the encoded results, one per query output.
-	Values []string `json:"values" jsonschema:"the results, one per query output, each encoded as JSON text that must be parsed again to get the value"`
+	Values []string `json:"values" jsonschema:"the results, one per query output, each encoded as JSON text that must be parsed again to get the value; a value the maxBytes cap cut ends with a marker and is no longer valid JSON"`
 	// Count is the number of results emitted.
 	Count int `json:"count" jsonschema:"how many results the query emitted"`
 	// Truncated reports that a limit or byte cap stopped the run early.
 	Truncated bool `json:"truncated" jsonschema:"true when a result limit or byte cap stopped the run before the query finished producing"`
+	// Elided is how many individual values the per-value cap cut. A different
+	// event from Truncated: every value was produced, some are shown in part.
+	Elided int `json:"elided,omitempty" jsonschema:"how many individual results were too large for maxBytes and are shown in part; the query still produced all of them"`
 	// Error is the failure message, if the run did not complete cleanly.
 	Error string `json:"error,omitempty" jsonschema:"why the run did not complete cleanly; a run can emit values and then fail, so this can be set alongside results"`
 	// Kind classifies the failure: parse, compile, args, input, runtime,

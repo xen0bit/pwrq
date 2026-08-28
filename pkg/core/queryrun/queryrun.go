@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/shape"
@@ -61,6 +62,21 @@ type Request struct {
 	MaxResults     int
 	MaxOutputBytes int
 
+	// MaxValueBytes caps how large one rendered value may be. A value over it
+	// is cut, with a marker saying how much was dropped.
+	//
+	// It sits between the two bounds above, which between them do not cover
+	// the case that actually hurts a host answering a language model: a
+	// handful of results, one of which is enormous. A single fetch of a
+	// documentation page put nine kilobytes of Unicode samples into one such
+	// caller's context, well inside a thousand-result limit and a 64MB byte
+	// cap, and none of it was what the query was asking about.
+	//
+	// Zero means unbounded, which is right for a terminal: a user can see how
+	// much came back and stop reading. A host whose caller cannot do that
+	// should set it.
+	MaxValueBytes int
+
 	// ObserveShape asks the runner to describe the values the query produced:
 	// how many there were, what kind each was, and which keys the objects
 	// carried.
@@ -87,6 +103,10 @@ type Result struct {
 	// Truncated reports that a limit stopped the run before the query was
 	// finished producing.
 	Truncated bool
+	// Elided is how many individual values MaxValueBytes cut. It is not the
+	// same event as Truncated: the run produced every value it was going to,
+	// and some of them are shown in part.
+	Elided int
 	// Halted reports that the query stopped itself with halt or halt_error.
 	Halted bool
 	// Error is why the run did not complete, and Kind classifies it: parse,
@@ -268,6 +288,10 @@ func (r *Runner) Run(ctx context.Context, req *Request) (result Result) {
 				resp.Error = err.Error()
 				return resp
 			}
+			if cut, elided := cutValue(text, req.MaxValueBytes); elided {
+				text = cut
+				resp.Elided++
+			}
 			resp.Values = append(resp.Values, text)
 			resp.Count++
 			bytesOut += len(text)
@@ -288,6 +312,30 @@ func (r *Runner) Run(ctx context.Context, req *Request) (result Result) {
 	}
 
 	return resp
+}
+
+// cutValue trims one rendered value to a byte budget, marking what it dropped.
+//
+// The marked text is no longer valid JSON, and that is the honest cost: a
+// caller that re-parses the values has to notice. The alternative - dropping
+// the value entirely, or letting it through whole - is worse in both
+// directions. What comes back tells a reader what the value looked like and
+// how much of it there was, which is enough to decide whether to ask for a
+// narrower slice of it or a larger budget.
+//
+// The cut lands on a rune boundary. Half a UTF-8 sequence renders as a
+// replacement character, which reads as corrupted data rather than as the
+// truncation the marker is about to announce.
+func cutValue(text string, limit int) (string, bool) {
+	if limit <= 0 || len(text) <= limit {
+		return text, false
+	}
+	cut := limit
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return fmt.Sprintf("%s... (cut %d of %d bytes; slice the value or raise the byte budget to see the rest)",
+		text[:cut], len(text)-cut, len(text)), true
 }
 
 // parse reads a query and prepends the alias definitions. It returns nil and

@@ -159,6 +159,14 @@ func summarize(res runQueryResult) string {
 	if res.Shape != "" && res.Count > 1 {
 		fmt.Fprintf(&sb, "-- %s\n", res.Shape)
 	}
+	// Said separately from the outcome line, because a cut value is not a
+	// stopped run: the query produced everything it was going to, and only the
+	// rendering of some of it was capped. A caller that conflates the two
+	// re-runs a query that had already finished.
+	if res.Elided > 0 {
+		fmt.Fprintf(&sb, "-- %d of %d results were larger than the byte budget and are shown in part; "+
+			"slice them in the query, or raise maxBytes\n", res.Elided, res.Count)
+	}
 	switch {
 	case res.Truncated:
 		fmt.Fprintf(&sb, "(%s)", res.Error)
