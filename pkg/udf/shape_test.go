@@ -31,10 +31,13 @@ import (
 // Skipping them costs coverage rather than correctness. A skipped cmdlet is one
 // whose shape is not checked here, never one that is wrongly reported as fine.
 var unsafeToRun = regexp.MustCompile(`^(` + strings.Join([]string{
-	// Writes, moves and deletes.
-	"out_file", "set_content", "add_content", "new_item", "move_item",
-	"copy_item", "rm", "rms", "mkdir", "expand_archive", "compress_archive",
-	"out_sqlite", "invoke_sqlite_command", "set_date",
+	// Writes outside the temporary working directory. The harness chdirs into
+	// one, so a cmdlet whose example writes a *relative* path is safe and is
+	// deliberately not listed here: those are the write cmdlets whose shapes
+	// used all to claim to be System.IO.FileInfo, and running them is how that
+	// is now caught.
+	"rm", "rms", "mkdir", "expand_archive", "compress_archive",
+	"new_item", "out_sqlite", "invoke_sqlite_command", "set_date",
 	// Process and service control.
 	"sh", "start_process", "stop_process", "start_service", "stop_service",
 	// Network and paid APIs.
@@ -154,5 +157,71 @@ func TestObjectProducersDeclareAShape(t *testing.T) {
 		t.Errorf("%d cmdlet(s) emit an object but declare no shape, so get_help and the "+
 			"MCP catalogue cannot say what keys a caller gets:\n    %s",
 			len(undeclared), strings.Join(undeclared, "\n    "))
+	}
+}
+
+// TestTypeNamesIdentifyOneShape is what makes a PSTypeName usable as a key.
+//
+// A caller reads System.IO.FileInfo off a result and looks the property list up
+// in the catalogue. That only works while a name means one thing. join_path and
+// split_path both used to call themselves System.String - eight-property path
+// objects wearing the name of a scalar - which is exactly the collision that
+// makes a catalogue useless for the job it exists to do.
+func TestTypeNamesIdentifyOneShape(t *testing.T) {
+	DefaultRegistry()
+
+	properties := make(map[string]string)
+	owner := make(map[string]string)
+	for _, meta := range GetFunctionMetadata() {
+		s := common.ShapeOf(meta.Name)
+		name := s.TypeName()
+		if name == "" {
+			continue
+		}
+		got := strings.Join(s.PropertyNames(), " ")
+		if want, seen := properties[name]; seen {
+			if got != want {
+				t.Errorf("%s means one thing for %s and another for %s:\n    %s\n    %s",
+					name, owner[name], meta.Name, want, got)
+			}
+			continue
+		}
+		properties[name] = got
+		owner[name] = meta.Name
+	}
+
+	if len(properties) == 0 {
+		t.Fatal("no cmdlet declared a type name, so this test proves nothing")
+	}
+}
+
+// TestDeclaredInputsNameARealCmdlet catches the drift a declaration made beside
+// a registration can still suffer: a renamed cmdlet leaves the old name behind,
+// and a catalogue entry nobody can call is worse than no entry.
+func TestDeclaredInputsNameARealCmdlet(t *testing.T) {
+	DefaultRegistry()
+
+	documented := make(map[string]FunctionMetadata)
+	for _, meta := range GetFunctionMetadata() {
+		documented[meta.Name] = meta
+	}
+
+	var declared int
+	for name, meta := range documented {
+		if common.InputOf(name) != common.InputPipeline {
+			continue
+		}
+		declared++
+		// The convention is that the input arrives from the pipeline at the
+		// lowest arity and as the leading argument at the highest, so a cmdlet
+		// claiming it with a single fixed arity has one of the two forms
+		// missing.
+		if meta.MaxArgs <= meta.MinArgs {
+			t.Errorf("%s declares the pipeline-input convention but takes exactly %d argument(s), "+
+				"so there is no arity at which the input is a leading argument", name, meta.MinArgs)
+		}
+	}
+	if declared == 0 {
+		t.Fatal("no cmdlet declared where its input comes from, so this test proves nothing")
 	}
 }

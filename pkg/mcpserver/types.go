@@ -43,20 +43,29 @@ type namedArg struct {
 // runQueryResult is what a run produced. Output and error are not exclusive: a
 // query that emits ten values and then fails has told you something about all
 // eleven, so both are reported.
+//
+// Every field carries a jsonschema tag, because these become the tool's
+// advertised outputSchema and a model reads it. Without them the schema is
+// typed but unexplained - `"count": {"type": "integer"}` - and values, which is
+// an array of JSON *text* rather than of plain strings, invites exactly the
+// wrong reading.
 type runQueryResult struct {
 	// Values are the encoded results, one per query output.
-	Values []string `json:"values"`
+	Values []string `json:"values" jsonschema:"the results, one per query output, each encoded as JSON text that must be parsed again to get the value"`
 	// Count is the number of results emitted.
-	Count int `json:"count"`
+	Count int `json:"count" jsonschema:"how many results the query emitted"`
 	// Truncated reports that a limit or byte cap stopped the run early.
-	Truncated bool `json:"truncated"`
+	Truncated bool `json:"truncated" jsonschema:"true when a result limit or byte cap stopped the run before the query finished producing"`
 	// Error is the failure message, if the run did not complete cleanly.
-	Error string `json:"error,omitempty"`
+	Error string `json:"error,omitempty" jsonschema:"why the run did not complete cleanly; a run can emit values and then fail, so this can be set alongside results"`
 	// Kind classifies the failure: parse, compile, args, input, runtime,
 	// timeout, limit or halt.
-	Kind string `json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty" jsonschema:"what kind of failure occurred: parse, compile, args, input, runtime, timeout, limit or halt"`
+	// Shape describes the values that came back, so a caller can write the
+	// next stage without reading all of them.
+	Shape string `json:"shape,omitempty" jsonschema:"the shape of the values that were produced: how many, what kind, and which keys the objects carried"`
 	// ElapsedMs is how long the run took.
-	ElapsedMs float64 `json:"elapsedMs"`
+	ElapsedMs float64 `json:"elapsedMs" jsonschema:"how long the run took, in milliseconds"`
 }
 
 // listFunctionsArgs filters the cmdlet catalog.
@@ -67,19 +76,41 @@ type listFunctionsArgs struct {
 }
 
 // functionInfo is one documented cmdlet, as the catalog reports it.
+//
+// The last five fields are what this catalog used to drop on the floor. pwrq
+// knew all of them - get_help prints them, get_command carries them as data -
+// but list_functions was built from the raw metadata table rather than from the
+// catalogue discovery assembles, so a model over MCP saw a name, an arity and a
+// sentence, and had to run a probe query to learn anything about the output.
 type functionInfo struct {
-	Name        string   `json:"name"`
-	MinArgs     int      `json:"minArgs"`
-	MaxArgs     int      `json:"maxArgs"`
-	Category    string   `json:"category"`
-	Description string   `json:"description"`
-	Examples    []string `json:"examples,omitempty"`
+	Name        string   `json:"name" jsonschema:"the cmdlet's name, as it is called in a query"`
+	MinArgs     int      `json:"minArgs" jsonschema:"fewest arguments the cmdlet accepts"`
+	MaxArgs     int      `json:"maxArgs" jsonschema:"most arguments the cmdlet accepts"`
+	Category    string   `json:"category" jsonschema:"the vocabulary group the cmdlet belongs to"`
+	Description string   `json:"description" jsonschema:"one line on what the cmdlet does"`
+	Examples    []string `json:"examples,omitempty" jsonschema:"invocations that work as written"`
+	// Aliases are the other names that reach this cmdlet, such as gci and dir
+	// for get_childitem.
+	Aliases []string `json:"aliases,omitempty" jsonschema:"other names that call the same cmdlet"`
+	// Streaming decides whether the caller must collect with [...], which is
+	// the single fact callers most often get wrong.
+	Streaming bool `json:"streaming" jsonschema:"true when the cmdlet emits a stream of values: collect it with [...] before using length, map or sort_by"`
+	// Output says what Streaming means, in words, because a bare boolean does
+	// not tell a model what to write.
+	Output string `json:"output" jsonschema:"what the cmdlet's cardinality means for the caller, in words"`
+	// Input says where the cmdlet reads its input from, for the cmdlets that
+	// take it either from the pipeline or as a leading argument.
+	Input string `json:"input,omitempty" jsonschema:"where the cmdlet reads its input from; empty when the cmdlet has not said"`
+	// Shape summarises the object the cmdlet emits, and TypeName is the key to
+	// look the full property list up by.
+	Shape    string `json:"shape,omitempty" jsonschema:"summary of the object the cmdlet emits and the keys it carries; empty when it does not emit an object"`
+	TypeName string `json:"typeName,omitempty" jsonschema:"the PSTypeName the cmdlet's output carries, which identifies its shape"`
 }
 
 // listFunctionsResult is the full or filtered cmdlet catalog.
 type listFunctionsResult struct {
-	Functions []functionInfo `json:"functions"`
-	Count     int            `json:"count"`
+	Functions []functionInfo `json:"functions" jsonschema:"the matching cmdlets"`
+	Count     int            `json:"count" jsonschema:"how many cmdlets matched"`
 }
 
 // validateQueryArgs asks whether a query parses.
@@ -90,7 +121,7 @@ type validateQueryArgs struct {
 // validateQueryResult reports the answer, and the query laid out over multiple
 // lines when it is valid.
 type validateQueryResult struct {
-	OK        bool   `json:"ok"`
-	Error     string `json:"error,omitempty"`
-	Formatted string `json:"formatted,omitempty"`
+	OK        bool   `json:"ok" jsonschema:"true when the query parses"`
+	Error     string `json:"error,omitempty" jsonschema:"why the query does not parse"`
+	Formatted string `json:"formatted,omitempty" jsonschema:"the query laid out over several lines, one pipeline stage per line"`
 }

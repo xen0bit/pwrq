@@ -55,6 +55,10 @@ func (e *engine) execute(req runQueryArgs) runQueryResult {
 		Args:           args,
 		MaxResults:     queryrun.Clamp(req.Limit, defaultMaxResults, maxMaxResults),
 		MaxOutputBytes: maxOutputBytes,
+		// The caller is a language model reading the values as text. It cannot
+		// see the output the way a terminal user can, and a run stopped by the
+		// limit gives it no way to know what the rest looked like.
+		ObserveShape: true,
 	})
 
 	return runQueryResult{
@@ -63,6 +67,7 @@ func (e *engine) execute(req runQueryArgs) runQueryResult {
 		Truncated: res.Truncated,
 		Error:     res.Error,
 		Kind:      res.Kind,
+		Shape:     res.Shape,
 		ElapsedMs: float64(time.Since(started).Microseconds()) / 1000,
 	}
 }

@@ -345,7 +345,7 @@ func setContent(opts SetContentOptions) (string, error) {
 
 // RegisterSetContent registers the set_content function with gojq
 func RegisterSetContent() gojq.CompilerOption {
-	return common.WithFunction("set_content", 0, 5, func(v any, args []any) any {
+	return common.WithFunctionOf("set_content", 0, 5, WrittenFile, func(v any, args []any) any {
 		opts, err := parseSetContentArgs(args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -367,13 +367,12 @@ func RegisterSetContent() gojq.CompilerOption {
 
 		// Return PSObject with file info
 		psobj := psobject.NewPSObject(writtenPath)
-		psobj.TypeName = "System.IO.FileInfo"
 		psobj.AddNoteProperty("Path", writtenPath)
 		psobj.AddNoteProperty("Length", fileSize)
 		psobj.AddNoteProperty("Exists", true)
 		psobj.AddNoteProperty("Operation", "Set-Content")
 
-		return psobj.ToMap()
+		return WrittenFile.Build(psobj.ToMap())
 	})
 }
 

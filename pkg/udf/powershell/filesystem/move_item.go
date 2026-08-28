@@ -163,10 +163,6 @@ func moveItem(opts MoveItemOptions) (any, error) {
 
 	// Create PSObject for the moved item
 	psobj := psobject.NewPSObject(dstPath)
-	psobj.TypeName = "System.IO.FileInfo"
-	if movedInfo.IsDir() {
-		psobj.TypeName = "System.IO.DirectoryInfo"
-	}
 	psobj.AddNoteProperty("Name", movedInfo.Name())
 	psobj.AddNoteProperty("FullName", dstPath)
 	psobj.AddNoteProperty("Length", func() int64 {
@@ -180,12 +176,12 @@ func moveItem(opts MoveItemOptions) (any, error) {
 	psobj.AddNoteProperty("Exists", true)
 	psobj.AddNoteProperty("PSIsMove", true)
 
-	return psobj.ToMap(), nil
+	return CreatedItem.Build(psobj.ToMap()), nil
 }
 
 // RegisterMoveItem registers the move_item function with gojq
 func RegisterMoveItem() gojq.CompilerOption {
-	return common.WithIterFunction("move_item", 1, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("move_item", 1, 3, CreatedItem, func(v any, args []any) gojq.Iter {
 		opts, err := parseMoveItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

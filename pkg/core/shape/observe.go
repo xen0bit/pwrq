@@ -28,7 +28,6 @@ type Observer struct {
 	// props records, per key, how many results carried it and which JSON types
 	// its values had.
 	props map[string]*observedProp
-	order []string
 	// overflowed reports that more distinct keys were seen than are tracked.
 	// A Derived cmdlet over wild data can emit thousands, and an observer that
 	// grew without bound would be a memory leak dressed as a diagnostic.
@@ -83,7 +82,6 @@ func (o *Observer) Add(v any) {
 			}
 			p = &observedProp{types: make(map[string]bool)}
 			o.props[k] = p
-			o.order = append(o.order, k)
 		}
 		p.present++
 		p.types[jsonKind(val)] = true
@@ -109,6 +107,20 @@ func jsonKind(v any) string {
 	default:
 		return fmt.Sprintf("%T", v)
 	}
+}
+
+// Notable reports whether the description is worth showing.
+//
+// A run that produced a handful of numbers has already shown the caller its
+// shape: the values are right there, and a line saying "3 values, each a
+// number" is noise. What cannot be read off the output is which keys an object
+// carried when there are hundreds of them, and what the rest looked like when a
+// limit cut the run short. Those are the two cases this returns true for.
+func (o *Observer) Notable(truncated bool) bool {
+	if o == nil || o.count == 0 {
+		return false
+	}
+	return truncated || len(o.props) > 0 || o.overflowed
 }
 
 // Count is how many results were observed.
@@ -154,6 +166,17 @@ func (o *Observer) Describe() string {
 	return b.String()
 }
 
+// article picks a or an. The set of kinds is closed and small, so this is a
+// lookup rather than a guess at English.
+func article(kind string) string {
+	switch kind {
+	case "array", "object":
+		return "an"
+	default:
+		return "a"
+	}
+}
+
 func countResults(n int) string {
 	if n == 1 {
 		return "1 value"
@@ -168,9 +191,9 @@ func (o *Observer) describeKinds() string {
 	if len(o.kinds) == 1 {
 		for k := range o.kinds {
 			if o.count == 1 {
-				return "a " + k
+				return article(k) + " " + k
 			}
-			return "each a " + k
+			return "each " + article(k) + " " + k
 		}
 	}
 	parts := make([]string, 0, len(o.kinds))
@@ -195,11 +218,20 @@ func (o *Observer) describeTypeNames() string {
 	return "[" + strings.Join(names, ", ") + "]"
 }
 
-// describeProps lists the observed keys in first-seen order, which for an
-// object producer is close to the order the cmdlet's author wrote them.
+// describeProps lists the observed keys in name order.
+//
+// Sorted rather than in the order they were seen, because there is no such
+// order to preserve: Add walks a map, and Go randomises that, so anything else
+// would differ from one run to the next and make this untestable.
 func (o *Observer) describeProps() string {
-	parts := make([]string, 0, len(o.order))
-	for _, name := range o.order {
+	names := make([]string, 0, len(o.props))
+	for name := range o.props {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	parts := make([]string, 0, len(names))
+	for _, name := range names {
 		p := o.props[name]
 		types := make([]string, 0, len(p.types))
 		for t := range p.types {

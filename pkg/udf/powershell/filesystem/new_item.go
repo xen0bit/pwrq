@@ -165,10 +165,6 @@ func newItem(opts NewItemOptions) (any, error) {
 
 	// Create PSObject for the created item
 	psobj := psobject.NewPSObject(createdPath)
-	psobj.TypeName = "System.IO.FileInfo"
-	if info.IsDir() {
-		psobj.TypeName = "System.IO.DirectoryInfo"
-	}
 	psobj.AddNoteProperty("Name", info.Name())
 	psobj.AddNoteProperty("FullName", createdPath)
 	psobj.AddNoteProperty("Length", func() int64 {
@@ -181,12 +177,12 @@ func newItem(opts NewItemOptions) (any, error) {
 	psobj.AddNoteProperty("LastWriteTime", info.ModTime())
 	psobj.AddNoteProperty("Exists", true)
 
-	return psobj.ToMap(), nil
+	return CreatedItem.Build(psobj.ToMap()), nil
 }
 
 // RegisterNewItem registers the new_item function with gojq
 func RegisterNewItem() gojq.CompilerOption {
-	return common.WithIterFunction("new_item", 0, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("new_item", 0, 3, CreatedItem, func(v any, args []any) gojq.Iter {
 		opts, err := parseNewItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/shape"
 )
 
 // Request is a query, its input, and how to present what comes out. The flags
@@ -59,6 +60,17 @@ type Request struct {
 	// something defensible is the host's job, not this package's.
 	MaxResults     int
 	MaxOutputBytes int
+
+	// ObserveShape asks the runner to describe the values the query produced:
+	// how many there were, what kind each was, and which keys the objects
+	// carried.
+	//
+	// It is off by default because a terminal user can see the output. A host
+	// answering a language model cannot: the model gets the values as text and
+	// has to infer their shape by reading all of them, which a truncated run
+	// makes impossible. The observation is made from the raw value before
+	// encoding, so it costs one pass over each result's top level.
+	ObserveShape bool
 }
 
 // Result is what a run produced.
@@ -81,6 +93,16 @@ type Result struct {
 	// compile, args, input, runtime, timeout, limit or halt.
 	Error string
 	Kind  string
+
+	// Shape describes the values that were produced, when ObserveShape asked
+	// for it. It is what the query actually emitted rather than a claim about
+	// what it should have, so it covers the cmdlets whose output keys come
+	// from the data and could never be declared in advance.
+	//
+	// It is empty when the values speak for themselves - a few scalars, all
+	// of them shown - and set when they do not: objects whose keys are worth
+	// listing, or a run a limit cut short.
+	Shape string
 }
 
 // Failure kinds. A caller that wants to point at the right editor, or decide
@@ -131,9 +153,22 @@ func Clamp[T ~int | ~int64](v, fallback, ceiling T) T {
 // itself: a native host wants context.WithTimeout, and the browser cannot use
 // one at all — under GOOS=js a tight loop never yields, so a timer never
 // fires and a sampled deadline is the only kind that works.
-func (r *Runner) Run(ctx context.Context, req *Request) Result {
+func (r *Runner) Run(ctx context.Context, req *Request) (result Result) {
 	started := time.Now()
 	resp := Result{Values: []string{}}
+
+	// The observer is attached on the way out rather than at each return: a
+	// run that failed halfway still produced values, and describing them is
+	// most useful precisely then.
+	var observer *shape.Observer
+	if req.ObserveShape {
+		observer = shape.NewObserver()
+		defer func() {
+			if observer.Notable(result.Truncated) {
+				result.Shape = observer.Describe()
+			}
+		}()
+	}
 
 	query, res := r.parse(req)
 	if query == nil {
@@ -221,6 +256,11 @@ func (r *Runner) Run(ctx context.Context, req *Request) Result {
 				resp.Error = err.Error()
 				return resp
 			}
+
+			// Observed before encoding: the raw value is the one with a
+			// type, and re-parsing the rendered text would be both slower and
+			// wrong under Raw, which does not emit JSON.
+			observer.Add(v)
 
 			text, err := enc.encode(v)
 			if err != nil {

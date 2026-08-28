@@ -125,6 +125,49 @@ OUTPUT
 
 `get_command` carries the same fact as data, as `.Streaming` and `.Output`.
 
+### And which keys come back
+
+The same registration says what an object producer emits, so you do not have to
+run a cmdlet once to find out what to select from it:
+
+```console
+$ pwrq -r 'get_help("get_service")' | sed -n '/^OUTPUT/,/^$/p'
+OUTPUT
+    a stream of values, one per result — collect with [...] to get an array
+    object [System.ServiceProcess.ServiceController] with 12 properties
+        Name (string) — service name, as the manager knows it
+        DisplayName (string) — human-readable name
+        Status (string) — Running, Stopped, or another manager state
+        ...
+        ProcessId (number, optional) — pid of the running service; absent when it is not running
+```
+
+Three kinds of answer are possible, because three kinds of cmdlet exist. One
+that decides its own keys lists them, as above. One whose keys come from *your*
+data says so instead, since a property list would only ever be true of the
+example that produced it:
+
+```console
+$ pwrq -rn 'get_command("flatten_keys") | .Shape'
+object, keys from the input: one key per leaf of the input, named by its dot-and-bracket path
+```
+
+And a cmdlet that returns a string or a number says nothing at all. There is no
+property list for `sha256`, and inventing one for the three hundred cmdlets in
+that position is the drift this is built to avoid.
+
+`PSTypeName` is the key to the rest. A value carries it, `get_command` lists the
+same name under `.TypeName`, and the properties are one lookup away:
+
+```console
+$ pwrq -rn '[get_command | select(.TypeName == "System.IO.FileInfo") | .Name]'
+```
+
+None of this is a table kept by hand. A cmdlet declares its shape where it is
+registered, the shape is what builds the object, and the test suite runs the
+cmdlets and compares the two — so a declaration that falls behind the code fails
+the build rather than misleading you.
+
 ### Bytes survive the pipeline
 
 A jq string is a byte string, so cmdlets pass binary content through unchanged —
