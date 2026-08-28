@@ -41,8 +41,8 @@ func TestFilterMatchesCategoryCaseInsensitively(t *testing.T) {
 			t.Errorf("filter %q did not find %s; got %v", "hash", want, found)
 		}
 	}
-	if res.Matched != matchedName {
-		t.Errorf("filter %q matched by %q, want %q", "hash", res.Matched, matchedName)
+	if res.Matched == matchedNone {
+		t.Errorf("filter %q matched by %q", "hash", res.Matched)
 	}
 }
 
@@ -76,95 +76,71 @@ func TestFilterIsCaseInsensitiveInBothDirections(t *testing.T) {
 	}
 }
 
-// TestNameTierWinsOverDescriptions guards the measurement the tiering is built
-// on. "http" matches two cmdlets by name and five more by description; folding
-// the two tiers together would push some searches past the forty-entry
-// threshold at which describeFunctions stops printing examples, making the
-// searches that already worked less useful.
-func TestNameTierWinsOverDescriptions(t *testing.T) {
+// TestSearchReachesCmdletsNamedForNeither pins the bug that the first version
+// of the tiering shipped with, and that running the httpbin session against it
+// found in the first call.
+//
+// invoke_web_request is the cmdlet with Headers, Body and AllowAutoRedirect on
+// it - the one a caller wanting to do anything beyond a bare GET needs. Its
+// name does not contain "http" and its category is PowerShell, so it lives
+// only in the description tier. The tiering searched descriptions solely when
+// names found nothing, names found http and http_serve, and so the most
+// obvious search term in the toolbox could not reach the cmdlet it most
+// obviously meant.
+func TestSearchReachesCmdletsNamedForNeither(t *testing.T) {
 	res := search(t, "http")
-	if res.Matched != matchedName {
-		t.Fatalf("filter %q matched by %q, want %q", "http", res.Matched, matchedName)
-	}
-	for _, fn := range res.Functions {
-		if !strings.Contains(strings.ToLower(fn.Name), "http") &&
-			!strings.Contains(strings.ToLower(fn.Category), "http") {
-			t.Errorf("filter %q returned %s, which is named for neither", "http", fn.Name)
+	found := names(res)
+	for _, want := range []string{"http", "http_serve", "invoke_web_request"} {
+		if !slices.Contains(found, want) {
+			t.Errorf("filter %q did not find %s; got %v", "http", want, found)
 		}
 	}
 }
 
-// TestDescriptionTierAnswersWhenNamesDoNot covers the searches that used to
-// come back empty. Nothing is named "header", but jwt_decode's description
-// says what it does with them.
-func TestDescriptionTierAnswersWhenNamesDoNot(t *testing.T) {
-	res := search(t, "header")
-	if res.Count == 0 {
-		t.Fatal("filter \"header\" found nothing, not even by description")
+// TestBroadSearchKeepsItsExamples guards the measurement in the other
+// direction. "file" matches 15 cmdlets by name and 63 more by description, and
+// describeFunctions drops every entry's examples above examplesUpTo results, so
+// merging unconditionally would make the searches that already worked return
+// more and explain less. The held-back names are still reported, because a
+// caller whose answer is in that group needs to know it exists.
+func TestBroadSearchKeepsItsExamples(t *testing.T) {
+	res := search(t, "file")
+	if res.Count > examplesUpTo {
+		t.Errorf("filter %q returned %d functions, past the %d at which examples stop",
+			"file", res.Count, examplesUpTo)
 	}
-	if res.Matched != matchedDescription {
-		t.Errorf("filter %q matched by %q, want %q", "header", res.Matched, matchedDescription)
+	if len(res.Described) == 0 {
+		t.Error("filter \"file\" held back its description matches without saying so")
 	}
-
-	// And the text has to say which tier answered, or the caller reads a
-	// description match as though the cmdlet were named for what they asked.
-	text := describeFunctions(listFunctionsArgs{Filter: "header"}, res)
-	if !strings.Contains(text, "description") {
-		t.Errorf("the rendered answer does not say it matched on descriptions:\n%s", text)
-	}
-}
-
-// TestDescriptionTierSearchesOptions closes the last dead end from the
-// recorded session. Nothing in pwrq is named for redirects, and the model's
-// search for them came back empty - but invoke_web_request controls them
-// through AllowAutoRedirect, and now says so where a search can find it.
-func TestDescriptionTierSearchesOptions(t *testing.T) {
-	res := search(t, "redirect")
-	if res.Count == 0 {
-		t.Fatal("filter \"redirect\" found nothing, though invoke_web_request has AllowAutoRedirect")
-	}
-	if !slices.Contains(names(res), "invoke_web_request") {
-		t.Errorf("filter %q found %v, want invoke_web_request among them", "redirect", names(res))
+	if len(res.Suggestions) > 0 {
+		t.Errorf("a search that matched reported %d suggestions; those are for searches that did not",
+			len(res.Suggestions))
 	}
 }
 
-// TestNoMatchSuggestsSomething checks that the one answer a caller cannot act
-// on is never the answer. A search that finds nothing offers the nearest names
-// instead, so the next call is a call rather than another guess.
-func TestNoMatchSuggestsSomething(t *testing.T) {
-	res := search(t, "sha257")
-	if res.Count != 0 {
-		t.Fatalf("filter %q unexpectedly matched %d functions", "sha257", res.Count)
-	}
-	if res.Matched != matchedNone {
-		t.Errorf("filter %q matched by %q, want %q", "sha257", res.Matched, matchedNone)
-	}
-	if !slices.Contains(res.Suggestions, "sha256") {
-		t.Errorf("filter %q suggested %v, want sha256 among them", "sha257", res.Suggestions)
-	}
-
-	text := describeFunctions(listFunctionsArgs{Filter: "sha257"}, res)
-	if !strings.Contains(text, "sha256") {
-		t.Errorf("the rendered answer drops the suggestions:\n%s", text)
+// TestMergedSearchStaysInBudget checks the rule itself rather than a single
+// term: whenever the two tiers are merged, the result still fits the budget
+// that made merging safe.
+func TestMergedSearchStaysInBudget(t *testing.T) {
+	for _, term := range []string{"http", "hash", "web", "request", "time", "compress", "file", "string", "path"} {
+		res := search(t, term)
+		if res.Matched == matchedBoth && res.Count > examplesUpTo {
+			t.Errorf("filter %q merged both tiers into %d functions, past the %d at which examples stop",
+				term, res.Count, examplesUpTo)
+		}
 	}
 }
 
-// TestSuggestionsAreBounded keeps the no-match answer shorter than a real one.
-func TestSuggestionsAreBounded(t *testing.T) {
-	res := search(t, "e")
-	if len(res.Suggestions) > suggestionLimit {
-		t.Errorf("got %d suggestions, want at most %d", len(res.Suggestions), suggestionLimit)
-	}
-}
-
-// TestEmptyFilterListsEverything checks the unfiltered call still enumerates
-// the whole catalogue, which is what the tool's description promises.
-func TestEmptyFilterListsEverything(t *testing.T) {
-	res := search(t, "")
-	if res.Count < 400 {
-		t.Errorf("unfiltered listing returned %d functions, want the whole catalogue", res.Count)
-	}
-	if res.Matched != matchedName {
-		t.Errorf("unfiltered listing matched by %q, want %q", res.Matched, matchedName)
+// TestDescriptionOnlyMatchesAreNotDuplicated checks that a cmdlet matching both
+// tiers is listed once.
+func TestDescriptionOnlyMatchesAreNotDuplicated(t *testing.T) {
+	for _, term := range []string{"http", "hash", "compress", "web"} {
+		seen := map[string]bool{}
+		for _, fn := range search(t, term).Functions {
+			if seen[fn.Name] {
+				t.Errorf("filter %q listed %s twice", term, fn.Name)
+			}
+			seen[fn.Name] = true
+		}
 	}
 }

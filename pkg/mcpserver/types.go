@@ -62,6 +62,9 @@ type runQueryResult struct {
 	// Elided is how many individual values the per-value cap cut. A different
 	// event from Truncated: every value was produced, some are shown in part.
 	Elided int `json:"elided,omitempty" jsonschema:"how many individual results were too large for maxBytes and are shown in part; the query still produced all of them"`
+	// Warnings are the pipe stages whose declared encodings disagree, reported
+	// alongside a successful run because that is the run they most often spoil.
+	Warnings []encodingWarning `json:"warnings,omitempty" jsonschema:"pipeline stages whose encodings disagree - the run succeeded, but a stage encoded text that should have been decoded to bytes first"`
 	// Error is the failure message, if the run did not complete cleanly.
 	Error string `json:"error,omitempty" jsonschema:"why the run did not complete cleanly; a run can emit values and then fail, so this can be set alongside results"`
 	// Kind classifies the failure: parse, compile, args, input, runtime,
@@ -111,6 +114,7 @@ type functionInfo struct {
 	Input string `json:"input,omitempty" jsonschema:"where the cmdlet reads its input from; empty when the cmdlet has not said"`
 	// Returns says how the output is encoded, for the cmdlets whose result is
 	// a text rendering of bytes rather than the bytes themselves.
+	Accepts string `json:"accepts,omitempty" jsonschema:"the encoding this cmdlet expects on its input, when it reads a text rendering of bytes rather than ordinary text"`
 	Returns string `json:"returns,omitempty" jsonschema:"how the cmdlet's output is encoded, when that is not obvious from the name; empty when it needs no explaining"`
 	// Options are the keys the cmdlet reads out of an options object.
 	Options []optionInfo `json:"options,omitempty" jsonschema:"the keys the cmdlet reads out of an options object; an unlisted key is ignored in silence"`
@@ -141,6 +145,13 @@ type listFunctionsResult struct {
 	Matched string `json:"matched,omitempty" jsonschema:"how the filter matched: name, when it matched a name, alias or category; description, when nothing was named that way and these merely mention it; none, when nothing matched at all"`
 	// Suggestions are the nearest names when nothing matched.
 	Suggestions []string `json:"suggestions,omitempty" jsonschema:"names, aliases and categories closest to a filter that matched nothing"`
+	// Described are the cmdlets that matched only on their description or
+	// options and were held back because listing them would have cost every
+	// entry its examples. A separate field from Suggestions on purpose: these
+	// matched the search and are being withheld, where a suggestion did not
+	// match and is being guessed at, and a caller that cannot tell the two
+	// apart will treat a real answer as a shot in the dark.
+	Described []string `json:"described,omitempty" jsonschema:"cmdlets matching the filter only in their description or options, held back to keep the listed entries' examples; search a narrower term to see them"`
 }
 
 // validateQueryArgs asks whether a query parses and compiles.
@@ -168,4 +179,7 @@ type validateQueryResult struct {
 	Error     string `json:"error,omitempty" jsonschema:"why the query is not valid"`
 	Stage     string `json:"stage,omitempty" jsonschema:"how far the query got: parse, when it is not grammatical; compile, when it is grammatical but calls something that is not defined"`
 	Formatted string `json:"formatted,omitempty" jsonschema:"the query laid out over several lines, one pipeline stage per line"`
+	// Warnings are the pipe stages whose declared encodings disagree. A query
+	// carrying them is still valid and still runs; it is likely to run wrongly.
+	Warnings []encodingWarning `json:"warnings,omitempty" jsonschema:"pipeline stages whose encodings disagree - the query is valid and will run, but a stage is encoding text that should have been decoded to bytes first"`
 }

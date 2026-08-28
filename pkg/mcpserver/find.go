@@ -20,6 +20,10 @@ const (
 	// matchedDescription means nothing was named or categorised that way, and
 	// these are the cmdlets whose description mentions it.
 	matchedDescription = "description"
+	// matchedBoth means the name tier answered and the description tier added
+	// to it, which it may do only while the combined list stays small enough
+	// to keep its examples.
+	matchedBoth = "name-and-description"
 	// matchedNone means neither tier found anything, and what came back is
 	// suggestions rather than results.
 	matchedNone = "none"
@@ -27,13 +31,21 @@ const (
 
 // findFunctions filters the cmdlet catalogue by a caller's search term.
 //
-// The search runs in tiers rather than in one pass, and the reason is a
-// measurement. Matching descriptions alongside names looks strictly better
-// until you count: "file" matches 15 cmdlets by name and 71 by description,
-// and describeFunctions drops the examples above forty results. So folding
-// descriptions into every search would make the searches that already work
-// return more and explain less. Descriptions are searched when the name tier
-// comes back empty, which is exactly when they help and never when they hurt.
+// Names and descriptions are searched together, but a description-only match
+// earns its place only when the combined list still fits the examples budget.
+// The reason is a measurement in both directions. Searching descriptions always
+// is too much: "file" matches 15 cmdlets by name and 63 more by description,
+// "string" 70 and 42, and describeFunctions drops the examples above forty
+// results - so the searches that already worked would return more and explain
+// less. Searching them never is too little, and that was the first version's
+// bug: "http" matches exactly two cmdlets by name, and invoke_web_request -
+// the one with Headers, Body and AllowAutoRedirect on it - is named for
+// neither http nor its category, so the single most obvious search term in the
+// toolbox could not reach the cmdlet it most obviously meant.
+//
+// Merging when it fits settles both: "http" widens from 2 to 7 and finds it,
+// "hash" from 12 to 20, while "file" and "string" stay as they were and say how
+// many they held back.
 //
 // Matching is case-insensitive in both directions. It used to be neither: the
 // filter went straight into strings.Contains against the name and the
@@ -53,13 +65,54 @@ func findFunctions(filter string) ([]functionInfo, string, []string) {
 
 	needle := strings.ToLower(filter)
 
-	if named := collect(catalog, needle, byName); len(named) > 0 {
-		return named, matchedName, nil
-	}
-	if described := collect(catalog, needle, byDescription); len(described) > 0 {
+	named := collect(catalog, needle, byName)
+	// Description-only, so that a cmdlet matching both tiers is reported as
+	// the stronger of the two rather than listed twice.
+	described := collect(catalog, needle, func(c discovery.Command, n string) bool {
+		return !byName(c, n) && byDescription(c, n)
+	})
+
+	switch {
+	case len(named) == 0 && len(described) == 0:
+		return nil, matchedNone, suggest(catalog, needle)
+	case len(named) == 0:
 		return described, matchedDescription, nil
+	case len(described) == 0:
+		return named, matchedName, nil
+	case len(named)+len(described) <= examplesUpTo:
+		return merge(catalog, named, described), matchedBoth, nil
+	default:
+		return named, matchedName, describedNames(described)
 	}
-	return nil, matchedNone, suggest(catalog, needle)
+}
+
+// merge returns the two tiers as one list in catalogue order, so that a search
+// answering from both does not read as two lists stapled together.
+func merge(catalog []discovery.Command, named, described []functionInfo) []functionInfo {
+	keep := make(map[string]bool, len(named)+len(described))
+	for _, f := range named {
+		keep[f.Name] = true
+	}
+	for _, f := range described {
+		keep[f.Name] = true
+	}
+	out := make([]functionInfo, 0, len(keep))
+	for _, c := range catalog {
+		if keep[c.Name] {
+			out = append(out, describe(c))
+		}
+	}
+	return out
+}
+
+// describedNames lists the cmdlets held back by the budget, so that a caller
+// whose answer is in that group is told it exists rather than told it does not.
+func describedNames(described []functionInfo) []string {
+	out := make([]string, len(described))
+	for i, f := range described {
+		out[i] = f.Name
+	}
+	return out
 }
 
 // collect gathers the catalogue entries a predicate accepts, preserving the
@@ -202,6 +255,7 @@ func describe(c discovery.Command) functionInfo {
 		Streaming:   c.Streaming,
 		Output:      c.EmitsDescription(),
 		Input:       c.Input,
+		Accepts:     c.Accepts,
 		Returns:     c.Returns,
 		Options:     options(c),
 		Shape:       c.ShapeDescription(),
