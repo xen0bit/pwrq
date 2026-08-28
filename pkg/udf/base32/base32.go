@@ -50,7 +50,7 @@ func RegisterBase32Encode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("base32_encode: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("base32_encode: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -130,7 +130,7 @@ func RegisterBase32Decode() gojq.CompilerOption {
 			} else {
 				meta["original_length"] = len(input)
 			}
-			return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: invalid base32 string: %v", err), meta)
+			return common.MakeUDFErrorResult(fmt.Errorf("base32_decode: invalid base32 string: %v%s", err, common.InputHint("base32_decode", inputVal)), meta)
 		}
 
 		meta := map[string]any{

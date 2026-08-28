@@ -50,7 +50,7 @@ func RegisterHexEncode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("hex_encode: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("hex_encode: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -130,7 +130,7 @@ func RegisterHexDecode() gojq.CompilerOption {
 			} else {
 				meta["original_length"] = len(input)
 			}
-			return common.MakeUDFErrorResult(fmt.Errorf("hex_decode: invalid hex string: %v", err), meta)
+			return common.MakeUDFErrorResult(fmt.Errorf("hex_decode: invalid hex string: %v%s", err, common.InputHint("hex_decode", inputVal)), meta)
 		}
 
 		meta := map[string]any{

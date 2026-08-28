@@ -57,7 +57,7 @@ func RegisterSHA512_256() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("sha512_256: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("sha512_256: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}

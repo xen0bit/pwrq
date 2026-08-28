@@ -32,7 +32,7 @@ func parseKey(keyInput any, keyFormat string) ([]byte, error) {
 	case []byte:
 		keyBytes = val
 	default:
-		return nil, fmt.Errorf("key must be a string or bytes, got %T", val)
+		return nil, fmt.Errorf("key must be a string or bytes, got %T%s", val, common.Excerpt(val))
 	}
 
 	// Decode key if format is specified
@@ -67,7 +67,7 @@ func parseData(dataInput any, dataFormat string) ([]byte, error) {
 	case []byte:
 		dataBytes = val
 	default:
-		return nil, fmt.Errorf("data must be a string or bytes, got %T", val)
+		return nil, fmt.Errorf("data must be a string or bytes, got %T%s", val, common.Excerpt(val))
 	}
 
 	// Decode data if format is specified

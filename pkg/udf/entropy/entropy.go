@@ -49,7 +49,7 @@ func RegisterEntropy() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("entropy: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("entropy: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}

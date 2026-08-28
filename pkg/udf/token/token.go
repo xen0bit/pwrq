@@ -200,7 +200,8 @@ func RegisterBase64URLDecode() gojq.CompilerOption {
 		}
 		decoded, err := base64urlDecode(strings.TrimSpace(s))
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("base64url_decode: %v", err), nil)
+			return common.MakeUDFErrorResult(
+				fmt.Errorf("base64url_decode: %v%s", err, common.InputHint("base64url_decode", s)), nil)
 		}
 		return common.MakeUDFSuccessResult(string(decoded), nil)
 	})
@@ -379,7 +380,8 @@ func RegisterBase58Decode() gojq.CompilerOption {
 		}
 		decoded, err := base58Decode(strings.TrimSpace(s))
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("base58_decode: %v", err), nil)
+			return common.MakeUDFErrorResult(
+				fmt.Errorf("base58_decode: %v%s", err, common.InputHint("base58_decode", s)), nil)
 		}
 		return common.MakeUDFSuccessResult(string(decoded), nil)
 	})

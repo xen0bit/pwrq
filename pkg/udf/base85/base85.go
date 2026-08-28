@@ -50,7 +50,7 @@ func RegisterBase85Encode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("base85_encode: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("base85_encode: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -119,7 +119,7 @@ func RegisterBase85Decode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -138,7 +138,7 @@ func RegisterBase85Decode() gojq.CompilerOption {
 			} else {
 				meta["original_length"] = len(inputBytes)
 			}
-			return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: invalid base85 string: %v", err), meta)
+			return common.MakeUDFErrorResult(fmt.Errorf("base85_decode: invalid base85 string: %v%s", err, common.InputHint("base85_decode", inputVal)), meta)
 		}
 		decoded = decoded[:n]
 
