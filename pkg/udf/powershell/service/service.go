@@ -49,7 +49,7 @@ type GetServiceOptions struct {
 //   - get_service("ssh") - get services by name (wildcard supported)
 //   - get_service({"Name": "*service*"; "Exclude": "disabled"})
 func RegisterGetService() gojq.CompilerOption {
-	return common.WithIterFunction("get_service", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_service", 0, 2, ServiceShape, func(v any, args []any) gojq.Iter {
 		opts := GetServiceOptions{}
 
 		// Parse arguments
@@ -161,7 +161,7 @@ func getServices(opts GetServiceOptions) ([]map[string]any, error) {
 			serviceMap["ProcessId"] = svc.ProcessId
 		}
 
-		result = append(result, serviceMap)
+		result = append(result, ServiceShape.Build(serviceMap))
 	}
 
 	return result, nil

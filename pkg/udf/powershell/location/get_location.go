@@ -26,7 +26,7 @@ type GetLocationOptions struct {
 //   - get_location({"PSDrive": "FileSystem"}) - get location from specific drive
 //   - get_location({"StackName": "myStack"}) - get top of named stack
 func RegisterGetLocation() gojq.CompilerOption {
-	return common.WithFunction("get_location", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("get_location", 0, 1, CurrentLocationShape, func(v any, args []any) any {
 		var opts GetLocationOptions
 
 		// Parse options if provided
@@ -46,9 +46,9 @@ func RegisterGetLocation() gojq.CompilerOption {
 		}
 
 		// Wrap in PSObject for PowerShell compatibility
-		psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")
+		psobj := psobject.NewPSObject(result)
 
-		return common.MakeUDFSuccessResult(psobj.ToMap(), map[string]any{
+		return common.MakeUDFSuccessResult(CurrentLocationShape.Build(psobj.ToMap()), map[string]any{
 			"operation": "get_location",
 		})
 	})

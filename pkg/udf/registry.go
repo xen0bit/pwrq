@@ -371,6 +371,8 @@ func buildCatalog() []discovery.Command {
 		// registered with, so this cannot disagree with the code.
 		streaming, _ := common.IsStreaming(meta.Name)
 		commands = append(commands, discovery.Command{
+			Shape:       common.ShapeOf(meta.Name),
+			Input:       common.InputOf(meta.Name).Describe(meta.MinArgs, meta.MaxArgs),
 			Name:        meta.Name,
 			Aliases:     aliasesFor[meta.Name],
 			MinArgs:     meta.MinArgs,

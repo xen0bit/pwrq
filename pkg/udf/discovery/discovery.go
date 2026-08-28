@@ -13,6 +13,7 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/shape"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -34,6 +35,13 @@ type Command struct {
 	// than a single one. The registry fills this in from what the registration
 	// wrappers observed, so it describes the code rather than restating it.
 	Streaming bool
+	// Shape is what one emitted value looks like, when the command declared
+	// it. Read from the same registration the streaming flag comes from, so
+	// the two cannot disagree about the same cmdlet.
+	Shape *shape.Shape
+	// Input describes where the command reads its input from, in the terms a
+	// caller writing the call needs. Empty when the command has not said.
+	Input string
 }
 
 // EmitsDescription explains the command's output cardinality, which is what
@@ -70,7 +78,7 @@ func (c Command) toObject() map[string]any {
 	for i, e := range c.Examples {
 		examples[i] = e
 	}
-	return map[string]any{
+	obj := map[string]any{
 		"Name":                 c.Name,
 		"Aliases":              aliases,
 		"MinArgs":              c.MinArgs,
@@ -81,8 +89,18 @@ func (c Command) toObject() map[string]any {
 		"Available":            c.Available,
 		"Streaming":            c.Streaming,
 		"Output":               c.EmitsDescription(),
+		"Shape":                c.ShapeDescription(),
+		"TypeName":             c.Shape.TypeName(),
+		"Input":                c.Input,
 		psobject.PSTypeNameKey: "System.Management.Automation.CommandInfo",
 	}
+	return CommandInfoShape.Build(obj)
+}
+
+// ShapeDescription is the one-line summary of what the command emits, or "" for
+// a command that emits no object.
+func (c Command) ShapeDescription() string {
+	return c.Shape.Compact()
 }
 
 // RegisterGetCommand registers get_command.
@@ -90,7 +108,7 @@ func (c Command) toObject() map[string]any {
 //	get_command                 every command
 //	get_command("get_*")        wildcard match on name or alias
 func RegisterGetCommand() gojq.CompilerOption {
-	return common.WithIterFunction("get_command", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_command", 0, 2, CommandInfoShape, func(v any, args []any) gojq.Iter {
 		pattern := "*"
 		if len(args) > 0 {
 			if s, ok := common.BindValue(args[0]).(string); ok && s != "" {
@@ -165,7 +183,13 @@ func renderHelp(commands []Command) string {
 			fmt.Fprintf(&b, "\nSYNOPSIS\n    %s\n", c.Description)
 		}
 		fmt.Fprintf(&b, "\nSYNTAX\n    %s\n", syntax(c))
+		if c.Input != "" {
+			fmt.Fprintf(&b, "\nINPUT\n    %s\n", c.Input)
+		}
 		fmt.Fprintf(&b, "\nOUTPUT\n    %s\n", c.EmitsDescription())
+		if described := c.Shape.Describe(); described != "" {
+			fmt.Fprintf(&b, "    %s\n", strings.ReplaceAll(described, "\n", "\n    "))
+		}
 		if len(c.Aliases) > 0 {
 			fmt.Fprintf(&b, "\nALIASES\n    %s\n", strings.Join(c.Aliases, ", "))
 		}

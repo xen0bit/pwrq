@@ -239,7 +239,7 @@ func RegisterMAD() gojq.CompilerOption {
 // RegisterSummary registers summary, the descriptive statistics of an array in
 // one call.
 func RegisterSummary() gojq.CompilerOption {
-	return common.WithFunction("summary", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("summary", 0, 1, SummaryShape, func(v any, args []any) any {
 		values, err := nums(arrInput(v, args))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("summary: %v", err), nil)
@@ -247,14 +247,14 @@ func RegisterSummary() gojq.CompilerOption {
 		sorted := append([]float64(nil), values...)
 		sort.Float64s(sorted)
 		mn := mean(values)
-		return common.MakeUDFSuccessResult(map[string]any{
+		return common.MakeUDFSuccessResult(SummaryShape.Build(map[string]any{
 			"count":  len(values),
 			"min":    sorted[0],
 			"max":    sorted[len(sorted)-1],
 			"mean":   mn,
 			"median": median(sorted),
 			"stdev":  math.Sqrt(variance(values)),
-		}, nil)
+		}), nil)
 	})
 }
 

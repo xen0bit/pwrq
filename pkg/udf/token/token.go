@@ -123,7 +123,7 @@ func base64urlDecode(s string) ([]byte, error) {
 // RegisterJWTDecode registers jwt_decode, splitting a JWT into its decoded
 // header and payload and its signature.
 func RegisterJWTDecode() gojq.CompilerOption {
-	return common.WithFunction("jwt_decode", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("jwt_decode", 0, 2, JWTShape, func(v any, args []any) any {
 		s, err := strInput(v, args, "jwt_decode")
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("jwt_decode: %v", err), nil)

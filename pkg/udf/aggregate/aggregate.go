@@ -141,7 +141,7 @@ func numValue(row any, key string) (float64, error) {
 // RegisterGroupByKey registers group_by_key, buckets an array of objects by a
 // property into {keyvalue: [rows...]}.
 func RegisterGroupByKey() gojq.CompilerOption {
-	return common.WithFunction("group_by_key", 1, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("group_by_key", 1, 2, GroupedRows, func(v any, args []any) any {
 		arr, rest := rowsInput(v, args, 1)
 		key, err := keyArg("group_by_key", rest, 0)
 		if err != nil {
@@ -166,7 +166,7 @@ func RegisterGroupByKey() gojq.CompilerOption {
 
 // RegisterCountBy registers count_by, a property's value to a row count.
 func RegisterCountBy() gojq.CompilerOption {
-	return common.WithFunction("count_by", 1, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("count_by", 1, 2, CountedRows, func(v any, args []any) any {
 		arr, rest := rowsInput(v, args, 1)
 		key, err := keyArg("count_by", rest, 0)
 		if err != nil {
@@ -198,7 +198,7 @@ func intToAny(n int) any { return n }
 // sum_by(arr; "dept"; "salary") -> {eng: 200, ops: 80}. Without a column the
 // key itself is summed, so sum_by(arr; "amount") totals amount per value.
 func RegisterSumBy() gojq.CompilerOption {
-	return common.WithFunction("sum_by", 1, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("sum_by", 1, 3, AggregatedRows, func(v any, args []any) any {
 		arr, rest := rowsInput(v, args, 2)
 		groupKey, valueKey := groupAndValue(rest)
 		if groupKey == "" {
@@ -233,7 +233,7 @@ func RegisterSumBy() gojq.CompilerOption {
 
 // RegisterAvgBy registers avg_by, a numeric column averaged per key value.
 func RegisterAvgBy() gojq.CompilerOption {
-	return common.WithFunction("avg_by", 1, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("avg_by", 1, 3, AggregatedRows, func(v any, args []any) any {
 		arr, rest := rowsInput(v, args, 2)
 		groupKey, valueKey := groupAndValue(rest)
 		if groupKey == "" {
@@ -269,7 +269,7 @@ func RegisterAvgBy() gojq.CompilerOption {
 
 // RegisterIndexBy registers index_by, the first row seen per key value.
 func RegisterIndexBy() gojq.CompilerOption {
-	return common.WithFunction("index_by", 1, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("index_by", 1, 2, IndexedRows, func(v any, args []any) any {
 		arr, rest := rowsInput(v, args, 1)
 		key, err := keyArg("index_by", rest, 0)
 		if err != nil {
@@ -293,7 +293,7 @@ func RegisterIndexBy() gojq.CompilerOption {
 // RegisterValueCounts registers value_counts, whole-value frequencies of an
 // array as {value: count}.
 func RegisterValueCounts() gojq.CompilerOption {
-	return common.WithFunction("value_counts", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("value_counts", 0, 1, ValueCounts, func(v any, args []any) any {
 		arr, _ := rowsInput(v, args, 0)
 		counts := make(map[string]any)
 		order := []string{}
@@ -397,7 +397,7 @@ func options(fn string, args []any, i int) (map[string]string, error) {
 // objects: {rows: "dept", cols: "year", values: "amount"} turns
 // [{dept:"eng",year:2020,amount:10}, ...] into {eng: {2020: 10, ...}, ...}.
 func RegisterPivot() gojq.CompilerOption {
-	return common.WithFunction("pivot", 1, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("pivot", 1, 2, PivotTable, func(v any, args []any) any {
 		arr, rest := rowsInput(v, args, 1)
 		opts, err := options("pivot", rest, 0)
 		if err != nil {

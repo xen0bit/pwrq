@@ -39,7 +39,7 @@ type MeasurementResult struct {
 //
 // Usage: measure_object(objects) or measure_object(objects; options)
 func RegisterMeasureObject() gojq.CompilerOption {
-	return common.WithFunction("measure_object", 1, 2, func(input any, args []any) any {
+	return common.WithFunctionOf("measure_object", 1, 2, MeasureInfoShape, func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseMeasureObjectArgs(args)
 		if err != nil {
@@ -226,8 +226,9 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 		}
 	}
 
-	// Wrap in PSObject with proper type information
-	psobj := psobject.NewPSObjectWithTypeName(valueMap, "Microsoft.PowerShell.Commands.GenericMeasureInfo")
+	// The shape supplies the type name, so it is written down once, beside
+	// the property list it goes with.
+	psobj := psobject.NewPSObject(valueMap)
 
 	// Add NoteProperties for all measurement values
 	psobj.AddNoteProperty("Count", result.Count)
@@ -246,7 +247,7 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 		}
 	}
 
-	return psobj.ToMap()
+	return MeasureInfoShape.Build(psobj.ToMap())
 }
 
 // ParseMeasureObjectArgs parses arguments for the measure_object function

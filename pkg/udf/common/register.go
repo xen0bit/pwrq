@@ -1,10 +1,12 @@
 package common
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/shape"
 )
 
 // This file is the boundary between cmdlet code and the query engine.
@@ -43,6 +45,25 @@ func WithIterFunction(name string, minArity, maxArity int, f func(any, []any) go
 	})
 }
 
+// WithFunctionOf is WithFunction for a cmdlet that emits an object, declaring
+// the shape of that object as it registers.
+//
+// The declaration belongs here for the same reason the streaming flag does: a
+// shape written down anywhere else is a second copy of a fact, and a second
+// copy is a copy that can fall behind. Registering is the one thing every
+// cmdlet does, so it is the one place a declaration cannot be forgotten.
+func WithFunctionOf(name string, minArity, maxArity int, s *shape.Shape, f func(any, []any) any) gojq.CompilerOption {
+	recordShape(name, s)
+	return WithFunction(name, minArity, maxArity, f)
+}
+
+// WithIterFunctionOf is WithIterFunction for a streaming cmdlet that emits
+// objects, declaring the shape of one emitted value - not of the stream.
+func WithIterFunctionOf(name string, minArity, maxArity int, s *shape.Shape, f func(any, []any) gojq.Iter) gojq.CompilerOption {
+	recordShape(name, s)
+	return WithIterFunction(name, minArity, maxArity, f)
+}
+
 // Whether a cmdlet emits one value or a stream of them is the single fact
 // callers most often get wrong: it decides whether a query needs to collect
 // with [...] or must not. It is also the fact most likely to rot in a
@@ -71,6 +92,88 @@ func IsStreaming(name string) (streaming, known bool) {
 	defer emissionMu.RUnlock()
 	streaming, known = streamingUDF[name]
 	return streaming, known
+}
+
+// The shape a cmdlet emits is recorded beside the streaming flag, for the same
+// reason and with the same guarantee: it is written down where the cmdlet is
+// registered, so it cannot name a cmdlet that does not exist and cannot be
+// left behind when one is renamed.
+//
+// Most cmdlets have no entry here, and that is deliberate rather than
+// unfinished. Roughly 300 of them are transforms returning a string or a
+// number, where a property list would be an invention; declaring one for each
+// would be 300 chances to write something untrue. They report nothing, and
+// their output is described by observation at the point of use instead.
+var (
+	shapeMu    sync.RWMutex
+	shapeOfUDF = make(map[string]*shape.Shape)
+	inputOfUDF = make(map[string]InputForm)
+)
+
+func recordShape(name string, s *shape.Shape) {
+	shapeMu.Lock()
+	defer shapeMu.Unlock()
+	shapeOfUDF[name] = s
+}
+
+// ShapeOf reports the declared shape of the named cmdlet's output. A cmdlet
+// that declared none returns nil, which every Shape method handles: an
+// undeclared shape describes itself as nothing rather than as a guess.
+func ShapeOf(name string) *shape.Shape {
+	shapeMu.RLock()
+	defer shapeMu.RUnlock()
+	return shapeOfUDF[name]
+}
+
+// InputForm says where a cmdlet takes its input from.
+type InputForm int
+
+const (
+	// InputUnspecified is a cmdlet that has not said.
+	InputUnspecified InputForm = iota
+	// InputPipeline is the SplitInput convention: at the cmdlet's lowest
+	// arity the input arrives from the pipeline and every argument is an
+	// operand, and at its highest the first argument is the input.
+	InputPipeline
+	// InputArguments is a cmdlet that ignores the piped value and reads
+	// everything from its arguments.
+	InputArguments
+)
+
+// DeclareInput records where a cmdlet's input comes from.
+//
+// This is the fact SplitInput encodes and no catalogue can see. `chunks(2)`
+// takes its input from the pipeline and `chunks([1,2,3,4]; 2)` takes it as the
+// leading argument, and the arity range - 1 to 2 - says neither. A caller
+// reading `chunks/1-2` cannot tell which argument is the data, which is the
+// input-side twin of not knowing whether to collect the output with [...].
+func DeclareInput(name string, form InputForm) {
+	shapeMu.Lock()
+	defer shapeMu.Unlock()
+	inputOfUDF[name] = form
+}
+
+// InputOf reports where the named cmdlet takes its input from.
+func InputOf(name string) InputForm {
+	shapeMu.RLock()
+	defer shapeMu.RUnlock()
+	return inputOfUDF[name]
+}
+
+// Describe explains an input form in the terms a caller writing the call needs,
+// given the arity range the cmdlet was registered with.
+func (f InputForm) Describe(minArity, maxArity int) string {
+	switch f {
+	case InputPipeline:
+		if maxArity > minArity {
+			return fmt.Sprintf("the value from the pipeline, or the first of %d arguments", maxArity)
+		}
+		return "the value from the pipeline"
+	case InputArguments:
+		return "its arguments; the piped value is ignored"
+	default:
+		return ""
+	}
 }
 
 // normalizeResult puts one cmdlet result into gojq's value space.

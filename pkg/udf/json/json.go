@@ -127,7 +127,8 @@ func RegisterJSONStringify() gojq.CompilerOption {
 // patch: null in the patch deletes a key, objects merge recursively, and
 // everything else replaces.
 func RegisterJSONMergePatch() gojq.CompilerOption {
-	return common.WithFunction("json_merge_patch", 1, 2, func(v any, args []any) any {
+	common.DeclareInput("json_merge_patch", common.InputPipeline)
+	return common.WithFunctionOf("json_merge_patch", 1, 2, EditedDocument, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		target, patch := common.BindValue(in), common.BindValue(rest[0])
 		return common.MakeUDFSuccessResult(mergePatch(target, patch), nil)

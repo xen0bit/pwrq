@@ -88,19 +88,18 @@ func resolvePath(opts ResolvePathOptions) ([]any, error) {
 
 	// Create PSObject for the resolved path
 	psobj := psobject.NewPSObject(absPath)
-	psobj.TypeName = "System.IO.PathInfo"
 	psobj.AddNoteProperty("Path", absPath)
 	psobj.AddNoteProperty("Provider", "FileSystem")
 	psobj.AddNoteProperty("ProviderPath", absPath)
 
-	results = append(results, psobj.ToMap())
+	results = append(results, PathInfo.Build(psobj.ToMap()))
 
 	return results, nil
 }
 
 // RegisterResolvePath registers the resolve_path function with gojq
 func RegisterResolvePath() gojq.CompilerOption {
-	return common.WithIterFunction("resolve_path", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("resolve_path", 0, 2, PathInfo, func(v any, args []any) gojq.Iter {
 		opts, err := parseResolvePathArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

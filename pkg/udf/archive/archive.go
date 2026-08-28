@@ -179,6 +179,7 @@ func listArchive(path string) ([]entry, error) {
 // RegisterExpandArchive registers expand_archive, extracting an archive into a
 // destination directory and returning the paths written.
 func RegisterExpandArchive() gojq.CompilerOption {
+	common.DeclareInput("expand_archive", common.InputPipeline)
 	return common.WithFunction("expand_archive", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		path, ok := common.BindPath(in)
@@ -316,6 +317,7 @@ func expand(path, dest string) ([]string, error) {
 // RegisterCompressArchive registers compress_archive, building an archive from
 // a path or a list of paths and returning the archive's own FileInfo.
 func RegisterCompressArchive() gojq.CompilerOption {
+	common.DeclareInput("compress_archive", common.InputPipeline)
 	return common.WithFunction("compress_archive", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		sources, err := sourcePaths(in)

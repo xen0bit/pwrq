@@ -29,7 +29,7 @@ func RegisterJSONPointer() gojq.CompilerOption {
 // RegisterJSONPointerSet registers json_pointer_set, returning the document
 // with a value written at an RFC 6901 JSON pointer.
 func RegisterJSONPointerSet() gojq.CompilerOption {
-	return common.WithFunction("json_pointer_set", 2, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("json_pointer_set", 2, 2, EditedDocument, func(v any, args []any) any {
 		pointer, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("json_pointer_set: pointer must be a string, got %T", args[0]), nil)
@@ -149,7 +149,7 @@ func setSlot(slot *any, tokens []string, value any) error {
 // RegisterQueryStringParse registers query_string_parse, turning a URL query
 // string like "a=1&b=two" into an object.
 func RegisterQueryStringParse() gojq.CompilerOption {
-	return common.WithFunction("query_string_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("query_string_parse", 0, 2, ParsedQueryString, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("query_string_parse: %v", err), nil)
@@ -290,7 +290,7 @@ func RegisterHasPath() gojq.CompilerOption {
 // dot-and-bracket path removed. Removing the last key of a nested object
 // leaves an empty object, matching jq's del.
 func RegisterDelPath() gojq.CompilerOption {
-	return common.WithFunction("del_path", 1, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("del_path", 1, 2, EditedDocument, func(v any, args []any) any {
 		doc, tokens, err := dotInput(v, args, "del_path", 1)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

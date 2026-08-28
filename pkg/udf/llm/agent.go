@@ -541,6 +541,9 @@ A cmdlet that enumerates things is a stream, so wrap the call in square brackets
 			// gemma-4-e2b did exactly that — `[...] | select(...)`.
 			b.WriteString(" (streams: wrap the call in square brackets to collect it)")
 		}
+		if c.Shape != "" {
+			fmt.Fprintf(&b, "\n    emits %s", c.Shape)
+		}
 		if len(c.Examples) > 0 {
 			fmt.Fprintf(&b, "\n    e.g. %s", c.Examples[0])
 		}

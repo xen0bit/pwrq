@@ -105,7 +105,7 @@ func RegisterRemoveAccents() gojq.CompilerOption {
 // RegisterCharFrequencies registers char_frequencies, how often each character
 // appears in a string, as {char: count}.
 func RegisterCharFrequencies() gojq.CompilerOption {
-	return registerTextFn("char_frequencies", func(s string) any {
+	return registerTextFnOf("char_frequencies", CharFrequencies, func(s string) any {
 		counts := make(map[string]any)
 		order := []string{}
 		for _, r := range s {

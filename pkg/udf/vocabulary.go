@@ -131,6 +131,7 @@ func VocabularyFor(allow []string) (*llm.Vocabulary, error) {
 			MinArgs:     meta.MinArgs,
 			MaxArgs:     meta.MaxArgs,
 			Streaming:   streaming,
+			Shape:       common.ShapeOf(name).Compact(),
 			Examples:    meta.Examples,
 		})
 	}

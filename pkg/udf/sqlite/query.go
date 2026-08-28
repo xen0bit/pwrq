@@ -39,6 +39,7 @@ import (
 // The options object is not available in the piped-database form: the database
 // is one operand, so at two arguments the leading one is always the database.
 func RegisterInvokeSqliteQuery() gojq.CompilerOption {
+	common.DeclareInput("invoke_sqlite_query", common.InputPipeline)
 	return common.WithIterFunction("invoke_sqlite_query", 1, 3, func(v any, args []any) gojq.Iter {
 		in, rest := common.SplitInput(v, args, 1)
 		path, err := bindDatabase(in, "invoke_sqlite_query")

@@ -102,7 +102,7 @@ func joinPath(paths []string, resolve bool) (string, error) {
 // Signature: join_path(path1, path2, ..., resolve?: bool)
 // Returns a PSObject with the joined path and metadata.
 func RegisterJoinPath() gojq.CompilerOption {
-	return common.WithFunction("join_path", 1, 10, func(v any, args []any) any {
+	return common.WithFunctionOf("join_path", 1, 10, JoinedPath, func(v any, args []any) any {
 		// Combine pipeline input with arguments
 		allArgs := args
 		if v != nil {
@@ -134,7 +134,6 @@ func RegisterJoinPath() gojq.CompilerOption {
 
 		// Create PSObject result with full metadata
 		psobj := psobject.NewPSObject(joinedPath)
-		psobj.TypeName = "System.String"
 
 		// Add useful path properties as NoteProperties
 		psobj.AddNoteProperty("Path", joinedPath)
@@ -157,7 +156,7 @@ func RegisterJoinPath() gojq.CompilerOption {
 		// raw: it normalizes to the wire form. A raw *psobject.PSObject is not
 		// in gojq's value space, so any filter that touched it - and the
 		// encoder in the end - would panic.
-		return common.MakeUDFSuccessResult(psobj, nil)
+		return common.MakeUDFSuccessResult(JoinedPath.Build(psobj.ToMap()), nil)
 	})
 }
 
@@ -165,7 +164,7 @@ func RegisterJoinPath() gojq.CompilerOption {
 // Signature: split_path(path?: string)
 // Returns a PSObject with split path components.
 func RegisterSplitPath() gojq.CompilerOption {
-	return common.WithFunction("split_path", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("split_path", 0, 2, SplitPath, func(v any, args []any) any {
 		var path string
 
 		// Get path from argument or pipeline input
@@ -199,7 +198,6 @@ func RegisterSplitPath() gojq.CompilerOption {
 
 		// Create PSObject with split components
 		psobj := psobject.NewPSObject(path)
-		psobj.TypeName = "System.String"
 		psobj.AddNoteProperty("Path", path)
 		psobj.AddNoteProperty("DirectoryName", dir)
 		psobj.AddNoteProperty("Name", name)
@@ -214,6 +212,6 @@ func RegisterSplitPath() gojq.CompilerOption {
 		}
 		psobj.AddNoteProperty("Drive", drive)
 
-		return common.MakeUDFSuccessResult(psobj, nil)
+		return common.MakeUDFSuccessResult(SplitPath.Build(psobj.ToMap()), nil)
 	})
 }

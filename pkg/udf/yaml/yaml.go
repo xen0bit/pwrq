@@ -20,7 +20,7 @@ func RegisterAll() []gojq.CompilerOption {
 
 // RegisterYAMLParse registers yaml_parse, a YAML document to a JSON value.
 func RegisterYAMLParse() gojq.CompilerOption {
-	return common.WithFunction("yaml_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("yaml_parse", 0, 2, ParsedYAML, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("yaml_parse: %v", err), nil)

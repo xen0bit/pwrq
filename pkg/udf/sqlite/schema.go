@@ -30,6 +30,7 @@ import (
 // to answer a question most callers did not ask; the one who did asks for it
 // with `invoke_sqlite_query($db; "select count(*) from t")`.
 func RegisterGetSqliteTable() gojq.CompilerOption {
+	common.DeclareInput("get_sqlite_table", common.InputPipeline)
 	return common.WithIterFunction("get_sqlite_table", 0, 1, func(v any, args []any) gojq.Iter {
 		in, _ := common.SplitInput(v, args, 0)
 		path, err := bindDatabase(in, "get_sqlite_table")
@@ -69,6 +70,7 @@ func RegisterGetSqliteTable() gojq.CompilerOption {
 // A table that does not exist is an error rather than an empty stream: no table
 // has zero columns, so an empty answer could only be read as a lie.
 func RegisterGetSqliteSchema() gojq.CompilerOption {
+	common.DeclareInput("get_sqlite_schema", common.InputPipeline)
 	return common.WithIterFunction("get_sqlite_schema", 1, 2, func(v any, args []any) gojq.Iter {
 		in, rest := common.SplitInput(v, args, 1)
 		path, err := bindDatabase(in, "get_sqlite_schema")

@@ -29,6 +29,7 @@ import (
 // transaction: a caller who wants one writes BEGIN and COMMIT, which is the
 // only way a script containing its own transaction control can also work.
 func RegisterInvokeSqliteCommand() gojq.CompilerOption {
+	common.DeclareInput("invoke_sqlite_command", common.InputPipeline)
 	return common.WithFunction("invoke_sqlite_command", 1, 3, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		path, err := bindDatabase(in, "invoke_sqlite_command")

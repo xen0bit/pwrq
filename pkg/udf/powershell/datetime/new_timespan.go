@@ -45,7 +45,7 @@ type NewTimeSpanOptions struct {
 //   - new_timespan({"Start": "2024-01-01"; "End": "2024-12-31"}) - TimeSpan between dates
 //   - new_timespan("2024-01-01"; "2024-12-31") - Start and End as separate args
 func RegisterNewTimeSpan() gojq.CompilerOption {
-	return common.WithFunction("new_timespan", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("new_timespan", 0, 2, TimeSpanShape, func(v any, args []any) any {
 		opts := NewTimeSpanOptions{}
 
 		// Parse arguments
@@ -290,7 +290,7 @@ func formatDuration(d time.Duration) string {
 
 // timeSpanToMap converts a TimeSpan to a map for JSON encoding
 func timeSpanToMap(ts TimeSpan) map[string]any {
-	return map[string]any{
+	return TimeSpanShape.Build(map[string]any{
 		"Days":         ts.Days,
 		"Hours":        ts.Hours,
 		"Minutes":      ts.Minutes,
@@ -302,5 +302,5 @@ func timeSpanToMap(ts TimeSpan) map[string]any {
 		"TotalMinutes": ts.TotalMinutes,
 		"TotalSeconds": ts.TotalSeconds,
 		"Duration":     ts.Duration,
-	}
+	})
 }

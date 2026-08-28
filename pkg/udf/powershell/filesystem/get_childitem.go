@@ -244,10 +244,6 @@ func isHiddenFile(info os.FileInfo) bool {
 func createPSObjectFromFileInfo(path string, info os.FileInfo) (map[string]any, error) {
 	// Create PSObject with file properties
 	psobj := psobject.NewPSObject(path)
-	psobj.TypeName = "System.IO.FileInfo"
-	if info.IsDir() {
-		psobj.TypeName = "System.IO.DirectoryInfo"
-	}
 
 	// Add NoteProperties (PowerShell-style properties)
 	psobj.AddNoteProperty("Name", info.Name())
@@ -286,12 +282,14 @@ func createPSObjectFromFileInfo(path string, info os.FileInfo) (map[string]any, 
 	psobj.AddNoteProperty("IsHidden", strings.HasPrefix(info.Name(), "."))
 	psobj.AddNoteProperty("Extension", filepath.Ext(info.Name()))
 
-	return psobj.ToMap(), nil
+	// The shape stamps the type name, so the only place a filesystem item's
+	// type is written down is the declaration that also lists its properties.
+	return itemShape(info.IsDir()).Build(psobj.ToMap()), nil
 }
 
 // RegisterGetChildItem registers the get_childitem function with gojq
 func RegisterGetChildItem() gojq.CompilerOption {
-	return common.WithIterFunction("get_childitem", 0, 5, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_childitem", 0, 5, FileInfo, func(v any, args []any) gojq.Iter {
 		opts, err := parseGetChildItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

@@ -229,7 +229,7 @@ func RegisterDedupe() gojq.CompilerOption {
 // RegisterLookup registers lookup, the first row of an array of objects whose
 // property equals a value: lookup("name"; "ada").
 func RegisterLookup() gojq.CompilerOption {
-	return common.WithFunction("lookup", 2, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("lookup", 2, 3, MatchedRow, func(v any, args []any) any {
 		arr, rest, err := arrInput(v, args, 2, "lookup")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

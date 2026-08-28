@@ -30,6 +30,7 @@ import (
 // reference. Piping a reference and passing options at once is an error rather
 // than a guess.
 func RegisterCompareObject() gojq.CompilerOption {
+	common.DeclareInput("compare_object", common.InputPipeline)
 	return common.WithFunction("compare_object", 1, 3, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		reference, err := common.BindArray(in, "compare_object")
