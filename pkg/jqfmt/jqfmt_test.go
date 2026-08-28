@@ -58,6 +58,14 @@ var cases = []string{
 	`."quoted.key"[0:1]`,
 	`{key: ("a" + "b"), "str-key": 1, ($k): 2, "interp-\(.x)": 3}`,
 	`first(.[] | select(.enabled)) // null`,
+	// Definitions nested inside the query rather than heading the program.
+	// jq allows one at the head of any query, and dropping it would change
+	// what the query means, so the round trip below is what pins them.
+	`[def descend: if . > 3 then . else . + 1 | descend end; descend | descend | descend | descend]`,
+	`. | (def descend: if . > 3 then . else . + 1 | descend end; descend | descend | descend)`,
+	`{alpha: (def descend: if . > 3 then . else . + 1 | descend end; descend | descend | descend)}`,
+	`if . then (def descend: if . > 3 then . else . + 1 | descend end; descend | descend) else empty end`,
+	`[def f: 1; f, def g(a): a * 2; g(3)]`,
 	// Definitions and a string with interpolation.
 	`def bytes($p): hex_encode($p; true) | hex_decode; bytes("/usr/bin/mv") | shared_chunks(bytes("/usr/bin/cp")) | {Coverage, MatchedBytes, Spans}`,
 	`"\(.name) is \(.age)"`,
@@ -164,6 +172,18 @@ func TestFormatBreaksIfWhenItDoesNotFit(t *testing.T) {
 	want := "if .status >= 500 then\n  \"critical: \" + .message\nelif .status >= 400 then\n  \"warning: \" + .message\nelse\n  \"ok\"\nend"
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestFormatKeepsNestedDefinitions: a definition at the head of a nested
+// query is part of what that query means. The round-trip test above covers
+// this as a property; this one says it plainly, because losing it is silent -
+// the result still parses, it just calls a function nobody defined.
+func TestFormatKeepsNestedDefinitions(t *testing.T) {
+	src := `[def descend: if . > 3 then . else . + 1 | descend end; descend | descend | descend | descend]`
+	got := Format(parse(t, src))
+	if !strings.Contains(got, "def descend:") {
+		t.Errorf("the nested definition was dropped:\n%s", got)
 	}
 }
 

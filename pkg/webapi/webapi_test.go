@@ -304,6 +304,104 @@ func TestFormatThenMinifyRoundTrips(t *testing.T) {
 	}
 }
 
+// TestInline is the third thing the query box does with a query: the body of
+// each definition appears where it is called, and the definition goes.
+func TestInline(t *testing.T) {
+	resp := call[InlineResponse](t, "inline", InlineRequest{Query: `def hot: select(.CPU > 50); [.[] | hot]`})
+	if resp.Error != "" {
+		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+	if strings.Contains(resp.Query, "def ") {
+		t.Errorf("the definition survived: %q", resp.Query)
+	}
+	if !strings.Contains(resp.Query, "select(.CPU > 50)") {
+		t.Errorf("the body did not arrive at the call site: %q", resp.Query)
+	}
+	if resp.Expanded != 1 {
+		t.Errorf("expanded = %d, want 1 call site", resp.Expanded)
+	}
+	if len(resp.Kept) != 0 {
+		t.Errorf("nothing should have been kept, got %v", resp.Kept)
+	}
+}
+
+// TestInlineDuplicatesAtEveryCallSite is the point of the button: a helper
+// used three times is spelled out three times.
+func TestInlineDuplicatesAtEveryCallSite(t *testing.T) {
+	resp := call[InlineResponse](t, "inline", InlineRequest{Query: `def ms: . / 1000; [.a | ms, .b | ms, .c | ms]`})
+	if resp.Error != "" {
+		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+	if got := strings.Count(resp.Query, ". / 1000"); got != 3 {
+		t.Errorf("the body appears %d times in %q, want 3", got, resp.Query)
+	}
+	if resp.Expanded != 3 {
+		t.Errorf("expanded = %d, want 3", resp.Expanded)
+	}
+}
+
+// TestInlineSaysWhatItCouldNotDo: a definition that calls itself cannot be
+// unfolded into a finite query, and the page has to be able to say why it is
+// still there.
+func TestInlineSaysWhatItCouldNotDo(t *testing.T) {
+	const query = `def fact: if . <= 1 then 1 else . * (. - 1 | fact) end; fact`
+	resp := call[InlineResponse](t, "inline", InlineRequest{Query: query})
+	if resp.Error != "" {
+		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+	if !strings.Contains(resp.Query, "def fact:") {
+		t.Errorf("the recursive definition was expanded anyway: %q", resp.Query)
+	}
+	if len(resp.Kept) == 0 {
+		t.Fatal("nothing explained why the definition is still there")
+	}
+	if !strings.Contains(resp.Kept[0], "fact") {
+		t.Errorf("the note %q does not name the definition", resp.Kept[0])
+	}
+}
+
+// TestInlineIsFormatted: the expanded query lands in the same editor as
+// everything else, so it arrives laid out rather than on one line.
+func TestInlineIsFormatted(t *testing.T) {
+	resp := call[InlineResponse](t, "inline", InlineRequest{Query: `def f: .b; .a | f | .c`})
+	if want := ".a\n| .b\n| .c"; resp.Query != want {
+		t.Errorf("inlined = %q, want %q", resp.Query, want)
+	}
+}
+
+// TestInlineLeavesBrokenQueriesAlone: mid-edit is when a button gets pressed
+// by accident, and losing the text would be unforgivable.
+func TestInlineLeavesBrokenQueriesAlone(t *testing.T) {
+	resp := call[InlineResponse](t, "inline", InlineRequest{Query: "def f: 1; ("})
+	if resp.Error == "" {
+		t.Error("a broken query should report why it was not inlined")
+	}
+	if resp.Query != "def f: 1; (" {
+		t.Errorf("query = %q, want the original text back", resp.Query)
+	}
+}
+
+// TestInlineOnAQueryWithoutDefinitions is a no-op beyond the layout, which is
+// what makes the button safe to press on anything.
+func TestInlineOnAQueryWithoutDefinitions(t *testing.T) {
+	for _, example := range Examples() {
+		inlined := call[InlineResponse](t, "inline", InlineRequest{Query: example.Query})
+		if inlined.Error != "" {
+			t.Errorf("%s\n\ndid not inline: %s", example.Query, inlined.Error)
+			continue
+		}
+		if inlined.Expanded != 0 || len(inlined.Kept) != 0 {
+			t.Errorf("%s\n\nhas no definitions but reported %d expansions and %v",
+				example.Query, inlined.Expanded, inlined.Kept)
+		}
+		formatted := call[FormatResponse](t, "format", FormatRequest{Query: example.Query})
+		if inlined.Query != formatted.Query {
+			t.Errorf("%s\n\ninlining changed a query with nothing to inline:\n%q\n%q",
+				example.Query, formatted.Query, inlined.Query)
+		}
+	}
+}
+
 func TestFormatLeavesBrokenQueriesAlone(t *testing.T) {
 	resp := call[FormatResponse](t, "format", FormatRequest{Query: ".a | ("})
 	if resp.Error == "" {
@@ -442,7 +540,7 @@ func TestUnknownMethod(t *testing.T) {
 // TestMalformedRequestsStayJSON matters because the page has no other channel:
 // a reply it cannot parse is indistinguishable from a crash.
 func TestMalformedRequestsStayJSON(t *testing.T) {
-	for _, method := range []string{"validate", "run", "diagram", "format", "catalog"} {
+	for _, method := range []string{"validate", "run", "diagram", "format", "minify", "inline", "catalog"} {
 		var anything map[string]any
 		raw := Call(method, "{not json")
 		if err := json.Unmarshal([]byte(raw), &anything); err != nil {

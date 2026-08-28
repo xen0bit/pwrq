@@ -19,6 +19,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/core/queryrun"
 	"github.com/xen0bit/pwrq/pkg/graph"
 	"github.com/xen0bit/pwrq/pkg/jqfmt"
+	"github.com/xen0bit/pwrq/pkg/jqinline"
 	"github.com/xen0bit/pwrq/pkg/udf"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 	"github.com/xen0bit/pwrq/pkg/udf/discovery"
@@ -43,6 +44,8 @@ func Call(method, request string) string {
 		return Format(request)
 	case "minify":
 		return Minify(request)
+	case "inline":
+		return Inline(request)
 	case "catalog":
 		return Catalog(request)
 	default:
@@ -278,6 +281,56 @@ func Minify(request string) string {
 		return marshal(FormatResponse{Query: req.Query, Error: err.Error()})
 	}
 	return marshal(FormatResponse{Query: jqfmt.Minify(query)})
+}
+
+// ---------------------------------------------------------------------------
+// inline
+
+// InlineRequest asks for a query's definitions to be expanded where they are
+// called.
+type InlineRequest struct {
+	Query string `json:"query"`
+}
+
+// InlineResponse carries the expanded query, how many calls it replaced, and
+// what it had to leave alone. Kept names each definition that is still there
+// and why, so the page can say so rather than leave the user to wonder.
+type InlineResponse struct {
+	Query    string   `json:"query"`
+	Expanded int      `json:"expanded"`
+	Kept     []string `json:"kept,omitempty"`
+	Error    string   `json:"error,omitempty"`
+}
+
+// Inline replaces every call to a definition the query makes with a copy of
+// that definition's body, so a pipeline can be read without jumping back to
+// the top, and then lays the result out the way Format would. It is the third
+// thing a query box wants beside Format and Minify, and like them it does not
+// change what the query means: a body is only moved to a call site where every
+// name it reads still means the same thing, and a body that binds a name its
+// arguments use is renamed apart first.
+//
+// A definition that calls itself cannot be unfolded into a finite query, so it
+// stays a definition and Kept says so, as does one whose expansion would make
+// the query too large to work in.
+func Inline(request string) string {
+	var req InlineRequest
+	if err := json.Unmarshal([]byte(request), &req); err != nil {
+		return marshal(InlineResponse{Error: "malformed request: " + err.Error()})
+	}
+	if strings.TrimSpace(req.Query) == "" {
+		return marshal(InlineResponse{Query: req.Query})
+	}
+	query, err := gojq.Parse(req.Query)
+	if err != nil {
+		return marshal(InlineResponse{Query: req.Query, Error: err.Error()})
+	}
+	result := jqinline.Inline(query)
+	return marshal(InlineResponse{
+		Query:    jqfmt.Format(result.Query),
+		Expanded: result.Expanded,
+		Kept:     result.Kept,
+	})
 }
 
 // ---------------------------------------------------------------------------

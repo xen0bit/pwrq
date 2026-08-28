@@ -535,6 +535,14 @@ What it does:
   pane takes a stream of values the way the CLI reads a file, and the jq flags
   that matter are switches: `-c`, `-r`, `-s`, `-n`, a result limit and a
   timeout. Named arguments bind jq variables, as `--argjson` does.
+- **Rewrites the query in place.** Format spreads it across lines, Minify puts
+  it back on one, and Inline expands each `def` where it is called — a helper
+  used three times is spelled out three times — so a pipeline reads straight
+  through. None of the three changes what the query means: inlining renames a
+  body's own bindings apart from the ones its arguments carry, and leaves a
+  definition standing rather than move it somewhere a name it reads would mean
+  something else. A definition that calls itself stays a definition, and the
+  page says so.
 - **Draws the query**, coloured by what each node *is*: your cmdlets in blue,
   jq's own builtins in teal, control flow in orange, constructed data in
   magenta, paths in indigo. The legend under the diagram is generated from the
