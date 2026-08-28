@@ -149,15 +149,11 @@ var documentedOptionKeys = map[string][]discovery.Option{
 		{Name: "Name", Type: "string", Description: "stop processes with this name"},
 		{Name: "Id", Type: "number", Description: "stop the process with this id"},
 		{Name: "Force", Type: "boolean", Description: "kill rather than ask to terminate"},
-		{Name: "PassThru", Type: "boolean", Description: "return what was stopped"},
 	},
 	"get_service": {
 		{Name: "Name", Type: "string", Description: "list only services with this name"},
 		{Name: "DisplayName", Type: "string", Description: "list only services with this display name"},
-		{Name: "Status", Type: "string", Description: "list only services in this state"},
-		{Name: "Exclude", Type: "array", Description: "names to leave out of the listing"},
-		{Name: "DependentServices", Type: "boolean", Description: "include the services that depend on each one"},
-		{Name: "ServicesDependedOn", Type: "boolean", Description: "include the services each one depends on"},
+		{Name: "Exclude", Type: "string", Description: "a name to leave out of the listing"},
 	},
 	"start_service": {
 		{Name: "Name", Type: "string", Description: "the service to start, if not given as the first argument"},
@@ -203,6 +199,12 @@ var documentedOptionKeys = map[string][]discovery.Option{
 		{Name: "Destination", Type: "string", Description: "where to move it to"},
 		{Name: "Force", Type: "boolean", Description: "overwrite what is already there"},
 	},
+	// new_item also parses ErrorCode and resolve_path a Credential, and both
+	// are then never read: the value lands in the options struct and nothing
+	// consults it. They are left out deliberately. Listing a key that does
+	// nothing is worse than listing none, because a caller who reads it will
+	// believe it works and spend the round trip finding out otherwise - which
+	// is the failure this whole table is here to prevent.
 	"new_item": {
 		{Name: "Path", Type: "string", Description: "what to create, if not given as the first argument"},
 		{Name: "ItemType", Type: "string", Description: "File or Directory"},
