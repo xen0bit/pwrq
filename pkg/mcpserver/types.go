@@ -137,15 +137,29 @@ type listFunctionsResult struct {
 	Suggestions []string `json:"suggestions,omitempty" jsonschema:"names, aliases and categories closest to a filter that matched nothing"`
 }
 
-// validateQueryArgs asks whether a query parses.
+// validateQueryArgs asks whether a query parses and compiles.
 type validateQueryArgs struct {
-	Query string `json:"query" jsonschema:"the pwrq/jq program to parse"`
+	Query string `json:"query" jsonschema:"the pwrq/jq program to parse and compile"`
+	// Args names the variables the query may read, so one that mentions $name
+	// compiles here as it would in a run. Only the names are used.
+	Args []namedArg `json:"args,omitempty" jsonschema:"the same named variables you would pass to run_query, so a query reading $name compiles; only the names are used"`
 }
 
+// Validation stages. A query that does not parse is not a program at all; one
+// that parses but does not compile is a program calling something that is not
+// there, which is a different mistake with a different fix.
+const (
+	stageParse   = "parse"
+	stageCompile = "compile"
+)
+
 // validateQueryResult reports the answer, and the query laid out over multiple
-// lines when it is valid.
+// lines - whether or not it was valid, since a compile failure is about one
+// call inside an otherwise well-formed program and the caller is about to edit
+// it.
 type validateQueryResult struct {
-	OK        bool   `json:"ok" jsonschema:"true when the query parses"`
-	Error     string `json:"error,omitempty" jsonschema:"why the query does not parse"`
+	OK        bool   `json:"ok" jsonschema:"true when the query parses and compiles, which means it will run"`
+	Error     string `json:"error,omitempty" jsonschema:"why the query is not valid"`
+	Stage     string `json:"stage,omitempty" jsonschema:"how far the query got: parse, when it is not grammatical; compile, when it is grammatical but calls something that is not defined"`
 	Formatted string `json:"formatted,omitempty" jsonschema:"the query laid out over several lines, one pipeline stage per line"`
 }

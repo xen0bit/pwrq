@@ -76,7 +76,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 		// successful call: the values are useful and the result reports why
 		// it stopped.
 		if res.Error != "" && res.Count == 0 && !res.Truncated {
-			return nil, runQueryResult{}, fmt.Errorf("%s: %s", res.Kind, res.Error)
+			return nil, runQueryResult{}, fmt.Errorf("%s: %s", res.Kind, explainRunFailure(res, args.Query))
 		}
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: summarize(res)}},
@@ -103,7 +103,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_query",
-		Description: "Check whether a pwrq/jq query parses, and return the formatted program when it does. Cheap: use it to iterate on a query before running it.",
+		Description: "Check whether a pwrq/jq query parses and compiles against the cmdlet vocabulary, and return the formatted program when it does. A query this accepts will run: unresolvable cmdlet names and wrong arities are caught here, not at run time. Cheap: use it to iterate on a query before running it. Pass the same args you would pass to run_query, so a query that reads $name still compiles.",
 		InputSchema: schemas["validate_query"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args validateQueryArgs) (*mcp.CallToolResult, validateQueryResult, error) {
 		started := time.Now()
@@ -278,7 +278,16 @@ func listFunctions(args listFunctionsArgs) listFunctionsResult {
 	}
 }
 
-// validateQuery parses a program and reports whether it is well-formed.
+// validateQuery parses a program, compiles it against the cmdlet vocabulary,
+// and reports whether it is well-formed.
+//
+// It used to stop after parsing, and that made its answer worth less than it
+// looked. Parsing accepts any name at any arity - `notacmdlet(1;2;3)` parses
+// perfectly - so "validates cleanly" meant only "is grammatical", and every
+// unresolvable call still failed at run time. A model that had just been told
+// its query was fine would then reasonably read the run failure as being about
+// something else. Compiling here costs a few milliseconds and moves that whole
+// class of failure to the tool whose entire purpose is to catch it.
 //
 // A valid query comes back laid out by jqfmt - the same formatting the browser
 // IDE offers - rather than as the canonical single line. A model that asked
@@ -290,7 +299,61 @@ func validateQuery(args validateQueryArgs) validateQueryResult {
 	}
 	query, err := gojq.Parse(args.Query)
 	if err != nil {
-		return validateQueryResult{Error: err.Error()}
+		return validateQueryResult{Error: err.Error(), Stage: stageParse}
 	}
-	return validateQueryResult{OK: true, Formatted: jqfmt.Format(query)}
+
+	formatted := jqfmt.Format(query)
+	if err := compileForValidation(query, args.Args); err != nil {
+		return validateQueryResult{
+			Error: explainCompileError(err.Error(), args.Query),
+			Stage: stageCompile,
+			// The layout goes back even for a query that does not compile: the
+			// caller is about to edit it, and a failure at this stage is about
+			// one call in an otherwise well-formed program.
+			Formatted: formatted,
+		}
+	}
+	return validateQueryResult{OK: true, Formatted: formatted, Stage: stageCompile}
+}
+
+// compileForValidation compiles a parsed query against the engine's vocabulary
+// exactly as a run would, so the two cannot disagree about what resolves.
+func compileForValidation(query *gojq.Query, args []namedArg) error {
+	e := getEngine()
+
+	// The alias definitions are prepended by the runner on every run, so a
+	// query calling `gci` compiles there. Prepending them here too is what
+	// makes this check answer the same question the run will ask. Parse
+	// returns a fresh tree each call, so mutating it affects nobody.
+	if len(e.runner.AliasDefs) > 0 {
+		query.FuncDefs = append(append([]*gojq.FuncDef{}, e.runner.AliasDefs...), query.FuncDefs...)
+	}
+
+	options := append([]gojq.CompilerOption{}, e.runner.Options...)
+	// A query that reads $name compiles only if the name is bound, so the
+	// caller passes the same args they would pass to run_query. Only the names
+	// matter here; the values are never evaluated.
+	if names := variableNames(args); len(names) > 0 {
+		options = append(options, gojq.WithVariables(names))
+	}
+
+	_, err := gojq.Compile(query, options...)
+	return err
+}
+
+// variableNames renders the caller's named args the way gojq wants them, with
+// the leading dollar it may or may not have been given.
+func variableNames(args []namedArg) []string {
+	names := make([]string, 0, len(args))
+	for _, arg := range args {
+		name := strings.TrimSpace(arg.Name)
+		if name == "" {
+			continue
+		}
+		if !strings.HasPrefix(name, "$") {
+			name = "$" + name
+		}
+		names = append(names, name)
+	}
+	return names
 }
