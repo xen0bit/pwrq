@@ -104,7 +104,7 @@ type functionInfo struct {
 	// Shape summarises the object the cmdlet emits, and TypeName is the key to
 	// look the full property list up by.
 	Shape    string `json:"shape,omitempty" jsonschema:"summary of the object the cmdlet emits and the keys it carries; empty when it does not emit an object"`
-	TypeName string `json:"typeName,omitempty" jsonschema:"the PSTypeName the cmdlet's output carries, which identifies its shape"`
+	TypeName string `json:"typeName,omitempty" jsonschema:"the PwrqType the cmdlet's output carries, which identifies its shape"`
 }
 
 // listFunctionsResult is the full or filtered cmdlet catalog.

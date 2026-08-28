@@ -4,40 +4,40 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestBuildStampsTheDeclaredTypeName(t *testing.T) {
-	s := Fixed("System.IO.FileInfo", Prop("Name", String, "base name"))
+	s := Fixed("Pwrq.FileSystem.File", Prop("Name", String, "base name"))
 	got := s.Build(map[string]any{"Name": "go.mod"})
 
-	if got[psobject.PSTypeNameKey] != "System.IO.FileInfo" {
-		t.Errorf("PSTypeName = %v, want System.IO.FileInfo", got[psobject.PSTypeNameKey])
+	if got[typed.TypeKey] != "Pwrq.FileSystem.File" {
+		t.Errorf("PwrqType = %v, want Pwrq.FileSystem.File", got[typed.TypeKey])
 	}
 }
 
 // TestBuildOverwritesAnInferredTypeName pins the reason Build does not defer to
 // a type name that is already present.
 //
-// psobject.NewPSObject infers one from the value it wraps, so a FileInfo built
-// from a path string arrives at Build already calling itself a System.String.
-// Deferring would stamp the value's type instead of the cmdlet's, which is the
-// bug that shipped the first time this was written.
+// typed.New infers one from the value it wraps, so a file item built from a
+// path string arrives at Build already calling itself a string. Deferring would
+// stamp the value's JSON type instead of the cmdlet's, which is the bug that
+// shipped the first time this was written.
 func TestBuildOverwritesAnInferredTypeName(t *testing.T) {
-	psobj := psobject.NewPSObject("some/path")
-	psobj.AddNoteProperty("Name", "path")
-	if inferred := psobj.ToMap()[psobject.PSTypeNameKey]; inferred != "System.String" {
-		t.Fatalf("precondition: NewPSObject inferred %v, expected System.String", inferred)
+	obj := typed.New("some/path")
+	obj.AddNoteProperty("Name", "path")
+	if inferred := obj.ToMap()[typed.TypeKey]; inferred != "string" {
+		t.Fatalf("precondition: typed.New inferred %v, expected string", inferred)
 	}
 
-	s := Fixed("System.IO.FileInfo",
+	s := Fixed("Pwrq.FileSystem.File",
 		Prop("Name", String, "base name"),
-		OptProp("PSPath", String, "the path"),
+		OptProp("PwrqValue", String, "the path"),
 	)
-	got := s.Build(psobj.ToMap())
+	got := s.Build(obj.ToMap())
 
-	if got[psobject.PSTypeNameKey] != "System.IO.FileInfo" {
-		t.Errorf("PSTypeName = %v, want the declared type to win", got[psobject.PSTypeNameKey])
+	if got[typed.TypeKey] != "Pwrq.FileSystem.File" {
+		t.Errorf("PwrqType = %v, want the declared type to win", got[typed.TypeKey])
 	}
 }
 
@@ -121,8 +121,8 @@ func TestUnspecifiedShapeDescribesItselfAsNothing(t *testing.T) {
 
 func TestPlainShapeOmitsATypeName(t *testing.T) {
 	s := Plain(Prop("count", Number, "how many"))
-	if got := s.Build(map[string]any{"count": 1}); got[psobject.PSTypeNameKey] != nil {
-		t.Errorf("a Plain shape stamped %v; it must not add a type name", got[psobject.PSTypeNameKey])
+	if got := s.Build(map[string]any{"count": 1}); got[typed.TypeKey] != nil {
+		t.Errorf("a Plain shape stamped %v; it must not add a type name", got[typed.TypeKey])
 	}
 	if !strings.HasPrefix(s.Summary(), "object with 1 property") {
 		t.Errorf("Summary = %q", s.Summary())

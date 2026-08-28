@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -79,10 +79,10 @@ func RegisterPopLocation() gojq.CompilerOption {
 			"Provider":  "FileSystem",
 			"StackName": stackName,
 		}
-		psobj := psobject.NewPSObject(result)
+		obj := typed.New(result)
 
 		if opts.PassThru {
-			return common.MakeUDFSuccessResult(CurrentLocationShape.Build(psobj.ToMap()), map[string]any{
+			return common.MakeUDFSuccessResult(CurrentLocationShape.Build(obj.ToMap()), map[string]any{
 				"operation": "pop_location",
 				"path":      cwd,
 				"stack":     stackName,

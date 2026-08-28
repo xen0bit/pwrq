@@ -12,8 +12,8 @@ $ pwrq -c 'get_childitem("cli") | select(.Name == "cli.go")'
 {"CreationTime":"2026-08-07T22:08:58-04:00","Extension":".go",
  "FullName":"/home/you/pwrq/cli/cli.go","IsHidden":false,"IsReadOnly":false,
  "LastAccessTime":"2026-08-07T22:08:58-04:00","LastWriteTime":"2026-08-07T22:08:58-04:00",
- "Length":18644,"Mode":"-rw-rw-r--","Name":"cli.go","PSPath":"cli/cli.go",
- "PSTypeName":"System.IO.FileInfo"}
+ "Length":18644,"Mode":"-rw-rw-r--","Name":"cli.go",
+ "PwrqType":"Pwrq.FileSystem.File","PwrqValue":"cli/cli.go"}
 ```
 
 A transform returns its value, with nothing to unwrap:
@@ -549,11 +549,11 @@ lifts the limit.
 
 ```console
 $ pwrq -nc 'shared_chunks("the quick brown fox"; "a quick brown fox indeed")'
-{"Chunks":[{"End":3,"Length":3,"Matched":false,"PSTypeName":"Pwrq.SharedChunk",
+{"Chunks":[{"End":3,"Length":3,"Matched":false,"PwrqType":"Pwrq.Rncd.Chunk",
             "RefOffset":null,"Start":0},
-           {"End":19,"Length":16,"Matched":true,"PSTypeName":"Pwrq.SharedChunk",
+           {"End":19,"Length":16,"Matched":true,"PwrqType":"Pwrq.Rncd.Chunk",
             "RefOffset":1,"Start":3}],
- "Coverage":0.842105,"MatchedBytes":16,"MinMatch":16,"PSTypeName":"Pwrq.SharedChunks",
+ "Coverage":0.842105,"MatchedBytes":16,"MinMatch":16,"PwrqType":"Pwrq.Rncd.SharedChunks",
  "ReferenceLength":24,"Spans":1,"TargetLength":19}
 ```
 
@@ -572,7 +572,7 @@ $ pwrq -nc 'read_bytes("/usr/bin/mv") | shared_chunks(read_bytes("/usr/bin/cp"))
 
 $ pwrq -nc 'read_bytes("/usr/bin/mv") | shared_chunks(read_bytes("/usr/bin/cp")).Chunks
            | map(select(.Matched)) | max_by(.Length)'
-{"End":14615,"Length":2285,"Matched":true,"PSTypeName":"Pwrq.SharedChunk",
+{"End":14615,"Length":2285,"Matched":true,"PwrqType":"Pwrq.Rncd.Chunk",
  "RefOffset":16426,"Start":12330}
 ```
 
@@ -600,8 +600,8 @@ same way they apply to `get_childitem`:
 
 ```console
 $ pwrq -nc '[invoke_sqlite_query("app.db"; "select * from users")]'
-[{"PSTypeName":"System.Data.DataRow","email":"ada@example.com","id":1,"score":9.5},
- {"PSTypeName":"System.Data.DataRow","email":"grace@example.com","id":2,"score":8}]
+[{"PwrqType":"Pwrq.Sqlite.Row","email":"ada@example.com","id":1,"score":9.5},
+ {"PwrqType":"Pwrq.Sqlite.Row","email":"grace@example.com","id":2,"score":8}]
 ```
 
 Values are bound, never pasted into the SQL. An array binds to `?` and an object
@@ -618,8 +618,8 @@ read-only, so a typo in a SELECT cannot rewrite it:
 
 ```console
 $ pwrq -nc 'invoke_sqlite_command("app.db"; "insert into users (email, score) values (:e, :s)"; {e: "ada@example.com", s: 9.5})'
-{"Database":"app.db","LastInsertId":1,"PSPath":"app.db",
- "PSTypeName":"Pwrq.Sqlite.CommandResult","RowsAffected":1}
+{"Database":"app.db","LastInsertId":1,"PwrqType":"Pwrq.Sqlite.CommandResult",
+ "PwrqValue":"app.db","RowsAffected":1}
 
 $ pwrq -nc 'invoke_sqlite_query("app.db"; "delete from users")'
 pwrq: invoke_sqlite_query: attempt to write a readonly database (8)
@@ -637,7 +637,7 @@ $ pwrq -nc '[get_sqlite_schema("app.db"; "users") | {Name, Type, NotNull, IsPrim
  {"IsPrimaryKey":false,"Name":"score","NotNull":false,"Type":"REAL"}]
 ```
 
-Each table object carries its database in `PSPath`, so it binds as the next
+Each table object carries its database in `PwrqValue`, so it binds as the next
 cmdlet's database and the two compose without naming the file twice:
 
 ```console
@@ -653,8 +653,8 @@ if it does not exist. Anything that emits objects is a table:
 ```console
 $ pwrq -nc '[get_childitem("cli"; {Filter: "*.go"}) | {Name, Length, Extension}]
             | out_sqlite("files.db"; "files")'
-{"Created":true,"Database":"files.db","PSPath":"files.db",
- "PSTypeName":"Pwrq.Sqlite.WriteResult","RowCount":18,"Table":"files"}
+{"Created":true,"Database":"files.db","PwrqType":"Pwrq.Sqlite.WriteResult",
+ "PwrqValue":"files.db","RowCount":18,"Table":"files"}
 ```
 
 Which is worth doing when the question is easier in SQL than in jq, or when the
@@ -670,7 +670,7 @@ $ pwrq -nr '[invoke_sqlite_query("files.db"; "select Name, Length from files ord
   6025   encoder.go
 
 $ pwrq -nc 'invoke_sqlite_query("files.db"; "select count(*) as Files, sum(Length) as Bytes from files")'
-{"Bytes":66341,"Files":18,"PSTypeName":"System.Data.DataRow"}
+{"Bytes":66341,"Files":18,"PwrqType":"Pwrq.Sqlite.Row"}
 ```
 
 Reloading the same table is `{Truncate: true}`, and a property the table has no
@@ -703,7 +703,7 @@ works unchanged:
 $ export CENSYS_PLATFORM_TOKEN=... CENSYS_PLATFORM_ORGID=...
 $ pwrq -c 'get_censys_context'
 {"HasToken":true,"OrgIdSource":"CENSYS_PLATFORM_ORGID","OrganizationId":"…",
- "PSTypeName":"Censys.Platform.Context","ServerUrl":"https://api.platform.censys.io",
+ "PwrqType":"Pwrq.Censys.Context","ServerUrl":"https://api.platform.censys.io",
  "TimeoutSeconds":30,"TokenSource":"CENSYS_PLATFORM_TOKEN"}
 ```
 
@@ -849,7 +849,7 @@ $ pwrq -c '[invoke_llm_batch($prompts; {Parallel: 8, ContinueOnError: true})]
 ```console
 $ pwrq -nc '[invoke_llm_batch(["say a","say b"])] | length as $n | get_llm_usage'
 {"CacheHits":0,"Calls":2,"Cost":null,"InputTokens":36,"OutputTokens":389,
- "PSTypeName":"Pwrq.LLM.Usage","TotalTokens":425}
+ "PwrqType":"Pwrq.LLM.Usage","TotalTokens":425}
 ```
 
 `Cost` needs rates, in dollars per million tokens — pwrq does not ship a price
@@ -891,7 +891,7 @@ $ pwrq -nc 'invoke_agent_request("Which file in the current directory is largest
            | {Content, Queries: [.Steps[] | .Query]}'
 {"Content":"pwrq-viz 35913993",
  "Queries":["[get_childitem(\".\")] | map(select(.Name != \".\"))",
-            "[get_childitem(\".\")] | map(select(.PSTypeName == \"System.IO.FileInfo\")) | top_by(\"Length\"; 1) | .[0] | {Name, Length}",
+            "[get_childitem(\".\")] | map(select(.PwrqType == \"Pwrq.FileSystem.File\")) | top_by(\"Length\"; 1) | .[0] | {Name, Length}",
             null]}
 ```
 

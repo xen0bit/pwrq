@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -182,20 +182,20 @@ func extractPropertyByPath(value any, path string) (any, error) {
 		found := false
 		switch v := current.(type) {
 		case map[string]any:
-			// Check for PSObject format
-			if psobject.IsPSObject(v) {
-				psobj, err := psobject.FromMap(v)
+			// Check for wire form
+			if typed.Is(v) {
+				obj, err := typed.FromMap(v)
 				if err == nil {
 					// Try to get from members first
-					if member, ok := psobj.Members[part]; ok {
-						if member.MemberType == psobject.MemberTypeNoteProperty {
+					if member, ok := obj.Members[part]; ok {
+						if member.MemberType == typed.MemberTypeNoteProperty {
 							current = member.Value
 							found = true
 							break
 						}
 					}
 					// Fall back to value map
-					if valMap, ok := psobj.Value.(map[string]any); ok {
+					if valMap, ok := obj.Value.(map[string]any); ok {
 						current, found = valMap[part]
 						if found {
 							break
@@ -205,10 +205,10 @@ func extractPropertyByPath(value any, path string) (any, error) {
 			}
 			// Regular map access
 			current, found = v[part]
-		case *psobject.PSObject:
-			// Direct PSObject access
+		case *typed.Object:
+			// Direct object access
 			if member, ok := v.Members[part]; ok {
-				if member.MemberType == psobject.MemberTypeNoteProperty {
+				if member.MemberType == typed.MemberTypeNoteProperty {
 					current = member.Value
 					found = true
 					break

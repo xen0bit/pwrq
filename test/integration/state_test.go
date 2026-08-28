@@ -43,10 +43,10 @@ func TestGetVariableReportsMetadata(t *testing.T) {
 		t.Fatalf("get_variable did not return an object: %v (%q)", err, out)
 	}
 	for key, want := range map[string]any{
-		"Name":       "x",
-		"Value":      float64(42),
-		"Scope":      "Global",
-		"PSTypeName": "System.Management.Automation.PSVariable",
+		"Name":     "x",
+		"Value":    float64(42),
+		"Scope":    "Global",
+		"PwrqType": "Pwrq.Variable",
 	} {
 		if v[key] != want {
 			t.Errorf("%s = %v, want %v", key, v[key], want)

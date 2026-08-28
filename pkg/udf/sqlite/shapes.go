@@ -2,15 +2,13 @@ package sqlite
 
 import "github.com/xen0bit/pwrq/pkg/core/shape"
 
-// PowerShell type names for what these cmdlets emit. A row is a DataRow because
-// that is what PSSQLite's Invoke-SqliteQuery produces and what a PowerShell
-// user will expect; the rest describe SQLite itself, which .NET has no name for.
+// The type names for what these cmdlets emit.
 //
 // They sit beside the shapes that stamp them: a name and the property list it
 // stands for are one fact, and splitting them across files is how the two come
 // to disagree.
 const (
-	rowType     = "System.Data.DataRow"
+	rowType     = "Pwrq.Sqlite.Row"
 	tableType   = "Pwrq.Sqlite.Table"
 	columnType  = "Pwrq.Sqlite.Column"
 	commandType = "Pwrq.Sqlite.CommandResult"
@@ -34,7 +32,7 @@ var (
 		shape.Prop("Type", shape.String, "table or view"),
 		shape.Prop("Sql", shape.String, "the CREATE statement, as SQLite stored it"),
 		shape.Prop("Database", shape.String, "path to the database file"),
-		shape.OptProp("PSPath", shape.String, "the database path, as the bindable value"),
+		shape.OptProp("PwrqValue", shape.String, "the database path, as the bindable value"),
 	)
 
 	// ColumnShape is one column of one table.
@@ -47,7 +45,7 @@ var (
 		shape.Prop("DefaultValue", shape.Any, "the declared default, or null"),
 		shape.Prop("Table", shape.String, "the table this column belongs to"),
 		shape.Prop("Database", shape.String, "path to the database file"),
-		shape.OptProp("PSPath", shape.String, "the database path, as the bindable value"),
+		shape.OptProp("PwrqValue", shape.String, "the database path, as the bindable value"),
 	)
 
 	// CommandResult is what a statement that is not a query reports.
@@ -55,7 +53,7 @@ var (
 		shape.Prop("RowsAffected", shape.Number, "rows the statement changed"),
 		shape.Prop("LastInsertId", shape.Any, "rowid of the last insert, or null when the statement inserted nothing"),
 		shape.Prop("Database", shape.String, "path to the database file"),
-		shape.OptProp("PSPath", shape.String, "the database path, as the bindable value"),
+		shape.OptProp("PwrqValue", shape.String, "the database path, as the bindable value"),
 	)
 
 	// WriteResult is what writing a table of rows reports.
@@ -64,6 +62,6 @@ var (
 		shape.Prop("RowCount", shape.Number, "rows written"),
 		shape.Prop("Created", shape.Boolean, "whether the table had to be created"),
 		shape.Prop("Database", shape.String, "path to the database file"),
-		shape.OptProp("PSPath", shape.String, "the database path, as the bindable value"),
+		shape.OptProp("PwrqValue", shape.String, "the database path, as the bindable value"),
 	)
 )

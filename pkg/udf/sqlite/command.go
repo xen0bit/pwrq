@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -60,10 +60,10 @@ func RegisterInvokeSqliteCommand() gojq.CompilerOption {
 		}
 
 		out := map[string]any{
-			"Database":         path,
-			psobject.PSPathKey: path,
-			"RowsAffected":     0,
-			"LastInsertId":     nil,
+			"Database":     path,
+			typed.ValueKey: path,
+			"RowsAffected": 0,
+			"LastInsertId": nil,
 		}
 		// Both are advisory: a CREATE TABLE has neither, and a driver is
 		// allowed to refuse them. A refusal is not a failed statement, so it

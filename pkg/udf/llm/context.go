@@ -2,7 +2,7 @@ package llm
 
 import (
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -41,7 +41,7 @@ func RegisterGetContext() gojq.CompilerOption {
 				"ApiKeySource": "",
 				"Problem":      err.Error(),
 
-				psobject.PSTypeNameKey: "Pwrq.LLM.Context",
+				typed.TypeKey: "Pwrq.LLM.Context",
 			}
 		}
 
@@ -62,7 +62,7 @@ func RegisterGetContext() gojq.CompilerOption {
 			"CacheEnabled":   false,
 			"Problem":        nil,
 
-			psobject.PSTypeNameKey: "Pwrq.LLM.Context",
+			typed.TypeKey: "Pwrq.LLM.Context",
 		}
 		if limitErr != nil {
 			context["MaxCalls"] = nil

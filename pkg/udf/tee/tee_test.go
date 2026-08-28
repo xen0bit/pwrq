@@ -137,8 +137,8 @@ func TestTeeToFile(t *testing.T) {
 func TestTeeWithUDFResult(t *testing.T) {
 	// Test that tee passes through UDF results correctly
 	udfResult := map[string]any{
-		"PSPath":     "test_value",
-		"PSTypeName": "System.String",
+		"PwrqValue": "test_value",
+		"PwrqType":  "string",
 	}
 
 	result := runGojqQuery(t, "tee", udfResult, RegisterTee())

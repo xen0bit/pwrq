@@ -3,7 +3,7 @@ package common
 import (
 	"fmt"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // MakeUDFErrorResult reports a UDF failure as a jq error.
@@ -31,7 +31,7 @@ func MakeUDFErrorResult(err error, meta map[string]any) any {
 // by the encoder, which made the metadata unreachable from the command line and
 // silently rewrote any user JSON that happened to share those key names. A UDF
 // now returns what it computed; cmdlets that genuinely produce structured output
-// return a PSObject, whose properties are ordinary JSON keys.
+// return a typed object, whose properties are ordinary JSON keys.
 func MakeUDFSuccessResult(value any, meta map[string]any) any {
-	return psobject.NormalizeJSON(value)
+	return typed.NormalizeJSON(value)
 }

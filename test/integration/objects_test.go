@@ -100,9 +100,9 @@ func TestGroupObject(t *testing.T) {
 
 	// And the group carries its PowerShell type.
 	got = strings.TrimSpace(mustRun(t, people, "-c",
-		`[group_object(.; {property: "Dept"})[].PSTypeName] | unique`))
-	if got != `["Microsoft.PowerShell.Commands.GroupInfo"]` {
-		t.Errorf("PSTypeName: got %s", got)
+		`[group_object(.; {property: "Dept"})[].PwrqType] | unique`))
+	if got != `["Pwrq.Group"]` {
+		t.Errorf("PwrqType: got %s", got)
 	}
 }
 

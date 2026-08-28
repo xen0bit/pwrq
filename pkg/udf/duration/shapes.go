@@ -3,7 +3,7 @@ package duration
 import "github.com/xen0bit/pwrq/pkg/core/shape"
 
 // ZonedTimeShape is an instant expressed in a named time zone.
-var ZonedTimeShape = shape.Fixed("System.DateTimeOffset",
+var ZonedTimeShape = shape.Fixed("Pwrq.ZonedDateTime",
 	shape.Prop("DateTime", shape.String, "the instant in the target zone, RFC 3339"),
 	shape.Prop("Timezone", shape.String, "IANA zone name the instant was converted to"),
 	shape.Prop("Abbreviation", shape.String, "zone abbreviation in effect at that instant, such as EDT"),

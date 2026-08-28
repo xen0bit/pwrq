@@ -5,7 +5,7 @@ import (
 
 	"github.com/censys/censys-sdk-go/models/operations"
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -48,7 +48,7 @@ func RegisterGetContext() gojq.CompilerOption {
 			"ServerUrl":      server,
 			"TimeoutSeconds": int(defaultTimeout.Seconds()),
 
-			psobject.PSTypeNameKey: "Censys.Platform.Context",
+			typed.TypeKey: "Pwrq.Censys.Context",
 		}
 		if conn.Timeout > 0 {
 			context["TimeoutSeconds"] = conn.Timeout

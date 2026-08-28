@@ -43,8 +43,8 @@ func TestCatalogueCarriesCardinalityAndShape(t *testing.T) {
 	if !fn.Streaming {
 		t.Error("get_childitem is not reported as streaming, so a model cannot know to collect it with [...]")
 	}
-	if fn.TypeName != "System.IO.FileInfo" {
-		t.Errorf("typeName = %q, want System.IO.FileInfo", fn.TypeName)
+	if fn.TypeName != "Pwrq.FileSystem.File" {
+		t.Errorf("typeName = %q, want Pwrq.FileSystem.File", fn.TypeName)
 	}
 	for _, want := range []string{"Name", "Length", "FullName"} {
 		if !strings.Contains(fn.Shape, want) {
@@ -58,7 +58,7 @@ func TestCatalogueCarriesCardinalityAndShape(t *testing.T) {
 	// A client is only obliged to show the model the content blocks, and
 	// several drop structuredContent entirely, so the same facts have to
 	// survive into the text.
-	for _, want := range []string{"streams", "System.IO.FileInfo", "Length"} {
+	for _, want := range []string{"streams", "Pwrq.FileSystem.File", "Length"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the text block does not mention %q:\n%s", want, text)
 		}
@@ -161,7 +161,7 @@ func TestRunQueryStaysQuietAboutPlainScalars(t *testing.T) {
 }
 
 // TestRunQueryShapeNamesTheType checks the foreign key works end to end: the
-// observed values carry a PSTypeName, and that name is what the catalogue lists
+// observed values carry a PwrqType, and that name is what the catalogue lists
 // the property list under.
 func TestRunQueryShapeNamesTheType(t *testing.T) {
 	cs := newTestClient(t, NewServer("test"))
@@ -171,12 +171,12 @@ func TestRunQueryShapeNamesTheType(t *testing.T) {
 		Compact:   true,
 	})
 
-	if !strings.Contains(out.Shape, "System.DateTime") {
+	if !strings.Contains(out.Shape, "Pwrq.DateTime") {
 		t.Fatalf("the observed shape does not name the type: %q", out.Shape)
 	}
 
 	catalogue, _ := listFor(t, "get_date")
-	if got := findFunction(t, catalogue, "get_date").TypeName; got != "System.DateTime" {
+	if got := findFunction(t, catalogue, "get_date").TypeName; got != "Pwrq.DateTime" {
 		t.Errorf("the catalogue lists get_date under %q, so the observed name does not resolve", got)
 	}
 }

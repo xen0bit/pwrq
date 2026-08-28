@@ -4,12 +4,12 @@ import "github.com/xen0bit/pwrq/pkg/core/shape"
 
 // ResponseShape is what http returns.
 //
-// It used to share the name BasicHtmlWebResponseObject with
-// invoke_web_request, which reports a different set of properties for the same
-// idea - Status against StatusText, RequestMethod against Method, RequestUri
-// against Url. Two property sets under one name is what makes a type name
-// useless as a key, so this one takes pwrq's own name and the PowerShell
-// compatibility cmdlet keeps PowerShell's.
+// It used to share one borrowed .NET name with invoke_web_request, which
+// reports a different set of properties for the same idea - Status against
+// StatusText, RequestMethod against Method, RequestUri against Url. Two
+// property sets under one name is what makes a type name useless as a key, so
+// the two now have one each: this is Pwrq.Http.Response, and the cmdlet that
+// mirrors PowerShell's property names is Pwrq.Web.Response.
 var ResponseShape = shape.Fixed("Pwrq.Http.Response",
 	shape.Prop("StatusCode", shape.Number, "HTTP status code"),
 	shape.Prop("StatusText", shape.String, "status line, such as 200 OK"),

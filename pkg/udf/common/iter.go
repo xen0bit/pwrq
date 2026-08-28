@@ -5,7 +5,7 @@ import "github.com/itchyny/gojq"
 // SliceIter yields the values of a slice, in order.
 //
 // gojq.NewIter is variadic over a single element type, so a []any of mixed
-// PSObjects cannot be handed to it without a spread that loses the type. Every
+// Typed objects cannot be handed to it without a spread that loses the type. Every
 // streaming cmdlet that had already computed its results therefore carried its
 // own three-line iterator; this is that iterator, written once.
 //

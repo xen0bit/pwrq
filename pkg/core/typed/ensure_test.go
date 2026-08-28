@@ -1,4 +1,4 @@
-package psobject
+package typed
 
 import (
 	"errors"
@@ -27,7 +27,7 @@ func TestEnsureJSONLeavesCleanValuesAlone(t *testing.T) {
 }
 
 func TestEnsureJSONConvertsCmdletTypes(t *testing.T) {
-	obj := NewPSObject("/tmp/x")
+	obj := New("/tmp/x")
 	obj.AddNoteProperty("Handles", int32(7))
 
 	cases := []struct {
@@ -57,11 +57,11 @@ func TestEnsureJSONConvertsCmdletTypes(t *testing.T) {
 
 	got, err := EnsureJSON(obj)
 	if err != nil {
-		t.Fatalf("PSObject rejected: %v", err)
+		t.Fatalf("object rejected: %v", err)
 	}
 	m, ok := got.(map[string]any)
 	if !ok {
-		t.Fatalf("PSObject became %T, want map[string]any", got)
+		t.Fatalf("object became %T, want map[string]any", got)
 	}
 	if m["Handles"] != 7 {
 		t.Errorf("Handles = %#v, want 7", m["Handles"])
@@ -108,12 +108,12 @@ func TestEnsureJSONDirtyAndDeep(t *testing.T) {
 	}
 }
 
-func TestEnsureJSONCountsDepthThroughPSObjects(t *testing.T) {
+func TestEnsureJSONCountsDepthThroughObjects(t *testing.T) {
 	// A note property is a level of nesting the same way a map entry is:
 	// NormalizeJSON descends into it, so the depth check must too.
 	var v any = "leaf"
 	for range MaxJSONDepth + 10 {
-		obj := NewPSObject(nil)
+		obj := New(nil)
 		obj.AddNoteProperty("next", v)
 		v = obj
 	}

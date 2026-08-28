@@ -35,14 +35,14 @@ func TestGetLocation(t *testing.T) {
 	}
 }
 
-func TestGetLocationWithPSDrive(t *testing.T) {
+func TestGetLocationWithDrive(t *testing.T) {
 	expected, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
 
 	ss := createTestSessionState()
-	result, err := getLocation(GetLocationOptions{PSDrive: "FileSystem"}, ss)
+	result, err := getLocation(GetLocationOptions{Drive: "FileSystem"}, ss)
 	if err != nil {
 		t.Fatalf("getLocation failed: %v", err)
 	}
@@ -51,8 +51,8 @@ func TestGetLocationWithPSDrive(t *testing.T) {
 		t.Errorf("Expected path %q, got %q", expected, result["Path"])
 	}
 
-	if result["PSDrive"] != "FileSystem" {
-		t.Errorf("Expected PSDrive to be FileSystem, got %q", result["PSDrive"])
+	if result["Drive"] != "FileSystem" {
+		t.Errorf("Expected Drive to be FileSystem, got %q", result["Drive"])
 	}
 }
 

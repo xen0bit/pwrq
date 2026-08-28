@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -21,7 +21,7 @@ import (
 // are left out: sqlite_sequence is an implementation detail of AUTOINCREMENT,
 // not something the caller put in the database.
 //
-// Each object carries the database in PSPath as well as in Database, so it
+// Each object carries the database in PwrqValue as well as in Database, so it
 // binds as the database operand of the next cmdlet:
 //
 //	get_sqlite_table("app.db") | get_sqlite_schema(.Name)
@@ -46,7 +46,7 @@ func RegisterGetSqliteTable() gojq.CompilerOption {
 			from sqlite_schema
 			where type in ('table', 'view') and name not like 'sqlite_%'
 			order by name`
-		extra := map[string]any{"Database": path, psobject.PSPathKey: path}
+		extra := map[string]any{"Database": path, typed.ValueKey: path}
 		iter, err := newRowIterOnDB(db, "get_sqlite_table", query, nil, TableShape, extra, nil)
 		if err != nil {
 			_ = db.Close()
@@ -101,7 +101,7 @@ func RegisterGetSqliteSchema() gojq.CompilerOption {
 				"notnull" as "NotNull", dflt_value as "DefaultValue", pk as "IsPrimaryKey"
 			from pragma_table_info(?)
 			order by cid`
-		extra := map[string]any{"Database": path, "Table": table, psobject.PSPathKey: path}
+		extra := map[string]any{"Database": path, "Table": table, typed.ValueKey: path}
 		iter, err := newRowIterOnDB(db, "get_sqlite_schema", query, []any{table}, ColumnShape, extra, asBooleans("NotNull", "IsPrimaryKey"))
 		if err != nil {
 			_ = db.Close()

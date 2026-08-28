@@ -24,24 +24,25 @@ func fileItemProps() []shape.Property {
 		shape.Prop("LastAccessTime", shape.String, "RFC 3339 timestamp"),
 		shape.Prop("IsReadOnly", shape.Boolean, "true when no write bit is set"),
 		shape.Prop("IsHidden", shape.Boolean, "true when the name starts with a dot"),
-		shape.OptProp("PSPath", shape.String, "the path as given, which downstream cmdlets bind to"),
+		shape.OptProp("PwrqValue", shape.String, "the path as given, which downstream cmdlets bind to"),
 	}
 }
 
 var (
 	// FileInfo is one file.
-	FileInfo = shape.Fixed("System.IO.FileInfo", fileItemProps()...)
-	// DirectoryInfo is one directory. PowerShell draws the same distinction,
-	// and format_table uses it to decide what to show.
-	DirectoryInfo = shape.Fixed("System.IO.DirectoryInfo", fileItemProps()...)
+	FileInfo = shape.Fixed("Pwrq.FileSystem.File", fileItemProps()...)
+	// DirectoryInfo is one directory. A directory and a file are told apart by
+	// their type name alone, which is what format_table reads to decide what to
+	// show.
+	DirectoryInfo = shape.Fixed("Pwrq.FileSystem.Directory", fileItemProps()...)
 
 	// PathInfo is a resolved path.
-	PathInfo = shape.Fixed("System.IO.PathInfo",
+	PathInfo = shape.Fixed("Pwrq.Path.Info",
 		shape.Prop("Path", shape.String, "the resolved path"),
 		shape.OptProp("ProviderPath", shape.String, "the same path, absolute"),
 		shape.OptProp("Drive", shape.String, "the drive or root the path sits under"),
-		shape.OptProp("Provider", shape.String, "the PowerShell provider name, always FileSystem here"),
-		shape.OptProp("PSPath", shape.String, "the path as given"),
+		shape.OptProp("Provider", shape.String, "which namespace the path lives in, always FileSystem here"),
+		shape.OptProp("PwrqValue", shape.String, "the path as given"),
 	)
 )
 
@@ -49,10 +50,10 @@ var (
 	// JoinedPath is what join_path returns: the joined path, plus the parts it
 	// decomposes into.
 	//
-	// It used to call itself a System.String, which was wrong in a way that
-	// only mattered once the type name became a key into a catalogue: a caller
-	// looking System.String up would find an eight-property path object rather
-	// than a string. A name that means two things cannot be looked up.
+	// It used to call itself a string - the .NET name for one, stamped on an
+	// eight-property object - which was wrong in a way that only mattered once
+	// the type name became a key into a catalogue. A name that means two
+	// things cannot be looked up.
 	JoinedPath = shape.Fixed("Pwrq.Path.Joined",
 		shape.Prop("Path", shape.String, "the joined path"),
 		shape.Prop("DirectoryName", shape.String, "everything up to the final separator"),
@@ -61,7 +62,7 @@ var (
 		shape.Prop("Drive", shape.String, "drive prefix such as C:, or \"\" on Unix"),
 		shape.Prop("IsAbsolute", shape.Boolean, "whether the path is rooted"),
 		shape.Prop("IsUnc", shape.Boolean, "whether the path is a Windows UNC share"),
-		shape.Prop("PSPath", shape.String, "the joined path, as the bindable value"),
+		shape.Prop("PwrqValue", shape.String, "the joined path, as the bindable value"),
 	)
 
 	// SplitPath is what split_path returns. Name and BaseName are the pair
@@ -74,17 +75,17 @@ var (
 		shape.Prop("Extension", shape.String, "final extension including the dot, or \"\""),
 		shape.Prop("Drive", shape.String, "drive prefix such as C:, or \"\" on Unix"),
 		shape.Prop("IsAbsolute", shape.Boolean, "whether the path is rooted"),
-		shape.Prop("PSPath", shape.String, "the path that was split, as the bindable value"),
+		shape.Prop("PwrqValue", shape.String, "the path that was split, as the bindable value"),
 	)
 )
 
 // The write cmdlets do not return a file listing, and used to say they did.
 //
-// set_content, add_content, new_item and move_item all stamped
-// System.IO.FileInfo on results carrying quite different properties - one of
-// them {Exists, Length, Operation, Path} - so the name meant four things at
-// once. That is harmless while a type name is decoration and fatal once it is
-// the key a caller looks a property list up by, which is what it now is.
+// set_content, add_content, new_item and move_item all stamped get_childitem's
+// type name on results carrying quite different properties - one of them
+// {Exists, Length, Operation, Path} - so that name meant four things at once.
+// That is harmless while a type name is decoration and fatal once it is the key
+// a caller looks a property list up by, which is what it now is.
 var (
 	// WrittenFile is the outcome of writing to a file.
 	WrittenFile = shape.Fixed("Pwrq.FileSystem.WriteResult",
@@ -92,11 +93,11 @@ var (
 		shape.Prop("Length", shape.Number, "size of the file after the write, in bytes"),
 		shape.Prop("Exists", shape.Boolean, "whether the file exists after the write"),
 		shape.Prop("Operation", shape.String, "which cmdlet wrote it, such as Set-Content"),
-		shape.OptProp("PSPath", shape.String, "the path, as the bindable value"),
+		shape.OptProp("PwrqValue", shape.String, "the path, as the bindable value"),
 	)
 
 	// CreatedItem is a filesystem item a cmdlet just created or moved. It is
-	// deliberately not FileInfo: there is no Extension, IsHidden or
+	// deliberately not Pwrq.FileSystem.File: there is no Extension, IsHidden or
 	// CreationTime here, and claiming otherwise is what made the name useless.
 	CreatedItem = shape.Fixed("Pwrq.FileSystem.Item",
 		shape.Prop("Name", shape.String, "base name of the item"),
@@ -105,8 +106,8 @@ var (
 		shape.Prop("Mode", shape.String, "permission bits, ls-style"),
 		shape.Prop("LastWriteTime", shape.String, "RFC 3339 timestamp"),
 		shape.Prop("Exists", shape.Boolean, "whether the item exists afterwards"),
-		shape.OptProp("PSPath", shape.String, "the path, as the bindable value"),
-		shape.OptProp("PSIsMove", shape.Boolean, "present and true when the item was moved rather than created"),
+		shape.OptProp("PwrqValue", shape.String, "the path, as the bindable value"),
+		shape.OptProp("Moved", shape.Boolean, "present and true when the item was moved rather than created"),
 	)
 
 	// CopiedItem is what copy_item reports per file copied.

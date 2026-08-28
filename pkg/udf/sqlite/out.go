@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -35,8 +35,8 @@ import (
 // column is an error. Silently dropping it would lose data the caller believes
 // they stored.
 //
-// PSTypeName is not written. It is how pwrq marks the kind of an object, not a
-// property of the thing described, and a column of "System.IO.FileInfo"
+// PwrqType is not written. It is how pwrq marks the kind of an object, not a
+// property of the thing described, and a column of "Pwrq.FileSystem.File"
 // repeated a million times is not what anyone means to store.
 //
 // Values are stored as SQLite stores them: null, integers, reals, TEXT for
@@ -73,11 +73,11 @@ func RegisterOutSqlite() gojq.CompilerOption {
 			return fmt.Errorf("out_sqlite: %v", err)
 		}
 		return WriteResult.Build(map[string]any{
-			"Database":         path,
-			psobject.PSPathKey: path,
-			"Table":            table,
-			"RowCount":         written,
-			"Created":          created,
+			"Database":     path,
+			typed.ValueKey: path,
+			"Table":        table,
+			"RowCount":     written,
+			"Created":      created,
 		})
 	})
 }
@@ -233,7 +233,7 @@ func columnNames(rows []map[string]any) []string {
 	for _, row := range rows {
 		keys := make([]string, 0, len(row))
 		for k := range row {
-			if k == psobject.PSTypeNameKey || seen[k] {
+			if k == typed.TypeKey || seen[k] {
 				continue
 			}
 			keys = append(keys, k)
@@ -258,7 +258,7 @@ func checkColumns(rows []map[string]any, columns []string, table string) error {
 	unknown := make(map[string]bool)
 	for _, row := range rows {
 		for k := range row {
-			if k == psobject.PSTypeNameKey || known[k] {
+			if k == typed.TypeKey || known[k] {
 				continue
 			}
 			unknown[k] = true

@@ -93,8 +93,8 @@ func TestSSDeepWithUDFResult(t *testing.T) {
 	// SSDeep requires at least 4096 bytes
 	longString := strings.Repeat("This is a test string for ssdeep. ", 200)
 	udfResult := map[string]any{
-		"PSPath":     longString,
-		"PSTypeName": "System.String",
+		"PwrqValue": longString,
+		"PwrqType":  "string",
 	}
 
 	inputVal := common.BindValue(udfResult)

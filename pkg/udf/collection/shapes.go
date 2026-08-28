@@ -22,7 +22,7 @@ var (
 	UnflattenedObject = shape.Derived("the input's dotted keys expanded back into nested objects")
 
 	// ComparisonShape is one difference between two collections.
-	ComparisonShape = shape.Fixed("Microsoft.PowerShell.Commands.PSCompareObject",
+	ComparisonShape = shape.Fixed("Pwrq.Comparison",
 		shape.Prop("InputObject", shape.Any, "the value that differed"),
 		shape.Prop("SideIndicator", shape.String, "<= when only the reference had it, => when only the difference did, == when both"),
 	)

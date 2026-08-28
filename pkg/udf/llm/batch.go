@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -68,7 +68,7 @@ func RegisterInvokeLLMBatch() gojq.CompilerOption {
 			if r.err != nil {
 				obj["Content"] = nil
 				obj["Error"] = r.err.Error()
-				obj[psobject.PSTypeNameKey] = "Pwrq.LLM.Response"
+				obj[typed.TypeKey] = "Pwrq.LLM.Response"
 			} else {
 				for k, val := range responseObject(r.resp, &c.options) {
 					obj[k] = val

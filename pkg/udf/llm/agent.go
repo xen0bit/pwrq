@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/queryrun"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -84,7 +84,7 @@ func (r agentRun) object() map[string]any {
 		"TotalTokens":  r.inputTokens + r.outputTokens,
 		"Cost":         nil,
 
-		psobject.PSTypeNameKey: "Pwrq.Agent.Response",
+		typed.TypeKey: "Pwrq.Agent.Response",
 	}
 	if r.priced {
 		out["Cost"] = r.cost
@@ -246,9 +246,9 @@ func finishAgent(ctx context.Context, op string, run *agentRun, task, answer str
 		return run, nil
 	}
 
-	typed := o
-	typed.System = "Convert the answer into JSON matching the schema. Do not recompute it; use only what the answer says."
-	resp, err := complete(ctx, op, fmt.Sprintf("Task: %s\n\nAnswer: %s", task, answer), typed, p)
+	structured := o
+	structured.System = "Convert the answer into JSON matching the schema. Do not recompute it; use only what the answer says."
+	resp, err := complete(ctx, op, fmt.Sprintf("Task: %s\n\nAnswer: %s", task, answer), structured, p)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +406,7 @@ func stepObject(n int, thought, query, output string, truncated bool, failure st
 		"Truncated": truncated,
 		"Error":     nil,
 
-		psobject.PSTypeNameKey: "Pwrq.Agent.Step",
+		typed.TypeKey: "Pwrq.Agent.Step",
 	}
 	if query != "" {
 		step["Query"] = query

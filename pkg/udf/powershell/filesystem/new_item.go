@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -163,21 +163,21 @@ func newItem(opts NewItemOptions) (any, error) {
 		return nil, fmt.Errorf("cannot stat created item: %v", err)
 	}
 
-	// Create PSObject for the created item
-	psobj := psobject.NewPSObject(createdPath)
-	psobj.AddNoteProperty("Name", info.Name())
-	psobj.AddNoteProperty("FullName", createdPath)
-	psobj.AddNoteProperty("Length", func() int64 {
+	// Create object for the created item
+	obj := typed.New(createdPath)
+	obj.AddNoteProperty("Name", info.Name())
+	obj.AddNoteProperty("FullName", createdPath)
+	obj.AddNoteProperty("Length", func() int64 {
 		if info.IsDir() {
 			return 0
 		}
 		return info.Size()
 	}())
-	psobj.AddNoteProperty("Mode", info.Mode().String())
-	psobj.AddNoteProperty("LastWriteTime", info.ModTime())
-	psobj.AddNoteProperty("Exists", true)
+	obj.AddNoteProperty("Mode", info.Mode().String())
+	obj.AddNoteProperty("LastWriteTime", info.ModTime())
+	obj.AddNoteProperty("Exists", true)
 
-	return CreatedItem.Build(psobj.ToMap()), nil
+	return CreatedItem.Build(obj.ToMap()), nil
 }
 
 // RegisterNewItem registers the new_item function with gojq

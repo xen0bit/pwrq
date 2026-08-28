@@ -16,7 +16,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/core/shape"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // run collects every value a query emits, failing on the first error.
@@ -111,8 +111,8 @@ func TestInvokeSqliteQueryStreamsOneObjectPerRow(t *testing.T) {
 	if got := row(t, rows[0], "email"); got != "a@example.com" {
 		t.Errorf("first row email = %v, want a@example.com", got)
 	}
-	if got := row(t, rows[0], psobject.PSTypeNameKey); got != rowType {
-		t.Errorf("PSTypeName = %v, want %s", got, rowType)
+	if got := row(t, rows[0], typed.TypeKey); got != rowType {
+		t.Errorf("PwrqType = %v, want %s", got, rowType)
 	}
 
 	// Collecting is the caller's decision, and it has to produce one array.
@@ -418,10 +418,10 @@ func TestOutSqliteDoesNotStoreTheTypeName(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "out.db")
 
 	run(t, fmt.Sprintf(
-		`[{PSTypeName: "System.IO.FileInfo", Name: "a"}] | out_sqlite(%q; "files")`, path))
+		`[{PwrqType: "Pwrq.FileSystem.File", Name: "a"}] | out_sqlite(%q; "files")`, path))
 	for _, column := range run(t, fmt.Sprintf(`get_sqlite_schema(%q; "files") | .Name`, path)) {
-		if column == psobject.PSTypeNameKey {
-			t.Errorf("%s was written as a column", psobject.PSTypeNameKey)
+		if column == typed.TypeKey {
+			t.Errorf("%s was written as a column", typed.TypeKey)
 		}
 	}
 }

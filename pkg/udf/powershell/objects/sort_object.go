@@ -358,7 +358,7 @@ func compareValuesForSort(a, b any, caseSensitive bool) int {
 		return 1
 	}
 
-	// Extract PSObject values if present
+	// Extract wrapped values if present
 	a = common.BindValue(a)
 	b = common.BindValue(b)
 

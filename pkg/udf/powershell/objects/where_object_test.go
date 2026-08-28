@@ -3,7 +3,7 @@ package objects
 import (
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestWhereObject_Basic(t *testing.T) {
@@ -285,12 +285,12 @@ func TestWhereObject_NoProperty(t *testing.T) {
 }
 
 func TestWhereObject_PSOjbect(t *testing.T) {
-	// Create PSObjects with members
-	psobj1 := psobject.NewPSObject(map[string]any{"Name": "Alice", "Age": 30})
+	// Create typed objects with members
+	psobj1 := typed.New(map[string]any{"Name": "Alice", "Age": 30})
 	psobj1.AddNoteProperty("Name", "Alice")
 	psobj1.AddNoteProperty("Age", 30)
 
-	psobj2 := psobject.NewPSObject(map[string]any{"Name": "Bob", "Age": 25})
+	psobj2 := typed.New(map[string]any{"Name": "Bob", "Age": 25})
 	psobj2.AddNoteProperty("Name", "Bob")
 	psobj2.AddNoteProperty("Age", 25)
 

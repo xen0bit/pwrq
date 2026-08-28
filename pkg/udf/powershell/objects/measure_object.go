@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -52,7 +52,7 @@ func RegisterMeasureObject() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(err, nil)
 		}
 
-		// Format result as PSObject with proper type information
+		// Format result as object with proper type information
 		output := formatMeasurementResult(result, opts)
 
 		return output
@@ -170,7 +170,7 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 
 // extractPropertyForMeasurement extracts a property value from an object for measurement
 func extractPropertyForMeasurement(obj any, property string) (any, error) {
-	// Extract the underlying value from PSObject if present
+	// Extract the underlying value from object if present
 	value := common.BindValue(obj)
 
 	return common.ExtractPropertyByPath(value, property)
@@ -204,8 +204,8 @@ func convertToFloat64(v any) (float64, error) {
 	}
 }
 
-// formatMeasurementResult formats the measurement result as a PSObject
-// Returns a properly wrapped PSObject with TypeName "Microsoft.PowerShell.Commands.GenericMeasureInfo"
+// formatMeasurementResult formats the measurement result as a typed object
+// Returns a properly wrapped object with TypeName "Pwrq.Measurement"
 func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOptions) map[string]any {
 	// Build the value map with all requested measurements
 	valueMap := make(map[string]any)
@@ -228,26 +228,26 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 
 	// The shape supplies the type name, so it is written down once, beside
 	// the property list it goes with.
-	psobj := psobject.NewPSObject(valueMap)
+	obj := typed.New(valueMap)
 
 	// Add NoteProperties for all measurement values
-	psobj.AddNoteProperty("Count", result.Count)
+	obj.AddNoteProperty("Count", result.Count)
 	if opts.Property != "" {
 		if opts.Sum {
-			psobj.AddNoteProperty("Sum", result.Sum)
+			obj.AddNoteProperty("Sum", result.Sum)
 		}
 		if opts.Average {
-			psobj.AddNoteProperty("Average", result.Average)
+			obj.AddNoteProperty("Average", result.Average)
 		}
 		if opts.Minimum {
-			psobj.AddNoteProperty("Minimum", result.Minimum)
+			obj.AddNoteProperty("Minimum", result.Minimum)
 		}
 		if opts.Maximum {
-			psobj.AddNoteProperty("Maximum", result.Maximum)
+			obj.AddNoteProperty("Maximum", result.Maximum)
 		}
 	}
 
-	return MeasureInfoShape.Build(psobj.ToMap())
+	return MeasureInfoShape.Build(obj.ToMap())
 }
 
 // ParseMeasureObjectArgs parses arguments for the measure_object function

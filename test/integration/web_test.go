@@ -73,8 +73,8 @@ func TestInvokeWebRequestShape(t *testing.T) {
 	if resp["ContentLength"] != float64(len("hello world")) {
 		t.Errorf("ContentLength = %v, want %d", resp["ContentLength"], len("hello world"))
 	}
-	if resp["PSTypeName"] != "Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject" {
-		t.Errorf("PSTypeName = %v", resp["PSTypeName"])
+	if resp["PwrqType"] != "Pwrq.Web.Response" {
+		t.Errorf("PwrqType = %v", resp["PwrqType"])
 	}
 
 	headers, ok := resp["Headers"].(map[string]any)

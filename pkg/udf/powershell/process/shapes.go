@@ -7,7 +7,7 @@ import "github.com/xen0bit/pwrq/pkg/core/shape"
 // get_process is one of the two cmdlets the README leads with, and until this
 // declaration it emitted an object with no type name and no documented
 // properties: a caller had to run it once and read the keys off the result.
-var ProcessInfoShape = shape.Fixed("System.Diagnostics.Process",
+var ProcessInfoShape = shape.Fixed("Pwrq.Process",
 	shape.Prop("Id", shape.Number, "process id"),
 	shape.Prop("Name", shape.String, "executable name, without the directory"),
 	shape.Prop("Path", shape.String, "full path to the executable, or \"\" when it could not be read"),

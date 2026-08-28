@@ -8878,7 +8878,7 @@
 - name: get_childitem yields queryable file objects
   args:
     - -c
-    - '[get_childitem(".") | select(.Name == "test.yaml") | .PSTypeName]'
+    - '[get_childitem(".") | select(.Name == "test.yaml") | .PwrqType]'
   input: 'null'
   expected: |
-    ["System.IO.FileInfo"]
+    ["Pwrq.FileSystem.File"]

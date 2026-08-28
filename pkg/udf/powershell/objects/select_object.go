@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -230,46 +230,45 @@ func parseProperties(v any) []string {
 }
 
 // selectProperties creates a new object with only the specified properties.
-// It preserves PSObject type information, supports wildcard matching, and handles
+// It preserves the input's type name, supports wildcard matching, and handles
 // calculated properties via Expression blocks.
 func selectProperties(obj any, properties []string) any {
-	// Check if input is already a PSObject or PSObject-like map
-	isPSObject := psobject.IsPSObject(obj)
+	// Check whether the input is already a typed object, or its wire form.
+	wasTyped := typed.Is(obj)
 
-	var psobj *psobject.PSObject
+	var wrapped *typed.Object
 	var sourceMap map[string]any
 
-	if isPSObject {
-		// Convert to PSObject for proper handling
-		psobj = common.EnsurePSObject(obj)
-		if psobj == nil {
+	if wasTyped {
+		wrapped = common.EnsureObject(obj)
+		if wrapped == nil {
 			return obj
 		}
 
 		// Get the underlying value
-		value := psobj.Value
+		value := wrapped.Value
 
-		// Determine the source of properties (map or PSObject members)
+		// Determine the source of properties (map or object members)
 		if m, ok := value.(map[string]any); ok {
 			sourceMap = m
 		} else {
-			// If value is not a map, create one from PSObject members
+			// If value is not a map, create one from the object's members
 			sourceMap = make(map[string]any)
-			for name, member := range psobj.Members {
-				if member.MemberType == psobject.MemberTypeNoteProperty {
+			for name, member := range wrapped.Members {
+				if member.MemberType == typed.MemberTypeNoteProperty {
 					sourceMap[name] = member.Value
 				}
 			}
 		}
 	} else {
-		// Plain map input - no PSObject wrapping
+		// Plain map input - nothing was wrapped
 		if m, ok := obj.(map[string]any); ok {
 			sourceMap = m
 		} else {
-			// Non-map, non-PSObject input - return as-is
+			// Neither a map nor a typed object - return as-is
 			return obj
 		}
-		psobj = nil
+		wrapped = nil
 	}
 
 	// Build the result map with matched properties
@@ -284,10 +283,10 @@ func selectProperties(obj any, properties []string) any {
 			}
 		}
 
-		// Also match against PSObject NoteProperty members
-		if psobj != nil {
-			for name, member := range psobj.Members {
-				if member.MemberType == psobject.MemberTypeNoteProperty {
+		// Also match against the object's NoteProperty members
+		if wrapped != nil {
+			for name, member := range wrapped.Members {
+				if member.MemberType == typed.MemberTypeNoteProperty {
 					matched, _ := filepath.Match(pattern, name)
 					if matched {
 						resultMap[name] = member.Value
@@ -297,25 +296,24 @@ func selectProperties(obj any, properties []string) any {
 		}
 	}
 
-	// If input was a PSObject, preserve type information and members
-	if isPSObject && psobj != nil {
-		// Create new PSObject preserving the original TypeName
-		newPSObj := psobject.NewPSObjectWithTypeName(resultMap, psobj.TypeName)
+	// If the input was typed, preserve its type name and members
+	if wasTyped && wrapped != nil {
+		projected := typed.NewWithType(resultMap, wrapped.TypeName)
 
 		// Copy matching NoteProperty members from original
-		for name, member := range psobj.Members {
-			if member.MemberType == psobject.MemberTypeNoteProperty {
+		for name, member := range wrapped.Members {
+			if member.MemberType == typed.MemberTypeNoteProperty {
 				for _, pattern := range properties {
 					matched, _ := filepath.Match(pattern, name)
 					if matched {
-						newPSObj.AddNoteProperty(name, member.Value)
+						projected.AddNoteProperty(name, member.Value)
 						break
 					}
 				}
 			}
 		}
 
-		return newPSObj.ToMap()
+		return projected.ToMap()
 	}
 
 	// Plain map input - return plain map result

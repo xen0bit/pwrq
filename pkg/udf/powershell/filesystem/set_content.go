@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
@@ -213,27 +213,8 @@ func convertToEncoding(s string, enc encoding.Encoding) ([]byte, error) {
 	return []byte(result), nil
 }
 
-// extractPSObjectValue unwraps a PSObject map to get the actual value.
-// If the input is a PSObject (detected by __psobject marker), returns .Value.
-// Otherwise returns the input unchanged.
-func extractPSObjectValue(v any) any {
-	m, ok := v.(map[string]any)
-	if !ok {
-		return v
-	}
-
-	// Check for PSObject marker
-	if isPSObj, ok := m["__psobject"].(bool); ok && isPSObj {
-		if val, ok := m["Value"]; ok {
-			// Recursively unwrap in case of nested PSObjects
-			return extractPSObjectValue(val)
-		}
-	}
-	return v
-}
-
-// getNewLine returns the platform-appropriate newline string.
-// PowerShell uses Environment::NewLine which is \r\n on Windows, \n on Unix.
+// getNewLine returns the platform-appropriate newline string: \r\n on Windows,
+// \n elsewhere.
 func getNewLine() string {
 	if runtime.GOOS == "windows" {
 		return "\r\n"
@@ -365,30 +346,34 @@ func RegisterSetContent() gojq.CompilerOption {
 			fileSize = fileInfo.Size()
 		}
 
-		// Return PSObject with file info
-		psobj := psobject.NewPSObject(writtenPath)
-		psobj.AddNoteProperty("Path", writtenPath)
-		psobj.AddNoteProperty("Length", fileSize)
-		psobj.AddNoteProperty("Exists", true)
-		psobj.AddNoteProperty("Operation", "Set-Content")
+		// Return object with file info
+		obj := typed.New(writtenPath)
+		obj.AddNoteProperty("Path", writtenPath)
+		obj.AddNoteProperty("Length", fileSize)
+		obj.AddNoteProperty("Exists", true)
+		obj.AddNoteProperty("Operation", "Set-Content")
 
-		return WrittenFile.Build(psobj.ToMap())
+		return WrittenFile.Build(obj.ToMap())
 	})
 }
 
 // renderContent turns a value into the text to write. A string goes as-is, an
-// array becomes one line per element, and anything else is formatted. Every
-// element is unwrapped first, so a stream of cmdlet output writes its values
-// rather than its object representation.
+// array becomes one line per element, and anything else is formatted.
+//
+// Every element is bound first, so a stream of cmdlet output writes its values
+// rather than its object representation. That is what this comment always
+// claimed; the code looked for a __psobject marker belonging to a wire format
+// pwrq stopped emitting long ago, which no cmdlet has ever produced, so the
+// unwrap never fired. Binding is the rule the rest of the pipeline uses.
 func renderContent(value any) string {
-	value = extractPSObjectValue(value)
+	value = common.BindValue(value)
 	switch v := value.(type) {
 	case string:
 		return v
 	case []any:
 		parts := make([]string, len(v))
 		for i, item := range v {
-			parts[i] = fmt.Sprintf("%v", extractPSObjectValue(item))
+			parts[i] = fmt.Sprintf("%v", common.BindValue(item))
 		}
 		return strings.Join(parts, getNewLine())
 	default:

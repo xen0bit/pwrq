@@ -34,7 +34,7 @@ var unsafeToRun = regexp.MustCompile(`^(` + strings.Join([]string{
 	// Writes outside the temporary working directory. The harness chdirs into
 	// one, so a cmdlet whose example writes a *relative* path is safe and is
 	// deliberately not listed here: those are the write cmdlets whose shapes
-	// used all to claim to be System.IO.FileInfo, and running them is how that
+	// used all to claim to be Pwrq.FileSystem.File, and running them is how that
 	// is now caught.
 	"rm", "rms", "mkdir", "expand_archive", "compress_archive",
 	"new_item", "out_sqlite", "invoke_sqlite_command", "set_date",
@@ -160,11 +160,11 @@ func TestObjectProducersDeclareAShape(t *testing.T) {
 	}
 }
 
-// TestTypeNamesIdentifyOneShape is what makes a PSTypeName usable as a key.
+// TestTypeNamesIdentifyOneShape is what makes a PwrqType usable as a key.
 //
-// A caller reads System.IO.FileInfo off a result and looks the property list up
-// in the catalogue. That only works while a name means one thing. join_path and
-// split_path both used to call themselves System.String - eight-property path
+// A caller reads Pwrq.FileSystem.File off a result and looks the property list
+// up in the catalogue. That only works while a name means one thing. join_path
+// and split_path both used to call themselves a string - eight-property path
 // objects wearing the name of a scalar - which is exactly the collision that
 // makes a catalogue useless for the job it exists to do.
 func TestTypeNamesIdentifyOneShape(t *testing.T) {

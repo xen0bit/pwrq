@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // encoder renders a result value the way the CLI's flags would.
@@ -56,9 +56,9 @@ func (e *encoder) encode(v any) (text string, err error) {
 			text, err = "", &encodeError{value: v, detail: r}
 		}
 	}()
-	normalized, err := psobject.EnsureJSON(v)
+	normalized, err := typed.EnsureJSON(v)
 	if err != nil {
-		return "", &encodeError{value: v, detail: fmt.Sprintf("%v; the limit is %d levels", err, psobject.MaxJSONDepth)}
+		return "", &encodeError{value: v, detail: fmt.Sprintf("%v; the limit is %d levels", err, typed.MaxJSONDepth)}
 	}
 	encoded, err := gojq.Marshal(normalized)
 	if err != nil {

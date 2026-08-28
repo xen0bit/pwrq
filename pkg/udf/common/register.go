@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/shape"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // This file is the boundary between cmdlet code and the query engine.
@@ -188,7 +188,7 @@ func normalizeResult(v any) any {
 	// A value too deep to normalize is passed through untouched rather than
 	// dropped: the encoder refuses it with a query error, which is a better
 	// answer than a silently mangled result.
-	normalized, _ := psobject.EnsureJSON(v)
+	normalized, _ := typed.EnsureJSON(v)
 	return normalized
 }
 

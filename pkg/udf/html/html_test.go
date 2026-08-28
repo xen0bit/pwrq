@@ -29,8 +29,8 @@ func TestHTMLEncode(t *testing.T) {
 		{
 			name: "cmdlet output input",
 			input: map[string]any{
-				"PSPath":     "<div>test</div>",
-				"PSTypeName": "System.String",
+				"PwrqValue": "<div>test</div>",
+				"PwrqType":  "string",
 			},
 			want:    html.EscapeString("<div>test</div>"),
 			wantErr: false,
@@ -84,8 +84,8 @@ func TestHTMLDecode(t *testing.T) {
 		{
 			name: "cmdlet output input",
 			input: map[string]any{
-				"PSPath":     html.EscapeString("<div>test</div>"),
-				"PSTypeName": "System.String",
+				"PwrqValue": html.EscapeString("<div>test</div>"),
+				"PwrqType":  "string",
 			},
 			want:    "<div>test</div>",
 			wantErr: false,

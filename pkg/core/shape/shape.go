@@ -7,19 +7,22 @@
 // caller must collect with [...]. This package answers the other half, which
 // keys an object comes back with.
 //
-// # Why not PSTypeName
+// # Why the type name alone is not enough
 //
-// PSTypeName looks like it already does this, and it does not. It is applied at
-// construction through three unrelated idioms — a map literal, a field
-// assignment, a constructor — with no registry, so the type space cannot be
-// enumerated. Running every documented example shows what that costs: of the 43
-// cmdlets that emit an object, 34 carry no type at all, get_process and
-// get_service among them. A catalogue built on PSTypeName would be silently
-// partial exactly where a model most needs it.
+// pwrq already put a type name on the wire, and it looked like it did this job.
+// It did not. It was applied at construction through three unrelated idioms — a
+// map literal, a field assignment, a constructor — with no registry, so the type
+// space could not be enumerated. Running every documented example showed what
+// that cost: of the 43 cmdlets that emit an object, 34 carried no type at all,
+// get_process and get_service among them. A catalogue built on the name alone
+// would have been silently partial exactly where a caller most needs it.
 //
-// So the name is kept and demoted. PSTypeName stays on the wire, where
-// format_table reads it and a projection carries it, but it stops being the
-// type system and becomes a foreign key into the catalogue this package holds.
+// So the name is kept and demoted. It travels as PwrqType, where format_table
+// reads it and a projection carries it, but it stops being the type system and
+// becomes a foreign key into the catalogue this package holds. Names it can
+// hold are pwrq's own — Pwrq.FileSystem.File, Pwrq.Process — because a caller
+// resolving one against this catalogue is asking what pwrq emits, and a name
+// borrowed from .NET promised a class that was never behind it.
 //
 // # The three kinds
 //
@@ -42,11 +45,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // JSONType is the JSON type of a property's value. It is deliberately the JSON
-// vocabulary rather than Go's or PowerShell's: it is what the caller sees.
+// vocabulary rather than Go's: it is what the caller sees.
 type JSONType string
 
 // The JSON types a property can hold. Any is for a property whose type depends
@@ -104,7 +107,7 @@ func OptProp(name string, t JSONType, doc string) Property {
 // one behaves as though it said nothing rather than panicking.
 type Shape struct {
 	kind Kind
-	// name is the PSTypeName a Fixed shape stamps, and is empty otherwise.
+	// name is the PwrqType a Fixed shape stamps, and is empty otherwise.
 	name string
 	// rule explains a Derived or Dynamic shape's keys in one line.
 	rule string
@@ -136,7 +139,7 @@ func (s *Shape) Note(note string) *Shape {
 // Streaming already distinguishes a stream of values from one value, and this
 // is the third case it does not cover: read_archive and get_variable each
 // return a single value that happens to be an array of objects. A caller told
-// only "object [System.IO.Compression.ArchiveEntry]" would write `.Name`
+// only "object [Pwrq.Archive.Entry]" would write `.Name`
 // against an array and get null.
 //
 // It returns a copy, because a shape is a package-level variable shared by
@@ -148,11 +151,11 @@ func (s *Shape) Each() *Shape {
 	return &copied
 }
 
-// Named gives a Derived or Dynamic shape a PowerShell type name.
+// Named gives a Derived or Dynamic shape a type name.
 //
 // The kind says what decides the keys; the name says what the value is. Those
 // are independent, and a SQL result row is the case that proves it: every row
-// is a System.Data.DataRow, and which keys it has is the SELECT's business. A
+// is a Pwrq.Sqlite.Row, and which keys it has is the SELECT's business. A
 // caller still benefits from the name - it tells them these are rows - even
 // though looking it up will not produce a property list.
 func (s *Shape) Named(typeName string) *Shape {
@@ -161,8 +164,8 @@ func (s *Shape) Named(typeName string) *Shape {
 }
 
 // Fixed declares a cmdlet that emits an object with a known set of keys, under
-// a PowerShell type name. The name is what Build stamps as PSTypeName, so it is
-// also the key a caller looks the shape up by.
+// a type name. The name is what Build stamps as PwrqType, so it is also the key
+// a caller looks the shape up by.
 //
 // Because it is that key, two shapes must not share a name. A name that meant
 // two different property sets would make the catalogue unusable for the thing
@@ -176,10 +179,10 @@ func Fixed(typeName string, props ...Property) *Shape {
 //
 // Much of pwrq's own vocabulary returns plain lowercase JSON - summary is
 // {count, min, max, mean, median, stdev}, semver_parts is {major, minor,
-// patch} - rather than PowerShell-style objects, and stamping those with a
-// PSTypeName to make them describable would add a key to results that are
-// deliberately clean. The shape is what the caller needs; the type name is
-// only how a PowerShell-style object is looked up, and these are not that.
+// patch} - and stamping those with a PwrqType to make them describable would
+// add a key to results that are deliberately clean. The shape is what the
+// caller needs; the type name is only how a named object is looked up, and
+// these are not that.
 func Plain(props ...Property) *Shape {
 	return &Shape{kind: KindFixed, props: props}
 }
@@ -214,7 +217,7 @@ func (s *Shape) Kind() Kind {
 	return s.kind
 }
 
-// TypeName is the PSTypeName a Fixed shape stamps, or "" for the other kinds.
+// TypeName is the PwrqType a Fixed shape stamps, or "" for the other kinds.
 func (s *Shape) TypeName() string {
 	if s == nil {
 		return ""
@@ -261,12 +264,12 @@ func (s *Shape) Build(m map[string]any) map[string]any {
 	if s == nil || m == nil {
 		return m
 	}
-	// The declaration wins over whatever is already there. A PSObject built
-	// from a scalar infers a type from that scalar - NewPSObject("a/path")
+	// The declaration wins over whatever is already there. A object built
+	// from a scalar infers a type from that scalar - typed.New("a/path")
 	// calls itself a System.String - so deferring to what is present would
 	// stamp the value's type instead of the cmdlet's.
 	if s.name != "" {
-		m[psobject.PSTypeNameKey] = s.name
+		m[typed.TypeKey] = s.name
 	}
 	s.reconcile(m)
 	return m
@@ -294,7 +297,7 @@ func (s *Shape) reconcile(m map[string]any) {
 		return
 	}
 	for k := range m {
-		if k == psobject.PSTypeNameKey {
+		if k == typed.TypeKey {
 			continue
 		}
 		if _, ok := declared[k]; !ok {

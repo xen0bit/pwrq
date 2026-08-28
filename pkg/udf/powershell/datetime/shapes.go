@@ -3,11 +3,10 @@ package datetime
 import "github.com/xen0bit/pwrq/pkg/core/shape"
 
 var (
-	// DateShape is a moment in time, broken into the parts PowerShell's
-	// Get-Date exposes. It is deliberately redundant - Date, Time and DateTime
+	// DateShape is a moment in time, broken into the parts Get-Date exposes. It is deliberately redundant - Date, Time and DateTime
 	// are the same instant rendered three ways - because the point of the
 	// cmdlet is to save the caller from formatting one.
-	DateShape = shape.Fixed("System.DateTime",
+	DateShape = shape.Fixed("Pwrq.DateTime",
 		shape.Prop("DateTime", shape.String, "the full instant, RFC 3339"),
 		shape.Prop("Date", shape.String, "calendar date, YYYY-MM-DD"),
 		shape.Prop("Time", shape.String, "wall-clock time, HH:MM:SS"),
@@ -30,7 +29,7 @@ var (
 	// expressed in one unit; the bare ones are the remainder after the larger
 	// units have been taken out, which is the distinction callers most often
 	// get backwards.
-	TimeSpanShape = shape.Fixed("System.TimeSpan",
+	TimeSpanShape = shape.Fixed("Pwrq.TimeSpan",
 		shape.Prop("Days", shape.Number, "whole days component"),
 		shape.Prop("Hours", shape.Number, "hours component, 0-23"),
 		shape.Prop("Minutes", shape.Number, "minutes component, 0-59"),

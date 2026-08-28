@@ -75,7 +75,7 @@ func TestCompareEmitsOneObjectPerPair(t *testing.T) {
 		t.Fatalf("a pair came back as %T, want an object", results[0])
 	}
 	for _, key := range []string{
-		"PSTypeName", "IndexA", "IndexB", "NameA", "NameB", "LengthA", "LengthB",
+		"PwrqType", "IndexA", "IndexB", "NameA", "NameB", "LengthA", "LengthB",
 		"EntropyA", "EntropyB", "Ncd", "NcdFingerprint", "EntropyGlobal",
 		"EntropyProfile", "Hybrid",
 	} {
@@ -83,8 +83,8 @@ func TestCompareEmitsOneObjectPerPair(t *testing.T) {
 			t.Errorf("pair object has no %s: %v", key, first)
 		}
 	}
-	if first["PSTypeName"] != "Pwrq.RncdPair" {
-		t.Errorf("PSTypeName = %v", first["PSTypeName"])
+	if first["PwrqType"] != "Pwrq.Rncd.Pair" {
+		t.Errorf("PwrqType = %v", first["PwrqType"])
 	}
 	// A bare string carries no label, and the shape says so with null rather
 	// than by leaving the property out.
@@ -247,8 +247,8 @@ func TestSharedChunksReportsTheSharedSpan(t *testing.T) {
 	results := mustRun(t, `shared_chunks($b; $a)`)
 	obj := results[0].(map[string]any)
 
-	if obj["PSTypeName"] != "Pwrq.SharedChunks" {
-		t.Errorf("PSTypeName = %v", obj["PSTypeName"])
+	if obj["PwrqType"] != "Pwrq.Rncd.SharedChunks" {
+		t.Errorf("PwrqType = %v", obj["PwrqType"])
 	}
 	if obj["TargetLength"] != len(docB) || obj["ReferenceLength"] != len(docA) {
 		t.Errorf("lengths are %v/%v, want %d/%d",

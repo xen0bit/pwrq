@@ -49,8 +49,8 @@ func TestMD5(t *testing.T) {
 		{
 			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"PSPath":     "hello",
-				"PSTypeName": "System.String",
+				"PwrqValue": "hello",
+				"PwrqType":  "string",
 			},
 			want:    fmt.Sprintf("%x", md5.Sum([]byte("hello"))),
 			wantErr: false,
@@ -90,8 +90,8 @@ func TestMD5(t *testing.T) {
 func TestMD5WithUDFResultInput(t *testing.T) {
 	// Create a UDF result object
 	udfResult := map[string]any{
-		"PSPath":     "test string",
-		"PSTypeName": "System.String",
+		"PwrqValue": "test string",
+		"PwrqType":  "string",
 	}
 
 	// Extract _val (simulating what the function does)
@@ -124,8 +124,8 @@ func TestMD5Chaining(t *testing.T) {
 			// Simulate: base64_encode returns UDF result
 			// (We'll just test that md5 can extract from UDF results)
 			udfResult := map[string]any{
-				"PSPath":     tc,
-				"PSTypeName": "System.String",
+				"PwrqValue": tc,
+				"PwrqType":  "string",
 			}
 
 			// Simulate: md5 receives UDF result and extracts _val

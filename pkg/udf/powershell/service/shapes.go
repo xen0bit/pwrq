@@ -8,7 +8,7 @@ import "github.com/xen0bit/pwrq/pkg/core/shape"
 // sometimes-empty: the cmdlet adds each only when there is something to say, so
 // a caller has to guard them. Saying so is most of the value of declaring the
 // shape at all.
-var ServiceShape = shape.Fixed("System.ServiceProcess.ServiceController",
+var ServiceShape = shape.Fixed("Pwrq.Service",
 	shape.Prop("Name", shape.String, "service name, as the manager knows it"),
 	shape.Prop("DisplayName", shape.String, "human-readable name"),
 	shape.Prop("Status", shape.String, "Running, Stopped, or another manager state"),

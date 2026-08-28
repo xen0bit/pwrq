@@ -7,23 +7,23 @@ import (
 	"os"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // GetLocationOptions holds options for the get_location function
 type GetLocationOptions struct {
-	PSDrive   string // Get location from a specific PSDrive
+	Drive     string // Get location from a specific drive
 	StackName string // Get location from a specific location stack
 }
 
 // RegisterGetLocation registers the get_location function with gojq
-// Supports PowerShell-style parameters: -PSDrive, -StackName
+// Options: Drive, StackName
 // Usage:
 //   - get_location() - get current location
 //   - get_location({}) - get current location with options
-//   - get_location({"PSDrive": "FileSystem"}) - get location from specific drive
+//   - get_location({"Drive": "FileSystem"}) - get location from a specific drive
 //   - get_location({"StackName": "myStack"}) - get top of named stack
 func RegisterGetLocation() gojq.CompilerOption {
 	return common.WithFunctionOf("get_location", 0, 1, CurrentLocationShape, func(v any, args []any) any {
@@ -45,10 +45,9 @@ func RegisterGetLocation() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("get_location: %v", err), nil)
 		}
 
-		// Wrap in PSObject for PowerShell compatibility
-		psobj := psobject.NewPSObject(result)
+		obj := typed.New(result)
 
-		return common.MakeUDFSuccessResult(CurrentLocationShape.Build(psobj.ToMap()), map[string]any{
+		return common.MakeUDFSuccessResult(CurrentLocationShape.Build(obj.ToMap()), map[string]any{
 			"operation": "get_location",
 		})
 	})
@@ -56,9 +55,9 @@ func RegisterGetLocation() gojq.CompilerOption {
 
 // parseGetLocationOptions parses options from a map
 func parseGetLocationOptions(opts *GetLocationOptions, optsMap map[string]any) {
-	if driveVal, exists := optsMap["PSDrive"]; exists {
+	if driveVal, exists := optsMap["Drive"]; exists {
 		if driveStr, ok := driveVal.(string); ok {
-			opts.PSDrive = driveStr
+			opts.Drive = driveStr
 		}
 	}
 	if stackVal, exists := optsMap["StackName"]; exists {
@@ -97,8 +96,8 @@ func getLocation(opts GetLocationOptions, sessionState *sessionstate.SessionStat
 		"Provider": "FileSystem",
 	}
 
-	if opts.PSDrive != "" {
-		result["PSDrive"] = opts.PSDrive
+	if opts.Drive != "" {
+		result["Drive"] = opts.Drive
 	}
 
 	if opts.StackName != "" {

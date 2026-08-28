@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -68,7 +68,7 @@ func sharedChunks(in any, rest []any) (any, error) {
 
 	rendered := make([]any, len(chunks))
 	for i, c := range chunks {
-		chunk := psobject.NewPSObject(nil)
+		chunk := typed.New(nil)
 		chunk.AddNoteProperty("Matched", c.Matched)
 		chunk.AddNoteProperty("Start", c.Start)
 		chunk.AddNoteProperty("End", c.End)
@@ -88,7 +88,7 @@ func sharedChunks(in any, rest []any) (any, error) {
 		coverage = float64(matched) / float64(total)
 	}
 
-	obj := psobject.NewPSObject(nil)
+	obj := typed.New(nil)
 	obj.AddNoteProperty("MinMatch", opts.MinMatch)
 	obj.AddNoteProperty("TargetLength", len(targetData))
 	obj.AddNoteProperty("ReferenceLength", len(refData))

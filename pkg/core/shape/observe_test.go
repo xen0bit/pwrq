@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestObserverDescribesObjectKeys(t *testing.T) {
@@ -39,15 +39,15 @@ func TestObserverMarksPartialKeys(t *testing.T) {
 
 func TestObserverReportsTheTypeName(t *testing.T) {
 	o := NewObserver()
-	o.Add(map[string]any{"Name": "a", psobject.PSTypeNameKey: "System.IO.FileInfo"})
+	o.Add(map[string]any{"Name": "a", typed.TypeKey: "Pwrq.FileSystem.File"})
 
 	got := o.Describe()
-	if !strings.Contains(got, "[System.IO.FileInfo]") {
+	if !strings.Contains(got, "[Pwrq.FileSystem.File]") {
 		t.Errorf("Describe did not name the type: %q", got)
 	}
 	// The type name is metadata about the object, not one of its keys.
-	if strings.Contains(got, "PSTypeName(") {
-		t.Errorf("Describe listed PSTypeName as a key: %q", got)
+	if strings.Contains(got, "PwrqType(") {
+		t.Errorf("Describe listed PwrqType as a key: %q", got)
 	}
 }
 

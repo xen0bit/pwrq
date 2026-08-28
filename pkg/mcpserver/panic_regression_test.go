@@ -120,7 +120,7 @@ func TestKnownPanicQueries(t *testing.T) {
 		// Negative n sliced the line slice out of range.
 		`head("/etc/passwd"; -1)`,
 		`tail("/etc/passwd"; -1)`,
-		// Raw *psobject.PSObject leaked into the pipeline.
+		// Raw *typed.Object leaked into the pipeline.
 		`join_path("/tmp"; "x.txt")`,
 		`split_path("/tmp/x.txt")`,
 	}

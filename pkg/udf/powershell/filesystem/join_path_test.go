@@ -52,7 +52,7 @@ func TestParseJoinPathArgs(t *testing.T) {
 		},
 		{
 			name:      "cmdlet output path binds by property name",
-			args:      []any{map[string]any{"PSPath": "/tmp", "PSTypeName": "System.String"}},
+			args:      []any{map[string]any{"PwrqValue": "/tmp", "PwrqType": "string"}},
 			wantPaths: []string{"/tmp"},
 		},
 	}

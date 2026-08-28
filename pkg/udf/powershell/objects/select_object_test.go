@@ -3,7 +3,7 @@ package objects
 import (
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestSelectObject_Basic(t *testing.T) {
@@ -176,13 +176,13 @@ func TestSelectObject_SkipAll(t *testing.T) {
 	}
 }
 
-func TestSelectObject_PropertiesFromPSObject(t *testing.T) {
-	// Create PSObjects with members
-	psobj1 := psobject.NewPSObject(map[string]any{"Name": "Alice", "Age": 30})
+func TestSelectObjectPropertiesFromTypedObject(t *testing.T) {
+	// Create typed objects with members
+	psobj1 := typed.New(map[string]any{"Name": "Alice", "Age": 30})
 	psobj1.AddNoteProperty("Name", "Alice")
 	psobj1.AddNoteProperty("Age", 30)
 
-	psobj2 := psobject.NewPSObject(map[string]any{"Name": "Bob", "Age": 25})
+	psobj2 := typed.New(map[string]any{"Name": "Bob", "Age": 25})
 	psobj2.AddNoteProperty("Name", "Bob")
 	psobj2.AddNoteProperty("Age", 25)
 
@@ -347,12 +347,12 @@ func TestSelectObject_WildcardProperties(t *testing.T) {
 }
 
 func TestSelectObject_PreservesTypeName(t *testing.T) {
-	// Create PSObjects with explicit TypeName
-	psobj1 := psobject.NewPSObjectWithTypeName(map[string]any{"Name": "Alice", "Age": 30}, "Custom.MyType")
+	// Create typed objects with explicit TypeName
+	psobj1 := typed.NewWithType(map[string]any{"Name": "Alice", "Age": 30}, "Custom.MyType")
 	psobj1.AddNoteProperty("Name", "Alice")
 	psobj1.AddNoteProperty("Age", 30)
 
-	psobj2 := psobject.NewPSObjectWithTypeName(map[string]any{"Name": "Bob", "Age": 25}, "Custom.MyType")
+	psobj2 := typed.NewWithType(map[string]any{"Name": "Bob", "Age": 25}, "Custom.MyType")
 	psobj2.AddNoteProperty("Name", "Bob")
 	psobj2.AddNoteProperty("Age", 25)
 
@@ -380,9 +380,9 @@ func TestSelectObject_PreservesTypeName(t *testing.T) {
 			t.Errorf("Object %d is not a map", i)
 			continue
 		}
-		typeName, ok := m[psobject.PSTypeNameKey].(string)
+		typeName, ok := m[typed.TypeKey].(string)
 		if !ok {
-			t.Errorf("Object %d missing %s", i, psobject.PSTypeNameKey)
+			t.Errorf("Object %d missing %s", i, typed.TypeKey)
 			continue
 		}
 		if typeName != "Custom.MyType" {
@@ -391,15 +391,15 @@ func TestSelectObject_PreservesTypeName(t *testing.T) {
 	}
 }
 
-func TestSelectObject_WildcardWithPSObject(t *testing.T) {
-	// Create PSObject with multiple NoteProperties
-	psobj := psobject.NewPSObjectWithTypeName(map[string]any{"Name": "Test", "Count": 42, "Enabled": true}, "Test.Type")
-	psobj.AddNoteProperty("Name", "Test")
-	psobj.AddNoteProperty("Count", 42)
-	psobj.AddNoteProperty("Enabled", true)
-	psobj.AddNoteProperty("Description", "A test object")
+func TestSelectObjectWildcardWithTypedObject(t *testing.T) {
+	// Create object with multiple NoteProperties
+	obj := typed.NewWithType(map[string]any{"Name": "Test", "Count": 42, "Enabled": true}, "Test.Type")
+	obj.AddNoteProperty("Name", "Test")
+	obj.AddNoteProperty("Count", 42)
+	obj.AddNoteProperty("Enabled", true)
+	obj.AddNoteProperty("Description", "A test object")
 
-	objects := []any{psobj.ToMap()}
+	objects := []any{obj.ToMap()}
 
 	opts := SelectObjectOptions{
 		First:      -1,

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestBindBytesAcceptsEveryByteSource(t *testing.T) {
@@ -21,7 +21,7 @@ func TestBindBytesAcceptsEveryByteSource(t *testing.T) {
 		{"named content", map[string]any{"Name": "greeting", "Content": "hello"}, "hello"},
 		// A cmdlet's scalar output arrives wrapped, and BindValue unwraps it,
 		// so one cmdlet's result feeds this one without a property access.
-		{"psobject scalar", psobject.NewPSObject("hello"), "hello"},
+		{"typed scalar", typed.New("hello"), "hello"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

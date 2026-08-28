@@ -5,7 +5,7 @@ import "github.com/xen0bit/pwrq/pkg/core/shape"
 // SummaryShape is the six-number description of a numeric array.
 //
 // It is a Plain shape rather than a typed one: summary returns lowercase JSON
-// the way jq's own vocabulary does, and stamping a PSTypeName on it to make it
+// the way jq's own vocabulary does, and stamping a PwrqType on it to make it
 // describable would add a key to a result that is deliberately clean.
 var SummaryShape = shape.Plain(
 	shape.Prop("count", shape.Number, "how many values were summarised"),

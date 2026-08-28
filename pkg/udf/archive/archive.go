@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -139,7 +139,7 @@ func listArchive(path string) ([]entry, error) {
 				CompressedLength: int64(f.CompressedSize64),
 				IsDirectory:      f.FileInfo().IsDir(),
 				Mode:             f.Mode().String(),
-				LastWriteTime:    psobject.NormalizeJSON(f.Modified),
+				LastWriteTime:    typed.NormalizeJSON(f.Modified),
 			})
 		}
 		return out, nil
@@ -169,7 +169,7 @@ func listArchive(path string) ([]entry, error) {
 			CompressedLength: h.Size,
 			IsDirectory:      h.FileInfo().IsDir(),
 			Mode:             h.FileInfo().Mode().String(),
-			LastWriteTime:    psobject.NormalizeJSON(h.ModTime),
+			LastWriteTime:    typed.NormalizeJSON(h.ModTime),
 		})
 	}
 	return out, nil
@@ -336,11 +336,11 @@ func RegisterCompressArchive() gojq.CompilerOption {
 		}
 		abs, _ := filepath.Abs(dest)
 		return common.MakeUDFSuccessResult(ArchiveWritten.Build(map[string]any{
-			"Name":             info.Name(),
-			"FullName":         abs,
-			"Length":           info.Size(),
-			"LastWriteTime":    psobject.NormalizeJSON(info.ModTime()),
-			psobject.PSPathKey: dest,
+			"Name":          info.Name(),
+			"FullName":      abs,
+			"Length":        info.Size(),
+			"LastWriteTime": typed.NormalizeJSON(info.ModTime()),
+			typed.ValueKey:  dest,
 		}), nil)
 	})
 }

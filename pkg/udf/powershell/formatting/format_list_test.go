@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestFormatListBasic(t *testing.T) {
@@ -35,17 +35,17 @@ func TestFormatListBasic(t *testing.T) {
 	}
 }
 
-func TestFormatListWithPSObject(t *testing.T) {
-	// Create a PSObject-wrapped value
+func TestFormatListWithTypedObject(t *testing.T) {
+	// Create a typed value
 	valueMap := map[string]any{
 		"Name":  "test",
 		"Value": 42,
 	}
-	psobj := psobject.NewPSObjectWithTypeName(valueMap, "TestType")
-	psobj.AddNoteProperty("Name", "test")
-	psobj.AddNoteProperty("Value", 42)
+	obj := typed.NewWithType(valueMap, "TestType")
+	obj.AddNoteProperty("Name", "test")
+	obj.AddNoteProperty("Value", 42)
 
-	objects := []any{psobj.ToMap()}
+	objects := []any{obj.ToMap()}
 	opts := FormatListOptions{}
 
 	result, err := formatList(objects, opts)
@@ -361,16 +361,16 @@ func TestParseFormatListArgs(t *testing.T) {
 	}
 }
 
-func TestFormatListPSObjectMembers(t *testing.T) {
-	// Create PSObject with explicit members
+func TestFormatListObjectMembers(t *testing.T) {
+	// Create object with explicit members
 	valueMap := map[string]any{
 		"InternalValue": 42,
 	}
-	psobj := psobject.NewPSObjectWithTypeName(valueMap, "CustomType")
-	psobj.AddNoteProperty("DisplayName", "MyObject")
-	psobj.AddNoteProperty("DisplayValue", 100)
+	obj := typed.NewWithType(valueMap, "CustomType")
+	obj.AddNoteProperty("DisplayName", "MyObject")
+	obj.AddNoteProperty("DisplayValue", 100)
 
-	objects := []any{psobj.ToMap()}
+	objects := []any{obj.ToMap()}
 	opts := FormatListOptions{}
 
 	result, err := formatList(objects, opts)
@@ -412,22 +412,22 @@ func TestMatchProperty(t *testing.T) {
 
 func TestGetAvailableProperties(t *testing.T) {
 	// Test with regular map
-	obj := map[string]any{
+	plain := map[string]any{
 		"Name":   "test",
 		"Value":  42,
 		"Active": true,
 	}
 
-	props := getAvailableProperties(obj)
+	props := getAvailableProperties(plain)
 	if len(props) != 3 {
 		t.Errorf("expected 3 properties, got %d", len(props))
 	}
 
-	// Test with PSObject
-	psobj := psobject.NewPSObject(obj)
-	psobj.AddNoteProperty("Extra", "data")
+	// Test with a typed object
+	obj := typed.New(plain)
+	obj.AddNoteProperty("Extra", "data")
 
-	props = getAvailableProperties(psobj.ToMap())
+	props = getAvailableProperties(obj.ToMap())
 	if len(props) < 3 {
 		t.Errorf("expected at least 3 properties, got %d", len(props))
 	}
@@ -440,12 +440,12 @@ func TestFormatListDerivedProperty(t *testing.T) {
 		"FirstName": "John",
 		"LastName":  "Doe",
 	}
-	psobj := psobject.NewPSObjectWithTypeName(valueMap, "Person")
-	psobj.AddNoteProperty("FirstName", "John")
-	psobj.AddNoteProperty("LastName", "Doe")
-	psobj.AddNoteProperty("FullName", "John Doe")
+	obj := typed.NewWithType(valueMap, "Person")
+	obj.AddNoteProperty("FirstName", "John")
+	obj.AddNoteProperty("LastName", "Doe")
+	obj.AddNoteProperty("FullName", "John Doe")
 
-	objects := []any{psobj.ToMap()}
+	objects := []any{obj.ToMap()}
 	opts := FormatListOptions{}
 
 	result, err := formatList(objects, opts)
@@ -478,11 +478,11 @@ func TestFormatListPropertySelection(t *testing.T) {
 	valueMap := map[string]any{
 		"DisplayName": "MyFile.txt",
 	}
-	psobj := psobject.NewPSObjectWithTypeName(valueMap, "File")
-	psobj.AddNoteProperty("DisplayName", "MyFile.txt")
-	psobj.AddNoteProperty("Name", "MyFile.txt")
+	obj := typed.NewWithType(valueMap, "File")
+	obj.AddNoteProperty("DisplayName", "MyFile.txt")
+	obj.AddNoteProperty("Name", "MyFile.txt")
 
-	objects := []any{psobj.ToMap()}
+	objects := []any{obj.ToMap()}
 	opts := FormatListOptions{
 		Property: []string{"Name"},
 	}
@@ -508,7 +508,7 @@ func TestFormatListPropertySelection(t *testing.T) {
 }
 
 func TestFormatListDepthLimiting(t *testing.T) {
-	// Create nested PSObject
+	// Create a nested typed object
 	innerObj := map[string]any{
 		"InnerValue": "deep",
 		"InnerNum":   42,
@@ -518,11 +518,11 @@ func TestFormatListDepthLimiting(t *testing.T) {
 		"Inner": innerObj,
 	}
 
-	psobj := psobject.NewPSObjectWithTypeName(outerObj, "Container")
-	psobj.AddNoteProperty("Name", "outer")
-	psobj.AddNoteProperty("Inner", innerObj)
+	obj := typed.NewWithType(outerObj, "Container")
+	obj.AddNoteProperty("Name", "outer")
+	obj.AddNoteProperty("Inner", innerObj)
 
-	objects := []any{psobj.ToMap()}
+	objects := []any{obj.ToMap()}
 
 	// Test with depth=1 (should show outer properties but truncate nested)
 	opts := FormatListOptions{
@@ -599,13 +599,13 @@ func TestFormatListManyProperties(t *testing.T) {
 		"First": "Jane",
 		"Last":  "Smith",
 	}
-	psobj := psobject.NewPSObjectWithTypeName(valueMap, "Person")
-	psobj.AddNoteProperty("First", "Jane")
-	psobj.AddNoteProperty("Last", "Smith")
-	psobj.AddNoteProperty("FullName", "Jane")
-	psobj.AddNoteProperty("DisplayName", "Jane Smith")
+	obj := typed.NewWithType(valueMap, "Person")
+	obj.AddNoteProperty("First", "Jane")
+	obj.AddNoteProperty("Last", "Smith")
+	obj.AddNoteProperty("FullName", "Jane")
+	obj.AddNoteProperty("DisplayName", "Jane Smith")
 
-	objects := []any{psobj.ToMap()}
+	objects := []any{obj.ToMap()}
 	opts := FormatListOptions{}
 
 	result, err := formatList(objects, opts)

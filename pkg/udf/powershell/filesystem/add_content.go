@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -211,7 +211,7 @@ func fileResult(path, operation string) any {
 	if fi, err := os.Stat(path); err == nil {
 		size = fi.Size()
 	}
-	obj := psobject.NewPSObject(path)
+	obj := typed.New(path)
 	obj.AddNoteProperty("Path", path)
 	obj.AddNoteProperty("Length", size)
 	obj.AddNoteProperty("Exists", true)

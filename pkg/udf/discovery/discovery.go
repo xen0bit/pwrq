@@ -63,7 +63,7 @@ func SetCatalog(commands []Command) {
 
 // Catalog reports the published command catalog. The browser IDE reads it
 // directly rather than through get_command, because completion and help need
-// it as data rather than as a stream of PSObjects.
+// it as data rather than as a stream of typed objects.
 func Catalog() []Command {
 	return append([]Command(nil), catalog...)
 }

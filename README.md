@@ -76,7 +76,7 @@ Everything a cmdlet emits is plain JSON. There is no envelope to unwrap.
 | What it is | What it returns | Example |
 |---|---|---|
 | **Transforms** | the transformed value | `"hello" \| sha256` → `"2cf24d…"` |
-| **Object producers** | an object whose keys are PowerShell property names, plus `PSTypeName` | `get_childitem(".")` |
+| **Object producers** | an object of named properties, plus `PwrqType` | `get_childitem(".")` |
 | **Formatters** | text | `format_table(.)` |
 
 ```console
@@ -84,7 +84,7 @@ $ pwrq -c 'get_childitem(".") | select(.Name == "go.mod")'
 {"CreationTime":"2026-08-07T22:08:58-04:00","Extension":".mod",
  "FullName":"/home/you/pwrq/go.mod","IsHidden":false,"IsReadOnly":false,
  "LastWriteTime":"2026-08-07T22:08:58-04:00","Length":2928,"Mode":"-rw-rw-r--",
- "Name":"go.mod","PSPath":"go.mod","PSTypeName":"System.IO.FileInfo"}
+ "Name":"go.mod","PwrqType":"Pwrq.FileSystem.File","PwrqValue":"go.mod"}
 ```
 
 Because it is JSON, everything jq knows how to do applies — `select`, `map`,
@@ -134,7 +134,7 @@ run a cmdlet once to find out what to select from it:
 $ pwrq -r 'get_help("get_service")' | sed -n '/^OUTPUT/,/^$/p'
 OUTPUT
     a stream of values, one per result — collect with [...] to get an array
-    object [System.ServiceProcess.ServiceController] with 12 properties
+    object [Pwrq.Service] with 12 properties
         Name (string) — service name, as the manager knows it
         DisplayName (string) — human-readable name
         Status (string) — Running, Stopped, or another manager state
@@ -156,11 +156,13 @@ And a cmdlet that returns a string or a number says nothing at all. There is no
 property list for `sha256`, and inventing one for the three hundred cmdlets in
 that position is the drift this is built to avoid.
 
-`PSTypeName` is the key to the rest. A value carries it, `get_command` lists the
-same name under `.TypeName`, and the properties are one lookup away:
+`PwrqType` is the key to the rest. A value carries it, `get_command` lists the
+same name under `.TypeName`, and the properties are one lookup away. The names
+are pwrq's own — `Pwrq.FileSystem.File`, `Pwrq.Process`, `Pwrq.Sqlite.Row` —
+because what they resolve against is this catalogue and nothing else:
 
 ```console
-$ pwrq -rn '[get_command | select(.TypeName == "System.IO.FileInfo") | .Name]'
+$ pwrq -rn '[get_command | select(.TypeName == "Pwrq.FileSystem.File") | .Name]'
 ```
 
 None of this is a table kept by hand. A cmdlet declares its shape where it is

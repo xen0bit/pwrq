@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -161,22 +161,22 @@ func moveItem(opts MoveItemOptions) (any, error) {
 		return nil, fmt.Errorf("cannot stat moved item: %v", err)
 	}
 
-	// Create PSObject for the moved item
-	psobj := psobject.NewPSObject(dstPath)
-	psobj.AddNoteProperty("Name", movedInfo.Name())
-	psobj.AddNoteProperty("FullName", dstPath)
-	psobj.AddNoteProperty("Length", func() int64 {
+	// Create object for the moved item
+	obj := typed.New(dstPath)
+	obj.AddNoteProperty("Name", movedInfo.Name())
+	obj.AddNoteProperty("FullName", dstPath)
+	obj.AddNoteProperty("Length", func() int64 {
 		if movedInfo.IsDir() {
 			return 0
 		}
 		return movedInfo.Size()
 	}())
-	psobj.AddNoteProperty("Mode", movedInfo.Mode().String())
-	psobj.AddNoteProperty("LastWriteTime", movedInfo.ModTime())
-	psobj.AddNoteProperty("Exists", true)
-	psobj.AddNoteProperty("PSIsMove", true)
+	obj.AddNoteProperty("Mode", movedInfo.Mode().String())
+	obj.AddNoteProperty("LastWriteTime", movedInfo.ModTime())
+	obj.AddNoteProperty("Exists", true)
+	obj.AddNoteProperty("Moved", true)
 
-	return CreatedItem.Build(psobj.ToMap()), nil
+	return CreatedItem.Build(obj.ToMap()), nil
 }
 
 // RegisterMoveItem registers the move_item function with gojq

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // An Observer reports the shape of values a query actually produced.
@@ -23,7 +23,7 @@ type Observer struct {
 	// kinds counts the JSON type of each result, so a stream that is not
 	// homogeneous can say so instead of describing only its first value.
 	kinds map[string]int
-	// typeNames counts the PSTypeName carried by object results.
+	// typeNames counts the PwrqType carried by object results.
 	typeNames map[string]int
 	// props records, per key, how many results carried it and which JSON types
 	// its values had.
@@ -67,11 +67,11 @@ func (o *Observer) Add(v any) {
 	if !ok {
 		return
 	}
-	if name, ok := m[psobject.PSTypeNameKey].(string); ok {
+	if name, ok := m[typed.TypeKey].(string); ok {
 		o.typeNames[name]++
 	}
 	for k, val := range m {
-		if k == psobject.PSTypeNameKey {
+		if k == typed.TypeKey {
 			continue
 		}
 		p, seen := o.props[k]
@@ -204,7 +204,7 @@ func (o *Observer) describeKinds() string {
 	return "mixed: " + strings.Join(parts, ", ")
 }
 
-// describeTypeNames names the PowerShell types the results carried, so a caller
+// describeTypeNames names the types the results carried, so a caller
 // can look their declared shape up in the catalogue.
 func (o *Observer) describeTypeNames() string {
 	if len(o.typeNames) == 0 {

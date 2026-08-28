@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -86,13 +86,13 @@ func resolvePath(opts ResolvePathOptions) ([]any, error) {
 		return nil, fmt.Errorf("cannot access path: %v", err)
 	}
 
-	// Create PSObject for the resolved path
-	psobj := psobject.NewPSObject(absPath)
-	psobj.AddNoteProperty("Path", absPath)
-	psobj.AddNoteProperty("Provider", "FileSystem")
-	psobj.AddNoteProperty("ProviderPath", absPath)
+	// Create object for the resolved path
+	obj := typed.New(absPath)
+	obj.AddNoteProperty("Path", absPath)
+	obj.AddNoteProperty("Provider", "FileSystem")
+	obj.AddNoteProperty("ProviderPath", absPath)
 
-	results = append(results, PathInfo.Build(psobj.ToMap()))
+	results = append(results, PathInfo.Build(obj.ToMap()))
 
 	return results, nil
 }

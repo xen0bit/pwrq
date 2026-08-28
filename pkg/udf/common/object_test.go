@@ -3,10 +3,10 @@ package common
 import (
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
-func TestEnsurePSObject(t *testing.T) {
+func TestEnsureObject(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    any
@@ -22,110 +22,110 @@ func TestEnsurePSObject(t *testing.T) {
 			wantVal:  nil,
 		},
 		{
-			name:     "already PSObject returned unchanged",
-			input:    psobject.NewPSObject("test"),
+			name:     "already object returned unchanged",
+			input:    typed.New("test"),
 			wantNil:  false,
-			wantType: "System.String",
+			wantType: "string",
 			wantVal:  "test",
 		},
 		{
 			name: "typed cmdlet output keeps its type",
 			input: map[string]any{
-				"PSPath":     42,
-				"PSTypeName": "System.Int32",
+				"PwrqValue": 42,
+				"PwrqType":  "number",
 			},
 			wantNil:  false,
-			wantType: "System.Int32",
-			wantVal:  map[string]any{"PSPath": 42, "PSTypeName": "System.Int32"},
+			wantType: "number",
+			wantVal:  map[string]any{"PwrqValue": 42, "PwrqType": "number"},
 		},
 		{
 			name:     "raw string wrapped",
 			input:    "hello",
 			wantNil:  false,
-			wantType: "System.String",
+			wantType: "string",
 			wantVal:  "hello",
 		},
 		{
 			name:     "raw int wrapped",
 			input:    123,
 			wantNil:  false,
-			wantType: "System.Int32",
+			wantType: "number",
 			wantVal:  123,
 		},
 		{
 			name:     "raw float wrapped",
 			input:    3.14,
 			wantNil:  false,
-			wantType: "System.Double",
+			wantType: "number",
 			wantVal:  3.14,
 		},
 		{
 			name:     "raw bool wrapped",
 			input:    true,
 			wantNil:  false,
-			wantType: "System.Boolean",
+			wantType: "boolean",
 			wantVal:  true,
 		},
 		{
-			// Any JSON object is a PSObject; an untyped one is a PSCustomObject,
+			// Any JSON object is a typed object; one carrying no PwrqType is simply
 			// which is what PowerShell calls an object with no type of its own.
-			name:     "plain JSON object becomes a PSCustomObject",
+			name:     "plain JSON object reports the object type",
 			input:    map[string]any{"key": "value"},
 			wantNil:  false,
-			wantType: "System.Management.Automation.PSCustomObject",
+			wantType: "object",
 			wantVal:  map[string]any{"key": "value"},
 		},
 		{
 			name:     "raw slice wrapped",
 			input:    []any{1, 2, 3},
 			wantNil:  false,
-			wantType: "System.Object[]",
+			wantType: "array",
 			wantVal:  []any{1, 2, 3},
 		},
 		{
-			name: "malformed PSObject map (missing _meta) wrapped as raw value",
+			name: "an object with no PwrqType still converts",
 			input: map[string]any{
 				"_val": "incomplete",
 			},
 			wantNil:  false,
-			wantType: "System.Management.Automation.PSCustomObject",
+			wantType: "object",
 			wantVal:  map[string]any{"_val": "incomplete"},
 		},
 		{
 			name: "object carrying only a type is still that type",
 			input: map[string]any{
-				"PSTypeName": "System.String",
+				"PwrqType": "string",
 			},
 			wantNil:  false,
-			wantType: "System.String",
-			wantVal:  map[string]any{"PSTypeName": "System.String"},
+			wantType: "string",
+			wantVal:  map[string]any{"PwrqType": "string"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := EnsurePSObject(tt.input)
+			got := EnsureObject(tt.input)
 
 			if tt.wantNil {
 				if got != nil {
-					t.Errorf("EnsurePSObject() = %v, want nil", got)
+					t.Errorf("EnsureObject() = %v, want nil", got)
 				}
 				return
 			}
 
 			if got == nil {
-				t.Fatalf("EnsurePSObject() returned nil, expected non-nil")
+				t.Fatalf("EnsureObject() returned nil, expected non-nil")
 			}
 
 			if got.TypeName != tt.wantType {
-				t.Errorf("EnsurePSObject().TypeName = %v, want %v", got.TypeName, tt.wantType)
+				t.Errorf("EnsureObject().TypeName = %v, want %v", got.TypeName, tt.wantType)
 			}
 
 			// For map comparisons, we need special handling
 			if wantMap, ok := tt.wantVal.(map[string]any); ok {
 				if gotMap, ok := got.Value.(map[string]any); ok {
 					if !equalMaps(gotMap, wantMap) {
-						t.Errorf("EnsurePSObject().Value = %v, want %v", got.Value, tt.wantVal)
+						t.Errorf("EnsureObject().Value = %v, want %v", got.Value, tt.wantVal)
 					}
 					return
 				}
@@ -135,7 +135,7 @@ func TestEnsurePSObject(t *testing.T) {
 			if wantSlice, ok := tt.wantVal.([]any); ok {
 				if gotSlice, ok := got.Value.([]any); ok {
 					if !equalSlices(gotSlice, wantSlice) {
-						t.Errorf("EnsurePSObject().Value = %v, want %v", got.Value, tt.wantVal)
+						t.Errorf("EnsureObject().Value = %v, want %v", got.Value, tt.wantVal)
 					}
 					return
 				}
@@ -143,13 +143,13 @@ func TestEnsurePSObject(t *testing.T) {
 
 			// Direct comparison for other types
 			if got.Value != tt.wantVal {
-				t.Errorf("EnsurePSObject().Value = %v (%T), want %v (%T)", got.Value, got.Value, tt.wantVal, tt.wantVal)
+				t.Errorf("EnsureObject().Value = %v (%T), want %v (%T)", got.Value, got.Value, tt.wantVal, tt.wantVal)
 			}
 		})
 	}
 }
 
-func TestTryEnsurePSObject(t *testing.T) {
+func TestTryEnsureObject(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       any
@@ -166,22 +166,22 @@ func TestTryEnsurePSObject(t *testing.T) {
 			wantNil: true,
 		},
 		{
-			name: "valid PSObject map converted",
+			name: "valid object's wire form converted",
 			input: map[string]any{
-				"PSPath":     "hello",
-				"PSTypeName": "System.String",
+				"PwrqValue": "hello",
+				"PwrqType":  "string",
 			},
 			wantErr:  false,
 			wantNil:  false,
-			wantType: "System.String",
+			wantType: "string",
 			wantVal:  "hello",
 		},
 		{
-			name:     "plain JSON object becomes a PSCustomObject",
+			name:     "plain JSON object reports the object type",
 			input:    map[string]any{"key": "value"},
 			wantErr:  false,
 			wantNil:  false,
-			wantType: "System.Management.Automation.PSCustomObject",
+			wantType: "object",
 			wantVal:  map[string]any{"key": "value"},
 		},
 		{
@@ -189,32 +189,32 @@ func TestTryEnsurePSObject(t *testing.T) {
 			input:    42,
 			wantErr:  false,
 			wantNil:  false,
-			wantType: "System.Int32",
+			wantType: "number",
 			wantVal:  42,
 		},
 		{
-			name:     "already PSObject returned",
-			input:    psobject.NewPSObject("test"),
+			name:     "already object returned",
+			input:    typed.New("test"),
 			wantErr:  false,
 			wantNil:  false,
-			wantType: "System.String",
+			wantType: "string",
 			wantVal:  "test",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := TryEnsurePSObject(tt.input)
+			got, err := TryEnsureObject(tt.input)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("TryEnsurePSObject() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("TryEnsureObject() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if tt.wantErr {
 				if tt.errContains != "" && err != nil {
 					if !contains(err.Error(), tt.errContains) {
-						t.Errorf("TryEnsurePSObject() error = %v, want error containing %q", err, tt.errContains)
+						t.Errorf("TryEnsureObject() error = %v, want error containing %q", err, tt.errContains)
 					}
 				}
 				return
@@ -222,105 +222,105 @@ func TestTryEnsurePSObject(t *testing.T) {
 
 			if tt.wantNil {
 				if got != nil {
-					t.Errorf("TryEnsurePSObject() = %v, want nil", got)
+					t.Errorf("TryEnsureObject() = %v, want nil", got)
 				}
 				return
 			}
 
 			if got == nil {
-				t.Fatalf("TryEnsurePSObject() returned nil, expected non-nil")
+				t.Fatalf("TryEnsureObject() returned nil, expected non-nil")
 			}
 
 			if got.TypeName != tt.wantType {
-				t.Errorf("TryEnsurePSObject().TypeName = %v, want %v", got.TypeName, tt.wantType)
+				t.Errorf("TryEnsureObject().TypeName = %v, want %v", got.TypeName, tt.wantType)
 			}
 
 			// Handle map comparison specially (maps are not comparable with !=)
 			if wantMap, ok := tt.wantVal.(map[string]any); ok {
 				if gotMap, ok := got.Value.(map[string]any); ok {
 					if !equalMaps(gotMap, wantMap) {
-						t.Errorf("TryEnsurePSObject().Value = %v, want %v", got.Value, tt.wantVal)
+						t.Errorf("TryEnsureObject().Value = %v, want %v", got.Value, tt.wantVal)
 					}
 				} else {
-					t.Errorf("TryEnsurePSObject().Value type mismatch: got %T, want map[string]any", got.Value)
+					t.Errorf("TryEnsureObject().Value type mismatch: got %T, want map[string]any", got.Value)
 				}
 			} else if got.Value != tt.wantVal {
-				t.Errorf("TryEnsurePSObject().Value = %v, want %v", got.Value, tt.wantVal)
+				t.Errorf("TryEnsureObject().Value = %v, want %v", got.Value, tt.wantVal)
 			}
 		})
 	}
 }
 
-func TestGetPSTypeName(t *testing.T) {
+func TestTypeNameOf(t *testing.T) {
 	tests := []struct {
 		name  string
 		input any
 		want  string
 	}{
 		{
-			name:  "*PSObject extracts TypeName",
-			input: psobject.NewPSObjectWithTypeName("test", "System.CustomType"),
-			want:  "System.CustomType",
+			name:  "*typed.Object extracts TypeName",
+			input: typed.NewWithType("test", "Test.CustomType"),
+			want:  "Test.CustomType",
 		},
 		{
-			name: "PSObject map extracts type",
+			name: "object's wire form extracts type",
 			input: map[string]any{
-				"PSPath":     42,
-				"PSTypeName": "System.Int32",
+				"PwrqValue": 42,
+				"PwrqType":  "number",
 			},
-			want: "System.Int32",
+			want: "number",
 		},
 		{
 			name:  "raw string",
 			input: "hello",
-			want:  "System.String",
+			want:  "string",
 		},
 		{
 			name:  "raw int",
 			input: 123,
-			want:  "System.Int32",
+			want:  "number",
 		},
 		{
 			name:  "raw float",
 			input: 3.14,
-			want:  "System.Double",
+			want:  "number",
 		},
 		{
 			name:  "raw bool",
 			input: true,
-			want:  "System.Boolean",
+			want:  "boolean",
 		},
 		{
 			name:  "nil",
 			input: nil,
-			want:  "System.Object",
+			want:  "null",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetPSTypeName(tt.input)
+			got := TypeNameOf(tt.input)
 			if got != tt.want {
-				t.Errorf("GetPSTypeName() = %v, want %v", got, tt.want)
+				t.Errorf("TypeNameOf() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestAddNoteProperty(t *testing.T) {
-	psobj := psobject.NewPSObject("test")
-	result := AddNoteProperty(psobj, "NewProp", "value")
+	obj := typed.New("test")
+	result := AddNoteProperty(obj, "NewProp", "value")
 
-	if result != psobj {
-		t.Errorf("AddNoteProperty() did not return same PSObject")
+	if result != obj {
+		t.Errorf("AddNoteProperty() did not return same object")
 	}
 
-	member, ok := psobj.GetMember("NewProp")
+	member, ok := obj.GetMember("NewProp")
 	if !ok {
 		t.Fatalf("AddNoteProperty() member not found")
 	}
 
-	if member.MemberType != psobject.MemberTypeNoteProperty {
+	if member.MemberType != typed.MemberTypeNoteProperty {
 		t.Errorf("AddNoteProperty() wrong member type: %v", member.MemberType)
 	}
 
@@ -329,7 +329,7 @@ func TestAddNoteProperty(t *testing.T) {
 	}
 }
 
-func TestConvertPSObject(t *testing.T) {
+func TestConvertObject(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      any
@@ -338,40 +338,40 @@ func TestConvertPSObject(t *testing.T) {
 		wantType   string
 	}{
 		{
-			name:       "string to int",
+			name:       "string to number",
 			input:      "42",
-			targetType: "System.Int32",
+			targetType: "number",
 			wantErr:    false,
-			wantType:   "System.Int32",
+			wantType:   "number",
 		},
 		{
 			name:       "int to string",
 			input:      123,
-			targetType: "System.String",
+			targetType: "string",
 			wantErr:    false,
-			wantType:   "System.String",
+			wantType:   "string",
 		},
 		{
 			name:       "string to bool",
 			input:      "true",
-			targetType: "System.Boolean",
+			targetType: "bool",
 			wantErr:    false,
-			wantType:   "System.Boolean",
+			wantType:   "boolean",
 		},
 		{
-			name:       "invalid string to int",
+			name:       "invalid string to number",
 			input:      "not_a_number",
-			targetType: "System.Int32",
+			targetType: "number",
 			wantErr:    true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ConvertPSObject(tt.input, tt.targetType)
+			got, err := ConvertObject(tt.input, tt.targetType)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ConvertPSObject() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ConvertObject() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -380,7 +380,7 @@ func TestConvertPSObject(t *testing.T) {
 			}
 
 			if got.TypeName != tt.wantType {
-				t.Errorf("ConvertPSObject().TypeName = %v, want %v", got.TypeName, tt.wantType)
+				t.Errorf("ConvertObject().TypeName = %v, want %v", got.TypeName, tt.wantType)
 			}
 		})
 	}

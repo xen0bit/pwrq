@@ -30,15 +30,15 @@ Two facts found while exploring, which shaped the sequencing:
 
 ## The one design decision
 
-**A PSObject's wire format is ordinary JSON:** a flat object whose keys are its
-PowerShell property names, plus a `PSTypeName` property. No `_val`, no `_meta`,
-no Go structs in the output stream. This is what PowerShell's own
-`ConvertTo-Json` emits, and it makes cmdlet output navigable with plain jq.
+**A typed object's wire format is ordinary JSON:** a flat object whose keys are
+its property names, plus a `PwrqType` property. No `_val`, no `_meta`, no Go
+structs in the output stream. This is the shape `ConvertTo-Json` emits for a
+PowerShell object too, and it makes cmdlet output navigable with plain jq.
 
 | Function class | Returns | Examples |
 |---|---|---|
 | Transforms | the transformed **scalar** | `base64_encode`, `sha256`, `upper`, `find` |
-| Object producers | flat PascalCase object + `PSTypeName` | `get_childitem`, `get_process`, `get_date`, `http` |
+| Object producers | flat PascalCase object + `PwrqType` | `get_childitem`, `get_process`, `get_date`, `http` |
 | Formatters | a **string** | `format_table`, `format_list` |
 
 Nothing else reaches the encoder.
@@ -56,9 +56,8 @@ Nothing else reaches the encoder.
 
 ## Phase 1 — One object model ✅
 
-- [x] `psobject.ToJSON`/`ToMap` emit flat JSON + `PSTypeName`, evaluating
-      ScriptProperty getters and resolving AliasProperties
-- [x] A PSObject wrapping a map exposes that map's entries as properties
+- [x] `typed.Object.ToJSON`/`ToMap` emit flat JSON + `PwrqType`
+- [x] An object wrapping a map exposes that map's entries as properties
 - [x] `NormalizeJSON` converts at the boundary (`time.Time`, `os.FileMode`,
       sized ints) so values are usable by jq builtins, not just printable
 - [x] `_val`/`_meta`/`_err` retired from all non-test code
@@ -243,7 +242,7 @@ Everything below was found by writing them, and every one is the same shape:
 - `set_variable("x"; {a: 1})` could only ever fail: an object second argument
   was read as an options map, so there was no way to store an object at all.
 - `get_variable` and `invoke_web_request` returned objects with no
-  `PSTypeName`, the one property the object model says every producer carries.
+  `PwrqType`, the one property the object model says every producer carries.
 
 `common.ToFloat64`/`ToInt` now hold the numeric cases once, so the next cmdlet
 to need them cannot miss `json.Number` again.

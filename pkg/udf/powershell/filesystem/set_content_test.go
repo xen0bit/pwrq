@@ -261,35 +261,28 @@ func TestParseSetContentArgs_MissingValue(t *testing.T) {
 	}
 }
 
-func TestExtractPSObjectValue(t *testing.T) {
-	// Test with non-PSObject value
-	result := extractPSObjectValue("plain string")
-	if result != "plain string" {
-		t.Errorf("expected 'plain string', got '%v'", result)
+// TestRenderContentBindsWrappedValues covers what set_content does with cmdlet
+// output. A file item's PwrqValue is its path, so writing a stream of them
+// writes paths rather than a wall of JSON.
+func TestRenderContentBindsWrappedValues(t *testing.T) {
+	if got := renderContent("plain string"); got != "plain string" {
+		t.Errorf("renderContent(%q) = %q", "plain string", got)
 	}
 
-	// Test with PSObject map
-	psObjMap := map[string]any{
-		"__psobject": true,
-		"Value":      "wrapped value",
-		"TypeName":   "System.String",
+	wrapped := map[string]any{
+		"PwrqType":  "Pwrq.FileSystem.File",
+		"PwrqValue": "wrapped value",
+		"Name":      "value",
 	}
-	result = extractPSObjectValue(psObjMap)
-	if result != "wrapped value" {
-		t.Errorf("expected 'wrapped value', got '%v'", result)
+	if got := renderContent(wrapped); got != "wrapped value" {
+		t.Errorf("renderContent(a wrapped value) = %q, want the bound value", got)
 	}
 
-	// Test with nested PSObject
-	nestedPsObj := map[string]any{
-		"__psobject": true,
-		"Value": map[string]any{
-			"__psobject": true,
-			"Value":      "deeply wrapped",
-		},
-	}
-	result = extractPSObjectValue(nestedPsObj)
-	if result != "deeply wrapped" {
-		t.Errorf("expected 'deeply wrapped', got '%v'", result)
+	// A plain object carries no PwrqValue, so it is written as it stands
+	// rather than being collapsed to one of its keys.
+	plain := map[string]any{"Value": "not wrapped"}
+	if got := renderContent(plain); got == "not wrapped" {
+		t.Error("renderContent collapsed a plain object to one of its keys")
 	}
 }
 
@@ -306,18 +299,18 @@ func TestGetNewLine(t *testing.T) {
 	}
 }
 
-func TestSetContent_ArrayWithPSObject(t *testing.T) {
+func TestSetContentArrayOfCmdletOutput(t *testing.T) {
 	tmpDir := t.TempDir()
-	testPath := filepath.Join(tmpDir, "test_psobj_array.txt")
+	testPath := filepath.Join(tmpDir, "wrapped_array.txt")
 
-	// Array containing PSObject maps
-	psObjItem := map[string]any{
-		"__psobject": true,
-		"Value":      "extracted line",
+	// Array containing a cmdlet's output
+	wrappedItem := map[string]any{
+		"PwrqType":  "Pwrq.FileSystem.File",
+		"PwrqValue": "extracted line",
 	}
 	opts := SetContentOptions{
 		Path:     testPath,
-		Value:    []any{"line1", psObjItem, "line3"},
+		Value:    []any{"line1", wrappedItem, "line3"},
 		Encoding: "utf8",
 		Force:    false,
 	}
@@ -339,19 +332,18 @@ func TestSetContent_ArrayWithPSObject(t *testing.T) {
 	}
 }
 
-func TestSetContent_StringValueWithPSObject(t *testing.T) {
+func TestSetContentStringFromCmdletOutput(t *testing.T) {
 	tmpDir := t.TempDir()
-	testPath := filepath.Join(tmpDir, "test_psobj_string.txt")
+	testPath := filepath.Join(tmpDir, "wrapped_string.txt")
 
-	// PSObject wrapping a string
-	psObjMap := map[string]any{
-		"__psobject": true,
-		"Value":      "unwrapped content",
-		"TypeName":   "System.String",
+	// A cmdlet's output wrapping a string
+	wrappedMap := map[string]any{
+		"PwrqType":  "Pwrq.FileSystem.File",
+		"PwrqValue": "unwrapped content",
 	}
 	opts := SetContentOptions{
 		Path:     testPath,
-		Value:    psObjMap,
+		Value:    wrappedMap,
 		Encoding: "utf8",
 		Force:    false,
 	}

@@ -3,7 +3,7 @@ package formatting
 import (
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestFormatTable_Basic(t *testing.T) {
@@ -120,10 +120,10 @@ func TestFormatTable_HideHeaders(t *testing.T) {
 	}
 }
 
-func TestFormatTable_WithPSObject(t *testing.T) {
-	// Create PSObject-wrapped objects
-	obj1 := psobject.NewPSObject(map[string]any{"Name": "Alice", "Age": 30})
-	obj2 := psobject.NewPSObject(map[string]any{"Name": "Bob", "Age": 25})
+func TestFormatTableWithTypedObject(t *testing.T) {
+	// Create typed objects
+	obj1 := typed.New(map[string]any{"Name": "Alice", "Age": 30})
+	obj2 := typed.New(map[string]any{"Name": "Bob", "Age": 25})
 
 	objects := []any{
 		obj1.ToMap(),

@@ -8,7 +8,7 @@ import "github.com/xen0bit/pwrq/pkg/core/shape"
 // shape that has to describe the thing describing everything else. Shape and
 // TypeName are the properties this change added: the first is the summary a
 // caller reads, the second is the key they look the full property list up by.
-var CommandInfoShape = shape.Fixed("System.Management.Automation.CommandInfo",
+var CommandInfoShape = shape.Fixed("Pwrq.Command",
 	shape.Prop("Name", shape.String, "the callable name"),
 	shape.Prop("Aliases", shape.Array, "other names that reach the same cmdlet"),
 	shape.Prop("Category", shape.String, "the vocabulary group it belongs to"),
@@ -21,5 +21,5 @@ var CommandInfoShape = shape.Fixed("System.Management.Automation.CommandInfo",
 	shape.Prop("Output", shape.String, "what Streaming means for the caller, in words"),
 	shape.Prop("Input", shape.String, "where it reads its input from, or \"\" when it has not said"),
 	shape.Prop("Shape", shape.String, "one-line summary of the object it emits, or \"\" when it emits none"),
-	shape.Prop("TypeName", shape.String, "the PSTypeName its output carries, or \"\"; the key to look this shape up by"),
+	shape.Prop("TypeName", shape.String, "the PwrqType its output carries, or \"\"; the key to look this shape up by"),
 )

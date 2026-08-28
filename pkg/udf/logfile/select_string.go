@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -281,16 +281,16 @@ func searchFile(path string, re *regexp.Regexp, o selectOpts) ([]any, error) {
 			if o.listOnly {
 				// List mode answers "which files", so the first hit is enough.
 				return []any{MatchInfo.Build(map[string]any{
-					"Path":             path,
-					psobject.PSPathKey: path,
+					"Path":         path,
+					typed.ValueKey: path,
 				})}, nil
 			}
 			m := map[string]any{
-				"Path":             path,
-				"LineNumber":       lineNumber,
-				"Line":             line,
-				"Match":            re.FindString(line),
-				psobject.PSPathKey: path,
+				"Path":         path,
+				"LineNumber":   lineNumber,
+				"Line":         line,
+				"Match":        re.FindString(line),
+				typed.ValueKey: path,
 			}
 			if o.context > 0 {
 				m["Before"] = asValues(before)

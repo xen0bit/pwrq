@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -188,7 +188,7 @@ func extractPropertyByWildcard(obj any, pattern string) (any, error) {
 	// Check if pattern contains wildcards
 	hasWildcard := strings.ContainsAny(pattern, "*?")
 
-	// Extract the underlying value from PSObject if present
+	// Extract the underlying value from object if present
 	value := common.BindValue(obj)
 
 	if !hasWildcard {
@@ -223,10 +223,10 @@ func getPropertyNames(value any) []string {
 		for k := range v {
 			names = append(names, k)
 		}
-	case *psobject.PSObject:
-		// Get property names from PSObject members
+	case *typed.Object:
+		// Get property names from object members
 		for name, member := range v.Members {
-			if member.MemberType == psobject.MemberTypeNoteProperty {
+			if member.MemberType == typed.MemberTypeNoteProperty {
 				names = append(names, name)
 			}
 		}
@@ -241,7 +241,7 @@ func getPropertyNames(value any) []string {
 	return names
 }
 
-// formatGroupsFull formats groups as PSObjects with Name, Count, and Group properties
+// formatGroupsFull formats groups as typed objects with Name, Count, and Group properties
 func formatGroupsFull(groupMap map[string]*GroupedObject, groupOrder []string) ([]any, error) {
 	result := make([]any, 0, len(groupOrder))
 
@@ -264,11 +264,11 @@ func formatGroupsNoElement(groupMap map[string]*GroupedObject, groupOrder []stri
 			"Name":  group.Name,
 			"Count": group.Count,
 		}
-		// Wrap in PSObject with proper type information
-		psobj := psobject.NewPSObject(valueMap)
-		psobj.AddNoteProperty("Name", group.Name)
-		psobj.AddNoteProperty("Count", group.Count)
-		result = append(result, GroupInfoShape.Build(psobj.ToMap()))
+		// Wrap in object with proper type information
+		obj := typed.New(valueMap)
+		obj.AddNoteProperty("Name", group.Name)
+		obj.AddNoteProperty("Count", group.Count)
+		result = append(result, GroupInfoShape.Build(obj.ToMap()))
 	}
 
 	return result, nil
@@ -281,9 +281,10 @@ func formatGroupsAsHashTable(groupMap map[string]*GroupedObject, groupOrder []st
 		group := groupMap[key]
 		hashTable[group.Name] = group.Group
 	}
-	// Return single-item slice containing the hashtable wrapped as PSObject
-	psobj := psobject.NewPSObjectWithTypeName(hashTable, "System.Collections.Hashtable")
-	return []any{psobj.ToMap()}, nil
+	// Return a single-item slice holding the table, typed so a caller can
+	// tell it apart from the stream of groups the other modes emit.
+	obj := typed.NewWithType(hashTable, "Pwrq.GroupTable")
+	return []any{obj.ToMap()}, nil
 }
 
 // formatGroupsNoGroup returns unique values without grouping
@@ -303,19 +304,19 @@ func formatGroupsNoGroup(groupMap map[string]*GroupedObject, groupOrder []string
 	return result, nil
 }
 
-// createGroupObject creates a PSObject representing a group with TypeName="GroupInfo"
+// createGroupObject creates a typed object representing a group with TypeName="GroupInfo"
 func createGroupObject(group *GroupedObject) map[string]any {
 	result := map[string]any{
 		"Name":  group.Name,
 		"Count": group.Count,
 		"Group": group.Group,
 	}
-	// Wrap in PSObject with proper type information
-	psobj := psobject.NewPSObject(result)
-	psobj.AddNoteProperty("Name", group.Name)
-	psobj.AddNoteProperty("Count", group.Count)
-	psobj.AddNoteProperty("Group", group.Group)
-	return GroupInfoShape.Build(psobj.ToMap())
+	// Wrap in object with proper type information
+	obj := typed.New(result)
+	obj.AddNoteProperty("Name", group.Name)
+	obj.AddNoteProperty("Count", group.Count)
+	obj.AddNoteProperty("Group", group.Group)
+	return GroupInfoShape.Build(obj.ToMap())
 }
 
 // ParseGroupObjectArgs parses arguments for testing

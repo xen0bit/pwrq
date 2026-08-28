@@ -12,12 +12,12 @@ which kind depends on what the function is for:
 | Kind | Returns | Example |
 |---|---|---|
 | **Transform** | the transformed value | `sha256`, `base64_encode`, `find` |
-| **Object producer** | a flat object keyed by PowerShell property names, plus `PSTypeName` | `get_childitem`, `get_process`, `http` |
+| **Object producer** | a flat object of named properties, plus `PwrqType` | `get_childitem`, `get_process`, `http` |
 | **Formatter** | a string | `format_table`, `format_list` |
 
 Nothing else may reach the encoder. A Go value that is not a JSON type is a
 query error, so anything a function computes has to be converted at the boundary
-— `psobject.NormalizeJSON` does that, turning `time.Time` into RFC3339,
+— `typed.NormalizeJSON` does that, turning `time.Time` into RFC3339,
 `os.FileMode` into its string, sized integers into `int`, and so on. This is not
 only about printing: a `time.Time` in the pipeline is a value no jq builtin can
 act on.

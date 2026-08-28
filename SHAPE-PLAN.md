@@ -16,9 +16,9 @@ The information exists. It is just not anywhere the model can reach.
 applied at construction, through three unrelated idioms:
 
 ```go
-psobject.PSTypeNameKey: "System.IO.FileInfo"                      // map literal
-psobj.TypeName = "System.IO.FileInfo"                             // field assignment
-psobject.NewPSObjectWithTypeName(m, "…GenericMeasureInfo")        // constructor
+psobject.PSTypeNameKey: "System.IO.FileInfo"                  // map literal
+psobj.TypeName = "System.IO.FileInfo"                         // field assignment
+psobject.NewPSObjectWithTypeName(m, "…GenericMeasureInfo")    // constructor
 ```
 
 There is no registry, so the type space cannot be enumerated: grepping the first
@@ -80,7 +80,7 @@ read back through `ShapeOf` beside `IsStreaming`.
 
 **2. Declared and emitted are reconciled at construction, not by a hand-written
 test.** A shape is also the constructor: `FileInfo.Build(...)` stamps
-`PSTypeName` and is the only way a `System.IO.FileInfo` is made. A key that is
+the type name and is the only way a `Pwrq.FileSystem.File` is made. A key that is
 not declared, or a declared key that is missing, is a *discrepancy* — recorded
 in a package-level table, never an error to the caller. A user's query is never
 broken by a documentation bug. A test then asserts the table is empty after the
@@ -89,7 +89,7 @@ than against a second hand-written list.
 
 This is `recordEmission`'s trick applied to fields instead of cardinality.
 
-**3. `PSTypeName` stays on the wire, demoted.** It is load-bearing:
+**3. The type name stays on the wire, demoted.** It is load-bearing:
 `format_table` reads it, and `PreserveTypeName` carries provenance through a
 projection. But it stops being *the* type system and becomes a foreign key into
 a catalogue that now exists. That is exactly what makes it useful to a model —
@@ -161,5 +161,58 @@ tests, and the README.
 Out: declaring shapes for scalar transforms (decision 4), and the Censys and LLM
 producers. Their examples cannot run in CI, so a declaration for them could not
 be reconciled against real output — and an unreconciled declaration is the drift
-this plan exists to remove. They keep their hand-written `PSTypeName` literals
+this plan exists to remove. They keep their hand-written type-name literals
 and stay `Unspecified` in the catalogue rather than being guessed at.
+
+## Naming the type space
+
+Publishing the catalogue made a second problem visible. Every name in it was
+borrowed: `System.IO.FileInfo`, `Microsoft.PowerShell.Commands.GroupInfo`,
+`System.String` for a scalar, `PSTypeName` for the key itself. That was
+defensible while the names were decoration — a PowerShell user recognised them
+— and stops being defensible the moment a caller is told to *resolve* one.
+
+A borrowed name makes a promise pwrq cannot keep. `System.IO.FileInfo` names a
+.NET class with methods, a `Directory` property and a `Refresh()`; pwrq's is a
+flat JSON object with eleven keys. A model that recognises the name will expect
+the class, and the catalogue will not contradict it — the name says .NET, the
+entry says otherwise, and the name is what a model reads first. Worse, the
+lineage is not even consistent: `System.IO.PathInfo` is not a .NET type at all,
+and `System.Management.Automation.PathInfo` was a different object under a
+confusingly similar name.
+
+So the type space becomes pwrq's own:
+
+| kind | before | after |
+|---|---|---|
+| envelope keys | `PSTypeName`, `PSPath` | `PwrqType`, `PwrqValue` |
+| cmdlet output | `System.IO.FileInfo`, `Microsoft.PowerShell.Commands.GroupInfo` | `Pwrq.FileSystem.File`, `Pwrq.Group` |
+| a value with no pwrq type | `System.String`, `System.Int32` | `string`, `number` |
+| the Go model | `psobject.PSObject` | `typed.Object` |
+
+Three notes on the choices:
+
+**The envelope keys are prefixed, not shortened.** `Type` and `TypeName` are
+both plausible and both collide with real data — `get_command`'s own output has
+a `TypeName` column naming what a cmdlet emits, which is a different fact about
+a different object. `PwrqType` cannot collide, and it is a bare identifier, so
+`.PwrqType` works in a path expression without quoting.
+
+**An untyped value answers in jq's vocabulary.** A string wrapped by a cmdlet
+was `System.String`; it is now `string`. This is not a smaller lie than the old
+one, it is not a lie: there is no catalogue entry for a bare string, so any
+`Pwrq.*` name invented for it would be a key that resolves to nothing. Saying
+`string` says all there is to say, and it is the same vocabulary
+`shape.JSONType` already uses for a property's type.
+
+**PowerShell's *property* names stay.** `invoke_web_request` still returns
+`StatusCode`, `RequestMethod` and `BaseResponse`, and the cmdlets are still
+named after theirs. That is the compatibility pwrq is for. What changed is only
+the name of the thing, not the names inside it.
+
+This is a breaking change to query text: `.PSTypeName` becomes `.PwrqType`,
+`.PSPath` becomes `.PwrqValue`, and a `select(.PSTypeName == "System.IO.FileInfo")`
+becomes `select(.PwrqType == "Pwrq.FileSystem.File")`. It is done in the same
+change as the catalogue rather than after it, because the catalogue is what
+makes the names load-bearing — renaming them later would break queries that had
+started to depend on names the catalogue had just told people to trust.

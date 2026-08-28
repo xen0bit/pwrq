@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -127,7 +127,7 @@ func bindCorpus(items []any) ([]*sample, error) {
 // varies with the compressor, so publishing the sixteenth decimal of a number
 // whose third is approximate invites comparisons that mean nothing.
 func pairObject(a, b *sample, p pairScore) map[string]any {
-	obj := psobject.NewPSObject(nil)
+	obj := typed.New(nil)
 	// The index is always there and the name only sometimes, so both are
 	// reported: the index says which element of the caller's own array this
 	// is, which is the one label no corpus can be missing.
