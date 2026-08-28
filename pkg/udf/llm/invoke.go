@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -139,7 +139,7 @@ func responseObject(resp *response, o *options) map[string]any {
 		"Cost":         nil,
 		"Cached":       resp.Cached,
 
-		psobject.PSTypeNameKey: "Pwrq.LLM.Response",
+		typed.TypeKey: "Pwrq.LLM.Response",
 	}
 	if resp.Reasoning != "" {
 		out["Reasoning"] = resp.Reasoning

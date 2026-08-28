@@ -30,8 +30,8 @@ func TestSHA256(t *testing.T) {
 		{
 			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"PSPath":     "hello",
-				"PSTypeName": "System.String",
+				"PwrqValue": "hello",
+				"PwrqType":  "string",
 			},
 			want:    fmt.Sprintf("%x", sha256.Sum256([]byte("hello"))),
 			wantErr: false,

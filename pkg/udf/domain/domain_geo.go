@@ -6,13 +6,21 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/shape"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // registerCoords4 registers a cmdlet taking four numeric arguments: lat1, lon1,
 // lat2, lon2.
 func registerCoords4(name string, fn func(lat1, lon1, lat2, lon2 float64) any) gojq.CompilerOption {
-	return common.WithFunction(name, 4, 4, func(v any, args []any) any {
+	return registerCoords4Of(name, nil, fn)
+}
+
+// registerCoords4Of is registerCoords4 for the one member of the family that
+// returns an object rather than a number, so its shape is declared where it is
+// registered like every other cmdlet's.
+func registerCoords4Of(name string, s *shape.Shape, fn func(lat1, lon1, lat2, lon2 float64) any) gojq.CompilerOption {
+	return common.WithFunctionOf(name, 4, 4, s, func(v any, args []any) any {
 		nums := make([]float64, 4)
 		for i := range nums {
 			f, ok := common.ToFloat64(common.BindValue(args[i]))
@@ -62,7 +70,7 @@ func RegisterBearing() gojq.CompilerOption {
 // RegisterGeoMidpoint registers geo_midpoint, the halfway point of the
 // great-circle arc between two coordinates.
 func RegisterGeoMidpoint() gojq.CompilerOption {
-	return registerCoords4("geo_midpoint", func(lat1, lon1, lat2, lon2 float64) any {
+	return registerCoords4Of("geo_midpoint", CoordinateShape, func(lat1, lon1, lat2, lon2 float64) any {
 		φ1, λ1 := degToRad(lat1), degToRad(lon1)
 		φ2, λ2 := degToRad(lat2), degToRad(lon2)
 		bx := math.Cos(φ2) * math.Cos(λ2-λ1)
@@ -70,7 +78,7 @@ func RegisterGeoMidpoint() gojq.CompilerOption {
 		φ3 := math.Atan2(math.Sin(φ1)+math.Sin(φ2),
 			math.Sqrt((math.Cos(φ1)+bx)*(math.Cos(φ1)+bx)+by*by))
 		λ3 := λ1 + math.Atan2(by, math.Cos(φ1)+bx)
-		return map[string]any{"lat": radToDeg(φ3), "lon": radToDeg(λ3)}
+		return CoordinateShape.Build(map[string]any{"lat": radToDeg(φ3), "lon": radToDeg(λ3)})
 	})
 }
 
@@ -99,7 +107,7 @@ func RegisterWithinRadius() gojq.CompilerOption {
 
 // RegisterParseCoords registers parse_coords, a "lat, lon" string to an object.
 func RegisterParseCoords() gojq.CompilerOption {
-	return common.WithFunction("parse_coords", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("parse_coords", 0, 1, CoordinateShape, func(v any, args []any) any {
 		input := v
 		if len(args) > 0 {
 			input = args[0]
@@ -112,7 +120,7 @@ func RegisterParseCoords() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("parse_coords: %v", err), nil)
 		}
-		return common.MakeUDFSuccessResult(map[string]any{"lat": lat, "lon": lon}, nil)
+		return common.MakeUDFSuccessResult(CoordinateShape.Build(map[string]any{"lat": lat, "lon": lon}), nil)
 	})
 }
 
@@ -204,7 +212,7 @@ func geohashEncode(lat, lon float64, precision int) string {
 // RegisterGeohashDecode registers geohash_decode, a geohash to its centre
 // coordinate as {lat, lon, latErr, lonErr}.
 func RegisterGeohashDecode() gojq.CompilerOption {
-	return common.WithFunction("geohash_decode", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("geohash_decode", 0, 1, GeohashShape, func(v any, args []any) any {
 		input := v
 		if len(args) > 0 {
 			input = args[0]
@@ -217,9 +225,9 @@ func RegisterGeohashDecode() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("geohash_decode: %v", err), nil)
 		}
-		return common.MakeUDFSuccessResult(map[string]any{
+		return common.MakeUDFSuccessResult(GeohashShape.Build(map[string]any{
 			"lat": lat, "lon": lon, "latErr": latErr, "lonErr": lonErr,
-		}, nil)
+		}), nil)
 	})
 }
 

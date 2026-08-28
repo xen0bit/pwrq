@@ -21,8 +21,8 @@ func TestHMACSHA256(t *testing.T) {
 
 	// Test with UDF result input
 	udfResult := map[string]any{
-		"PSPath":     message,
-		"PSTypeName": "System.String",
+		"PwrqValue": message,
+		"PwrqType":  "string",
 	}
 
 	inputVal := common.BindValue(udfResult)

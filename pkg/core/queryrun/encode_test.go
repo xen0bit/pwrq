@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // The encoder is the last thing between a query result and the caller, and it
@@ -27,11 +27,11 @@ func nest(depth int) any {
 func TestEncodeRejectsDeepValues(t *testing.T) {
 	e := newEncoder(&Request{Compact: true})
 
-	if _, err := e.encode(nest(psobject.MaxJSONDepth - 1)); err != nil {
+	if _, err := e.encode(nest(typed.MaxJSONDepth - 1)); err != nil {
 		t.Fatalf("value just inside the limit should encode, got %v", err)
 	}
 
-	_, err := e.encode(nest(psobject.MaxJSONDepth + 1))
+	_, err := e.encode(nest(typed.MaxJSONDepth + 1))
 	if err == nil {
 		t.Fatal("value past the limit encoded; it should be refused")
 	}
@@ -58,16 +58,16 @@ func TestEncodeRejectsDeepValuesWithoutOverflow(t *testing.T) {
 }
 
 // TestEncodeNormalizesCmdletTypes pins that values a cmdlet may leak - a
-// PSObject, a typed integer - are normalized rather than reaching gojq.Marshal,
+// object, a typed integer - are normalized rather than reaching gojq.Marshal,
 // which would panic on them.
 func TestEncodeNormalizesCmdletTypes(t *testing.T) {
-	obj := psobject.NewPSObject("/tmp/x.txt")
+	obj := typed.New("/tmp/x.txt")
 	obj.AddNoteProperty("Handles", int32(7))
 
 	e := newEncoder(&Request{Compact: true})
 	got, err := e.encode(obj)
 	if err != nil {
-		t.Fatalf("encode PSObject: %v", err)
+		t.Fatalf("encode a typed object: %v", err)
 	}
 	if !strings.Contains(got, `"Handles":7`) {
 		t.Errorf("int32 note property not normalized: %s", got)

@@ -58,7 +58,7 @@ func objInput(v any, args []any, name string) (map[string]any, error) {
 // RegisterIniParse registers ini_parse, an INI document to an object of
 // sections. Lines outside a section land under the empty key.
 func RegisterIniParse() gojq.CompilerOption {
-	return common.WithFunction("ini_parse", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("ini_parse", 0, 1, ParsedINI, func(v any, args []any) any {
 		s, err := strInput(v, args, "ini_parse")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -132,7 +132,7 @@ func RegisterIniStringify() gojq.CompilerOption {
 // .env document to an object. Comments (# or !), escaped separators and
 // line continuations are handled.
 func RegisterPropertiesParse() gojq.CompilerOption {
-	return common.WithFunction("properties_parse", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("properties_parse", 0, 1, ParsedProperties, func(v any, args []any) any {
 		s, err := strInput(v, args, "properties_parse")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -245,7 +245,7 @@ func RegisterPropertiesStringify() gojq.CompilerOption {
 // Quoted values stay strings; unquoted true/false/null and numbers get their
 // JSON types; a bare key is true.
 func RegisterLogfmtParse() gojq.CompilerOption {
-	return common.WithFunction("logfmt_parse", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("logfmt_parse", 0, 1, ParsedLogfmt, func(v any, args []any) any {
 		s, err := strInput(v, args, "logfmt_parse")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)

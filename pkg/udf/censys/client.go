@@ -16,7 +16,7 @@ import (
 	censyssdkgo "github.com/censys/censys-sdk-go"
 	"github.com/censys/censys-sdk-go/models/sdkerrors"
 	"github.com/xen0bit/pwrq/pkg/core/pipeline"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -466,7 +466,7 @@ func object(op, typeName string, payload any) (map[string]any, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s: expected an object from the API, got %T", op, decoded)
 	}
-	m[psobject.PSTypeNameKey] = typeName
+	m[typed.TypeKey] = typeName
 	return m, nil
 }
 

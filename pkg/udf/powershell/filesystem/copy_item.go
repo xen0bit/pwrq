@@ -169,11 +169,11 @@ func copyItem(opts CopyItemOptions) (any, error) {
 		}
 
 		// Return success object
-		result := map[string]any{
+		result := CopiedItem.Build(map[string]any{
 			"Source":      srcPath,
 			"Destination": dstPath,
 			"Success":     true,
-		}
+		})
 		return result, nil
 	}
 
@@ -188,11 +188,11 @@ func copyItem(opts CopyItemOptions) (any, error) {
 		return nil, err
 	}
 
-	result := map[string]any{
+	result := CopiedItem.Build(map[string]any{
 		"Source":      srcPath,
 		"Destination": dstPath,
 		"Success":     true,
-	}
+	})
 	return result, nil
 }
 
@@ -404,18 +404,18 @@ func copyDirectoryContents(src, dst string, opts CopyItemOptions) (any, error) {
 		copied++
 	}
 
-	result := map[string]any{
+	result := CopiedItem.Build(map[string]any{
 		"Source":      src,
 		"Destination": dst,
 		"FilesCopied": copied,
 		"Success":     true,
-	}
+	})
 	return result, nil
 }
 
 // RegisterCopyItem registers the copy_item function with gojq
 func RegisterCopyItem() gojq.CompilerOption {
-	return common.WithIterFunction("copy_item", 1, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("copy_item", 1, 3, CopiedItem, func(v any, args []any) gojq.Iter {
 		opts, err := parseCopyItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

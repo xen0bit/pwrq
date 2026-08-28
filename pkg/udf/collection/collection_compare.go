@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -30,7 +29,8 @@ import (
 // reference. Piping a reference and passing options at once is an error rather
 // than a guess.
 func RegisterCompareObject() gojq.CompilerOption {
-	return common.WithFunction("compare_object", 1, 3, func(v any, args []any) any {
+	common.DeclareInput("compare_object", common.InputPipeline)
+	return common.WithFunctionOf("compare_object", 1, 3, ComparisonShape.Each(), func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		reference, err := common.BindArray(in, "compare_object")
 		if err != nil {
@@ -90,11 +90,10 @@ func RegisterCompareObject() gojq.CompilerOption {
 		}
 
 		row := func(item any, side string) any {
-			return map[string]any{
-				psobject.PSTypeNameKey: "Microsoft.PowerShell.Commands.PSCompareObject",
-				"InputObject":          item,
-				"SideIndicator":        side,
-			}
+			return ComparisonShape.Build(map[string]any{
+				"InputObject":   item,
+				"SideIndicator": side,
+			})
 		}
 
 		out := []any{}

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -21,7 +21,7 @@ import (
 // are left out: sqlite_sequence is an implementation detail of AUTOINCREMENT,
 // not something the caller put in the database.
 //
-// Each object carries the database in PSPath as well as in Database, so it
+// Each object carries the database in PwrqValue as well as in Database, so it
 // binds as the database operand of the next cmdlet:
 //
 //	get_sqlite_table("app.db") | get_sqlite_schema(.Name)
@@ -30,7 +30,8 @@ import (
 // to answer a question most callers did not ask; the one who did asks for it
 // with `invoke_sqlite_query($db; "select count(*) from t")`.
 func RegisterGetSqliteTable() gojq.CompilerOption {
-	return common.WithIterFunction("get_sqlite_table", 0, 1, func(v any, args []any) gojq.Iter {
+	common.DeclareInput("get_sqlite_table", common.InputPipeline)
+	return common.WithIterFunctionOf("get_sqlite_table", 0, 1, TableShape, func(v any, args []any) gojq.Iter {
 		in, _ := common.SplitInput(v, args, 0)
 		path, err := bindDatabase(in, "get_sqlite_table")
 		if err != nil {
@@ -45,8 +46,8 @@ func RegisterGetSqliteTable() gojq.CompilerOption {
 			from sqlite_schema
 			where type in ('table', 'view') and name not like 'sqlite_%'
 			order by name`
-		extra := map[string]any{"Database": path, psobject.PSPathKey: path}
-		iter, err := newRowIterOnDB(db, "get_sqlite_table", query, nil, tableType, extra, nil)
+		extra := map[string]any{"Database": path, typed.ValueKey: path}
+		iter, err := newRowIterOnDB(db, "get_sqlite_table", query, nil, TableShape, extra, nil)
 		if err != nil {
 			_ = db.Close()
 			return gojq.NewIter(fmt.Errorf("get_sqlite_table: %v", err))
@@ -69,7 +70,8 @@ func RegisterGetSqliteTable() gojq.CompilerOption {
 // A table that does not exist is an error rather than an empty stream: no table
 // has zero columns, so an empty answer could only be read as a lie.
 func RegisterGetSqliteSchema() gojq.CompilerOption {
-	return common.WithIterFunction("get_sqlite_schema", 1, 2, func(v any, args []any) gojq.Iter {
+	common.DeclareInput("get_sqlite_schema", common.InputPipeline)
+	return common.WithIterFunctionOf("get_sqlite_schema", 1, 2, ColumnShape, func(v any, args []any) gojq.Iter {
 		in, rest := common.SplitInput(v, args, 1)
 		path, err := bindDatabase(in, "get_sqlite_schema")
 		if err != nil {
@@ -99,8 +101,8 @@ func RegisterGetSqliteSchema() gojq.CompilerOption {
 				"notnull" as "NotNull", dflt_value as "DefaultValue", pk as "IsPrimaryKey"
 			from pragma_table_info(?)
 			order by cid`
-		extra := map[string]any{"Database": path, "Table": table, psobject.PSPathKey: path}
-		iter, err := newRowIterOnDB(db, "get_sqlite_schema", query, []any{table}, columnType, extra, asBooleans("NotNull", "IsPrimaryKey"))
+		extra := map[string]any{"Database": path, "Table": table, typed.ValueKey: path}
+		iter, err := newRowIterOnDB(db, "get_sqlite_schema", query, []any{table}, ColumnShape, extra, asBooleans("NotNull", "IsPrimaryKey"))
 		if err != nil {
 			_ = db.Close()
 			return gojq.NewIter(fmt.Errorf("get_sqlite_schema: %v", err))

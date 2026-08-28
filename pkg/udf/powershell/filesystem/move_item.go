@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -161,31 +161,27 @@ func moveItem(opts MoveItemOptions) (any, error) {
 		return nil, fmt.Errorf("cannot stat moved item: %v", err)
 	}
 
-	// Create PSObject for the moved item
-	psobj := psobject.NewPSObject(dstPath)
-	psobj.TypeName = "System.IO.FileInfo"
-	if movedInfo.IsDir() {
-		psobj.TypeName = "System.IO.DirectoryInfo"
-	}
-	psobj.AddNoteProperty("Name", movedInfo.Name())
-	psobj.AddNoteProperty("FullName", dstPath)
-	psobj.AddNoteProperty("Length", func() int64 {
+	// Create object for the moved item
+	obj := typed.New(dstPath)
+	obj.AddNoteProperty("Name", movedInfo.Name())
+	obj.AddNoteProperty("FullName", dstPath)
+	obj.AddNoteProperty("Length", func() int64 {
 		if movedInfo.IsDir() {
 			return 0
 		}
 		return movedInfo.Size()
 	}())
-	psobj.AddNoteProperty("Mode", movedInfo.Mode().String())
-	psobj.AddNoteProperty("LastWriteTime", movedInfo.ModTime())
-	psobj.AddNoteProperty("Exists", true)
-	psobj.AddNoteProperty("PSIsMove", true)
+	obj.AddNoteProperty("Mode", movedInfo.Mode().String())
+	obj.AddNoteProperty("LastWriteTime", movedInfo.ModTime())
+	obj.AddNoteProperty("Exists", true)
+	obj.AddNoteProperty("Moved", true)
 
-	return psobj.ToMap(), nil
+	return CreatedItem.Build(obj.ToMap()), nil
 }
 
 // RegisterMoveItem registers the move_item function with gojq
 func RegisterMoveItem() gojq.CompilerOption {
-	return common.WithIterFunction("move_item", 1, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("move_item", 1, 3, CreatedItem, func(v any, args []any) gojq.Iter {
 		opts, err := parseMoveItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

@@ -45,8 +45,8 @@ func TestMD5File(t *testing.T) {
 		{
 			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"PSPath":     tmpFile.Name(),
-				"PSTypeName": "System.String",
+				"PwrqValue": tmpFile.Name(),
+				"PwrqType":  "string",
 			},
 			want:    expectedHash,
 			wantErr: false,
@@ -126,8 +126,8 @@ func TestMD5FileWithUDFResultInput(t *testing.T) {
 
 	// Create a UDF result object
 	udfResult := map[string]any{
-		"PSPath":     tmpFile.Name(),
-		"PSTypeName": "System.String",
+		"PwrqValue": tmpFile.Name(),
+		"PwrqType":  "string",
 	}
 
 	// Extract _val (simulating what the function does)
@@ -169,8 +169,8 @@ func TestMD5FileChaining(t *testing.T) {
 
 	// Simulate: find returns UDF result with file path
 	udfResult := map[string]any{
-		"PSPath":     tmpFile.Name(),
-		"PSTypeName": "System.String",
+		"PwrqValue": tmpFile.Name(),
+		"PwrqType":  "string",
 	}
 
 	// Simulate: md5_file receives UDF result and extracts _val

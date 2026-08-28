@@ -1,4 +1,4 @@
-package psobject
+package typed
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ var ErrTooDeep = errors.New("value nests too deeply to encode")
 // gojq operates on nil, bool, int, float64, *big.Int, json.Number, string,
 // []any and map[string]any, and it *panics* on anything else - not only when
 // marshalling, but inside any builtin that inspects the value. A cmdlet that
-// hands back an int32, a time.Duration or a *PSObject therefore arms a crash
+// hands back an int32, a time.Duration or a *Object therefore arms a crash
 // for whichever query touches that value first. Passing every cmdlet result
 // through here disarms the whole class.
 //
@@ -111,7 +111,7 @@ func inspectJSON(v any) (clean, tooDeep bool) {
 			for _, e := range x {
 				push(e, cur.depth+1)
 			}
-		case *PSObject:
+		case *Object:
 			clean = false
 			push(x.Value, cur.depth+1)
 			for _, m := range x.Members {

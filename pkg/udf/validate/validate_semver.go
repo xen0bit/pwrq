@@ -139,7 +139,7 @@ func comparePrerelease(a, b string) int {
 // RegisterSemverParts registers semver_parts, a semantic version split into
 // {major, minor, patch, prerelease, build}.
 func RegisterSemverParts() gojq.CompilerOption {
-	return common.WithFunction("semver_parts", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("semver_parts", 0, 1, SemverPartsShape, func(v any, args []any) any {
 		s, err := strInput(v, args, "semver_parts")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -163,6 +163,6 @@ func RegisterSemverParts() gojq.CompilerOption {
 			n, _ := strconv.Atoi(nums[i])
 			out[name] = n
 		}
-		return common.MakeUDFSuccessResult(out, nil)
+		return common.MakeUDFSuccessResult(SemverPartsShape.Build(out), nil)
 	})
 }

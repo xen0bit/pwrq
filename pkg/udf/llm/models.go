@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -142,7 +142,7 @@ func listModels(ctx context.Context, op string, o options, p provider) ([]any, e
 			"OwnedBy":  nil,
 			"Created":  nil,
 
-			psobject.PSTypeNameKey: "Pwrq.LLM.Model",
+			typed.TypeKey: "Pwrq.LLM.Model",
 		}
 		if m.OwnedBy != "" {
 			entry["OwnedBy"] = m.OwnedBy

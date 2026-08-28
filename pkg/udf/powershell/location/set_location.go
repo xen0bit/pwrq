@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -41,8 +41,8 @@ func RegisterSetLocation() gojq.CompilerOption {
 				"Path":     cwd,
 				"Provider": "FileSystem",
 			}
-			psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")
-			return common.MakeUDFSuccessResult(psobj.ToMap(), map[string]any{
+			obj := typed.New(result)
+			return common.MakeUDFSuccessResult(CurrentLocationShape.Build(obj.ToMap()), map[string]any{
 				"operation": "get_location",
 			})
 		}
@@ -112,10 +112,10 @@ func RegisterSetLocation() gojq.CompilerOption {
 			"Path":     cwd,
 			"Provider": "FileSystem",
 		}
-		psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")
+		obj := typed.New(result)
 
 		if opts.PassThru {
-			return common.MakeUDFSuccessResult(psobj.ToMap(), map[string]any{
+			return common.MakeUDFSuccessResult(CurrentLocationShape.Build(obj.ToMap()), map[string]any{
 				"operation": "set_location",
 				"path":      cwd,
 			})

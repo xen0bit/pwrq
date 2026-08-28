@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/shape"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -53,7 +54,14 @@ func bindInput(v any, isFile bool) (any, error) {
 
 // registerTextFn registers a 0-2 arity string-in, value-out cmdlet.
 func registerTextFn(name string, fn func(string) any) gojq.CompilerOption {
-	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
+	return registerTextFnOf(name, nil, fn)
+}
+
+// registerTextFnOf is registerTextFn for a member of the family that returns an
+// object, so its shape is declared where it is registered rather than through a
+// side channel that could name a cmdlet which no longer exists.
+func registerTextFnOf(name string, sh *shape.Shape, fn func(string) any) gojq.CompilerOption {
+	return common.WithFunctionOf(name, 0, 2, sh, func(v any, args []any) any {
 		inputVal, _, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)

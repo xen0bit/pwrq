@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -35,7 +35,7 @@ func parseJoinPathArgs(args []any) ([]string, bool, error) {
 
 	paths := make([]string, 0, len(pathArgs))
 	for i, arg := range pathArgs {
-		// Extract value from PSObject if wrapped
+		// Extract value from object if wrapped
 		val := common.BindValue(arg)
 
 		// Validate and convert to string
@@ -100,9 +100,9 @@ func joinPath(paths []string, resolve bool) (string, error) {
 
 // RegisterJoinPath registers the join_path function with gojq.
 // Signature: join_path(path1, path2, ..., resolve?: bool)
-// Returns a PSObject with the joined path and metadata.
+// Returns a typed object with the joined path and metadata.
 func RegisterJoinPath() gojq.CompilerOption {
-	return common.WithFunction("join_path", 1, 10, func(v any, args []any) any {
+	return common.WithFunctionOf("join_path", 1, 10, JoinedPath, func(v any, args []any) any {
 		// Combine pipeline input with arguments
 		allArgs := args
 		if v != nil {
@@ -132,40 +132,39 @@ func RegisterJoinPath() gojq.CompilerOption {
 			})
 		}
 
-		// Create PSObject result with full metadata
-		psobj := psobject.NewPSObject(joinedPath)
-		psobj.TypeName = "System.String"
+		// Create object result with full metadata
+		obj := typed.New(joinedPath)
 
 		// Add useful path properties as NoteProperties
-		psobj.AddNoteProperty("Path", joinedPath)
-		psobj.AddNoteProperty("IsAbsolute", filepath.IsAbs(joinedPath))
-		psobj.AddNoteProperty("IsUnc", strings.HasPrefix(joinedPath, `\\`))
+		obj.AddNoteProperty("Path", joinedPath)
+		obj.AddNoteProperty("IsAbsolute", filepath.IsAbs(joinedPath))
+		obj.AddNoteProperty("IsUnc", strings.HasPrefix(joinedPath, `\\`))
 
 		// Add split components for convenience
-		psobj.AddNoteProperty("DirectoryName", filepath.Dir(joinedPath))
-		psobj.AddNoteProperty("FileName", filepath.Base(joinedPath))
-		psobj.AddNoteProperty("Extension", filepath.Ext(joinedPath))
+		obj.AddNoteProperty("DirectoryName", filepath.Dir(joinedPath))
+		obj.AddNoteProperty("FileName", filepath.Base(joinedPath))
+		obj.AddNoteProperty("Extension", filepath.Ext(joinedPath))
 
 		// Extract drive letter if present (Windows)
 		drive := ""
 		if len(joinedPath) >= 2 && joinedPath[1] == ':' {
 			drive = joinedPath[:2]
 		}
-		psobj.AddNoteProperty("Drive", drive)
+		obj.AddNoteProperty("Drive", drive)
 
-		// Hand the PSObject to MakeUDFSuccessResult rather than returning it
-		// raw: it normalizes to the wire form. A raw *psobject.PSObject is not
+		// Hand the object to MakeUDFSuccessResult rather than returning it
+		// raw: it normalizes to the wire form. A raw *typed.Object is not
 		// in gojq's value space, so any filter that touched it - and the
 		// encoder in the end - would panic.
-		return common.MakeUDFSuccessResult(psobj, nil)
+		return common.MakeUDFSuccessResult(JoinedPath.Build(obj.ToMap()), nil)
 	})
 }
 
 // RegisterSplitPath registers the split_path function with gojq.
 // Signature: split_path(path?: string)
-// Returns a PSObject with split path components.
+// Returns a typed object with split path components.
 func RegisterSplitPath() gojq.CompilerOption {
-	return common.WithFunction("split_path", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("split_path", 0, 2, SplitPath, func(v any, args []any) any {
 		var path string
 
 		// Get path from argument or pipeline input
@@ -197,23 +196,22 @@ func RegisterSplitPath() gojq.CompilerOption {
 		ext := filepath.Ext(path)
 		name := strings.TrimSuffix(base, ext)
 
-		// Create PSObject with split components
-		psobj := psobject.NewPSObject(path)
-		psobj.TypeName = "System.String"
-		psobj.AddNoteProperty("Path", path)
-		psobj.AddNoteProperty("DirectoryName", dir)
-		psobj.AddNoteProperty("Name", name)
-		psobj.AddNoteProperty("Extension", ext)
-		psobj.AddNoteProperty("BaseName", base)
-		psobj.AddNoteProperty("IsAbsolute", filepath.IsAbs(path))
+		// Create object with split components
+		obj := typed.New(path)
+		obj.AddNoteProperty("Path", path)
+		obj.AddNoteProperty("DirectoryName", dir)
+		obj.AddNoteProperty("Name", name)
+		obj.AddNoteProperty("Extension", ext)
+		obj.AddNoteProperty("BaseName", base)
+		obj.AddNoteProperty("IsAbsolute", filepath.IsAbs(path))
 
 		// Add drive information (for Windows compatibility)
 		drive := ""
 		if len(path) >= 2 && path[1] == ':' {
 			drive = path[:2]
 		}
-		psobj.AddNoteProperty("Drive", drive)
+		obj.AddNoteProperty("Drive", drive)
 
-		return common.MakeUDFSuccessResult(psobj, nil)
+		return common.MakeUDFSuccessResult(SplitPath.Build(obj.ToMap()), nil)
 	})
 }

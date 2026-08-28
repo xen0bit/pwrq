@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -50,7 +50,8 @@ func defaultCompareOptions() CompareOptions {
 //	rncd_compare([$a, $b]; {Alpha: 0.7})
 //	[find("samples"; "file") | {Name: ., Content: read_bytes(.)}] | rncd_compare
 func RegisterCompare() gojq.CompilerOption {
-	return common.WithIterFunction("rncd_compare", 0, 2, func(v any, args []any) gojq.Iter {
+	common.DeclareInput("rncd_compare", common.InputPipeline)
+	return common.WithIterFunctionOf("rncd_compare", 0, 2, RncdPairShape, func(v any, args []any) gojq.Iter {
 		results, err := compare(common.SplitInput(v, args, 0))
 		if err != nil {
 			return gojq.NewIter(err)
@@ -126,7 +127,7 @@ func bindCorpus(items []any) ([]*sample, error) {
 // varies with the compressor, so publishing the sixteenth decimal of a number
 // whose third is approximate invites comparisons that mean nothing.
 func pairObject(a, b *sample, p pairScore) map[string]any {
-	obj := psobject.NewPSObjectWithTypeName(nil, "Pwrq.RncdPair")
+	obj := typed.New(nil)
 	// The index is always there and the name only sometimes, so both are
 	// reported: the index says which element of the caller's own array this
 	// is, which is the one label no corpus can be missing.
@@ -143,7 +144,7 @@ func pairObject(a, b *sample, p pairScore) map[string]any {
 	obj.AddNoteProperty("EntropyGlobal", round(p.entropyGlobal, 6))
 	obj.AddNoteProperty("EntropyProfile", round(p.entropyProfile, 6))
 	obj.AddNoteProperty("Hybrid", round(p.hybrid, 6))
-	return obj.ToMap()
+	return RncdPairShape.Build(obj.ToMap())
 }
 
 // nameOrNull keeps the object's shape stable across corpora. An unnamed value

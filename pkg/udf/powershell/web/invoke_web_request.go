@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -57,7 +56,7 @@ type InvokeWebRequestOptions struct {
 //   - invoke_web_request({"Uri": "https://api.example.com"; "Method": "POST"; "Body": {"key": "value"}})
 //   - invoke_web_request("https://example.com"; {"Headers": {"Authorization": "Bearer token"}})
 func RegisterInvokeWebRequest() gojq.CompilerOption {
-	return common.WithFunction("invoke_web_request", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("invoke_web_request", 0, 2, WebResponseShape, func(v any, args []any) any {
 		opts := InvokeWebRequestOptions{
 			Method:             "GET",
 			Timeout:            30,
@@ -449,7 +448,7 @@ func webResponseToMap(r *WebResponse) map[string]any {
 	// Convert int64 to int for encoder compatibility
 	contentLength := int(r.ContentLength)
 
-	return map[string]any{
+	out := map[string]any{
 		"Content":       r.Content,
 		"StatusCode":    r.StatusCode,
 		"Status":        r.Status,
@@ -461,8 +460,8 @@ func webResponseToMap(r *WebResponse) map[string]any {
 		"ContentType":   r.ContentType,
 		"LastModified":  r.LastModified.Format(time.RFC3339),
 		"ResponseUri":   r.ResponseUri.String(),
-		// Every other object producer reports its PowerShell type; a response
-		// that omitted it was the one object you could not identify by type.
-		psobject.PSTypeNameKey: "Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject",
 	}
+	// Every other object producer reports its PowerShell type; a response that
+	// omitted it was the one object you could not identify by type.
+	return WebResponseShape.Build(out)
 }

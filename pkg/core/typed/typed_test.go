@@ -1,4 +1,4 @@
-package psobject
+package typed
 
 import (
 	"encoding/json"
@@ -8,37 +8,37 @@ import (
 	"time"
 )
 
-func TestNewPSObject(t *testing.T) {
+func TestNew(t *testing.T) {
 	tests := []struct {
 		name     string
 		value    any
 		expected string
 	}{
-		{"string", "hello", "System.String"},
-		{"int", 42, "System.Int32"},
-		{"float", 3.14, "System.Double"},
-		{"bool", true, "System.Boolean"},
-		{"nil", nil, "System.Object"},
-		{"map", map[string]any{"key": "value"}, "System.Management.Automation.PSObject"},
-		{"slice", []any{1, 2, 3}, "System.Object[]"},
+		{"string", "hello", "string"},
+		{"int", 42, "number"},
+		{"float", 3.14, "number"},
+		{"bool", true, "boolean"},
+		{"nil", nil, "null"},
+		{"map", map[string]any{"key": "value"}, "object"},
+		{"slice", []any{1, 2, 3}, "array"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			psobj := NewPSObject(tt.value)
-			if psobj.TypeName != tt.expected {
-				t.Errorf("Expected type %s, got %s", tt.expected, psobj.TypeName)
+			obj := New(tt.value)
+			if obj.TypeName != tt.expected {
+				t.Errorf("Expected type %s, got %s", tt.expected, obj.TypeName)
 			}
 			// Skip direct value comparison for maps/slices (not comparable)
 			switch tt.value.(type) {
 			case map[string]any, []any:
 				// Skip comparison for uncomparable types
 			default:
-				if psobj.Value != tt.value {
-					t.Errorf("Expected value %v, got %v", tt.value, psobj.Value)
+				if obj.Value != tt.value {
+					t.Errorf("Expected value %v, got %v", tt.value, obj.Value)
 				}
 			}
-			if psobj.Members == nil {
+			if obj.Members == nil {
 				t.Error("Members map should not be nil")
 			}
 		})
@@ -46,10 +46,10 @@ func TestNewPSObject(t *testing.T) {
 }
 
 func TestAddNoteProperty(t *testing.T) {
-	psobj := NewPSObject("test")
-	psobj.AddNoteProperty("Name", "value")
+	obj := New("test")
+	obj.AddNoteProperty("Name", "value")
 
-	member, ok := psobj.GetMember("Name")
+	member, ok := obj.GetMember("Name")
 	if !ok {
 		t.Fatal("Member 'Name' not found")
 	}
@@ -62,10 +62,10 @@ func TestAddNoteProperty(t *testing.T) {
 }
 
 func TestGetPropertyValue(t *testing.T) {
-	psobj := NewPSObject("test")
-	psobj.AddNoteProperty("Prop1", "value1")
+	obj := New("test")
+	obj.AddNoteProperty("Prop1", "value1")
 
-	val, err := psobj.GetPropertyValue("Prop1")
+	val, err := obj.GetPropertyValue("Prop1")
 	if err != nil {
 		t.Fatalf("GetPropertyValue failed: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestGetPropertyValue(t *testing.T) {
 		t.Errorf("Expected 'value1', got %v", val)
 	}
 
-	_, err = psobj.GetPropertyValue("NonExistent")
+	_, err = obj.GetPropertyValue("NonExistent")
 	if err == nil {
 		t.Error("Expected error for non-existent member")
 	}
@@ -86,18 +86,19 @@ func TestConvertValue(t *testing.T) {
 		target   string
 		expected any
 	}{
-		{"string to int", "42", "System.Int32", 42},
-		{"float to int", 3.9, "System.Int32", 3},
-		{"int to string", 42, "System.String", "42"},
-		{"string to bool", "true", "System.Boolean", true},
-		{"int to bool", 1, "System.Boolean", true},
-		{"int to bool false", 0, "System.Boolean", false},
+		{"string to int", "42", "int", 42},
+		{"float to int", 3.9, "int", 3},
+		{"string to number", "3.5", "number", 3.5},
+		{"int to string", 42, "string", "42"},
+		{"string to bool", "true", "bool", true},
+		{"int to bool", 1, "bool", true},
+		{"int to bool false", 0, "bool", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			psobj := NewPSObject(tt.input)
-			result, err := ConvertValue(psobj, tt.target)
+			obj := New(tt.input)
+			result, err := ConvertValue(obj, tt.target)
 			if err != nil {
 				t.Fatalf("ConvertValue failed: %v", err)
 			}
@@ -108,26 +109,26 @@ func TestConvertValue(t *testing.T) {
 	}
 }
 
-func TestIsPSObject(t *testing.T) {
-	psobj := NewPSObject("test")
-	if !IsPSObject(psobj) {
-		t.Error("IsPSObject should return true for PSObject")
+func TestIs(t *testing.T) {
+	obj := New("test")
+	if !Is(obj) {
+		t.Error("Is should return true for a typed object")
 	}
 
-	m := psobj.ToMap()
-	if !IsPSObject(m) {
-		t.Error("IsPSObject should return true for PSObject-like map")
+	m := obj.ToMap()
+	if !Is(m) {
+		t.Error("Is should return true for an object carrying PwrqType")
 	}
 
-	if IsPSObject("not a psobject") {
-		t.Error("IsPSObject should return false for string")
+	if Is("not a typed object") {
+		t.Error("Is should return false for a string")
 	}
 }
 
 func TestConvertToDateTime(t *testing.T) {
 	now := time.Now()
-	psobj := NewPSObject(now.Format(time.RFC3339))
-	result, err := ConvertValue(psobj, "System.DateTime")
+	obj := New(now.Format(time.RFC3339))
+	result, err := ConvertValue(obj, "datetime")
 	if err != nil {
 		t.Fatalf("ConvertValue failed: %v", err)
 	}
@@ -136,35 +137,35 @@ func TestConvertToDateTime(t *testing.T) {
 	}
 }
 
-// The tests below specify pwrq's object wire format: a PSObject travels as
+// The tests below specify pwrq's object wire format: a typed object travels as
 // ordinary JSON so that jq can query it and the encoder can print it without
 // knowing anything about PowerShell.
 
 func TestToJSONScalarHasNoEnvelope(t *testing.T) {
-	// A PSObject with no properties is just its value. Wrapping it would make
+	// A object with no properties is just its value. Wrapping it would make
 	// every downstream expression pay for metadata it did not ask for.
 	for _, value := range []any{"hello", 42, true, nil} {
-		if got := NewPSObject(value).ToJSON(); !reflect.DeepEqual(got, value) {
+		if got := New(value).ToJSON(); !reflect.DeepEqual(got, value) {
 			t.Errorf("ToJSON(%v) = %#v, want the bare value", value, got)
 		}
 	}
 }
 
 func TestToMapFlattensProperties(t *testing.T) {
-	psobj := NewPSObjectWithTypeName("/tmp/x.txt", "System.IO.FileInfo")
-	psobj.AddNoteProperty("Name", "x.txt")
-	psobj.AddNoteProperty("Length", 128)
+	obj := NewWithType("/tmp/x.txt", "Pwrq.FileSystem.File")
+	obj.AddNoteProperty("Name", "x.txt")
+	obj.AddNoteProperty("Length", 128)
 
-	got := psobj.ToMap()
+	got := obj.ToMap()
 
 	if got["Name"] != "x.txt" || got["Length"] != 128 {
 		t.Errorf("properties should be top-level keys, got %#v", got)
 	}
-	if got[PSTypeNameKey] != "System.IO.FileInfo" {
-		t.Errorf("%s = %v, want System.IO.FileInfo", PSTypeNameKey, got[PSTypeNameKey])
+	if got[TypeKey] != "Pwrq.FileSystem.File" {
+		t.Errorf("%s = %v, want Pwrq.FileSystem.File", TypeKey, got[TypeKey])
 	}
-	if got[PSPathKey] != "/tmp/x.txt" {
-		t.Errorf("%s = %v, want the underlying value", PSPathKey, got[PSPathKey])
+	if got[ValueKey] != "/tmp/x.txt" {
+		t.Errorf("%s = %v, want the underlying value", ValueKey, got[ValueKey])
 	}
 	for _, retired := range []string{"_val", "_meta", "_err"} {
 		if _, present := got[retired]; present {
@@ -176,12 +177,12 @@ func TestToMapFlattensProperties(t *testing.T) {
 func TestToMapIsJSONEncodable(t *testing.T) {
 	// Whatever ToMap produces has to survive the encoder, which only knows
 	// JSON types.
-	psobj := NewPSObject("base")
-	psobj.AddNoteProperty("When", time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC))
-	psobj.AddNoteProperty("Size", int64(99))
-	psobj.AddNoteProperty("Raw", []byte("bytes"))
+	obj := New("base")
+	obj.AddNoteProperty("When", time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC))
+	obj.AddNoteProperty("Size", int64(99))
+	obj.AddNoteProperty("Raw", []byte("bytes"))
 
-	got := psobj.ToMap()
+	got := obj.ToMap()
 	if got["When"] != "2026-08-07T12:00:00Z" {
 		t.Errorf("When = %#v, want an RFC3339 string", got["When"])
 	}
@@ -197,30 +198,30 @@ func TestToMapIsJSONEncodable(t *testing.T) {
 }
 
 func TestFromMapAcceptsPlainJSON(t *testing.T) {
-	// Any JSON object is a valid PSObject; that is what lets cmdlets accept
+	// Any JSON object is a valid object; that is what lets cmdlets accept
 	// hand-written JSON as readily as cmdlet output.
-	psobj, err := FromMap(map[string]any{"Name": "x", "Length": 3})
+	obj, err := FromMap(map[string]any{"Name": "x", "Length": 3})
 	if err != nil {
 		t.Fatalf("FromMap: %v", err)
 	}
-	if v, err := psobj.GetPropertyValue("Name"); err != nil || v != "x" {
+	if v, err := obj.GetPropertyValue("Name"); err != nil || v != "x" {
 		t.Errorf("Name = %#v (err %v), want x", v, err)
 	}
-	if psobj.TypeName != "System.Management.Automation.PSCustomObject" {
-		t.Errorf("untyped JSON should get the PSCustomObject type, got %s", psobj.TypeName)
+	if obj.TypeName != "object" {
+		t.Errorf("untyped JSON should report the object type, got %s", obj.TypeName)
 	}
 }
 
 func TestRoundTrip(t *testing.T) {
-	psobj := NewPSObjectWithTypeName("/tmp/x.txt", "System.IO.FileInfo")
-	psobj.AddNoteProperty("Name", "x.txt")
-	psobj.AddNoteProperty("Length", 128)
+	obj := NewWithType("/tmp/x.txt", "Pwrq.FileSystem.File")
+	obj.AddNoteProperty("Name", "x.txt")
+	obj.AddNoteProperty("Length", 128)
 
-	back, err := FromMap(psobj.ToMap())
+	back, err := FromMap(obj.ToMap())
 	if err != nil {
 		t.Fatalf("FromMap: %v", err)
 	}
-	if back.TypeName != "System.IO.FileInfo" {
+	if back.TypeName != "Pwrq.FileSystem.File" {
 		t.Errorf("TypeName lost in round-trip: %s", back.TypeName)
 	}
 	if v, _ := back.GetPropertyValue("Length"); v != 128 {
@@ -231,15 +232,15 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-func TestIsPSObjectRequiresPSTypeName(t *testing.T) {
+func TestIsRequiresPwrqType(t *testing.T) {
 	// A plain JSON object is not cmdlet output, even though FromMap accepts it.
-	if IsPSObject(map[string]any{"Name": "x"}) {
-		t.Error("plain JSON should not be reported as a PSObject")
+	if Is(map[string]any{"Name": "x"}) {
+		t.Error("plain JSON should not be reported as a typed object")
 	}
-	if !IsPSObject(map[string]any{PSTypeNameKey: "System.String"}) {
-		t.Error("an object carrying PSTypeName is a PSObject")
+	if !Is(map[string]any{TypeKey: "string"}) {
+		t.Error("an object carrying PwrqType is a typed object")
 	}
-	if IsPSObject(map[string]any{"_val": 1, "_meta": map[string]any{}}) {
+	if Is(map[string]any{"_val": 1, "_meta": map[string]any{}}) {
 		t.Error("the retired envelope must no longer be recognised")
 	}
 }

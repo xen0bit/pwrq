@@ -39,7 +39,7 @@ type GetDateOptions struct {
 //   - get_date({"Format": "yyyy-MM-dd"})
 //   - get_date("2024-01-15"; {"Format": "dddd, MMMM dd"})
 func RegisterGetDate() gojq.CompilerOption {
-	return common.WithFunction("get_date", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("get_date", 0, 2, DateShape, func(v any, args []any) any {
 		opts := GetDateOptions{}
 
 		// Parse arguments
@@ -152,7 +152,7 @@ func RegisterGetDate() gojq.CompilerOption {
 		}
 
 		// Return a structured date object
-		dateObj := map[string]any{
+		dateObj := DateShape.Build(map[string]any{
 			"DateTime":    resultTime.Format(time.RFC3339),
 			"Date":        resultTime.Format("2006-01-02"),
 			"Time":        resultTime.Format("15:04:05"),
@@ -169,7 +169,7 @@ func RegisterGetDate() gojq.CompilerOption {
 			"Timestamp":   int(resultTime.Unix()),
 			"Timezone":    resultTime.Location().String(),
 			"IsDST":       resultTime.IsDST(),
-		}
+		})
 
 		// Apply DisplayHint if specified
 		switch opts.DisplayHint {

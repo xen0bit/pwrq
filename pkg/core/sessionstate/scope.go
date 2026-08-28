@@ -1,5 +1,5 @@
 // Package sessionstate provides PowerShell-style session state management for pwrq.
-// It implements scope hierarchy, variable storage, and PSDrive support.
+// It implements scope hierarchy, variable storage, and named drives.
 package sessionstate
 
 import (
@@ -77,14 +77,14 @@ type SessionState struct {
 	mu             sync.RWMutex
 	GlobalScope    *Scope
 	CurrentScope   *Scope
-	Drives         map[string]*PSDrive
+	Drives         map[string]*Drive
 	AliasMap       map[string]string   // command alias -> actual command
 	Stderr         io.Writer           // stderr output stream for verbose/debug/warning
 	LocationStacks map[string][]string // named location stacks for pushd/popd
 }
 
-// PSDrive represents a PowerShell-style drive (like FileSystem:, Env:, Variable:).
-type PSDrive struct {
+// Drive is a named namespace a session can address, such as Env: or Variable:.
+type Drive struct {
 	Name        string
 	Root        string
 	Description string
@@ -98,7 +98,7 @@ func NewSessionState() *SessionState {
 	ss := &SessionState{
 		GlobalScope:    globalScope,
 		CurrentScope:   globalScope,
-		Drives:         make(map[string]*PSDrive),
+		Drives:         make(map[string]*Drive),
 		AliasMap:       make(map[string]string),
 		Stderr:         os.Stderr,
 		LocationStacks: make(map[string][]string),
@@ -110,10 +110,10 @@ func NewSessionState() *SessionState {
 	return ss
 }
 
-// initializeDrives sets up the standard PowerShell drives.
+// initializeDrives sets up the standard drives.
 func (ss *SessionState) initializeDrives() {
 	// Variable: drive - variables in session
-	ss.Drives["Variable"] = &PSDrive{
+	ss.Drives["Variable"] = &Drive{
 		Name:        "Variable",
 		Root:        "",
 		Description: "Variables in the current session",
@@ -121,7 +121,7 @@ func (ss *SessionState) initializeDrives() {
 	}
 
 	// Env: drive - environment variables
-	ss.Drives["Env"] = &PSDrive{
+	ss.Drives["Env"] = &Drive{
 		Name:        "Env",
 		Root:        "",
 		Description: "Environment variables",
@@ -130,7 +130,7 @@ func (ss *SessionState) initializeDrives() {
 	ss.syncEnvDrive()
 
 	// Alias: drive - command aliases
-	ss.Drives["Alias"] = &PSDrive{
+	ss.Drives["Alias"] = &Drive{
 		Name:        "Alias",
 		Root:        "",
 		Description: "Command aliases",
@@ -138,7 +138,7 @@ func (ss *SessionState) initializeDrives() {
 	}
 
 	// Function: drive - user-defined functions
-	ss.Drives["Function"] = &PSDrive{
+	ss.Drives["Function"] = &Drive{
 		Name:        "Function",
 		Root:        "",
 		Description: "User-defined functions",
@@ -520,8 +520,8 @@ func (ss *SessionState) RemoveAlias(name string) {
 	}
 }
 
-// GetDrive retrieves a PSDrive by name.
-func (ss *SessionState) GetDrive(name string) (*PSDrive, bool) {
+// GetDrive retrieves a Drive by name.
+func (ss *SessionState) GetDrive(name string) (*Drive, bool) {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 
@@ -530,11 +530,11 @@ func (ss *SessionState) GetDrive(name string) (*PSDrive, bool) {
 }
 
 // GetDrives returns all drives.
-func (ss *SessionState) GetDrives() map[string]*PSDrive {
+func (ss *SessionState) GetDrives() map[string]*Drive {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 
-	result := make(map[string]*PSDrive)
+	result := make(map[string]*Drive)
 	for k, v := range ss.Drives {
 		result[k] = v
 	}

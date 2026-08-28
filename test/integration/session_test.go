@@ -163,9 +163,9 @@ func TestCmdletOutputIsQueryableJSON(t *testing.T) {
 
 	// The PowerShell type travels with the object.
 	out = mustRun(t, "null", "-c",
-		`[get_childitem("`+dir+`") | .PSTypeName] | unique`)
-	if strings.TrimSpace(out) != `["System.IO.FileInfo"]` {
-		t.Errorf("got %s, want [\"System.IO.FileInfo\"]", strings.TrimSpace(out))
+		`[get_childitem("`+dir+`") | .PwrqType] | unique`)
+	if strings.TrimSpace(out) != `["Pwrq.FileSystem.File"]` {
+		t.Errorf("got %s, want [\"Pwrq.FileSystem.File\"]", strings.TrimSpace(out))
 	}
 }
 

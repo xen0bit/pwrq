@@ -13,8 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xen0bit/pwrq/pkg/core/shape"
+
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // run collects every value a query emits, failing on the first error.
@@ -109,8 +111,8 @@ func TestInvokeSqliteQueryStreamsOneObjectPerRow(t *testing.T) {
 	if got := row(t, rows[0], "email"); got != "a@example.com" {
 		t.Errorf("first row email = %v, want a@example.com", got)
 	}
-	if got := row(t, rows[0], psobject.PSTypeNameKey); got != rowType {
-		t.Errorf("PSTypeName = %v, want %s", got, rowType)
+	if got := row(t, rows[0], typed.TypeKey); got != rowType {
+		t.Errorf("PwrqType = %v, want %s", got, rowType)
 	}
 
 	// Collecting is the caller's decision, and it has to produce one array.
@@ -416,10 +418,10 @@ func TestOutSqliteDoesNotStoreTheTypeName(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "out.db")
 
 	run(t, fmt.Sprintf(
-		`[{PSTypeName: "System.IO.FileInfo", Name: "a"}] | out_sqlite(%q; "files")`, path))
+		`[{PwrqType: "Pwrq.FileSystem.File", Name: "a"}] | out_sqlite(%q; "files")`, path))
 	for _, column := range run(t, fmt.Sprintf(`get_sqlite_schema(%q; "files") | .Name`, path)) {
-		if column == psobject.PSTypeNameKey {
-			t.Errorf("%s was written as a column", psobject.PSTypeNameKey)
+		if column == typed.TypeKey {
+			t.Errorf("%s was written as a column", typed.TypeKey)
 		}
 	}
 }
@@ -580,7 +582,7 @@ func TestAbandonedStreamClosesTheDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	it, err := newRowIterOnDB(db, "invoke_sqlite_query", "select * from users", nil, rowType, nil, nil)
+	it, err := newRowIterOnDB(db, "invoke_sqlite_query", "select * from users", nil, QueryRow, nil, nil)
 	if err != nil {
 		_ = db.Close()
 		t.Fatal(err)
@@ -608,4 +610,23 @@ func TestAbandonedStreamClosesTheDatabase(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// TestShapeDeclarationsMatchTheRowsBuilt closes the loop for this package.
+//
+// The cross-cutting check in pkg/udf runs each cmdlet's documented example, and
+// these cmdlets' examples name a database file that does not exist there, so
+// they are skipped. The tests in this file do exercise them properly, and
+// shape.Build records every disagreement it sees, so asserting the table is
+// empty here covers what the other test cannot reach.
+func TestShapeDeclarationsMatchTheRowsBuilt(t *testing.T) {
+	if len(shape.Discrepancies()) == 0 {
+		return
+	}
+	var lines []string
+	for _, d := range shape.Discrepancies() {
+		lines = append(lines, d.String())
+	}
+	t.Errorf("a sqlite shape declaration disagrees with the object built through it:\n    %s",
+		strings.Join(lines, "\n    "))
 }

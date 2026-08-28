@@ -219,7 +219,7 @@ func TestGroupObject_GroupStructure(t *testing.T) {
 
 	group := result[0].(map[string]any)
 
-	// Handle PSObject-wrapped format: {_val: {Name, Count, Group}, _meta: {...}}
+	// Handle typed format: {_val: {Name, Count, Group}, _meta: {...}}
 	innerMap := group
 
 	// Verify structure

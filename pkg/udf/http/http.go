@@ -12,13 +12,12 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // RegisterHTTP registers the http function with gojq
 func RegisterHTTP() gojq.CompilerOption {
-	return common.WithFunction("http", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("http", 0, 2, ResponseShape, func(v any, args []any) any {
 		var method = "POST" // default method
 		var url string
 
@@ -213,21 +212,20 @@ func RegisterHTTP() gojq.CompilerOption {
 		// code and headers are part of the answer, not decoration: discarding
 		// them would make it impossible to branch on a 404 from a query.
 		response := map[string]any{
-			"Content":              string(respBody),
-			"StatusCode":           resp.StatusCode,
-			"StatusText":           resp.Status,
-			"Headers":              headers,
-			"Method":               method,
-			"Url":                  url,
-			"ContentLength":        len(respBody),
-			psobject.PSTypeNameKey: "Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject",
+			"Content":       string(respBody),
+			"StatusCode":    resp.StatusCode,
+			"StatusText":    resp.Status,
+			"Headers":       headers,
+			"Method":        method,
+			"Url":           url,
+			"ContentLength": len(respBody),
 		}
 		if hasBody {
 			response["RequestBody"] = bodyString
 			response["RequestContentLength"] = len(bodyBytes)
 		}
 
-		return common.MakeUDFSuccessResult(response, nil)
+		return common.MakeUDFSuccessResult(ResponseShape.Build(response), nil)
 	})
 }
 

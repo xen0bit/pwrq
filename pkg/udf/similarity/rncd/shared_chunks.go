@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -33,7 +33,8 @@ const defaultMinMatch = 16
 // the target the reference accounts for, and every span it reports can be cut
 // out of both values and compared byte for byte.
 func RegisterSharedChunks() gojq.CompilerOption {
-	return common.WithFunction("shared_chunks", 1, 3, func(v any, args []any) any {
+	common.DeclareInput("shared_chunks", common.InputPipeline)
+	return common.WithFunctionOf("shared_chunks", 1, 3, SharedChunksShape, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		result, err := sharedChunks(in, rest)
 		if err != nil {
@@ -67,7 +68,7 @@ func sharedChunks(in any, rest []any) (any, error) {
 
 	rendered := make([]any, len(chunks))
 	for i, c := range chunks {
-		chunk := psobject.NewPSObjectWithTypeName(nil, "Pwrq.SharedChunk")
+		chunk := typed.New(nil)
 		chunk.AddNoteProperty("Matched", c.Matched)
 		chunk.AddNoteProperty("Start", c.Start)
 		chunk.AddNoteProperty("End", c.End)
@@ -79,7 +80,7 @@ func sharedChunks(in any, rest []any) (any, error) {
 		} else {
 			chunk.AddNoteProperty("RefOffset", nil)
 		}
-		rendered[i] = chunk.ToMap()
+		rendered[i] = SharedChunkShape.Build(chunk.ToMap())
 	}
 
 	coverage := 0.0
@@ -87,7 +88,7 @@ func sharedChunks(in any, rest []any) (any, error) {
 		coverage = float64(matched) / float64(total)
 	}
 
-	obj := psobject.NewPSObjectWithTypeName(nil, "Pwrq.SharedChunks")
+	obj := typed.New(nil)
 	obj.AddNoteProperty("MinMatch", opts.MinMatch)
 	obj.AddNoteProperty("TargetLength", len(targetData))
 	obj.AddNoteProperty("ReferenceLength", len(refData))
@@ -98,5 +99,5 @@ func sharedChunks(in any, rest []any) (any, error) {
 	// compression distances it is exact.
 	obj.AddNoteProperty("Coverage", round(coverage, 6))
 	obj.AddNoteProperty("Chunks", rendered)
-	return obj.ToMap(), nil
+	return SharedChunksShape.Build(obj.ToMap()), nil
 }

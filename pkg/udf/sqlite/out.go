@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -35,8 +35,8 @@ import (
 // column is an error. Silently dropping it would lose data the caller believes
 // they stored.
 //
-// PSTypeName is not written. It is how pwrq marks the kind of an object, not a
-// property of the thing described, and a column of "System.IO.FileInfo"
+// PwrqType is not written. It is how pwrq marks the kind of an object, not a
+// property of the thing described, and a column of "Pwrq.FileSystem.File"
 // repeated a million times is not what anyone means to store.
 //
 // Values are stored as SQLite stores them: null, integers, reals, TEXT for
@@ -44,7 +44,7 @@ import (
 // with read_bytes survive the round trip. A nested object or array is stored as
 // JSON text, which SQLite's own json_extract can read.
 func RegisterOutSqlite() gojq.CompilerOption {
-	return common.WithFunction("out_sqlite", 2, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("out_sqlite", 2, 3, WriteResult, func(v any, args []any) any {
 		path, err := bindDatabase(args[0], "out_sqlite")
 		if err != nil {
 			return err
@@ -72,14 +72,13 @@ func RegisterOutSqlite() gojq.CompilerOption {
 		if err != nil {
 			return fmt.Errorf("out_sqlite: %v", err)
 		}
-		return map[string]any{
-			psobject.PSTypeNameKey: writeType,
-			"Database":             path,
-			psobject.PSPathKey:     path,
-			"Table":                table,
-			"RowCount":             written,
-			"Created":              created,
-		}
+		return WriteResult.Build(map[string]any{
+			"Database":     path,
+			typed.ValueKey: path,
+			"Table":        table,
+			"RowCount":     written,
+			"Created":      created,
+		})
 	})
 }
 
@@ -234,7 +233,7 @@ func columnNames(rows []map[string]any) []string {
 	for _, row := range rows {
 		keys := make([]string, 0, len(row))
 		for k := range row {
-			if k == psobject.PSTypeNameKey || seen[k] {
+			if k == typed.TypeKey || seen[k] {
 				continue
 			}
 			keys = append(keys, k)
@@ -259,7 +258,7 @@ func checkColumns(rows []map[string]any, columns []string, table string) error {
 	unknown := make(map[string]bool)
 	for _, row := range rows {
 		for k := range row {
-			if k == psobject.PSTypeNameKey || known[k] {
+			if k == typed.TypeKey || known[k] {
 				continue
 			}
 			unknown[k] = true

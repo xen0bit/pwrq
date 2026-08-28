@@ -48,8 +48,8 @@ func TestHexEncode(t *testing.T) {
 		{
 			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"PSPath":     "hello",
-				"PSTypeName": "System.String",
+				"PwrqValue": "hello",
+				"PwrqType":  "string",
 			},
 			want:    hex.EncodeToString([]byte("hello")),
 			wantErr: false,
@@ -119,8 +119,8 @@ func TestHexDecode(t *testing.T) {
 		{
 			name: "cmdlet output binds by property name",
 			input: map[string]any{
-				"PSPath":     hex.EncodeToString([]byte("hello")),
-				"PSTypeName": "System.String",
+				"PwrqValue": hex.EncodeToString([]byte("hello")),
+				"PwrqType":  "string",
 			},
 			want:    "hello",
 			wantErr: false,
@@ -207,8 +207,8 @@ func TestHexRoundTrip(t *testing.T) {
 func TestHexEncodeWithUDFResultInput(t *testing.T) {
 	// Create a UDF result object
 	udfResult := map[string]any{
-		"PSPath":     "test string",
-		"PSTypeName": "System.String",
+		"PwrqValue": "test string",
+		"PwrqType":  "string",
 	}
 
 	// Extract _val (simulating what the function does)
@@ -231,8 +231,8 @@ func TestHexDecodeWithUDFResultInput(t *testing.T) {
 	// Create a hex-encoded UDF result object
 	encoded := hex.EncodeToString([]byte("test string"))
 	udfResult := map[string]any{
-		"PSPath":     encoded,
-		"PSTypeName": "System.String",
+		"PwrqValue": encoded,
+		"PwrqType":  "string",
 	}
 
 	// Extract _val (simulating what the function does)

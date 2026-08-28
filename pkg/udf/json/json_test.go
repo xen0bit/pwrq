@@ -70,8 +70,8 @@ func TestJSONStringify(t *testing.T) {
 		{
 			name: "UDF result object",
 			input: map[string]any{
-				"PSPath":     map[string]any{"key": "value"},
-				"PSTypeName": "System.String",
+				"PwrqValue": map[string]any{"key": "value"},
+				"PwrqType":  "string",
 			},
 		},
 	}

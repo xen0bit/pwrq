@@ -170,7 +170,7 @@ func TestRequestObjectCarriesTheCall(t *testing.T) {
 	if !ok {
 		t.Fatalf("got %T, want an object", got)
 	}
-	for _, key := range []string{"Content", "Model", "Provider", "StopReason", "InputTokens", "OutputTokens", "TotalTokens", "Cost", "Cached", "PSTypeName"} {
+	for _, key := range []string{"Content", "Model", "Provider", "StopReason", "InputTokens", "OutputTokens", "TotalTokens", "Cost", "Cached", "PwrqType"} {
 		if _, has := obj[key]; !has {
 			t.Errorf("the response object has no %s", key)
 		}

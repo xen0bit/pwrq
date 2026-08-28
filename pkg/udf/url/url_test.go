@@ -35,8 +35,8 @@ func TestURLEncode(t *testing.T) {
 		{
 			name: "cmdlet output input",
 			input: map[string]any{
-				"PSPath":     "hello world",
-				"PSTypeName": "System.String",
+				"PwrqValue": "hello world",
+				"PwrqType":  "string",
 			},
 			want:    url.QueryEscape("hello world"),
 			wantErr: false,
@@ -96,8 +96,8 @@ func TestURLDecode(t *testing.T) {
 		{
 			name: "cmdlet output input",
 			input: map[string]any{
-				"PSPath":     url.QueryEscape("hello world"),
-				"PSTypeName": "System.String",
+				"PwrqValue": url.QueryEscape("hello world"),
+				"PwrqType":  "string",
 			},
 			want:    "hello world",
 			wantErr: false,

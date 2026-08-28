@@ -7,7 +7,7 @@
 // shapes, the retry policy and the error bodies are Censys' own.
 //
 // Objects come back with the API's field names — snake_case, exactly as the
-// Censys documentation and CenQL spell them — plus a PSTypeName. Renaming
+// Censys documentation and CenQL spell them — plus a PwrqType. Renaming
 // `autonomous_system` to `AutonomousSystem` would invent a second vocabulary
 // for a schema the user already knows from writing queries, so the cmdlets
 // leave the payload alone. Cmdlet *parameters* are PowerShell-style and bind

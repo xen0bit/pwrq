@@ -7,32 +7,32 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // pathProperties are the properties that identify a filesystem location, in the
 // order PowerShell's FileSystem provider would bind them. Name is deliberately
 // absent: it is relative and cannot locate a file on its own.
-var pathProperties = []string{psobject.PSPathKey, "FullName", "Path"}
+var pathProperties = []string{typed.ValueKey, "FullName", "Path"}
 
 // BindValue resolves pipeline input to the value a UDF should operate on.
 //
-// A scalar binds directly. Cmdlet output that wraps a scalar - a PSObject whose
-// PSPath carries the real value - binds to that scalar, which is what lets one
-// cmdlet's output feed the next. An ordinary JSON object binds as itself: the
+// A scalar binds directly. Cmdlet output that wraps a scalar - an object whose
+// PwrqValue carries the real value - binds to that scalar, which is what lets
+// one cmdlet's output feed the next. An ordinary JSON object binds as itself: the
 // object cmdlets (where_object, sort_object, group_object) need the whole
 // object, and collapsing it to some property would silently discard the rest.
 func BindValue(v any) any {
 	switch val := v.(type) {
-	case *psobject.PSObject:
+	case *typed.Object:
 		if _, isMap := val.Value.(map[string]any); !isMap && val.Value != nil {
-			return psobject.NormalizeJSON(val.Value)
+			return typed.NormalizeJSON(val.Value)
 		}
-		return psobject.NormalizeJSON(val.Value)
+		return typed.NormalizeJSON(val.Value)
 	case map[string]any:
 		// Only unwrap objects that are demonstrably a cmdlet's scalar output.
-		if _, typed := val[psobject.PSTypeNameKey]; typed {
-			if s, ok := val[psobject.PSPathKey].(string); ok {
+		if _, isTyped := val[typed.TypeKey]; isTyped {
+			if s, ok := val[typed.ValueKey].(string); ok {
 				return s
 			}
 		}
@@ -50,7 +50,7 @@ func BindPath(v any) (string, bool) {
 	switch val := v.(type) {
 	case string:
 		return val, true
-	case *psobject.PSObject:
+	case *typed.Object:
 		if s, ok := val.Value.(string); ok {
 			return s, true
 		}
@@ -162,22 +162,22 @@ func ToInt(v any) (int, bool) {
 // derived from it, so that a projection of a FileInfo still reports what it came
 // from. Values derived from untyped JSON stay untyped.
 func PreserveTypeName(original, result any) any {
-	typeName := psobject.ExtractTypeName(original)
-	if typeName == "" || !psobject.IsPSObject(original) {
+	typeName := typed.TypeOf(original)
+	if typeName == "" || !typed.Is(original) {
 		return result
 	}
 	resultMap, ok := result.(map[string]any)
 	if !ok {
 		return result
 	}
-	if _, exists := resultMap[psobject.PSTypeNameKey]; !exists {
-		resultMap[psobject.PSTypeNameKey] = typeName
+	if _, exists := resultMap[typed.TypeKey]; !exists {
+		resultMap[typed.TypeKey] = typeName
 	}
 	return resultMap
 }
 
 // ExtractPropertyByPath reads a property using dot notation ("Address.City"),
-// resolving PSObject members as well as plain map keys.
+// resolving object members as well as plain map keys.
 func ExtractPropertyByPath(value any, path string) (any, error) {
 	path = strings.TrimSpace(path)
 	path = strings.TrimPrefix(path, ".")
@@ -198,7 +198,7 @@ func ExtractPropertyByPath(value any, path string) (any, error) {
 				return nil, fmt.Errorf("property %q not found", part)
 			}
 			current = got
-		case *psobject.PSObject:
+		case *typed.Object:
 			got, err := v.GetPropertyValue(part)
 			if err == nil {
 				current = got

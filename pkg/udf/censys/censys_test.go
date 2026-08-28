@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // request records what a handler was asked for, so a test can assert on the
@@ -182,8 +182,8 @@ func TestGetHostReturnsTheAssetWithATypeName(t *testing.T) {
 	srv.handleAsset("/v3/global/asset/host/1.1.1.1", hostType, hostBody)
 
 	host := obj(t, runOne(t, `get_censys_host("1.1.1.1")`, nil))
-	if host[psobject.PSTypeNameKey] != "Censys.Platform.Host" {
-		t.Errorf("PSTypeName = %v", host[psobject.PSTypeNameKey])
+	if host[typed.TypeKey] != "Censys.Platform.Host" {
+		t.Errorf("PwrqType = %v", host[typed.TypeKey])
 	}
 	resource := obj(t, host["resource"])
 	if resource["ip"] != "1.1.1.1" {
@@ -459,8 +459,8 @@ func TestAggregateTakesQueryAndFieldInEitherForm(t *testing.T) {
 	}
 
 	agg := obj(t, explicit)
-	if agg[psobject.PSTypeNameKey] != "Censys.Platform.Aggregate" {
-		t.Errorf("PSTypeName = %v", agg[psobject.PSTypeNameKey])
+	if agg[typed.TypeKey] != "Censys.Platform.Aggregate" {
+		t.Errorf("PwrqType = %v", agg[typed.TypeKey])
 	}
 
 	var body map[string]any
@@ -637,8 +637,8 @@ func TestCreditsFollowTheConfiguredOrganization(t *testing.T) {
 	if srv.requests[0].Path != "/v3/accounts/organizations/test-org/credits" {
 		t.Errorf("path = %s", srv.requests[0].Path)
 	}
-	if org[psobject.PSTypeNameKey] != "Censys.Platform.Credits" {
-		t.Errorf("PSTypeName = %v", org[psobject.PSTypeNameKey])
+	if org[typed.TypeKey] != "Censys.Platform.Credits" {
+		t.Errorf("PwrqType = %v", org[typed.TypeKey])
 	}
 
 	srv.requests = nil

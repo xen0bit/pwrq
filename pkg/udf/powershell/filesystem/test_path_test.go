@@ -38,14 +38,14 @@ func TestParseTestPathArgs(t *testing.T) {
 			wantType: "Container",
 		},
 		{
-			name:      "PSObject wrapped path",
+			name:      "wrapped path",
 			args:      []any{map[string]any{"Path": "/tmp", "PathType": "Leaf", "IsValid": true}},
 			wantPath:  "/tmp",
 			wantType:  "Leaf",
 			wantValid: true,
 		},
 		{
-			name:     "mixed args with PSObject",
+			name:     "mixed args with object",
 			args:     []any{"/tmp", map[string]any{"PathType": "Container"}},
 			wantPath: "/tmp",
 			wantType: "Container",

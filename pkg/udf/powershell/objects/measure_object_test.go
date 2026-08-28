@@ -3,7 +3,7 @@ package objects
 import (
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestMeasureObject_BasicCount(t *testing.T) {
@@ -240,12 +240,12 @@ func TestMeasureObject_BooleanValues(t *testing.T) {
 	}
 }
 
-func TestMeasureObject_PSObjectInput(t *testing.T) {
-	psobj1 := psobject.NewPSObjectWithTypeName(map[string]any{"Name": "Alice", "Age": 25}, "System.Object")
+func TestMeasureObjectTypedInput(t *testing.T) {
+	psobj1 := typed.NewWithType(map[string]any{"Name": "Alice", "Age": 25}, "System.Object")
 	psobj1.AddNoteProperty("Name", "Alice")
 	psobj1.AddNoteProperty("Age", 25)
 
-	psobj2 := psobject.NewPSObjectWithTypeName(map[string]any{"Name": "Bob", "Age": 30}, "System.Object")
+	psobj2 := typed.NewWithType(map[string]any{"Name": "Bob", "Age": 30}, "System.Object")
 	psobj2.AddNoteProperty("Name", "Bob")
 	psobj2.AddNoteProperty("Age", 30)
 
@@ -280,8 +280,8 @@ func TestMeasureObject_FormatResult(t *testing.T) {
 	opts := MeasureObjectOptions{Property: "Value", Sum: true, Average: true, Minimum: true, Maximum: true}
 	output := formatMeasurementResult(result, opts)
 
-	if !psobject.IsPSObject(output) {
-		t.Error("Expected PSObject output")
+	if !typed.Is(output) {
+		t.Error("Expected object output")
 	}
 
 	count := GetMeasurementCount(output)
@@ -349,13 +349,13 @@ func TestGetMeasurementCount(t *testing.T) {
 	}
 }
 
-func TestGetMeasurementCount_PSObject(t *testing.T) {
-	psobj := psobject.NewPSObjectWithTypeName(map[string]any{
+func TestGetMeasurementCountTypedObject(t *testing.T) {
+	obj := typed.NewWithType(map[string]any{
 		"Count": 5,
 		"Sum":   100.0,
-	}, "Microsoft.PowerShell.Commands.GenericMeasureInfo")
+	}, "Pwrq.Measurement")
 
-	result := psobj.ToMap()
+	result := obj.ToMap()
 
 	count := GetMeasurementCount(result)
 	if count != 5 {

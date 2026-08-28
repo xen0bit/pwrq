@@ -51,7 +51,7 @@ type GetProcessOptions struct {
 //   - get_process("notepad") - get processes by name
 //   - get_process({"Name": "chrome"; "Id": 1234}) - get by options
 func RegisterGetProcess() gojq.CompilerOption {
-	return common.WithIterFunction("get_process", 0, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_process", 0, 2, ProcessInfoShape, func(v any, args []any) gojq.Iter {
 		opts := GetProcessOptions{}
 
 		// Parse arguments
@@ -167,7 +167,7 @@ func getProcesses(opts GetProcessOptions) ([]map[string]any, error) {
 			processMap["UserName"] = proc.UserName
 		}
 
-		processes = append(processes, processMap)
+		processes = append(processes, ProcessInfoShape.Build(processMap))
 	}
 
 	return processes, nil

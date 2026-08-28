@@ -249,7 +249,7 @@ type diffResult struct {
 // RegisterDeepDiff registers deep_diff, a structural JSON diff summarized as
 // {added, removed, changed}, each a list of {path, ...} entries.
 func RegisterDeepDiff() gojq.CompilerOption {
-	return common.WithFunction("deep_diff", 2, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("deep_diff", 2, 2, DeepDiffShape, func(v any, args []any) any {
 		a := common.BindValue(v)
 		if len(args) > 0 {
 			a = common.BindValue(args[0])
@@ -257,11 +257,11 @@ func RegisterDeepDiff() gojq.CompilerOption {
 		b := common.BindValue(args[1])
 		res := &diffResult{}
 		diff(a, b, "", res)
-		return common.MakeUDFSuccessResult(map[string]any{
+		return common.MakeUDFSuccessResult(DeepDiffShape.Build(map[string]any{
 			"added":   res.added,
 			"removed": res.removed,
 			"changed": res.changed,
-		}, nil)
+		}), nil)
 	})
 }
 

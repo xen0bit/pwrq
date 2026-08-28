@@ -13,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/xen0bit/pwrq/pkg/jqfmt"
 	"github.com/xen0bit/pwrq/pkg/udf"
+	"github.com/xen0bit/pwrq/pkg/udf/discovery"
 )
 
 // registerTools installs the server's three tools: run_query for evaluating
@@ -34,7 +35,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "run_query",
-		Description: "Evaluate a pwrq/jq query against input data. The query language is jq augmented with ~470 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output.",
+		Description: "Evaluate a pwrq/jq query against input data. The query language is jq augmented with ~470 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output, plus a description of the shape those values had - which keys the objects carried - so a follow-up query can be written without reading every result.",
 		InputSchema: schemas["run_query"],
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args runQueryArgs) (result *mcp.CallToolResult, structured runQueryResult, err error) {
 		started := time.Now()
@@ -85,7 +86,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_functions",
-		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description and example invocations, so a caller can find what it needs and write a correct query. Pass filter to narrow the list: unfiltered it is long.",
+		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description, aliases and example invocations, plus what the cmdlet emits: whether it streams (and so must be collected with [...]) and the shape and property names of the object it returns. Pass filter to narrow the list: unfiltered it is long.",
 		InputSchema: schemas["list_functions"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args listFunctionsArgs) (*mcp.CallToolResult, listFunctionsResult, error) {
 		started := time.Now()
@@ -152,6 +153,13 @@ func summarize(res runQueryResult) string {
 		sb.WriteString(v)
 		sb.WriteString("\n")
 	}
+	// The shape goes before the outcome line so that a truncated run reads as
+	// "here is what all of it looks like, and here is why it stopped". It is
+	// only worth printing when there is more than one value: for a single
+	// result the value above already is the shape.
+	if res.Shape != "" && res.Count > 1 {
+		fmt.Fprintf(&sb, "-- %s\n", res.Shape)
+	}
 	switch {
 	case res.Truncated:
 		fmt.Fprintf(&sb, "(%s)", res.Error)
@@ -190,7 +198,23 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 	withExamples := res.Count <= examplesUpTo
 	for _, fn := range res.Functions {
 		fmt.Fprintf(&sb, "%s%s [%s] %s\n", fn.Name, arity(fn), fn.Category, fn.Description)
+		// The cardinality is printed for every entry, however long the list,
+		// because it is the fact that decides whether the caller writes
+		// brackets - and getting it wrong is the most common way a query
+		// fails. The shape is printed on the same terms.
+		if fn.Streaming {
+			sb.WriteString("    streams: collect with [...] before length, map or sort_by\n")
+		}
+		if fn.Shape != "" {
+			fmt.Fprintf(&sb, "    emits %s\n", fn.Shape)
+		}
 		if withExamples {
+			if fn.Input != "" {
+				fmt.Fprintf(&sb, "    input: %s\n", fn.Input)
+			}
+			if len(fn.Aliases) > 0 {
+				fmt.Fprintf(&sb, "    also called %s\n", strings.Join(fn.Aliases, ", "))
+			}
 			for _, example := range fn.Examples {
 				fmt.Fprintf(&sb, "    e.g. %s\n", example)
 			}
@@ -209,24 +233,39 @@ func arity(fn functionInfo) string {
 }
 
 // listFunctions returns the documented cmdlet catalog, filtered by a substring
-// of the name or category. The metadata is the same table the CLI's --udf-list
-// prints, so what the model sees matches what it can call.
+// of the name or category.
+//
+// It reads discovery.Catalog rather than the raw metadata table, which is the
+// same catalogue get_command and get_help serve. That is the point: the three
+// surfaces now answer from one source, so a model over MCP is told what a
+// terminal user is told rather than a subset of it.
 func listFunctions(args listFunctionsArgs) listFunctionsResult {
+	// The registry publishes the catalogue as it is built, so make sure it has
+	// been. Every other entry point has already done this, but a caller that
+	// only ever lists functions would otherwise see an empty catalogue.
+	udf.DefaultRegistry()
+
 	filter := strings.TrimSpace(args.Filter)
 	out := make([]functionInfo, 0)
-	for _, m := range udf.GetFunctionMetadata() {
+	for _, c := range discovery.Catalog() {
 		if filter != "" &&
-			!strings.Contains(m.Name, filter) &&
-			!strings.Contains(m.Category, filter) {
+			!strings.Contains(c.Name, filter) &&
+			!strings.Contains(c.Category, filter) {
 			continue
 		}
 		out = append(out, functionInfo{
-			Name:        m.Name,
-			MinArgs:     m.MinArgs,
-			MaxArgs:     m.MaxArgs,
-			Category:    m.Category,
-			Description: m.Description,
-			Examples:    m.Examples,
+			Name:        c.Name,
+			MinArgs:     c.MinArgs,
+			MaxArgs:     c.MaxArgs,
+			Category:    c.Category,
+			Description: c.Description,
+			Examples:    c.Examples,
+			Aliases:     c.Aliases,
+			Streaming:   c.Streaming,
+			Output:      c.EmitsDescription(),
+			Input:       c.Input,
+			Shape:       c.ShapeDescription(),
+			TypeName:    c.Shape.TypeName(),
 		})
 	}
 	return listFunctionsResult{Functions: out, Count: len(out)}

@@ -3,7 +3,7 @@ package objects
 import (
 	"testing"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 func TestSortObjectBasic(t *testing.T) {
@@ -146,11 +146,11 @@ func TestSortObjectUnique(t *testing.T) {
 	}
 }
 
-func TestSortObjectPSObject(t *testing.T) {
-	// Create PSObject-wrapped objects
-	psobj1 := psobject.NewPSObject(map[string]any{"Name": "Charlie", "Value": 30})
-	psobj2 := psobject.NewPSObject(map[string]any{"Name": "Alice", "Value": 10})
-	psobj3 := psobject.NewPSObject(map[string]any{"Name": "Bob", "Value": 20})
+func TestSortObjectTypedObjects(t *testing.T) {
+	// Create typed objects
+	psobj1 := typed.New(map[string]any{"Name": "Charlie", "Value": 30})
+	psobj2 := typed.New(map[string]any{"Name": "Alice", "Value": 10})
+	psobj3 := typed.New(map[string]any{"Name": "Bob", "Value": 20})
 
 	objects := []any{
 		psobj1.ToMap(),
@@ -639,7 +639,7 @@ func getCategory(obj any) string {
 
 func getValue(obj any) any {
 	if m, ok := obj.(map[string]any); ok {
-		// Check for PSObject format (_val/_meta)
+		// Check for wire form (_val/_meta)
 		if val, ok := m["_val"]; ok {
 			if valMap, ok := val.(map[string]any); ok {
 				return valMap["Value"]

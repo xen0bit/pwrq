@@ -18,6 +18,11 @@ type CommandDoc struct {
 	MaxArgs     int
 	Streaming   bool
 	Examples    []string
+	// Shape is a one-line summary of the object the cmdlet emits, or "" when
+	// it emits none. The agent writes queries against these cmdlets, so it has
+	// the same problem an MCP client does: knowing that get_childitem streams
+	// is only half of knowing what to write next.
+	Shape string
 }
 
 // Vocabulary is the restricted pwrq the agent may write queries against: a

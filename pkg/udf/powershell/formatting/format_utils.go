@@ -8,11 +8,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // getAvailableProperties returns all property names available on an object.
-// PSTypeName is excluded: it identifies the object rather than describing it,
+// PwrqType is excluded: it identifies the object rather than describing it,
 // and PowerShell's own formatters do not show it as a column.
 func getAvailableProperties(value any) []string {
 	names := make([]string, 0)
@@ -20,12 +20,12 @@ func getAvailableProperties(value any) []string {
 	switch v := value.(type) {
 	case map[string]any:
 		for k := range v {
-			if k != psobject.PSTypeNameKey {
+			if k != typed.TypeKey {
 				names = append(names, k)
 			}
 		}
-	case *psobject.PSObject:
-		// Get property names from PSObject members
+	case *typed.Object:
+		// Get property names from object members
 		for name := range v.Members {
 			if !containsString(names, name) {
 				names = append(names, name)
@@ -90,7 +90,7 @@ func matchProperty(prop, pattern string, caseSensitive bool) bool {
 // getPropertyValue extracts a property value from an object.
 //
 // Pipeline values are always maps by the time they get here - a cmdlet's
-// PSObject is flattened to its wire form on the way out - but a formatting
+// object is flattened to its wire form on the way out - but a formatting
 // helper may still be handed one directly by the cmdlet that built it, so both
 // are accepted.
 func getPropertyValue(value any, propertyName string) any {
@@ -99,7 +99,7 @@ func getPropertyValue(value any, propertyName string) any {
 		if val, exists := v[propertyName]; exists {
 			return val
 		}
-	case *psobject.PSObject:
+	case *typed.Object:
 		if member, ok := v.Members[propertyName]; ok {
 			return member.Value
 		}
@@ -135,11 +135,11 @@ func formatValue(value any, maxDepth int, currentDepth int) string {
 	}
 
 	switch v := value.(type) {
-	case *psobject.PSObject:
+	case *typed.Object:
 		wrapped := v.ToMap()
 		return formatNestedObject(wrapped, maxDepth, currentDepth+1)
 	case map[string]any:
-		if psobject.IsPSObject(v) {
+		if typed.Is(v) {
 			return formatNestedObject(v, maxDepth, currentDepth+1)
 		}
 		return formatMap(v, maxDepth, currentDepth+1)
@@ -150,7 +150,7 @@ func formatValue(value any, maxDepth int, currentDepth int) string {
 	}
 }
 
-// formatNestedObject formats a nested PSObject as a string
+// formatNestedObject formats a nested object as a string
 func formatNestedObject(obj map[string]any, maxDepth int, currentDepth int) string {
 	if maxDepth > 0 && currentDepth >= maxDepth {
 		return "..."

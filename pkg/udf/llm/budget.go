@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // defaultMaxCalls is how many model calls one pwrq process will make before it
@@ -104,7 +104,7 @@ func usageObject() map[string]any {
 		"TotalTokens":  usage.InputTokens + usage.OutputTokens,
 		"Cost":         nil,
 
-		psobject.PSTypeNameKey: "Pwrq.LLM.Usage",
+		typed.TypeKey: "Pwrq.LLM.Usage",
 	}
 	if usage.costKnown {
 		out["Cost"] = usage.Cost

@@ -240,7 +240,7 @@ func wrapText(s string, width int) []string {
 // RegisterDiffLines registers diff_lines, which lines are in only one of two
 // texts: {added, removed}. The sets respect multiplicity.
 func RegisterDiffLines() gojq.CompilerOption {
-	return common.WithFunction("diff_lines", 1, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("diff_lines", 1, 2, LineDiffShape, func(v any, args []any) any {
 		other, ok := common.BindValue(args[len(args)-1]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("diff_lines: the other text must be a string, got %T", args[len(args)-1]), nil)
@@ -285,5 +285,5 @@ func lineDiff(a, b string) map[string]any {
 			ac[line]--
 		}
 	}
-	return map[string]any{"added": added, "removed": removed}
+	return LineDiffShape.Build(map[string]any{"added": added, "removed": removed})
 }

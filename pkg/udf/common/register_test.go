@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 )
 
 // run compiles and evaluates a query against a single registered cmdlet.
@@ -60,10 +60,10 @@ func TestWithFunctionNormalizesResults(t *testing.T) {
 	}
 }
 
-// TestWithFunctionNormalizesPSObject pins that a cmdlet returning a PSObject -
+// TestWithFunctionNormalizesTypedObject pins that a cmdlet returning a typed object -
 // once a crash, because gojq has no such type - now yields its wire form.
-func TestWithFunctionNormalizesPSObject(t *testing.T) {
-	obj := psobject.NewPSObject("/tmp/x.txt")
+func TestWithFunctionNormalizesTypedObject(t *testing.T) {
+	obj := typed.New("/tmp/x.txt")
 	obj.AddNoteProperty("Extension", ".txt")
 
 	opt := WithFunction("probe", 0, 0, func(any, []any) any { return obj })
@@ -122,7 +122,7 @@ func TestWithIterFunctionHandlesNilIter(t *testing.T) {
 // prevent. It is passed through for the encoder to refuse.
 func TestNormalizeLeavesDeepValuesAlone(t *testing.T) {
 	var deep any
-	for range psobject.MaxJSONDepth + 10 {
+	for range typed.MaxJSONDepth + 10 {
 		deep = []any{deep}
 	}
 	// Must return rather than overflow, and must not have been rebuilt.

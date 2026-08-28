@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -47,15 +47,14 @@ type entry struct {
 }
 
 func (e entry) object() map[string]any {
-	return map[string]any{
-		psobject.PSTypeNameKey: "System.IO.Compression.ArchiveEntry",
-		"Name":                 e.Name,
-		"Length":               e.Length,
-		"CompressedLength":     e.CompressedLength,
-		"IsDirectory":          e.IsDirectory,
-		"Mode":                 e.Mode,
-		"LastWriteTime":        e.LastWriteTime,
-	}
+	return ArchiveEntry.Build(map[string]any{
+		"Name":             e.Name,
+		"Length":           e.Length,
+		"CompressedLength": e.CompressedLength,
+		"IsDirectory":      e.IsDirectory,
+		"Mode":             e.Mode,
+		"LastWriteTime":    e.LastWriteTime,
+	})
 }
 
 // kind identifies an archive by extension. Content sniffing would be friendlier
@@ -104,7 +103,7 @@ func tarReader(f *os.File, k kind) (*tar.Reader, error) {
 // RegisterReadArchive registers read_archive, one object per entry in an
 // archive without extracting anything.
 func RegisterReadArchive() gojq.CompilerOption {
-	return common.WithFunction("read_archive", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("read_archive", 0, 1, ArchiveEntry.Each(), func(v any, args []any) any {
 		path, err := archivePath(v, args, "read_archive")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -140,7 +139,7 @@ func listArchive(path string) ([]entry, error) {
 				CompressedLength: int64(f.CompressedSize64),
 				IsDirectory:      f.FileInfo().IsDir(),
 				Mode:             f.Mode().String(),
-				LastWriteTime:    psobject.NormalizeJSON(f.Modified),
+				LastWriteTime:    typed.NormalizeJSON(f.Modified),
 			})
 		}
 		return out, nil
@@ -170,7 +169,7 @@ func listArchive(path string) ([]entry, error) {
 			CompressedLength: h.Size,
 			IsDirectory:      h.FileInfo().IsDir(),
 			Mode:             h.FileInfo().Mode().String(),
-			LastWriteTime:    psobject.NormalizeJSON(h.ModTime),
+			LastWriteTime:    typed.NormalizeJSON(h.ModTime),
 		})
 	}
 	return out, nil
@@ -179,6 +178,7 @@ func listArchive(path string) ([]entry, error) {
 // RegisterExpandArchive registers expand_archive, extracting an archive into a
 // destination directory and returning the paths written.
 func RegisterExpandArchive() gojq.CompilerOption {
+	common.DeclareInput("expand_archive", common.InputPipeline)
 	return common.WithFunction("expand_archive", 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		path, ok := common.BindPath(in)
@@ -316,7 +316,8 @@ func expand(path, dest string) ([]string, error) {
 // RegisterCompressArchive registers compress_archive, building an archive from
 // a path or a list of paths and returning the archive's own FileInfo.
 func RegisterCompressArchive() gojq.CompilerOption {
-	return common.WithFunction("compress_archive", 1, 2, func(v any, args []any) any {
+	common.DeclareInput("compress_archive", common.InputPipeline)
+	return common.WithFunctionOf("compress_archive", 1, 2, ArchiveWritten, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		sources, err := sourcePaths(in)
 		if err != nil {
@@ -334,14 +335,13 @@ func RegisterCompressArchive() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("compress_archive: %v", err), nil)
 		}
 		abs, _ := filepath.Abs(dest)
-		return common.MakeUDFSuccessResult(map[string]any{
-			psobject.PSTypeNameKey: "System.IO.FileInfo",
-			"Name":                 info.Name(),
-			"FullName":             abs,
-			"Length":               info.Size(),
-			"LastWriteTime":        psobject.NormalizeJSON(info.ModTime()),
-			psobject.PSPathKey:     dest,
-		}, nil)
+		return common.MakeUDFSuccessResult(ArchiveWritten.Build(map[string]any{
+			"Name":          info.Name(),
+			"FullName":      abs,
+			"Length":        info.Size(),
+			"LastWriteTime": typed.NormalizeJSON(info.ModTime()),
+			typed.ValueKey:  dest,
+		}), nil)
 	})
 }
 

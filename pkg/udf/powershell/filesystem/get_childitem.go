@@ -8,7 +8,7 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/pipeline"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -187,12 +187,12 @@ func getChildItems(opts GetChildItemOptions) ([]any, error) {
 		}
 
 		// Add to results
-		psobj, err := createPSObjectFromFileInfo(walkPath, info)
+		obj, err := fileItemFrom(walkPath, info)
 		if err != nil {
 			errors = append(errors, err)
 			return nil
 		}
-		results = append(results, psobj)
+		results = append(results, obj)
 
 		// If not recursing and this is a directory, skip descending into it
 		if !opts.Recurse && info.IsDir() {
@@ -240,58 +240,56 @@ func isHiddenFile(info os.FileInfo) bool {
 	return false
 }
 
-// createPSObjectFromFileInfo creates a PSObject from file info
-func createPSObjectFromFileInfo(path string, info os.FileInfo) (map[string]any, error) {
-	// Create PSObject with file properties
-	psobj := psobject.NewPSObject(path)
-	psobj.TypeName = "System.IO.FileInfo"
-	if info.IsDir() {
-		psobj.TypeName = "System.IO.DirectoryInfo"
-	}
+// fileItemFrom creates a typed object from file info
+func fileItemFrom(path string, info os.FileInfo) (map[string]any, error) {
+	// Create object with file properties
+	obj := typed.New(path)
 
 	// Add NoteProperties (PowerShell-style properties)
-	psobj.AddNoteProperty("Name", info.Name())
+	obj.AddNoteProperty("Name", info.Name())
 	// FullName is absolute, as PowerShell's FileInfo.FullName is: it is what
 	// downstream cmdlets bind to, so it has to survive a change of directory.
 	fullName := path
 	if abs, err := filepath.Abs(path); err == nil {
 		fullName = abs
 	}
-	psobj.AddNoteProperty("FullName", fullName)
-	psobj.AddNoteProperty("Length", func() int64 {
+	obj.AddNoteProperty("FullName", fullName)
+	obj.AddNoteProperty("Length", func() int64 {
 		if info.IsDir() {
 			return 0
 		}
 		return info.Size()
 	}())
-	psobj.AddNoteProperty("Mode", func() string {
+	obj.AddNoteProperty("Mode", func() string {
 		mode := info.Mode().String()
 		if info.IsDir() {
 			mode = "d" + mode[1:]
 		}
 		return mode
 	}())
-	psobj.AddNoteProperty("LastWriteTime", info.ModTime())
-	psobj.AddNoteProperty("CreationTime", func() any {
+	obj.AddNoteProperty("LastWriteTime", info.ModTime())
+	obj.AddNoteProperty("CreationTime", func() any {
 		// On Unix, creation time is not always available
 		return info.ModTime()
 	}())
-	psobj.AddNoteProperty("LastAccessTime", func() any {
+	obj.AddNoteProperty("LastAccessTime", func() any {
 		// Last access time
 		return info.ModTime()
 	}())
-	psobj.AddNoteProperty("IsReadOnly", func() bool {
+	obj.AddNoteProperty("IsReadOnly", func() bool {
 		return info.Mode()&0222 == 0
 	}())
-	psobj.AddNoteProperty("IsHidden", strings.HasPrefix(info.Name(), "."))
-	psobj.AddNoteProperty("Extension", filepath.Ext(info.Name()))
+	obj.AddNoteProperty("IsHidden", strings.HasPrefix(info.Name(), "."))
+	obj.AddNoteProperty("Extension", filepath.Ext(info.Name()))
 
-	return psobj.ToMap(), nil
+	// The shape stamps the type name, so the only place a filesystem item's
+	// type is written down is the declaration that also lists its properties.
+	return itemShape(info.IsDir()).Build(obj.ToMap()), nil
 }
 
 // RegisterGetChildItem registers the get_childitem function with gojq
 func RegisterGetChildItem() gojq.CompilerOption {
-	return common.WithIterFunction("get_childitem", 0, 5, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_childitem", 0, 5, FileInfo, func(v any, args []any) gojq.Iter {
 		opts, err := parseGetChildItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

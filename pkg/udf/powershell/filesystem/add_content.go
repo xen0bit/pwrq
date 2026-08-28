@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -19,7 +19,7 @@ import (
 //	"a line" | add_content("out.log")
 //	add_content("out.log"; "a line")
 func RegisterAddContent() gojq.CompilerOption {
-	return common.WithFunction("add_content", 1, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("add_content", 1, 3, WrittenFile, func(v any, args []any) any {
 		opts, err := parseAppendArgs(v, args, "add_content")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -40,7 +40,7 @@ func RegisterAddContent() gojq.CompilerOption {
 // way set_content does, and takes {Append: true}, which is the combination
 // reporting pipelines actually need.
 func RegisterOutFile() gojq.CompilerOption {
-	return common.WithFunction("out_file", 1, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("out_file", 1, 3, WrittenFile, func(v any, args []any) any {
 		opts, err := parseAppendArgs(v, args, "out_file")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -211,13 +211,12 @@ func fileResult(path, operation string) any {
 	if fi, err := os.Stat(path); err == nil {
 		size = fi.Size()
 	}
-	obj := psobject.NewPSObject(path)
-	obj.TypeName = "System.IO.FileInfo"
+	obj := typed.New(path)
 	obj.AddNoteProperty("Path", path)
 	obj.AddNoteProperty("Length", size)
 	obj.AddNoteProperty("Exists", true)
 	obj.AddNoteProperty("Operation", operation)
-	return obj.ToMap()
+	return WrittenFile.Build(obj.ToMap())
 }
 
 func lowerASCII(s string) string {

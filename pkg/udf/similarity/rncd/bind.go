@@ -3,7 +3,7 @@ package rncd
 import (
 	"fmt"
 
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -15,7 +15,7 @@ var contentProperties = []string{"Content", "Bytes", "Data"}
 // nameProperties are the properties a named value is labelled by. Any of them
 // identifies the value in the output, which is what lets a corpus assembled
 // from files report paths rather than array offsets.
-var nameProperties = []string{"Name", "PSPath", "FullName", "Path"}
+var nameProperties = []string{"Name", "PwrqValue", "FullName", "Path"}
 
 // bindBytes casts a pipeline value to the bytes to measure.
 //
@@ -60,7 +60,7 @@ func bindScalarBytes(v any) ([]byte, bool) {
 // bindName reads the label a value travels with, or "" if it has none.
 func bindName(v any) string {
 	switch val := v.(type) {
-	case *psobject.PSObject:
+	case *typed.Object:
 		for _, name := range nameProperties {
 			if got, err := val.GetPropertyValue(name); err == nil {
 				if s, ok := got.(string); ok && s != "" {

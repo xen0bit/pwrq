@@ -94,8 +94,8 @@ func TestEntropy(t *testing.T) {
 
 func TestEntropyWithUDFResult(t *testing.T) {
 	udfResult := map[string]any{
-		"PSPath":     "hello",
-		"PSTypeName": "System.String",
+		"PwrqValue": "hello",
+		"PwrqType":  "string",
 	}
 
 	inputVal := common.BindValue(udfResult)
