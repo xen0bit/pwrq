@@ -12,7 +12,6 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/xen0bit/pwrq/pkg/jqfmt"
-	"github.com/xen0bit/pwrq/pkg/udf"
 )
 
 // registerTools installs the server's three tools: run_query for evaluating
@@ -269,11 +268,6 @@ func arity(fn functionInfo) string {
 // surfaces now answer from one source, so a model over MCP is told what a
 // terminal user is told rather than a subset of it.
 func listFunctions(args listFunctionsArgs) listFunctionsResult {
-	// The registry publishes the catalogue as it is built, so make sure it has
-	// been. Every other entry point has already done this, but a caller that
-	// only ever lists functions would otherwise see an empty catalogue.
-	udf.DefaultRegistry()
-
 	found, matched, suggestions := findFunctions(strings.TrimSpace(args.Filter))
 	if found == nil {
 		found = make([]functionInfo, 0)

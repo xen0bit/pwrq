@@ -60,7 +60,7 @@ func arityHint(name string, called int, query string) string {
 		return fmt.Sprintf("you defined %s taking %s, but called it with %s: %s",
 			name, arguments(defined), count(called), callForms(name, defined))
 	}
-	for _, c := range discovery.Catalog() {
+	for _, c := range catalogue() {
 		if c.Name != name && !slices.Contains(c.Aliases, name) {
 			continue
 		}
@@ -79,7 +79,7 @@ func arityHint(name string, called int, query string) string {
 // nameHint covers the other half: a name nothing defines, where what the
 // caller needs is the name they meant.
 func nameHint(name string) string {
-	suggestions := suggest(discovery.Catalog(), strings.ToLower(name))
+	suggestions := suggest(catalogue(), strings.ToLower(name))
 	if len(suggestions) == 0 {
 		return fmt.Sprintf("no cmdlet is named %s; list_functions has the vocabulary", name)
 	}

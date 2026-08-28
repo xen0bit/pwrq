@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/xen0bit/pwrq/pkg/udf"
 	"github.com/xen0bit/pwrq/pkg/udf/discovery"
 	"github.com/xen0bit/pwrq/pkg/udf/similarity"
 )
@@ -40,10 +41,7 @@ const (
 // eight cmdlets in the category called Hash, and "stat" found nothing at all
 // while Statistics held thirty-five.
 func findFunctions(filter string) ([]functionInfo, string, []string) {
-	// The registry publishes the catalogue as it is built, so make sure it has
-	// been. Every other entry point has already done this, but a caller that
-	// only ever lists functions would otherwise see an empty catalogue.
-	catalog := discovery.Catalog()
+	catalog := catalogue()
 
 	if filter == "" {
 		out := make([]functionInfo, 0, len(catalog))
@@ -177,6 +175,18 @@ func suggest(catalog []discovery.Command, needle string) []string {
 		out = append(out, c.text)
 	}
 	return out
+}
+
+// catalogue reads the published cmdlet catalogue, building the registry first
+// if nothing has yet.
+//
+// An empty catalogue does not fail here; it answers, and answers wrongly.
+// "no cmdlet is named sha256" is a confident lie of exactly the kind this file
+// was written to stop, so the one line that prevents it goes where the
+// catalogue is read rather than at each of the callers.
+func catalogue() []discovery.Command {
+	udf.DefaultRegistry()
+	return discovery.Catalog()
 }
 
 // describe converts a catalogue entry into the tool's own result type.
