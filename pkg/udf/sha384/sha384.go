@@ -11,6 +11,7 @@ import (
 
 // RegisterSHA384 registers the sha384 function with gojq
 func RegisterSHA384() gojq.CompilerOption {
+	common.DeclareEncoding("sha384", common.EncodingHex, "")
 	return common.WithFunction("sha384", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {

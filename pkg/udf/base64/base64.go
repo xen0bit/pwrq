@@ -10,6 +10,7 @@ import (
 
 // RegisterBase64Encode registers the base64_encode function with gojq
 func RegisterBase64Encode() gojq.CompilerOption {
+	common.DeclareEncoding("base64_encode", common.EncodingBase64, "base64_decode")
 	return common.WithFunction("base64_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -73,6 +74,7 @@ func RegisterBase64Encode() gojq.CompilerOption {
 
 // RegisterBase64Decode registers the base64_decode function with gojq
 func RegisterBase64Decode() gojq.CompilerOption {
+	common.DeclareEncoding("base64_decode", common.EncodingBytesAsText, "base64_encode")
 	return common.WithFunction("base64_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {

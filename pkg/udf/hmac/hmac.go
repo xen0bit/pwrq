@@ -42,6 +42,8 @@ func RegisterHMAC(algorithm string) gojq.CompilerOption {
 
 	funcName := fmt.Sprintf("hmac_%s", algorithm)
 
+	common.DeclareEncoding(funcName, common.EncodingHex, "")
+
 	return common.WithFunction(funcName, 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: expected at least 1 argument (key)", funcName), nil)

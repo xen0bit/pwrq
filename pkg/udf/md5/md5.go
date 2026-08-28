@@ -11,6 +11,7 @@ import (
 
 // RegisterMD5 registers the md5 function with gojq
 func RegisterMD5() gojq.CompilerOption {
+	common.DeclareEncoding("md5", common.EncodingHex, "")
 	return common.WithFunction("md5", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {

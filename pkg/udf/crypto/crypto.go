@@ -141,6 +141,7 @@ func pkcs7Unpad(data []byte) ([]byte, error) {
 
 // RegisterAESEncrypt registers AES encryption function
 func RegisterAESEncrypt() gojq.CompilerOption {
+	common.DeclareEncoding("aes_encrypt", common.EncodingBase64, "aes_decrypt")
 	return common.WithFunction("aes_encrypt", 2, 5, func(v any, args []any) any {
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("aes_encrypt: requires at least 2 arguments (data, key)"), nil)
@@ -416,6 +417,7 @@ func RegisterAESDecrypt() gojq.CompilerOption {
 
 // RegisterXOR registers XOR encryption/decryption function
 func RegisterXOR() gojq.CompilerOption {
+	common.DeclareEncoding("xor", common.EncodingHex, "xor")
 	return common.WithFunction("xor", 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("xor: requires at least 1 argument (key)"), nil)
@@ -473,6 +475,7 @@ func RegisterXOR() gojq.CompilerOption {
 
 // RegisterRC4 registers RC4 encryption/decryption function
 func RegisterRC4() gojq.CompilerOption {
+	common.DeclareEncoding("rc4", common.EncodingBase64, "rc4")
 	return common.WithFunction("rc4", 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("rc4: requires at least 1 argument (key)"), nil)
@@ -528,6 +531,7 @@ func RegisterRC4() gojq.CompilerOption {
 
 // RegisterChaCha20 registers ChaCha20 encryption/decryption function
 func RegisterChaCha20() gojq.CompilerOption {
+	common.DeclareEncoding("chacha20", common.EncodingBase64, "chacha20")
 	return common.WithFunction("chacha20", 1, 4, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("chacha20: requires at least 1 argument (key)"), nil)
@@ -615,6 +619,7 @@ func RegisterChaCha20() gojq.CompilerOption {
 
 // RegisterDESEncrypt registers DES encryption function
 func RegisterDESEncrypt() gojq.CompilerOption {
+	common.DeclareEncoding("des_encrypt", common.EncodingBase64, "des_decrypt")
 	return common.WithFunction("des_encrypt", 2, 4, func(v any, args []any) any {
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("des_encrypt: requires at least 2 arguments (data, key)"), nil)
@@ -804,6 +809,7 @@ func RegisterDESDecrypt() gojq.CompilerOption {
 
 // Register3DESEncrypt registers 3DES encryption function
 func Register3DESEncrypt() gojq.CompilerOption {
+	common.DeclareEncoding("triple_des_encrypt", common.EncodingBase64, "triple_des_decrypt")
 	return common.WithFunction("triple_des_encrypt", 2, 4, func(v any, args []any) any {
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("triple_des_encrypt: requires at least 2 arguments (data, key)"), nil)
@@ -990,6 +996,7 @@ func Register3DESDecrypt() gojq.CompilerOption {
 
 // RegisterBlowfishEncrypt registers Blowfish encryption function
 func RegisterBlowfishEncrypt() gojq.CompilerOption {
+	common.DeclareEncoding("blowfish_encrypt", common.EncodingBase64, "blowfish_decrypt")
 	return common.WithFunction("blowfish_encrypt", 2, 4, func(v any, args []any) any {
 		if len(args) < 2 {
 			return common.MakeUDFErrorResult(fmt.Errorf("blowfish_encrypt: requires at least 2 arguments (data, key)"), nil)

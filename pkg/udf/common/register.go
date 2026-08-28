@@ -105,9 +105,10 @@ func IsStreaming(name string) (streaming, known bool) {
 // would be 300 chances to write something untrue. They report nothing, and
 // their output is described by observation at the point of use instead.
 var (
-	shapeMu    sync.RWMutex
-	shapeOfUDF = make(map[string]*shape.Shape)
-	inputOfUDF = make(map[string]InputForm)
+	shapeMu       sync.RWMutex
+	shapeOfUDF    = make(map[string]*shape.Shape)
+	inputOfUDF    = make(map[string]InputForm)
+	encodingOfUDF = make(map[string]encodingNote)
 )
 
 func recordShape(name string, s *shape.Shape) {
@@ -151,6 +152,118 @@ func DeclareInput(name string, form InputForm) {
 	shapeMu.Lock()
 	defer shapeMu.Unlock()
 	inputOfUDF[name] = form
+}
+
+// Encoding says how a cmdlet's output is written down, for the cmdlets whose
+// result is a text rendering of bytes rather than the bytes themselves.
+//
+// This is not a cosmetic fact. `zlib_compress` returns "789c…" because one line
+// of it reads fmt.Sprintf("%x", compressed), and nothing said so: not the name,
+// not the description, not the examples, not get_help. A model over MCP spent
+// roughly twenty tool calls and three successive wrong theories - the server
+// strips whitespace, hex_decode yields bytes, the endpoint decodes twice -
+// working out by experiment what one sentence would have told it.
+//
+// The declaration covers the whole family rather than the cmdlets that happen
+// to have caused trouble. If only zlib_compress declared hex, a caller would
+// reasonably infer that sha256 does not, and a catalogue that is right in one
+// place and silent in the next is worse than one that is silent throughout.
+type Encoding int
+
+const (
+	// EncodingUnspecified is a cmdlet that has not said, which is nearly all
+	// of them: a cmdlet returning a number, an object or ordinary text has
+	// nothing to explain.
+	EncodingUnspecified Encoding = iota
+	// EncodingHex is lower-case hexadecimal, two characters per byte.
+	EncodingHex
+	// EncodingBase64 is standard base64 with padding.
+	EncodingBase64
+	// EncodingBase64URL is unpadded URL-safe base64.
+	EncodingBase64URL
+	// EncodingBase32 is standard base32.
+	EncodingBase32
+	// EncodingBase58 is bitcoin-alphabet base58.
+	EncodingBase58
+	// EncodingBase85 is Ascii85.
+	EncodingBase85
+	// EncodingBinary is one group of eight '0' and '1' characters per byte,
+	// separated by spaces.
+	EncodingBinary
+	// EncodingBytesAsText is raw bytes carried in a string, which is what the
+	// decoders return. It is worth declaring because the bytes are usually not
+	// valid text: `length` counts runes and will disagree with the byte count,
+	// and printing the value shows replacement characters that are an artefact
+	// of the display rather than of the data.
+	EncodingBytesAsText
+)
+
+// Describe explains an encoding in one line, in the terms a caller writing the
+// next stage of the pipeline needs.
+func (e Encoding) Describe() string {
+	switch e {
+	case EncodingHex:
+		return "a lower-case hex string, two characters per byte - not the raw bytes"
+	case EncodingBase64:
+		return "a standard base64 string, with padding"
+	case EncodingBase64URL:
+		return "an unpadded URL-safe base64 string"
+	case EncodingBase32:
+		return "a standard base32 string"
+	case EncodingBase58:
+		return "a base58 string"
+	case EncodingBase85:
+		return "an Ascii85 string"
+	case EncodingBinary:
+		return "groups of eight 0 and 1 characters, one group per byte, separated by spaces"
+	case EncodingBytesAsText:
+		return "raw bytes in a string, which may not be valid text - count them with utf8bytelength, not length"
+	default:
+		return ""
+	}
+}
+
+// DeclareEncoding records how a cmdlet's output is encoded, and optionally the
+// cmdlet that reverses it.
+//
+// The inverse is half the value. "returns hex" tells a caller what they are
+// holding; "pair with zlib_decompress" tells them what to do with it, and it is
+// the sentence that would have ended the session described above in one call
+// rather than twenty.
+func DeclareEncoding(name string, e Encoding, inverse string) {
+	shapeMu.Lock()
+	defer shapeMu.Unlock()
+	encodingOfUDF[name] = encodingNote{encoding: e, inverse: inverse}
+}
+
+// EncodingOf reports the declared encoding of the named cmdlet's output, and
+// the cmdlet that reverses it. A cmdlet that declared none returns
+// EncodingUnspecified, which describes itself as nothing rather than as a
+// guess.
+func EncodingOf(name string) (Encoding, string) {
+	shapeMu.RLock()
+	defer shapeMu.RUnlock()
+	note := encodingOfUDF[name]
+	return note.encoding, note.inverse
+}
+
+// DescribeEncoding renders a cmdlet's declared encoding as the sentence
+// get_help and list_functions print, or "" when it declared none.
+func DescribeEncoding(name string) string {
+	encoding, inverse := EncodingOf(name)
+	described := encoding.Describe()
+	if described == "" {
+		return ""
+	}
+	if inverse == "" {
+		return described
+	}
+	return described + "; reverse it with " + inverse
+}
+
+type encodingNote struct {
+	encoding Encoding
+	inverse  string
 }
 
 // InputOf reports where the named cmdlet takes its input from.

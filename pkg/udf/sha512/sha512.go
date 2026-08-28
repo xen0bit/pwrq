@@ -11,6 +11,7 @@ import (
 
 // RegisterSHA512 registers the sha512 function with gojq
 func RegisterSHA512() gojq.CompilerOption {
+	common.DeclareEncoding("sha512", common.EncodingHex, "")
 	return common.WithFunction("sha512", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {

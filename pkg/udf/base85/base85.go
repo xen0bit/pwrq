@@ -10,6 +10,7 @@ import (
 
 // RegisterBase85Encode registers the base85_encode function with gojq
 func RegisterBase85Encode() gojq.CompilerOption {
+	common.DeclareEncoding("base85_encode", common.EncodingBase85, "base85_decode")
 	return common.WithFunction("base85_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -78,6 +79,7 @@ func RegisterBase85Encode() gojq.CompilerOption {
 
 // RegisterBase85Decode registers the base85_decode function with gojq
 func RegisterBase85Decode() gojq.CompilerOption {
+	common.DeclareEncoding("base85_decode", common.EncodingBytesAsText, "base85_encode")
 	return common.WithFunction("base85_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
