@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/itchyny/gojq"
+
 	"github.com/xen0bit/pwrq/pkg/core/queryrun"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
@@ -79,9 +81,29 @@ func (e *engine) execute(req runQueryArgs) runQueryResult {
 		Count:     res.Count,
 		Truncated: res.Truncated,
 		Elided:    res.Elided,
+		// Reported whether or not the run succeeded. A mismatch is usually
+		// why a clean run is wrong, and occasionally why a failed one failed:
+		// hex reaching base64_decode is both the warning and the error.
+		Warnings:  warnEncodings(req.Query),
 		Error:     res.Error,
 		Kind:      res.Kind,
 		Shape:     res.Shape,
 		ElapsedMs: float64(time.Since(started).Microseconds()) / 1000,
 	}
+}
+
+// warnEncodings re-parses a query to check its pipe stages against the encoding
+// declarations.
+//
+// The second parse is deliberate. The runner owns its own parse and returning
+// the AST from it would put a diagnostic concern into the shared evaluation
+// path that the browser IDE also uses; parsing is microseconds against a run
+// that reaches the network, and a query that does not parse has an error of its
+// own and needs no warning on top of it.
+func warnEncodings(query string) []encodingWarning {
+	parsed, err := gojq.Parse(query)
+	if err != nil {
+		return nil
+	}
+	return checkEncodings(parsed)
 }
