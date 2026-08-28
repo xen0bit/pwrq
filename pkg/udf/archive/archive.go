@@ -47,15 +47,14 @@ type entry struct {
 }
 
 func (e entry) object() map[string]any {
-	return map[string]any{
-		psobject.PSTypeNameKey: "System.IO.Compression.ArchiveEntry",
-		"Name":                 e.Name,
-		"Length":               e.Length,
-		"CompressedLength":     e.CompressedLength,
-		"IsDirectory":          e.IsDirectory,
-		"Mode":                 e.Mode,
-		"LastWriteTime":        e.LastWriteTime,
-	}
+	return ArchiveEntry.Build(map[string]any{
+		"Name":             e.Name,
+		"Length":           e.Length,
+		"CompressedLength": e.CompressedLength,
+		"IsDirectory":      e.IsDirectory,
+		"Mode":             e.Mode,
+		"LastWriteTime":    e.LastWriteTime,
+	})
 }
 
 // kind identifies an archive by extension. Content sniffing would be friendlier
@@ -104,7 +103,7 @@ func tarReader(f *os.File, k kind) (*tar.Reader, error) {
 // RegisterReadArchive registers read_archive, one object per entry in an
 // archive without extracting anything.
 func RegisterReadArchive() gojq.CompilerOption {
-	return common.WithFunction("read_archive", 0, 1, func(v any, args []any) any {
+	return common.WithFunctionOf("read_archive", 0, 1, ArchiveEntry.Each(), func(v any, args []any) any {
 		path, err := archivePath(v, args, "read_archive")
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
@@ -318,7 +317,7 @@ func expand(path, dest string) ([]string, error) {
 // a path or a list of paths and returning the archive's own FileInfo.
 func RegisterCompressArchive() gojq.CompilerOption {
 	common.DeclareInput("compress_archive", common.InputPipeline)
-	return common.WithFunction("compress_archive", 1, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("compress_archive", 1, 2, ArchiveWritten, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		sources, err := sourcePaths(in)
 		if err != nil {
@@ -336,14 +335,13 @@ func RegisterCompressArchive() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(fmt.Errorf("compress_archive: %v", err), nil)
 		}
 		abs, _ := filepath.Abs(dest)
-		return common.MakeUDFSuccessResult(map[string]any{
-			psobject.PSTypeNameKey: "System.IO.FileInfo",
-			"Name":                 info.Name(),
-			"FullName":             abs,
-			"Length":               info.Size(),
-			"LastWriteTime":        psobject.NormalizeJSON(info.ModTime()),
-			psobject.PSPathKey:     dest,
-		}, nil)
+		return common.MakeUDFSuccessResult(ArchiveWritten.Build(map[string]any{
+			"Name":             info.Name(),
+			"FullName":         abs,
+			"Length":           info.Size(),
+			"LastWriteTime":    psobject.NormalizeJSON(info.ModTime()),
+			psobject.PSPathKey: dest,
+		}), nil)
 	})
 }
 

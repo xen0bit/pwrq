@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -30,7 +29,7 @@ type GetVariableOptions struct {
 //   - get_variable("name"; {"ValueOnly": true}) - get only the value
 //   - get_variable("name"; {"Scope": "global"})
 func RegisterGetVariable() gojq.CompilerOption {
-	return common.WithFunction("get_variable", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("get_variable", 0, 2, VariableShape.Each(), func(v any, args []any) any {
 		var name string
 		opts := GetVariableOptions{
 			ValueOnly: false,
@@ -117,13 +116,12 @@ func RegisterGetVariable() gojq.CompilerOption {
 		}
 
 		// Return variable info with all metadata (PowerShell-compatible format)
-		result := map[string]any{
-			"Name":                 entry.Name,
-			"Value":                entry.Value,
-			"Options":              variableOptionsToString(entry.Options),
-			"Scope":                scopeTypeToString(entry.Scope),
-			psobject.PSTypeNameKey: "System.Management.Automation.PSVariable",
-		}
+		result := VariableShape.Build(map[string]any{
+			"Name":    entry.Name,
+			"Value":   entry.Value,
+			"Options": variableOptionsToString(entry.Options),
+			"Scope":   scopeTypeToString(entry.Scope),
+		})
 		if entry.Description != "" {
 			result["Description"] = entry.Description
 		}
@@ -173,13 +171,12 @@ func getVariablesByPattern(ss *sessionstate.SessionState, pattern string, opts G
 		}
 
 		// Build variable info
-		result := map[string]any{
-			"Name":                 entry.Name,
-			"Value":                entry.Value,
-			"Options":              variableOptionsToString(entry.Options),
-			"Scope":                scopeTypeToString(entry.Scope),
-			psobject.PSTypeNameKey: "System.Management.Automation.PSVariable",
-		}
+		result := VariableShape.Build(map[string]any{
+			"Name":    entry.Name,
+			"Value":   entry.Value,
+			"Options": variableOptionsToString(entry.Options),
+			"Scope":   scopeTypeToString(entry.Scope),
+		})
 		if entry.Description != "" {
 			result["Description"] = entry.Description
 		}

@@ -41,8 +41,8 @@ func RegisterSetLocation() gojq.CompilerOption {
 				"Path":     cwd,
 				"Provider": "FileSystem",
 			}
-			psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")
-			return common.MakeUDFSuccessResult(psobj.ToMap(), map[string]any{
+			psobj := psobject.NewPSObject(result)
+			return common.MakeUDFSuccessResult(CurrentLocationShape.Build(psobj.ToMap()), map[string]any{
 				"operation": "get_location",
 			})
 		}
@@ -112,10 +112,10 @@ func RegisterSetLocation() gojq.CompilerOption {
 			"Path":     cwd,
 			"Provider": "FileSystem",
 		}
-		psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")
+		psobj := psobject.NewPSObject(result)
 
 		if opts.PassThru {
-			return common.MakeUDFSuccessResult(psobj.ToMap(), map[string]any{
+			return common.MakeUDFSuccessResult(CurrentLocationShape.Build(psobj.ToMap()), map[string]any{
 				"operation": "set_location",
 				"path":      cwd,
 			})

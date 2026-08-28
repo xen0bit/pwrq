@@ -21,6 +21,12 @@ var (
 	// UnflattenedObject is the inverse, so the keys are path prefixes.
 	UnflattenedObject = shape.Derived("the input's dotted keys expanded back into nested objects")
 
+	// ComparisonShape is one difference between two collections.
+	ComparisonShape = shape.Fixed("Microsoft.PowerShell.Commands.PSCompareObject",
+		shape.Prop("InputObject", shape.Any, "the value that differed"),
+		shape.Prop("SideIndicator", shape.String, "<= when only the reference had it, => when only the difference did, == when both"),
+	)
+
 	// MatchedRow is one of the input's own rows, returned unchanged.
 	MatchedRow = shape.Derived("the matching input row, unchanged, so its keys are the row's keys")
 )

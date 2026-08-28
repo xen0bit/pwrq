@@ -79,10 +79,10 @@ func RegisterPopLocation() gojq.CompilerOption {
 			"Provider":  "FileSystem",
 			"StackName": stackName,
 		}
-		psobj := psobject.NewPSObjectWithTypeName(result, "System.Management.Automation.PathInfo")
+		psobj := psobject.NewPSObject(result)
 
 		if opts.PassThru {
-			return common.MakeUDFSuccessResult(psobj.ToMap(), map[string]any{
+			return common.MakeUDFSuccessResult(CurrentLocationShape.Build(psobj.ToMap()), map[string]any{
 				"operation": "pop_location",
 				"path":      cwd,
 				"stack":     stackName,

@@ -47,17 +47,6 @@ func RegisterAll() []gojq.CompilerOption {
 	}
 }
 
-// PowerShell type names for what these cmdlets emit. A row is a DataRow because
-// that is what PSSQLite's Invoke-SqliteQuery produces and what a PowerShell
-// user will expect; the rest describe SQLite itself, which .NET has no name for.
-const (
-	rowType     = "System.Data.DataRow"
-	tableType   = "Pwrq.Sqlite.Table"
-	columnType  = "Pwrq.Sqlite.Column"
-	commandType = "Pwrq.Sqlite.CommandResult"
-	writeType   = "Pwrq.Sqlite.WriteResult"
-)
-
 // openDB opens a database file.
 //
 // Read-only is a URI flag rather than a promise: the query cmdlets pass

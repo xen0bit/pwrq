@@ -31,7 +31,7 @@ import (
 // with `invoke_sqlite_query($db; "select count(*) from t")`.
 func RegisterGetSqliteTable() gojq.CompilerOption {
 	common.DeclareInput("get_sqlite_table", common.InputPipeline)
-	return common.WithIterFunction("get_sqlite_table", 0, 1, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_sqlite_table", 0, 1, TableShape, func(v any, args []any) gojq.Iter {
 		in, _ := common.SplitInput(v, args, 0)
 		path, err := bindDatabase(in, "get_sqlite_table")
 		if err != nil {
@@ -47,7 +47,7 @@ func RegisterGetSqliteTable() gojq.CompilerOption {
 			where type in ('table', 'view') and name not like 'sqlite_%'
 			order by name`
 		extra := map[string]any{"Database": path, psobject.PSPathKey: path}
-		iter, err := newRowIterOnDB(db, "get_sqlite_table", query, nil, tableType, extra, nil)
+		iter, err := newRowIterOnDB(db, "get_sqlite_table", query, nil, TableShape, extra, nil)
 		if err != nil {
 			_ = db.Close()
 			return gojq.NewIter(fmt.Errorf("get_sqlite_table: %v", err))
@@ -71,7 +71,7 @@ func RegisterGetSqliteTable() gojq.CompilerOption {
 // has zero columns, so an empty answer could only be read as a lie.
 func RegisterGetSqliteSchema() gojq.CompilerOption {
 	common.DeclareInput("get_sqlite_schema", common.InputPipeline)
-	return common.WithIterFunction("get_sqlite_schema", 1, 2, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_sqlite_schema", 1, 2, ColumnShape, func(v any, args []any) gojq.Iter {
 		in, rest := common.SplitInput(v, args, 1)
 		path, err := bindDatabase(in, "get_sqlite_schema")
 		if err != nil {
@@ -102,7 +102,7 @@ func RegisterGetSqliteSchema() gojq.CompilerOption {
 			from pragma_table_info(?)
 			order by cid`
 		extra := map[string]any{"Database": path, "Table": table, psobject.PSPathKey: path}
-		iter, err := newRowIterOnDB(db, "get_sqlite_schema", query, []any{table}, columnType, extra, asBooleans("NotNull", "IsPrimaryKey"))
+		iter, err := newRowIterOnDB(db, "get_sqlite_schema", query, []any{table}, ColumnShape, extra, asBooleans("NotNull", "IsPrimaryKey"))
 		if err != nil {
 			_ = db.Close()
 			return gojq.NewIter(fmt.Errorf("get_sqlite_schema: %v", err))

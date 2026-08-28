@@ -110,8 +110,11 @@ type Shape struct {
 	rule string
 	// note records a condition under which the cmdlet emits something other
 	// than this shape at all.
-	note  string
-	props []Property
+	note string
+	// inArray reports that the cmdlet returns an array of this shape rather
+	// than one of it.
+	inArray bool
+	props   []Property
 }
 
 // Note records that the cmdlet sometimes emits something other than this shape,
@@ -124,6 +127,36 @@ type Shape struct {
 // modelling union types for the two cmdlets that need one.
 func (s *Shape) Note(note string) *Shape {
 	s.note = note
+	return s
+}
+
+// Each marks a shape as describing one *element* of an array the cmdlet
+// returns, rather than the value it returns.
+//
+// Streaming already distinguishes a stream of values from one value, and this
+// is the third case it does not cover: read_archive and get_variable each
+// return a single value that happens to be an array of objects. A caller told
+// only "object [System.IO.Compression.ArchiveEntry]" would write `.Name`
+// against an array and get null.
+//
+// It returns a copy, because a shape is a package-level variable shared by
+// every cmdlet that emits it, and one of them returning a list is not a fact
+// about the others.
+func (s *Shape) Each() *Shape {
+	copied := *s
+	copied.inArray = true
+	return &copied
+}
+
+// Named gives a Derived or Dynamic shape a PowerShell type name.
+//
+// The kind says what decides the keys; the name says what the value is. Those
+// are independent, and a SQL result row is the case that proves it: every row
+// is a System.Data.DataRow, and which keys it has is the SELECT's business. A
+// caller still benefits from the name - it tells them these are rows - even
+// though looking it up will not produce a property list.
+func (s *Shape) Named(typeName string) *Shape {
+	s.name = typeName
 	return s
 }
 
@@ -288,14 +321,11 @@ func (s *Shape) label() string {
 func (s *Shape) Summary() string {
 	switch s.Kind() {
 	case KindFixed:
-		if s.name == "" {
-			return fmt.Sprintf("object with %s", countProps(len(s.props)))
-		}
-		return fmt.Sprintf("object [%s] with %s", s.name, countProps(len(s.props)))
+		return fmt.Sprintf("%s with %s", s.named("object"), countProps(len(s.props)))
 	case KindDerived:
-		return "object, keys from the input: " + s.rule
+		return s.named("object") + ", keys from the input: " + s.rule
 	case KindDynamic:
-		return "object, keys from the data: " + s.rule
+		return s.named("object") + ", keys from the data: " + s.rule
 	default:
 		return ""
 	}
@@ -308,6 +338,17 @@ func (s *Shape) summaryWithNote() string {
 		return summary
 	}
 	return summary + " (" + s.note + ")"
+}
+
+// named prefixes a description with the type name, when there is one.
+func (s *Shape) named(noun string) string {
+	if s.inArray {
+		noun = "array of " + noun
+	}
+	if s.name == "" {
+		return noun
+	}
+	return fmt.Sprintf("%s [%s]", noun, s.name)
 }
 
 func countProps(n int) string {

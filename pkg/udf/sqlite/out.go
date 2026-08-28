@@ -44,7 +44,7 @@ import (
 // with read_bytes survive the round trip. A nested object or array is stored as
 // JSON text, which SQLite's own json_extract can read.
 func RegisterOutSqlite() gojq.CompilerOption {
-	return common.WithFunction("out_sqlite", 2, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("out_sqlite", 2, 3, WriteResult, func(v any, args []any) any {
 		path, err := bindDatabase(args[0], "out_sqlite")
 		if err != nil {
 			return err
@@ -72,14 +72,13 @@ func RegisterOutSqlite() gojq.CompilerOption {
 		if err != nil {
 			return fmt.Errorf("out_sqlite: %v", err)
 		}
-		return map[string]any{
-			psobject.PSTypeNameKey: writeType,
-			"Database":             path,
-			psobject.PSPathKey:     path,
-			"Table":                table,
-			"RowCount":             written,
-			"Created":              created,
-		}
+		return WriteResult.Build(map[string]any{
+			"Database":         path,
+			psobject.PSPathKey: path,
+			"Table":            table,
+			"RowCount":         written,
+			"Created":          created,
+		})
 	})
 }
 

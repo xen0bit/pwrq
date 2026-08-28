@@ -44,7 +44,7 @@ type GroupedObject struct {
 //
 // Usage: group_object(objects) or group_object(objects; options)
 func RegisterGroupObject() gojq.CompilerOption {
-	return common.WithFunction("group_object", 1, 2, func(input any, args []any) any {
+	return common.WithFunctionOf("group_object", 1, 2, GroupInfoShape.Each(), func(input any, args []any) any {
 		// Parse arguments
 		objects, opts, err := ParseGroupObjectArgs(args)
 		if err != nil {
@@ -265,10 +265,10 @@ func formatGroupsNoElement(groupMap map[string]*GroupedObject, groupOrder []stri
 			"Count": group.Count,
 		}
 		// Wrap in PSObject with proper type information
-		psobj := psobject.NewPSObjectWithTypeName(valueMap, "Microsoft.PowerShell.Commands.GroupInfo")
+		psobj := psobject.NewPSObject(valueMap)
 		psobj.AddNoteProperty("Name", group.Name)
 		psobj.AddNoteProperty("Count", group.Count)
-		result = append(result, psobj.ToMap())
+		result = append(result, GroupInfoShape.Build(psobj.ToMap()))
 	}
 
 	return result, nil
@@ -311,11 +311,11 @@ func createGroupObject(group *GroupedObject) map[string]any {
 		"Group": group.Group,
 	}
 	// Wrap in PSObject with proper type information
-	psobj := psobject.NewPSObjectWithTypeName(result, "Microsoft.PowerShell.Commands.GroupInfo")
+	psobj := psobject.NewPSObject(result)
 	psobj.AddNoteProperty("Name", group.Name)
 	psobj.AddNoteProperty("Count", group.Count)
 	psobj.AddNoteProperty("Group", group.Group)
-	return psobj.ToMap()
+	return GroupInfoShape.Build(psobj.ToMap())
 }
 
 // ParseGroupObjectArgs parses arguments for testing

@@ -159,6 +159,7 @@ reachable without credentials or a network, the four surfaces, the enforcement
 tests, and the README.
 
 Out: declaring shapes for scalar transforms (decision 4), and the Censys and LLM
-producers, whose examples cannot run in CI — they are declared where the
-construction site is centralised enough to be safe, and left `Unspecified`
-otherwise rather than guessed at.
+producers. Their examples cannot run in CI, so a declaration for them could not
+be reconciled against real output — and an unreconciled declaration is the drift
+this plan exists to remove. They keep their hand-written `PSTypeName` literals
+and stay `Unspecified` in the catalogue rather than being guessed at.

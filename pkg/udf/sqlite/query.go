@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
+	"github.com/xen0bit/pwrq/pkg/core/shape"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -40,7 +40,7 @@ import (
 // is one operand, so at two arguments the leading one is always the database.
 func RegisterInvokeSqliteQuery() gojq.CompilerOption {
 	common.DeclareInput("invoke_sqlite_query", common.InputPipeline)
-	return common.WithIterFunction("invoke_sqlite_query", 1, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("invoke_sqlite_query", 1, 3, QueryRow, func(v any, args []any) gojq.Iter {
 		in, rest := common.SplitInput(v, args, 1)
 		path, err := bindDatabase(in, "invoke_sqlite_query")
 		if err != nil {
@@ -74,15 +74,15 @@ func RegisterInvokeSqliteQuery() gojq.CompilerOption {
 // matters in the long-lived processes (the MCP server, pwrq-viz) where a leak
 // accumulates instead of being collected by the process exiting.
 type rowIter struct {
-	handles  *dbHandles
-	fn       string // the cmdlet to name in an error raised mid-stream
-	columns  []string
-	typeName string
-	extra    map[string]any       // properties added to every row, such as the database
-	fixup    func(map[string]any) // last pass over a row, where a column needs a truer JSON type
-	scan     []any
-	targets  []any
-	done     bool
+	handles *dbHandles
+	fn      string // the cmdlet to name in an error raised mid-stream
+	columns []string
+	shape   *shape.Shape
+	extra   map[string]any       // properties added to every row, such as the database
+	fixup   func(map[string]any) // last pass over a row, where a column needs a truer JSON type
+	scan    []any
+	targets []any
+	done    bool
 }
 
 // dbHandles is what has to be closed, held apart from the iterator so that a
@@ -109,7 +109,7 @@ func newRowIter(path, query string, params []any) (*rowIter, error) {
 	if err != nil {
 		return nil, err
 	}
-	it, err := newRowIterOnDB(db, "invoke_sqlite_query", query, params, rowType, nil, nil)
+	it, err := newRowIterOnDB(db, "invoke_sqlite_query", query, params, QueryRow, nil, nil)
 	if err != nil {
 		_ = db.Close()
 		return nil, err
@@ -120,7 +120,7 @@ func newRowIter(path, query string, params []any) (*rowIter, error) {
 // newRowIterOnDB streams the rows of a query against a database that is already
 // open, and takes ownership of it: the iterator closes the database when it is
 // exhausted, fails, or is abandoned.
-func newRowIterOnDB(db *sql.DB, fn, query string, params []any, typeName string, extra map[string]any, fixup func(map[string]any)) (*rowIter, error) {
+func newRowIterOnDB(db *sql.DB, fn, query string, params []any, sh *shape.Shape, extra map[string]any, fixup func(map[string]any)) (*rowIter, error) {
 	rows, err := db.Query(query, params...)
 	if err != nil {
 		return nil, err
@@ -133,14 +133,14 @@ func newRowIterOnDB(db *sql.DB, fn, query string, params []any, typeName string,
 
 	handles := &dbHandles{db: db, rows: rows}
 	it := &rowIter{
-		handles:  handles,
-		fn:       fn,
-		columns:  columns,
-		typeName: typeName,
-		extra:    extra,
-		fixup:    fixup,
-		scan:     make([]any, len(columns)),
-		targets:  make([]any, len(columns)),
+		handles: handles,
+		fn:      fn,
+		columns: columns,
+		shape:   sh,
+		extra:   extra,
+		fixup:   fixup,
+		scan:    make([]any, len(columns)),
+		targets: make([]any, len(columns)),
 	}
 	for i := range it.scan {
 		it.targets[i] = &it.scan[i]
@@ -166,7 +166,6 @@ func (it *rowIter) Next() (any, bool) {
 	}
 
 	row := make(map[string]any, len(it.columns)+len(it.extra)+1)
-	row[psobject.PSTypeNameKey] = it.typeName
 	for k, v := range it.extra {
 		row[k] = v
 	}
@@ -183,7 +182,9 @@ func (it *rowIter) Next() (any, bool) {
 	if it.fixup != nil {
 		it.fixup(row)
 	}
-	return row, true
+	// Built last, so fixup's coercions are reconciled against the declaration
+	// rather than the raw scan.
+	return it.shape.Build(row), true
 }
 
 func (it *rowIter) finish() {

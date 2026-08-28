@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/xen0bit/pwrq/pkg/core/psobject"
 	"github.com/xen0bit/pwrq/pkg/core/shape"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -79,20 +78,19 @@ func (c Command) toObject() map[string]any {
 		examples[i] = e
 	}
 	obj := map[string]any{
-		"Name":                 c.Name,
-		"Aliases":              aliases,
-		"MinArgs":              c.MinArgs,
-		"MaxArgs":              c.MaxArgs,
-		"Category":             c.Category,
-		"Description":          c.Description,
-		"Examples":             examples,
-		"Available":            c.Available,
-		"Streaming":            c.Streaming,
-		"Output":               c.EmitsDescription(),
-		"Shape":                c.ShapeDescription(),
-		"TypeName":             c.Shape.TypeName(),
-		"Input":                c.Input,
-		psobject.PSTypeNameKey: "System.Management.Automation.CommandInfo",
+		"Name":        c.Name,
+		"Aliases":     aliases,
+		"MinArgs":     c.MinArgs,
+		"MaxArgs":     c.MaxArgs,
+		"Category":    c.Category,
+		"Description": c.Description,
+		"Examples":    examples,
+		"Available":   c.Available,
+		"Streaming":   c.Streaming,
+		"Output":      c.EmitsDescription(),
+		"Shape":       c.ShapeDescription(),
+		"TypeName":    c.Shape.TypeName(),
+		"Input":       c.Input,
 	}
 	return CommandInfoShape.Build(obj)
 }

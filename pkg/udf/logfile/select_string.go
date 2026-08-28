@@ -40,7 +40,7 @@ import (
 // path and passing options at the same time is an error rather than a guess.
 func RegisterSelectString() gojq.CompilerOption {
 	common.DeclareInput("select_string", common.InputPipeline)
-	return common.WithIterFunction("select_string", 1, 3, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("select_string", 1, 3, MatchInfo, func(v any, args []any) gojq.Iter {
 		in, rest := common.SplitInput(v, args, 1)
 		root, ok := common.BindPath(in)
 		if !ok {
@@ -280,26 +280,26 @@ func searchFile(path string, re *regexp.Regexp, o selectOpts) ([]any, error) {
 		if re.MatchString(line) {
 			if o.listOnly {
 				// List mode answers "which files", so the first hit is enough.
-				return []any{map[string]any{
-					psobject.PSTypeNameKey: "Microsoft.PowerShell.Commands.MatchInfo",
-					"Path":                 path,
-					psobject.PSPathKey:     path,
-				}}, nil
+				return []any{MatchInfo.Build(map[string]any{
+					"Path":             path,
+					psobject.PSPathKey: path,
+				})}, nil
 			}
 			m := map[string]any{
-				psobject.PSTypeNameKey: "Microsoft.PowerShell.Commands.MatchInfo",
-				"Path":                 path,
-				"LineNumber":           lineNumber,
-				"Line":                 line,
-				"Match":                re.FindString(line),
-				psobject.PSPathKey:     path,
+				"Path":             path,
+				"LineNumber":       lineNumber,
+				"Line":             line,
+				"Match":            re.FindString(line),
+				psobject.PSPathKey: path,
 			}
 			if o.context > 0 {
 				m["Before"] = asValues(before)
 				m["After"] = []any{}
 				awaiting = append(awaiting, &pendingMatch{match: m})
 			}
-			out = append(out, m)
+			// Built after the context keys are added, so they are reconciled
+			// against the declaration too rather than slipping in behind it.
+			out = append(out, MatchInfo.Build(m))
 		}
 
 		if o.context > 0 {

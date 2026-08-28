@@ -30,7 +30,7 @@ import (
 // only way a script containing its own transaction control can also work.
 func RegisterInvokeSqliteCommand() gojq.CompilerOption {
 	common.DeclareInput("invoke_sqlite_command", common.InputPipeline)
-	return common.WithFunction("invoke_sqlite_command", 1, 3, func(v any, args []any) any {
+	return common.WithFunctionOf("invoke_sqlite_command", 1, 3, CommandResult, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
 		path, err := bindDatabase(in, "invoke_sqlite_command")
 		if err != nil {
@@ -60,11 +60,10 @@ func RegisterInvokeSqliteCommand() gojq.CompilerOption {
 		}
 
 		out := map[string]any{
-			psobject.PSTypeNameKey: commandType,
-			"Database":             path,
-			psobject.PSPathKey:     path,
-			"RowsAffected":         0,
-			"LastInsertId":         nil,
+			"Database":         path,
+			psobject.PSPathKey: path,
+			"RowsAffected":     0,
+			"LastInsertId":     nil,
 		}
 		// Both are advisory: a CREATE TABLE has neither, and a driver is
 		// allowed to refuse them. A refusal is not a failed statement, so it
@@ -75,6 +74,6 @@ func RegisterInvokeSqliteCommand() gojq.CompilerOption {
 		if id, err := result.LastInsertId(); err == nil && id != 0 {
 			out["LastInsertId"] = int(id)
 		}
-		return out
+		return CommandResult.Build(out)
 	})
 }

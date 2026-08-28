@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xen0bit/pwrq/pkg/core/shape"
+
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/psobject"
 )
@@ -580,7 +582,7 @@ func TestAbandonedStreamClosesTheDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	it, err := newRowIterOnDB(db, "invoke_sqlite_query", "select * from users", nil, rowType, nil, nil)
+	it, err := newRowIterOnDB(db, "invoke_sqlite_query", "select * from users", nil, QueryRow, nil, nil)
 	if err != nil {
 		_ = db.Close()
 		t.Fatal(err)
@@ -608,4 +610,23 @@ func TestAbandonedStreamClosesTheDatabase(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// TestShapeDeclarationsMatchTheRowsBuilt closes the loop for this package.
+//
+// The cross-cutting check in pkg/udf runs each cmdlet's documented example, and
+// these cmdlets' examples name a database file that does not exist there, so
+// they are skipped. The tests in this file do exercise them properly, and
+// shape.Build records every disagreement it sees, so asserting the table is
+// empty here covers what the other test cannot reach.
+func TestShapeDeclarationsMatchTheRowsBuilt(t *testing.T) {
+	if len(shape.Discrepancies()) == 0 {
+		return
+	}
+	var lines []string
+	for _, d := range shape.Discrepancies() {
+		lines = append(lines, d.String())
+	}
+	t.Errorf("a sqlite shape declaration disagrees with the object built through it:\n    %s",
+		strings.Join(lines, "\n    "))
 }
