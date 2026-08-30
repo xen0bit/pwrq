@@ -636,7 +636,7 @@ goroutine stack, which no `recover` can catch.
 
 An agent driving this server cannot see what a terminal user sees, so anything
 it is not told, it works out by experiment — and a wrong guess costs a round
-trip each time. Five things it used to have to guess:
+trip each time. Seven things it used to have to guess:
 
 - **What a cmdlet is called.** The catalogue filter is case-insensitive across
   names, aliases, categories, descriptions and option keys, so `hash` finds the
@@ -646,6 +646,24 @@ trip each time. Five things it used to have to guess:
   search broad enough that listing every description match would cost the
   entries their examples lists the names it held back instead. A search matching
   nothing offers the nearest names rather than an empty list.
+- **Whether the vocabulary is only the cmdlets.** It is not: pwrq is a strict
+  superset of jq, so `ascii_upcase`, `split`, `fromjson`, `to_entries` and the
+  rest are callable exactly like cmdlets. The catalogue documents only the 487
+  cmdlets, which used to mean the tool denied the other half outright —
+  `list_functions` filtered by `ascii_upcase` answered *no functions match, and
+  nothing is named close to it*, about a function that runs. A filtered search
+  now reports jq's matches too, in their own labelled section, and an
+  unresolvable call is measured against both halves: `from_json` comes back with
+  `did you mean fromjson?`, and `to_upper` with `ascii_upcase`. The list is
+  derived from gojq's own `builtins`, so it cannot drift from what actually
+  compiles.
+- **Whether an example works.** Every one of the 652 published examples runs as
+  written, and a test runs them to prove it. A hundred of them did not: `e.g.
+  md5` was the whole example for `md5`, `aes_encrypt("data"; "key")` used a
+  three-byte key for a cipher that needs sixteen, and `base64_encode(true)` left
+  out the path the `true` refers to. The exemptions — the examples that reach a
+  network, need a credential, or change the machine — are listed with a reason
+  each.
 - **How the output is written.** `zlib_compress` returns a hex string, not raw
   bytes, and `sha256` does too while `aes_encrypt` returns base64. Every cmdlet
   whose result is a text rendering of bytes declares which, and names the cmdlet
@@ -674,8 +692,10 @@ trip each time. Five things it used to have to guess:
 - **What went wrong.** A decoder that turns its input down shows the input:
   `json_parse: invalid JSON: invalid character 'h' … ; input was "hello world"`.
   A call that does not resolve says whether the name exists at another arity —
-  `C/0 is not defined - you defined C taking 1 argument` — or offers the name
-  you probably meant.
+  `C/0 is not defined - you defined C taking 1 argument`, or `split is a jq
+  builtin taking 1 to 2 arguments` — or offers the name you probably meant. A
+  cmdlet handed its options down the pipe reads them there rather than reporting
+  the option it was just given as missing.
 
 Over stdio, which Claude Desktop, Cursor and friends launch directly:
 
