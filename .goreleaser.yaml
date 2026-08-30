@@ -39,6 +39,36 @@ builds:
   - id: pwrq
     binary: pwrq
     main: ./cmd/pwrq
+    # Structural search grammars. goreleaser never reads the Makefile, so the
+    # list lives in both places and TestGrammarTagsMatchTheReleaseBuild keeps
+    # them equal. Without these tags gotreesitter embeds all 206 of its
+    # grammars and every released binary grows by 14MB.
+    tags:
+      - grammar_subset
+      - grammar_subset_go
+      - grammar_subset_python
+      - grammar_subset_javascript
+      - grammar_subset_typescript
+      - grammar_subset_tsx
+      - grammar_subset_rust
+      - grammar_subset_java
+      - grammar_subset_c
+      - grammar_subset_cpp
+      - grammar_subset_c_sharp
+      - grammar_subset_ruby
+      - grammar_subset_php
+      - grammar_subset_bash
+      - grammar_subset_powershell
+      - grammar_subset_sql
+      - grammar_subset_json
+      - grammar_subset_yaml
+      - grammar_subset_toml
+      - grammar_subset_hcl
+      - grammar_subset_xml
+      - grammar_subset_html
+      - grammar_subset_css
+      - grammar_subset_markdown
+      - grammar_subset_dockerfile
     env:
       - CGO_ENABLED=0
     goos: [linux]
@@ -67,6 +97,31 @@ builds:
     tags:
       - viz
       - embed_web
+      - grammar_subset
+      - grammar_subset_go
+      - grammar_subset_python
+      - grammar_subset_javascript
+      - grammar_subset_typescript
+      - grammar_subset_tsx
+      - grammar_subset_rust
+      - grammar_subset_java
+      - grammar_subset_c
+      - grammar_subset_cpp
+      - grammar_subset_c_sharp
+      - grammar_subset_ruby
+      - grammar_subset_php
+      - grammar_subset_bash
+      - grammar_subset_powershell
+      - grammar_subset_sql
+      - grammar_subset_json
+      - grammar_subset_yaml
+      - grammar_subset_toml
+      - grammar_subset_hcl
+      - grammar_subset_xml
+      - grammar_subset_html
+      - grammar_subset_css
+      - grammar_subset_markdown
+      - grammar_subset_dockerfile
     env:
       - CGO_ENABLED=0
     goos: [linux]
