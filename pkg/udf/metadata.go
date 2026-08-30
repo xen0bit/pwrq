@@ -244,6 +244,11 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"tail", 0, 2, "The last n lines of a file (path, [n])", "File Operations", []string{`tail("app.log"; 5)`}},
 		{"grep_lines", 1, 2, "The lines of a file matching a pattern (path, pattern)", "File Operations", []string{`grep_lines("app.log"; "error")`}},
 		{"select_string", 1, 3, `Matching lines across a file or tree, with path, line number and context (pattern, [options]). The pattern is a jq string literal first and a regex second, so a backslash must be doubled: "\\.html", "join\\(".`, "File Operations", []string{`select_string("src"; "TODO") | .Path`, `[select_string("src"; "panic"; {Include: "*.go", Context: 2})]`, `first(select_string("src"; "\\.html$"))`, `select_string("src"; "join\\(|walk\\(")`}},
+
+		// Structural code search
+		{"select_ast", 1, 3, `Every place a piece of syntax occurs in a file or tree, matched against the parse tree rather than the text (path, pattern, [options]). The pattern is code with holes: $NAME for one node, $$$NAME for a list of them. Files in a language the pattern is not code in are skipped, so pass Language, or Include to one extension, to have the pattern checked rather than quietly skipped everywhere.`, "File Operations", []string{`select_ast("src"; "func $NAME($$$ARGS) error { $$$BODY }") | .Captures.NAME`, `[select_ast("src"; "if $C { $$$B }"; {Include: "*.go"})] | length`, `first(select_ast("src"; "$X.$M($$$A)"))`}},
+		{"ast_pattern", 1, 2, "What a code pattern compiles to, and whether it parses as code at all - a pattern that does not still compiles, and then matches nothing in silence (pattern, language)", "File Operations", []string{`ast_pattern("func $N($$$A) error { $$$B }"; "go") | .Valid`, `"$X.$M($$$A)" | ast_pattern("go") | .MetaVariables`}},
+		{"get_ast_language", 0, 1, "One object per language this build can parse structurally, with the extensions that select it", "Discovery", []string{`[get_ast_language] | length`, `get_ast_language("go") | .Extensions`}},
 		{"wc_lines", 0, 1, "The number of lines in a file", "File Operations", []string{`wc_lines("app.log")`}},
 
 		// Text predicates and inspection

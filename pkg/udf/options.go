@@ -78,6 +78,10 @@ var documentedOptionKeys = map[string][]discovery.Option{
 		{Name: "Directory", Type: "boolean", Description: "list directories only"},
 		{Name: "File", Type: "boolean", Description: "list files only"},
 	},
+	"select_ast": {
+		{Name: "Include", Type: "string", Description: "a wildcard limiting which files are searched"},
+		{Name: "Language", Type: "string", Description: "parse every file as this language rather than guessing from the extension, which also gets the pattern checked before the walk starts; get_ast_language lists the names"},
+	},
 	"select_string": {
 		{Name: "Include", Type: "string", Description: "a wildcard limiting which files are searched"},
 		{Name: "Context", Type: "number", Description: "how many lines either side of a match to carry"},

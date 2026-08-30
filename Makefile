@@ -3,6 +3,16 @@ VIZ_BIN := pwrq-viz
 VERSION := 0.1.0
 CURRENT_REVISION := $(shell git rev-parse --short HEAD 2>/dev/null || echo "HEAD")
 BUILD_LDFLAGS := -s -w -X github.com/xen0bit/pwrq/cli.revision=$(CURRENT_REVISION)
+
+# Grammars for structural search (select_ast). gotreesitter embeds all 206 of
+# its grammars unless told otherwise, which costs 23MB of binary; naming the
+# languages costs 3MB and covers what anyone actually greps. Add a language by
+# adding it here - the cmdlets read the registry, so get_ast_language reports
+# whatever this list says without anything else changing.
+GRAMMARS := go python javascript typescript tsx rust java c cpp c_sharp ruby php \
+            bash powershell sql json yaml toml hcl xml html css markdown dockerfile
+GRAMMAR_TAGS := grammar_subset $(addprefix grammar_subset_,$(GRAMMARS))
+BUILD_TAGS := $(GRAMMAR_TAGS)
 # The page reports the revision it was built from, so a shared link's behaviour
 # can be traced back to a commit.
 WEB_LDFLAGS := -X github.com/xen0bit/pwrq/pkg/webapi.Version=$(VERSION)-$(CURRENT_REVISION)
@@ -15,7 +25,7 @@ all: build
 .PHONY: build
 build:
 	@echo "Building $(BIN)..."
-	go build -ldflags="$(BUILD_LDFLAGS)" -o $(BIN) ./cmd/$(BIN)
+	go build -tags "$(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" -o $(BIN) ./cmd/$(BIN)
 
 # pwrq-viz carries the query diagramming and the browser IDE. It is separate
 # because d2 pulls in a JavaScript engine, a syntax highlighter and a PDF
@@ -23,12 +33,12 @@ build:
 .PHONY: build-viz
 build-viz:
 	@echo "Building $(VIZ_BIN)..."
-	go build -tags viz -ldflags="$(BUILD_LDFLAGS)" -o $(VIZ_BIN) ./cmd/$(VIZ_BIN)
+	go build -tags "viz $(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" -o $(VIZ_BIN) ./cmd/$(VIZ_BIN)
 
 .PHONY: build-viz-with-ide
 build-viz-with-ide: web.build
 	@echo "Building $(VIZ_BIN) with embedded web assets..."
-	go build -tags "viz embed_web" -ldflags="$(BUILD_LDFLAGS)" -o $(VIZ_BIN) ./cmd/$(VIZ_BIN)
+	go build -tags "viz embed_web $(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" -o $(VIZ_BIN) ./cmd/$(VIZ_BIN)
 
 .PHONY: build-all
 build-all: build build-viz
@@ -36,7 +46,7 @@ build-all: build build-viz
 .PHONY: install
 install:
 	@echo "Installing $(BIN)..."
-	go install -ldflags="$(BUILD_LDFLAGS)" ./cmd/$(BIN)
+	go install -tags "$(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" ./cmd/$(BIN)
 
 .PHONY: test
 test:

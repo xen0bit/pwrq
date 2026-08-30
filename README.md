@@ -553,6 +553,54 @@ $ pwrq -c '[find("."; "file") | select(endswith(".go"))] | length'
 
 See [EXAMPLES.md](EXAMPLES.md) and [pkg/udf/README.md](pkg/udf/README.md).
 
+### Searching code by its shape
+
+`select_string` greps text. `select_ast` matches the parse tree, so the pattern
+is code with holes in it — `$NAME` for one node, `$$$NAME` for a list — and
+whitespace, line breaks and comments stop mattering:
+
+```console
+$ pwrq -c '[select_ast("."; "func $N($$$A) error { $$$B }"; {Include: "*.go"}) | .Captures.N]'
+$ pwrq -c '[select_ast("src"; "$X.$M($$$A)") | .Captures.M] | value_counts'
+$ pwrq -rn 'first(select_ast("."; "if $C { return $E }")) | "\(.Path):\(.LineNumber)"'
+```
+
+Each match reports its file, its line and column, the text it spans, and what
+each hole caught — so the next stage can group, count and filter on a piece of
+syntax rather than re-parse the matched text. It streams and the walk is lazy,
+so `first(...)` stops at the first hit.
+
+Two things make it more than a nicer regex. A comment that says
+`// func decoy(a string) error` does not match, because a comment is a
+different node. And a function whose parameters are spread over four lines
+does, because line breaks are not part of the tree.
+
+Parsing is [gotreesitter](https://github.com/odvcencio/gotreesitter), a pure-Go
+tree-sitter runtime — no cgo, so this changes nothing about cross-compiling to
+the eight Debian architectures. Grammars are chosen at build time by the
+Makefile's `GRAMMARS` list, and cost about 3MB for the two dozen shipped;
+`get_ast_language` reports whichever ones the binary you are holding actually
+carries, read from the parser's own registry rather than a list beside it.
+
+It is slower than grep, and meant to be: a structural search parses every file,
+at roughly 20ms each, where a regex scans bytes. Narrow with `Include` on a
+large tree.
+
+**When a search comes back empty**, check the pattern before believing it. A
+pattern that is not valid code still compiles — into a query full of `ERROR`
+nodes that matches nothing — so a typo and an honest absence look identical.
+`select_ast` refuses those outright when it can tell, and `ast_pattern` shows
+what any pattern became:
+
+```console
+$ pwrq -c 'ast_pattern("func $$$("; "go") | {Valid, Query}'
+{"Query":"(ERROR (ERROR (ERROR) @_lit_1))\n(#eq? @_lit_1 \"$$$\")","Valid":false}
+```
+
+The case it cannot catch is a pattern that parses as *something else*: Python's
+`except $E: $$$B` compiles cleanly, because `except` also reads as an
+identifier, into a query for an assignment. Reading `.Query` is how you see it.
+
 ## pwrq-viz
 
 Query diagramming and the browser IDE live in a separate binary. Rendering uses
