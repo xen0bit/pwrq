@@ -11,7 +11,7 @@ import (
 
 // RegisterXMLParse registers the xml_parse function with gojq
 func RegisterXMLParse() gojq.CompilerOption {
-	return common.WithFunction("xml_parse", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("xml_parse", 0, 2, ParsedXML, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("xml_parse: %v", err), nil)
