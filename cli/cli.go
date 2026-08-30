@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -291,6 +292,18 @@ Usage:
 	modulePaths := opts.ModulePaths
 	if len(modulePaths) == 0 && addDefaultModulePaths {
 		modulePaths = []string{"~/.jq", "$ORIGIN/../lib/pwrq", "$ORIGIN/../lib"}
+	}
+	// A query kept in a file is searched for its own neighbours first, the way
+	// every other language resolves an import beside the script that wrote it.
+	//
+	// Without this a file that says `include "lib";` can only be run from the
+	// one directory its library happens to sit in, or with -L naming that same
+	// directory again - so a set of queries that call each other cannot be
+	// moved, and cannot be run from anywhere but its own root. The directory
+	// goes first because it is context rather than configuration: it says where
+	// this query lives, not where the caller keeps their library.
+	if opts.FromFile {
+		modulePaths = append([]string{filepath.Dir(fname)}, modulePaths...)
 	}
 	iter := cli.createInputIter(args)
 	// Bound as an argument, not captured: --null-input reassigns iter below,

@@ -8077,6 +8077,19 @@
   expected: |
     {"foo":[1,2,3,4,[1,2,{"foo":42}]]}
 
+# A query kept in a file finds the modules beside it without being told where
+# they are, the way every other language resolves an import next to the script
+# that wrote it. Without this, a query file and its library have to be found by
+# a -L that names the directory the query is already in.
+- name: a query file finds a module beside it
+  args:
+    - -c
+    - --from-file
+    - 'testdata/uses-neighbour.jq'
+  input: '0'
+  expected: |
+    {"foo":[1,2,3,4,[1,2,{"foo":42}]]}
+
 - name: module directory option
   args:
     - -c
