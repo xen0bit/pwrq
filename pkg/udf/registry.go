@@ -374,6 +374,7 @@ func buildCatalog() []discovery.Command {
 			Shape:       common.ShapeOf(meta.Name),
 			Input:       common.InputOf(meta.Name).Describe(meta.MinArgs, meta.MaxArgs),
 			Returns:     common.DescribeEncoding(meta.Name),
+			Accepts:     common.DescribeConsumes(meta.Name),
 			Options:     documentedOptions(meta.Name),
 			Name:        meta.Name,
 			Aliases:     aliasesFor[meta.Name],

@@ -45,6 +45,12 @@ type Command struct {
 	// whose result is a text rendering of bytes rather than the bytes. Empty
 	// when the output needs no explaining.
 	Returns string
+
+	// Accepts describes the encoding the command expects on its input, for the
+	// commands that read a text rendering of bytes rather than ordinary text.
+	// It is the other half of Returns: together they let a caller see, without
+	// running anything, whether two stages of a pipeline fit.
+	Accepts string
 	// Options are the keys the command reads out of an options object, for the
 	// commands that take one. Empty when the command takes no options, or when
 	// it takes them and nobody has written them down yet.
@@ -125,6 +131,7 @@ func (c Command) toObject() map[string]any {
 		"TypeName":    c.Shape.TypeName(),
 		"Input":       c.Input,
 		"Returns":     c.Returns,
+		"Accepts":     c.Accepts,
 		"Options":     options,
 	}
 	return CommandInfoShape.Build(obj)
@@ -220,6 +227,9 @@ func renderHelp(commands []Command) string {
 			fmt.Fprintf(&b, "\nINPUT\n    %s\n", c.Input)
 		}
 		fmt.Fprintf(&b, "\nOUTPUT\n    %s\n", c.EmitsDescription())
+		if c.Accepts != "" {
+			fmt.Fprintf(&b, "    accepts %s\n", c.Accepts)
+		}
 		if c.Returns != "" {
 			fmt.Fprintf(&b, "    %s\n", c.Returns)
 		}

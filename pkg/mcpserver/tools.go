@@ -33,7 +33,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "run_query",
-		Description: "Evaluate a pwrq/jq query against input data. The query language is jq augmented with ~470 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output, plus a description of the shape those values had - which keys the objects carried - so a follow-up query can be written without reading every result.",
+		Description: "Evaluate a pwrq/jq query against input data. The query language is jq augmented with ~470 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output, plus a description of the shape those values had - which keys the objects carried - so a follow-up query can be written without reading every result. Warns when two stages of a pipeline disagree about how bytes are encoded, which is the way a pwrq query most often succeeds and is still wrong.",
 		InputSchema: schemas["run_query"],
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args runQueryArgs) (result *mcp.CallToolResult, structured runQueryResult, err error) {
 		started := time.Now()
@@ -84,7 +84,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_functions",
-		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description, aliases and example invocations, plus what the cmdlet emits: whether it streams (and so must be collected with [...]), how its output is encoded when that is not obvious, the keys it reads out of an options object, and the shape and property names of the object it returns. Pass filter to narrow the list: unfiltered it is long. The filter is case-insensitive and matches names, aliases and categories first, falling back to descriptions when nothing is named that way, and to the nearest names when nothing matches at all.",
+		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description, aliases and example invocations, plus what the cmdlet emits: whether it streams (and so must be collected with [...]), how its output is encoded when that is not obvious, the keys it reads out of an options object, and the shape and property names of the object it returns. Pass filter to narrow the list: unfiltered it is long. The filter is case-insensitive and matches names, aliases and categories together with descriptions and option names, keeping the description matches whenever the combined list is short enough to stay useful and naming them when it is not; a filter matching nothing comes back with the nearest names instead.",
 		InputSchema: schemas["list_functions"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args listFunctionsArgs) (*mcp.CallToolResult, listFunctionsResult, error) {
 		started := time.Now()
@@ -102,7 +102,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_query",
-		Description: "Check whether a pwrq/jq query parses and compiles against the cmdlet vocabulary, and return the formatted program when it does. A query this accepts will run: unresolvable cmdlet names and wrong arities are caught here, not at run time. Cheap: use it to iterate on a query before running it. Pass the same args you would pass to run_query, so a query that reads $name still compiles.",
+		Description: "Check whether a pwrq/jq query parses and compiles against the cmdlet vocabulary, and return the formatted program when it does. A query this accepts will run: unresolvable cmdlet names and wrong arities are caught here, not at run time. Cheap: use it to iterate on a query before running it. Pass the same args you would pass to run_query, so a query that reads $name still compiles. Also reports encoding mismatches: a stage that will encode a hex string rather than the bytes it stands for is valid, runs, and is wrong, and this is where to find that out.",
 		InputSchema: schemas["validate_query"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args validateQueryArgs) (*mcp.CallToolResult, validateQueryResult, error) {
 		started := time.Now()
@@ -122,7 +122,9 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 			}, res, nil
 		}
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: res.Formatted}},
+			Content: []mcp.Content{&mcp.TextContent{
+				Text: res.Formatted + "\n" + renderWarnings(res.Warnings),
+			}},
 		}, res, nil
 	})
 }
@@ -166,6 +168,10 @@ func summarize(res runQueryResult) string {
 		fmt.Fprintf(&sb, "-- %d of %d results were larger than the byte budget and are shown in part; "+
 			"slice them in the query, or raise maxBytes\n", res.Elided, res.Count)
 	}
+	// Printed even when the run was clean, and especially then: a mismatch
+	// that stopped the query has an error to explain it, and one that did not
+	// has only this.
+	sb.WriteString(renderWarnings(res.Warnings))
 	switch {
 	case res.Truncated:
 		fmt.Fprintf(&sb, "(%s)", res.Error)
@@ -210,6 +216,9 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 		// and a caller who thinks otherwise will trust the list too far.
 		fmt.Fprintf(&sb, "%d functions whose description or options mention %q; none is named or categorised that\n",
 			res.Count, filter)
+	case res.Matched == matchedBoth:
+		fmt.Fprintf(&sb, "%d functions named %q or mentioning it in their description or options\n",
+			res.Count, filter)
 	default:
 		fmt.Fprintf(&sb, "%d functions matching %q\n", res.Count, filter)
 	}
@@ -225,6 +234,9 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 		// writes a pipeline that cannot work and blames the wrong stage.
 		if fn.Streaming {
 			sb.WriteString("    streams: collect with [...] before length, map or sort_by\n")
+		}
+		if fn.Accepts != "" {
+			fmt.Fprintf(&sb, "    accepts %s\n", fn.Accepts)
 		}
 		if fn.Returns != "" {
 			fmt.Fprintf(&sb, "    returns %s\n", fn.Returns)
@@ -247,7 +259,41 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 			}
 		}
 	}
+	// The description tier is dropped when the two together would cost every
+	// entry its examples, but dropping it silently would put the caller back
+	// where they started: told that what they searched for is not here, when
+	// it is. The names cost one line and are enough to search again.
+	if len(res.Described) > 0 {
+		fmt.Fprintf(&sb, "%d more mention %q in their description or options%s\n",
+			len(res.Described), filter, heldBack(res.Described))
+	}
 	return strings.TrimSuffix(sb.String(), "\n")
+}
+
+// namesShown is how many held-back names are worth printing. A search that
+// held back sixty is telling the caller their term was too broad, and sixty
+// names says that far less clearly than eight and a number does.
+const namesShown = 8
+
+// heldBack renders the names the budget dropped, naming a few and counting the
+// rest.
+func heldBack(names []string) string {
+	if len(names) <= namesShown {
+		return ": " + strings.Join(names, ", ")
+	}
+	return fmt.Sprintf(", including %s - narrow the term to see them",
+		strings.Join(names[:namesShown], ", "))
+}
+
+// renderWarnings prints the encoding mismatches, each on its own line and
+// marked as a warning rather than a failure - the query ran, and a caller who
+// reads this as an error will go looking for a fault that is not there.
+func renderWarnings(warnings []encodingWarning) string {
+	var sb strings.Builder
+	for _, w := range warnings {
+		fmt.Fprintf(&sb, "-- warning: %s\n", w.Message)
+	}
+	return sb.String()
 }
 
 // arity renders how many arguments a function takes, in the jq notation the
@@ -272,12 +318,19 @@ func listFunctions(args listFunctionsArgs) listFunctionsResult {
 	if found == nil {
 		found = make([]functionInfo, 0)
 	}
-	return listFunctionsResult{
-		Functions:   found,
-		Count:       len(found),
-		Matched:     matched,
-		Suggestions: suggestions,
+	res := listFunctionsResult{
+		Functions: found,
+		Count:     len(found),
+		Matched:   matched,
 	}
+	// The same slice carries the near misses of a failed search and the
+	// held-back matches of a broad one; which it is, is what Matched says.
+	if matched == matchedName {
+		res.Described = suggestions
+	} else {
+		res.Suggestions = suggestions
+	}
+	return res
 }
 
 // validateQuery parses a program, compiles it against the cmdlet vocabulary,
@@ -315,7 +368,15 @@ func validateQuery(args validateQueryArgs) validateQueryResult {
 			Formatted: formatted,
 		}
 	}
-	return validateQueryResult{OK: true, Formatted: formatted, Stage: stageCompile}
+	return validateQueryResult{
+		OK:        true,
+		Formatted: formatted,
+		Stage:     stageCompile,
+		// A query can compile and still be wrong in a way only the
+		// declarations can see, and this is the tool a caller asked the
+		// question of before running anything.
+		Warnings: checkEncodings(query),
+	}
 }
 
 // compileForValidation compiles a parsed query against the engine's vocabulary

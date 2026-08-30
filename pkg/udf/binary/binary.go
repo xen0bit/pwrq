@@ -11,6 +11,7 @@ import (
 
 // RegisterBinaryEncode registers the binary_encode function with gojq
 func RegisterBinaryEncode() gojq.CompilerOption {
+	common.DeclareConsumes("binary_encode", common.EncodingBytesAsText)
 	common.DeclareEncoding("binary_encode", common.EncodingBinary, "binary_decode")
 	return common.WithFunction("binary_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
@@ -79,6 +80,7 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 
 // RegisterBinaryDecode registers the binary_decode function with gojq
 func RegisterBinaryDecode() gojq.CompilerOption {
+	common.DeclareConsumes("binary_decode", common.EncodingBinary)
 	common.DeclareEncoding("binary_decode", common.EncodingBytesAsText, "binary_encode")
 	return common.WithFunction("binary_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)

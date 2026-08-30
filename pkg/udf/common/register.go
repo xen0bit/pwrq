@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/itchyny/gojq"
@@ -260,6 +261,89 @@ func DescribeEncoding(name string) string {
 	}
 	return described + "; reverse it with " + inverse
 }
+
+// DeclareConsumes records the encoding a cmdlet expects on its input, for the
+// cmdlets that read a text rendering of bytes rather than ordinary text.
+//
+// It is the other half of DeclareEncoding, and the pair is what makes a
+// mismatch mechanical rather than a matter of reading the prose. `zlib_compress
+// | base64_encode` runs, returns a plausible-looking string and is wrong: the
+// base64 covers the hex text, so the result is twice the size it should be and
+// the far end decodes to "789c00130..." instead of to the bytes. Nothing failed,
+// so nothing was reported, and a caller who did not already know that
+// zlib_compress returns hex had no way to find out from the run.
+//
+// Declared on both sides, the check is one comparison: zlib_compress produces
+// hex, base64_encode consumes raw bytes, so something has to turn one into the
+// other and the caller is told which cmdlet does it.
+// A cmdlet may accept more than one, and the decompressors do: zlib_decompress
+// tries hex first and falls back to treating the string as the bytes
+// themselves, so both are correct input and neither should be warned about.
+func DeclareConsumes(name string, accepted ...Encoding) {
+	shapeMu.Lock()
+	defer shapeMu.Unlock()
+	consumesOfUDF[name] = accepted
+}
+
+// ConsumesOf reports the encodings the named cmdlet accepts on its input, or
+// nothing for the cmdlets that take ordinary values and have nothing to say
+// about it.
+func ConsumesOf(name string) []Encoding {
+	shapeMu.RLock()
+	defer shapeMu.RUnlock()
+	return consumesOfUDF[name]
+}
+
+// Accepts reports whether the named cmdlet takes the given encoding on its
+// input. A cmdlet that declared nothing accepts everything, because silence
+// here means "not stated" rather than "no".
+func Accepts(name string, e Encoding) bool {
+	for _, a := range ConsumesOf(name) {
+		if a == e {
+			return true
+		}
+	}
+	return len(ConsumesOf(name)) == 0
+}
+
+// DescribeConsumes renders the encoding a cmdlet expects on its input as the
+// phrase get_help and list_functions print, or "" when it declared none.
+func DescribeConsumes(name string) string {
+	accepted := ConsumesOf(name)
+	parts := make([]string, 0, len(accepted))
+	for _, a := range accepted {
+		if described := a.Article(); described != "" {
+			parts = append(parts, described)
+		}
+	}
+	return strings.Join(parts, " or ")
+}
+
+// Article renders an encoding as the noun phrase a sentence about it needs.
+func (e Encoding) Article() string {
+	switch e {
+	case EncodingHex:
+		return "a hex string"
+	case EncodingBase64:
+		return "a base64 string"
+	case EncodingBase64URL:
+		return "a URL-safe base64 string"
+	case EncodingBase32:
+		return "a base32 string"
+	case EncodingBase58:
+		return "a base58 string"
+	case EncodingBase85:
+		return "an Ascii85 string"
+	case EncodingBinary:
+		return "a string of 0s and 1s"
+	case EncodingBytesAsText:
+		return "raw bytes"
+	default:
+		return ""
+	}
+}
+
+var consumesOfUDF = map[string][]Encoding{}
 
 type encodingNote struct {
 	encoding Encoding

@@ -636,19 +636,37 @@ goroutine stack, which no `recover` can catch.
 
 An agent driving this server cannot see what a terminal user sees, so anything
 it is not told, it works out by experiment — and a wrong guess costs a round
-trip each time. Four things it used to have to guess:
+trip each time. Five things it used to have to guess:
 
 - **What a cmdlet is called.** The catalogue filter is case-insensitive across
-  names, aliases and categories, so `hash` finds the eight cmdlets in the
-  category spelled `Hash`. When nothing is named for the search it falls back
-  to descriptions and option keys — `redirect` reaches `invoke_web_request`,
-  which controls them through `AllowAutoRedirect` — and says which of the two
-  answered. When neither does, it offers the nearest names rather than an empty
-  list.
+  names, aliases, categories, descriptions and option keys, so `hash` finds the
+  eight cmdlets in the category spelled `Hash`, and `http` finds
+  `invoke_web_request` — which is named for neither `http` nor its category, and
+  is the one cmdlet with `Headers`, `Body` and `AllowAutoRedirect` on it. A
+  search broad enough that listing every description match would cost the
+  entries their examples lists the names it held back instead. A search matching
+  nothing offers the nearest names rather than an empty list.
 - **How the output is written.** `zlib_compress` returns a hex string, not raw
   bytes, and `sha256` does too while `aes_encrypt` returns base64. Every cmdlet
-  whose result is a text rendering of bytes now declares which, and names the
-  cmdlet that reverses it.
+  whose result is a text rendering of bytes declares which, and names the cmdlet
+  that reverses it; the decoders declare what they take, so the catalogue
+  answers both halves of the question.
+- **Whether two stages fit together.** `zlib_compress | base64_encode` compiles,
+  runs, and returns a plausible string that is twice the size it should be: the
+  base64 covers the hex text rather than the compressed bytes. `md5 |
+  base64_decode` is worse — hex is also valid base64, so it returns meaningless
+  bytes and no error at all. `run_query` and `validate_query` compare what each
+  stage produces against what the next one accepts and say which cmdlet
+  reconciles them:
+
+  ```
+  -- warning: zlib_compress returns a hex string, but base64_encode expects raw
+     bytes - base64_encode will encode the text rather than the bytes; pipe
+     through hex_decode first
+  ```
+
+  It warns rather than refuses, and only where both sides have declared
+  themselves, so a query it has nothing to say about is not thereby endorsed.
 - **What goes in an options object.** The twenty-five cmdlets documented as
   taking `[options]` list their keys, their types and what each does — including
   where the casing is fussy, since an unknown key is ignored in silence rather

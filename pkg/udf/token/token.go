@@ -179,6 +179,7 @@ func RegisterIsJWT() gojq.CompilerOption {
 
 // RegisterBase64URLEncode registers base64url_encode, unpadded URL-safe base64.
 func RegisterBase64URLEncode() gojq.CompilerOption {
+	common.DeclareConsumes("base64url_encode", common.EncodingBytesAsText)
 	common.DeclareEncoding("base64url_encode", common.EncodingBase64URL, "base64url_decode")
 	return common.WithFunction("base64url_encode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base64url_encode")
@@ -192,6 +193,7 @@ func RegisterBase64URLEncode() gojq.CompilerOption {
 // RegisterBase64URLDecode registers base64url_decode, the inverse of
 // base64url_encode.
 func RegisterBase64URLDecode() gojq.CompilerOption {
+	common.DeclareConsumes("base64url_decode", common.EncodingBase64URL)
 	common.DeclareEncoding("base64url_decode", common.EncodingBytesAsText, "base64url_encode")
 	return common.WithFunction("base64url_decode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base64url_decode")
@@ -360,6 +362,7 @@ const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwx
 // RegisterBase58Encode registers base58_encode, the byte string as the compact
 // base58 alphabet used by Bitcoin addresses.
 func RegisterBase58Encode() gojq.CompilerOption {
+	common.DeclareConsumes("base58_encode", common.EncodingBytesAsText)
 	common.DeclareEncoding("base58_encode", common.EncodingBase58, "base58_decode")
 	return common.WithFunction("base58_encode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base58_encode")
@@ -372,6 +375,7 @@ func RegisterBase58Encode() gojq.CompilerOption {
 
 // RegisterBase58Decode registers base58_decode, the inverse of base58_encode.
 func RegisterBase58Decode() gojq.CompilerOption {
+	common.DeclareConsumes("base58_decode", common.EncodingBase58)
 	common.DeclareEncoding("base58_decode", common.EncodingBytesAsText, "base58_encode")
 	return common.WithFunction("base58_decode", 0, 2, func(v any, args []any) any {
 		s, err := strInput(v, args, "base58_decode")
