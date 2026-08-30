@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/grep"
 )

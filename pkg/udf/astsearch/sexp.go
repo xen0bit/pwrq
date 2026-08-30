@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grep"
 )
 
