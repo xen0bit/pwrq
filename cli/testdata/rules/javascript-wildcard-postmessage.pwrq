@@ -1,0 +1,17 @@
+include "opengrep";
+
+# fixture: fixtures/javascript/wildcard-postmessage.js
+# ported-from: javascript/browser/security/wildcard-postmessage-configuration.yaml (wildcard-postmessage-configuration)
+#
+# CWE-346. A target origin of "*" says any document may read the message,
+# including one that navigated the frame there to read it.
+#
+# The shortest rule in the corpus, and the one that shows what a pattern costs
+# when it is only a pattern: no combining, no exclusions, one line.
+
+["$OBJECT.postMessage($$$_, \"*\")"] as $wildcard
+| scan("*.js"; $wildcard)
+| finding("javascript-wildcard-postmessage";
+    "a target origin of \"*\" lets any document that holds this window read the "
+    + "message; name the origin you mean")
+| report

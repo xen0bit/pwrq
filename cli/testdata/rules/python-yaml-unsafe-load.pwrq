@@ -1,0 +1,33 @@
+include "opengrep";
+
+# fixture: fixtures/python/yaml-unsafe-load.py
+# ported-from: python/lang/security/deserialization/avoid-pyyaml-load.yaml (avoid-pyyaml-load)
+#
+# CWE-502. PyYAML's default loader constructs arbitrary Python objects, so
+# loading a document is running whatever the document says.
+#
+# Seven alternatives in the original, seven patterns here, and one select_ast
+# call: the tree is walked once and each match reports which pattern found it.
+# Written as seven searches this would parse every file seven times.
+#
+# The original's `pattern-not-inside: $YAML = ruamel.yaml.YAML(...)` is left
+# out rather than approximated. It exists to spare a different library that
+# happens to share the method names, and pwrq has no way to say "a variable
+# bound here, used there" - which is the taint question the rule is really
+# asking. The rule is therefore the original minus one exclusion, and that is
+# said here rather than left for a reader to discover.
+
+["yaml.unsafe_load($$$_)",
+ "yaml.load($$$_, Loader=yaml.Loader, $$$_)",
+ "yaml.load($$$_, Loader=yaml.UnsafeLoader, $$$_)",
+ "yaml.load($$$_, Loader=yaml.CLoader, $$$_)",
+ "yaml.load_all($$$_, Loader=yaml.Loader, $$$_)",
+ "yaml.load_all($$$_, Loader=yaml.UnsafeLoader, $$$_)",
+ "yaml.load_all($$$_, Loader=yaml.CLoader, $$$_)"] as $unsafe
+| ["import yaml"] as $imports
+| scan("*.py"; $unsafe + $imports) as $all
+| ($all | of($unsafe) | in_files_with($all | of($imports)))
+| finding("python-yaml-unsafe-load";
+    "this loader builds arbitrary Python objects from the document; "
+    + "yaml.safe_load, or Loader=yaml.SafeLoader")
+| report

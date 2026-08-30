@@ -1,0 +1,24 @@
+include "opengrep";
+
+# fixture: fixtures/go/weak-hash.go
+# ported-from: go/lang/security/audit/crypto/use_of_weak_crypto.yaml (use-of-md5, use-of-sha1)
+#
+# CWE-328, use of a hash that is not collision resistant.
+#
+# The original pairs each call with `pattern-inside: import "crypto/md5"`, and
+# that is the interesting half of the port. Written as within() it finds
+# nothing: a call is not inside an import statement, it is in the same file as
+# one. So the import becomes a second pattern and the two are joined by file.
+#
+# The import pattern is the path string rather than `import "crypto/md5"`,
+# because the engine matches structure strictly and a grouped import - which is
+# how Go code is actually written - nests the spec one level deeper than a
+# single-line import does. Matching the path string finds both.
+
+["md5.New()", "md5.Sum($$$A)", "sha1.New()", "sha1.Sum($$$A)"] as $calls
+| ["\"crypto/md5\"", "\"crypto/sha1\""] as $imports
+| scan("*.go"; $calls + $imports) as $all
+| ($all | of($calls) | in_files_with($all | of($imports)))
+| finding("go-weak-hash";
+    "\(.Text) uses a hash that is not collision resistant; SHA-256 or SHA-3 instead")
+| report

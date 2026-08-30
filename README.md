@@ -556,8 +556,9 @@ See [EXAMPLES.md](EXAMPLES.md) and [pkg/udf/README.md](pkg/udf/README.md).
 ### Searching code by its shape
 
 `select_string` greps text. `select_ast` matches the parse tree, so the pattern
-is code with holes in it — `$NAME` for one node, `$$$NAME` for a list — and
-whitespace, line breaks and comments stop mattering:
+is code with holes in it — `$NAME` for one node, `$$$NAME` for a whole list of
+them, `$$$_` for "and anything else here" — and whitespace, line breaks and
+comments stop mattering:
 
 ```console
 $ pwrq -c '[select_ast("."; "func $N($$$A) error { $$$B }"; {Include: "*.go"}) | .Captures.N]'
@@ -574,6 +575,20 @@ Two things make it more than a nicer regex. A comment that says
 `// func decoy(a string) error` does not match, because a comment is a
 different node. And a function whose parameters are spread over four lines
 does, because line breaks are not part of the tree.
+
+A pattern says how many children a construct has, so `f($A, $B)` is a call with
+two arguments rather than a call whose arguments include those two, and `$$$_`
+is how a pattern declines to say — the same thing Semgrep writes as `...`:
+
+```console
+$ pwrq -c '[select_ast("."; "exec.Command($NAME, $$$_)") | .Captures.NAME]'
+$ pwrq -c '[select_ast("."; "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}")]'
+```
+
+[cli/testdata/rules](cli/testdata/rules) is eighteen of
+[opengrep](https://github.com/opengrep/opengrep)'s rules written this way, in
+six languages, with a small library that names each Semgrep operator it stands
+in for. It is what the pattern semantics above were built against.
 
 Parsing is [gotreesitter](https://github.com/odvcencio/gotreesitter), a pure-Go
 tree-sitter runtime — no cgo, so this changes nothing about cross-compiling to

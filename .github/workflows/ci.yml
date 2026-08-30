@@ -80,7 +80,11 @@ jobs:
 
       - name: gofmt
         run: |
-          unformatted=$(gofmt -l .)
+          # testdata is excluded because some of it is deliberately not
+          # formatted: cli/testdata/rules checks a rule that only fires on
+          # code gofmt would have rewritten, so a fixture there has to keep
+          # the parentheses gofmt removes.
+          unformatted=$(find . -name '*.go' -not -path '*/testdata/*' -print0 | xargs -0 gofmt -l)
           if [ -n "$unformatted" ]; then
             echo "::error::gofmt found unformatted files:"
             echo "$unformatted"

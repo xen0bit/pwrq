@@ -1,0 +1,19 @@
+include "opengrep";
+
+# fixture: fixtures/go/weak-cipher.go
+# ported-from: go/lang/security/audit/crypto/use_of_weak_crypto.yaml (use-of-DES, use-of-rc4)
+#
+# CWE-327, a cipher that is broken rather than merely old.
+#
+# Same shape as go-weak-hash and the same reason for it: the original guards
+# each call with `pattern-inside: import "crypto/des"`, which is a claim about
+# the file rather than about the call's surroundings, so the import is a
+# pattern of its own and in_files_with joins the two.
+
+["des.NewCipher($$$A)", "des.NewTripleDESCipher($$$A)", "rc4.NewCipher($$$A)"] as $calls
+| ["\"crypto/des\"", "\"crypto/rc4\""] as $imports
+| scan("*.go"; $calls + $imports) as $all
+| ($all | of($calls) | in_files_with($all | of($imports)))
+| finding("go-weak-cipher";
+    "\(.Text) uses a cipher with known breaks; AES-GCM or ChaCha20-Poly1305 instead")
+| report

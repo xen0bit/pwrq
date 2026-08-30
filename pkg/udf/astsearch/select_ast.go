@@ -15,7 +15,7 @@ import (
 )
 
 // RegisterSelectAst registers select_ast: every place a piece of syntax occurs
-// in a file or a tree, as an object naming the file, the line and what each
+// in a file or a tree, as an object naming the file, the span and what each
 // hole in the pattern caught.
 //
 // It is select_string's structural sibling, and the difference is what a regex
@@ -28,6 +28,21 @@ import (
 //	[select_ast("."; "if $C { return $E }"; {Include: "*.go"})] | length
 //	select_ast("app.py"; "except $E: $$$B"; {Language: "python"})
 //
+// A pattern says how many children a construct has, so `f($A, $B)` is a call
+// with two arguments and not a call whose first two are these. $$$_ is how a
+// pattern says "and anything else here":
+//
+//	select_ast("."; "exec.Command($NAME, $$$_)")
+//	select_ast("."; "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}")
+//
+// The pattern may also be a list of patterns, which is one search rather than
+// several: the tree is walked once and each file parsed once however many
+// patterns there are, and every match reports in Pattern which one found it.
+// That is the difference between asking forty questions of a repository and
+// asking one question forty times.
+//
+//	select_ast("."; ["md5.New()", "sha1.New()"]) | {.Pattern, .Path}
+//
 // It streams, like every cmdlet that enumerates something, and the walk is
 // lazy: `first(select_ast("."; "..."))` parses files until the first hit
 // rather than parsing the tree.
@@ -38,11 +53,12 @@ import (
 //
 // The same goes for a file whose language the pattern is not code in: a Go
 // pattern searched over a repository must not fail on its Dockerfile. That
-// leaves one gap, and it is worth naming. A permissive grammar accepts almost
-// anything - markdown parses `func $$$(` as a paragraph - so over a mixed tree
-// a mistyped pattern can be "valid" somewhere, match nothing, and come back as
-// an ordinary empty result. Naming a Language, or narrowing with Include to
-// one extension, removes the ambiguity and gets the pattern checked outright.
+// leaves one gap, and it is worth naming. A grammar can parse a pattern as the
+// wrong construct without complaining - see patternProblem for the three ways
+// that is caught and the one that is not - so over a mixed tree a pattern can
+// be code somewhere, match nothing, and come back as an ordinary empty result.
+// Naming a Language, or narrowing with Include to one extension, removes the
+// ambiguity and gets the pattern checked outright.
 func RegisterSelectAst() gojq.CompilerOption {
 	common.DeclareInput("select_ast", common.InputPipeline)
 	return common.WithIterFunctionOf("select_ast", 1, 3, AstMatch, func(v any, args []any) gojq.Iter {
@@ -51,7 +67,7 @@ func RegisterSelectAst() gojq.CompilerOption {
 		if !ok {
 			return gojq.NewIter(fmt.Errorf("select_ast: expected a path, got %T", common.BindValue(in)))
 		}
-		pattern, err := common.BindString(rest[0], "pattern")
+		patterns, err := bindPatterns(rest[0])
 		if err != nil {
 			return gojq.NewIter(fmt.Errorf("select_ast: %v", err))
 		}
@@ -63,20 +79,46 @@ func RegisterSelectAst() gojq.CompilerOption {
 		// cannot match anything is reported as a failure of the pattern before
 		// a single file is read - not as an empty result after all of them.
 		if opts.language != "" {
-			c, err := compilePattern(pattern, opts.language)
-			if err != nil {
-				return gojq.NewIter(fmt.Errorf("select_ast: %v", err))
-			}
-			if err := c.validate(); err != nil {
-				return gojq.NewIter(fmt.Errorf("select_ast: %v", err))
+			for _, pattern := range patterns {
+				c, err := compilePattern(pattern, opts.language)
+				if err != nil {
+					return gojq.NewIter(fmt.Errorf("select_ast: %v", err))
+				}
+				if err := c.validate(); err != nil {
+					return gojq.NewIter(fmt.Errorf("select_ast: %v", err))
+				}
 			}
 		}
 		walk, err := filewalk.New(root, opts.include)
 		if err != nil {
 			return gojq.NewIter(fmt.Errorf("select_ast: %v", err))
 		}
-		return &matchIter{pattern: pattern, opts: opts, walk: walk}
+		return &matchIter{patterns: patterns, opts: opts, walk: walk}
 	})
+}
+
+// bindPatterns reads the pattern argument, which is either one pattern or a
+// list of them.
+func bindPatterns(arg any) ([]string, error) {
+	if list, ok := common.BindValue(arg).([]any); ok {
+		if len(list) == 0 {
+			return nil, fmt.Errorf("the pattern list is empty, so there is nothing to search for")
+		}
+		patterns := make([]string, len(list))
+		for i, item := range list {
+			pattern, err := common.BindString(item, "pattern")
+			if err != nil {
+				return nil, fmt.Errorf("pattern %d: %v", i+1, err)
+			}
+			patterns[i] = pattern
+		}
+		return patterns, nil
+	}
+	pattern, err := common.BindString(arg, "pattern")
+	if err != nil {
+		return nil, err
+	}
+	return []string{pattern}, nil
 }
 
 type selectAstOpts struct {
@@ -116,19 +158,19 @@ func selectAstOptions(args []any) (selectAstOpts, error) {
 
 // matchIter parses files as the caller reads matches.
 type matchIter struct {
-	pattern string
-	opts    selectAstOpts
-	walk    *filewalk.Walker
-	// patterns holds one compiled pattern per language met so far. A tree can
-	// hold five languages, and recompiling per file would parse the pattern
-	// once per file rather than once per language.
-	patterns map[string]*compiled
+	patterns []string
+	opts     selectAstOpts
+	walk     *filewalk.Walker
+	// compiled holds the patterns compiled for one language, in the order they
+	// were written. A tree can hold five languages, and compiling per file
+	// would parse every pattern once per file rather than once per language.
+	compiled map[string][]*compiled
 	ready    []any
 	done     bool
 
-	// skipped names the languages the pattern could not parse as, and matched
-	// counts the hits found. Together they answer the question an empty result
-	// leaves open. See exhausted.
+	// skipped names the languages no pattern was code in, and matched counts
+	// the hits found. Together they answer the question an empty result leaves
+	// open. See exhausted.
 	skipped map[string]bool
 	matched int
 }
@@ -166,27 +208,28 @@ func (it *matchIter) Next() (any, bool) {
 // error it really is.
 //
 // A pattern is written in one language, and a tree is written in several. So a
-// file whose language the pattern does not parse as is skipped rather than
-// reported: searching a repository for `func $N() error { $$$B }` should not
-// fail on its Dockerfile, and the first version of this cmdlet did exactly
-// that.
+// file no pattern is code in is skipped rather than reported: searching a
+// repository for `func $N() error { $$$B }` should not fail on its Dockerfile,
+// and the first version of this cmdlet did exactly that.
 //
 // Skipping quietly has a cost, though, and it is the cost this whole package
-// exists to avoid: a mistyped pattern parses as nothing, is skipped
+// exists to avoid: a mistyped pattern is code in nothing, is skipped
 // everywhere, and comes back as an empty result that reads like an answer
 // about the code. So the two are separated at the end. If some file was
 // searched, an empty result is an answer. If every file was skipped, it is
-// not, and the caller is told which languages were met and that the pattern
-// parsed as none of them.
+// not, and the caller is told which languages were met and that no pattern was
+// code in any of them.
 func (it *matchIter) exhausted() (any, bool) {
 	if it.matched > 0 || len(it.skipped) == 0 {
 		return nil, false
 	}
-	for _, c := range it.patterns {
-		if c.valid {
-			// Some language took the pattern; nothing matching it is a fact
-			// about the tree.
-			return nil, false
+	for _, forLanguage := range it.compiled {
+		for _, c := range forLanguage {
+			if c.valid() {
+				// Some language took some pattern; nothing matching is a fact
+				// about the tree.
+				return nil, false
+			}
 		}
 	}
 	names := make([]string, 0, len(it.skipped))
@@ -194,10 +237,23 @@ func (it *matchIter) exhausted() (any, bool) {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return fmt.Errorf("select_ast: pattern %q does not parse as code in any language found "+
-		"under this path (%s), so every file was skipped and the empty result says nothing "+
-		"about the code; ast_pattern shows what a pattern compiles to",
-		it.pattern, strings.Join(names, ", ")), true
+	subject := fmt.Sprintf("pattern %q is not", it.patterns[0])
+	if len(it.patterns) > 1 {
+		subject = fmt.Sprintf("none of the %d patterns is", len(it.patterns))
+	}
+	return fmt.Errorf("select_ast: %s code in any language found under this path, so "+
+		"every file was skipped (%s) and the empty result says nothing about the code; "+
+		"ast_pattern shows what a pattern compiles to, and Include narrows the walk to "+
+		"the files a pattern is for",
+		subject, strings.Join(names, ", ")), true
+}
+
+// hit is one match together with the pattern that found it, so that results
+// from several patterns can be ordered by where they are in the file rather
+// than by which pattern was written first.
+type hit struct {
+	result  grep.Result
+	pattern int
 }
 
 // searchFile returns every match in one file, or nothing when the file is not
@@ -211,14 +267,21 @@ func (it *matchIter) searchFile(path string) ([]any, error) {
 		return nil, nil
 	}
 
-	c, err := it.patternFor(entry.Name)
+	compiled, err := it.patternsFor(entry.Name)
 	if err != nil {
 		return nil, err
 	}
 	// A pattern that is not code in this file's language cannot match it, and
 	// says nothing about whether it is code in the language the caller meant.
 	// Recorded rather than raised; exhausted decides what the silence meant.
-	if !c.valid {
+	usable := false
+	for _, c := range compiled {
+		if c.valid() {
+			usable = true
+			break
+		}
+	}
+	if !usable {
 		if it.skipped == nil {
 			it.skipped = map[string]bool{}
 		}
@@ -230,51 +293,95 @@ func (it *matchIter) searchFile(path string) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	results, err := c.query.Match(source)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %v", path, err)
-	}
 
-	out := make([]any, 0, len(results))
-	for _, r := range results {
-		out = append(out, matchObject(path, entry.Name, source, r))
+	var hits []hit
+	for i, c := range compiled {
+		if !c.valid() {
+			continue
+		}
+		// A pattern with more than one reading is matched under each of
+		// them, and the same code found twice is one finding. See
+		// statementReading.
+		seen := map[[2]uint32]bool{}
+		for _, q := range c.queries {
+			results, err := q.Match(source)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %v", path, err)
+			}
+			for _, r := range results {
+				span := [2]uint32{r.StartByte, r.EndByte}
+				if seen[span] {
+					continue
+				}
+				seen[span] = true
+				hits = append(hits, hit{result: r, pattern: i})
+			}
+		}
+	}
+	// A file reads top to bottom whatever order the patterns were written in.
+	sort.SliceStable(hits, func(a, b int) bool {
+		if hits[a].result.StartByte != hits[b].result.StartByte {
+			return hits[a].result.StartByte < hits[b].result.StartByte
+		}
+		return hits[a].pattern < hits[b].pattern
+	})
+
+	out := make([]any, 0, len(hits))
+	for _, h := range hits {
+		out = append(out, matchObject(path, entry.Name, it.patterns[h.pattern], source, h.result))
 	}
 	return out, nil
 }
 
-// patternFor compiles the pattern for one language, once.
-func (it *matchIter) patternFor(language string) (*compiled, error) {
-	if it.patterns == nil {
-		it.patterns = map[string]*compiled{}
+// patternsFor compiles every pattern for one language, once.
+func (it *matchIter) patternsFor(language string) ([]*compiled, error) {
+	if it.compiled == nil {
+		it.compiled = map[string][]*compiled{}
 	}
-	if c, ok := it.patterns[language]; ok {
+	if c, ok := it.compiled[language]; ok {
 		return c, nil
 	}
-	c, err := compilePattern(it.pattern, language)
-	if err != nil {
-		return nil, err
+	compiled := make([]*compiled, len(it.patterns))
+	for i, pattern := range it.patterns {
+		c, err := compilePattern(pattern, language)
+		if err != nil {
+			return nil, err
+		}
+		compiled[i] = c
 	}
-	it.patterns[language] = c
-	return c, nil
+	it.compiled[language] = compiled
+	return compiled, nil
 }
 
 // matchObject renders one match.
-func matchObject(path, language string, source []byte, r grep.Result) any {
+func matchObject(path, language, pattern string, source []byte, r grep.Result) any {
 	line, column := position(source, r.StartByte)
-	endLine, _ := position(source, r.EndByte)
+	endLine, endColumn := position(source, r.EndByte)
+	end := min(int(r.EndByte), len(source))
 
+	// The rewritten query carries two captures of its own: the whole matched
+	// construct, which is where the span comes from, and the ellipsis, which
+	// is a hole the caller said not to look at. Neither is a name anybody
+	// wrote, so neither is reported. See sexp.go.
 	captures := map[string]any{}
 	for name, c := range r.Captures {
+		if name == rootCapture || name == ellipsisName {
+			continue
+		}
 		captures[name] = string(c.Text)
 	}
 
 	return AstMatch.Build(map[string]any{
 		"Path":          path,
 		"Language":      language,
+		"Pattern":       pattern,
 		"LineNumber":    line,
 		"Column":        column,
 		"EndLineNumber": endLine,
-		"Text":          string(source[r.StartByte:min(r.EndByte, uint32(len(source)))]),
+		"EndColumn":     endColumn,
+		"Offset":        int(r.StartByte),
+		"EndOffset":     end,
+		"Text":          string(source[min(int(r.StartByte), end):end]),
 		"Captures":      captures,
 		"PwrqValue":     path,
 	})
@@ -299,13 +406,14 @@ func position(source []byte, offset uint32) (int, int) {
 // whether it can match anything at all.
 //
 // This is validate_query for code patterns, and it exists for the same reason.
-// A pattern that is not valid code still compiles - into a tree-sitter query
-// full of ERROR nodes, which runs against every file and matches none of them.
-// Without this, a typo and an honest absence produce the same empty result,
-// and the caller reads the wrong one.
+// A pattern that is not code in a language still compiles - into a tree-sitter
+// query that runs against every file and matches none of them - so without
+// this a typo and an honest absence produce the same empty result and the
+// caller reads the wrong one.
 //
 //	ast_pattern("func $N($$$A) error { $$$B }"; "go") | .Valid
 //	ast_pattern("except $E: $$$B"; "python") | .Query
+//	ast_pattern("md5($X)"; "php") | .Problem
 func RegisterAstPattern() gojq.CompilerOption {
 	common.DeclareInput("ast_pattern", common.InputPipeline)
 	return common.WithFunctionOf("ast_pattern", 1, 2, PatternInfo, func(v any, args []any) any {
@@ -325,9 +433,10 @@ func RegisterAstPattern() gojq.CompilerOption {
 		return PatternInfo.Build(map[string]any{
 			"Pattern":       c.pattern,
 			"Language":      c.language,
-			"Valid":         c.valid,
+			"Valid":         c.valid(),
+			"Problem":       c.problem,
 			"MetaVariables": c.metaVariables(),
-			"Query":         c.query.SExpr,
+			"Query":         queryText(c),
 			"PwrqValue":     c.pattern,
 		})
 	})
@@ -382,4 +491,13 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterAstPattern(),
 		RegisterGetAstLanguage(),
 	}
+}
+
+// queryText is what a pattern compiled to, or an empty string when it would
+// not compile for the language at all. Problem says which.
+func queryText(c *compiled) string {
+	if c.query() == nil {
+		return ""
+	}
+	return c.query().SExpr
 }

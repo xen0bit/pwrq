@@ -177,13 +177,16 @@ func TestPositionsPointAtTheMatch(t *testing.T) {
 		t.Fatalf("expected 2 matches, got %d", len(got))
 	}
 	// `func run` is on line 5 of goSource, `func check` on line 13. The match
-	// starts at the name, which is where a caller wants the cursor.
+	// is the declaration, so the cursor lands on the `func` keyword in column
+	// 1 - not on the name in column 6, which is where it landed while a match
+	// was reported as the span of its captures rather than of the construct
+	// they were found in. See rootCapture.
 	first := got[0]
 	if line := field(t, first, "LineNumber"); fmt.Sprint(line) != "5" {
 		t.Errorf("first match reported line %v, want 5", line)
 	}
-	if col := field(t, first, "Column"); fmt.Sprint(col) != "6" {
-		t.Errorf("first match reported column %v, want 6", col)
+	if col := field(t, first, "Column"); fmt.Sprint(col) != "1" {
+		t.Errorf("first match reported column %v, want 1", col)
 	}
 	if lang := field(t, first, "Language"); lang != "go" {
 		t.Errorf("reported language %v, want go", lang)
@@ -435,5 +438,26 @@ func TestEveryLanguageThisBuildClaimsCanParse(t *testing.T) {
 func TestGoIsAlwaysPresent(t *testing.T) {
 	if grammars.DetectLanguageByName("go") == nil {
 		t.Error("this build cannot parse Go, which the Makefile's GRAMMARS list is supposed to guarantee")
+	}
+}
+
+// TestAPatternThatWillNotCompileForOneLanguageIsSkipped covers the third way a
+// pattern can fail to be about a file, alongside "not code in this language"
+// and "no grammar for this file".
+//
+// A typed hole names a node type, and node types are per-grammar: $S:string is
+// JavaScript's and Java has no such type, so compiling the pattern for Java
+// fails outright. Raised as an error that ended the search, which meant a
+// JavaScript rule could not be run over a repository that also contained Java
+// - the whole failure this package exists to prevent, arriving by a different
+// door.
+func TestAPatternThatWillNotCompileForOneLanguageIsSkipped(t *testing.T) {
+	dir := tree(t, map[string]string{
+		"a.js":   "function f(el, name) { el.innerHTML = \"<b>\" + name; el.innerHTML = \"static\"; }\n",
+		"B.java": "public class B { void f() { System.out.println(\"hi\"); } }\n",
+	})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; "$EL.innerHTML = $S:string")]`, dir))
+	if len(got) != 1 {
+		t.Fatalf("matched %d times, want the one constant assignment", len(got))
 	}
 }
