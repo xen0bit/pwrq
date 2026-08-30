@@ -101,8 +101,18 @@ writing a rule.
 ## Validation
 
 Every rule was run over five real repositories - gosec, pygoat, NodeGoat, DVWA
-and WebGoat - in addition to its fixture. The run that is worth quoting is
-`go-weak-hash` over gosec: grep finds 40 lines containing `md5.New()` and
+and WebGoat - in addition to its fixture: 57 findings, no errors, and ten of
+the eighteen rules fire on real code there.
+
+Most of the noise in that run is vendored: `javascript-insecure-document-method`
+reports 31 findings in WebGoat and most of them are inside jquery-1.10.2.min.js,
+which really does assign to innerHTML. There is no Exclude option, and there
+does not need to be one - a finding is a value, so the filter is the next stage
+of the pipeline:
+
+    | map(select(.Path | test("(min\\.js|/libs/|node_modules)") | not))
+
+The run that is worth quoting is `go-weak-hash` over gosec: grep finds 40 lines containing `md5.New()` and
 friends, and the rule reports 7. The other 33 are inside Go source embedded in
 string literals, which is what gosec's test corpus is made of, and inside
 comments. That gap is the whole argument for matching the tree rather than the
