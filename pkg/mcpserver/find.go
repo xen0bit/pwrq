@@ -162,6 +162,24 @@ func contains(haystack, lowerNeedle string) bool {
 	return strings.Contains(strings.ToLower(haystack), lowerNeedle)
 }
 
+// shortestMeaningfulWord is the length below which a word out of a cmdlet name
+// says nothing about what the caller wanted. It is set where it is so that
+// "to", "of", "is" and "from" fall out and "json", "date", "upper" and "hash"
+// stay in: a name is mostly its nouns, and the glue words match everything.
+const shortestMeaningfulWord = 4
+
+// meaningfulWords splits a name a caller typed into the words worth searching
+// for, so that to_upper can be matched on "upper".
+func meaningfulWords(name string) []string {
+	var out []string
+	for _, word := range strings.FieldsFunc(name, func(r rune) bool { return r == '_' || r == '-' }) {
+		if len(word) >= shortestMeaningfulWord {
+			out = append(out, strings.ToLower(word))
+		}
+	}
+	return out
+}
+
 // suggestionLimit is how many near misses are worth offering. Enough to cover
 // a plausible typo and a plausible synonym, few enough that the answer to "no
 // match" stays shorter than a real result would be.
@@ -180,6 +198,13 @@ const maxSuggestionDistance = 3
 // all: someone searching for "redirects" should be shown "redirect_*" ahead of
 // anything three edits away, and edit distance alone would not do that because
 // the lengths differ too much.
+//
+// jq's own names are offered alongside the cmdlets, because a caller who
+// guessed wrong guessed at the whole language rather than at half of it. The
+// case that made this necessary: `from_json` used to come back as "no cmdlet
+// is named from_json; list_functions has the vocabulary", sending the caller
+// to a catalogue that does not contain fromjson - one edit away, and the
+// answer.
 func suggest(catalog []discovery.Command, needle string) []string {
 	type candidate struct {
 		text     string
@@ -211,6 +236,26 @@ func suggest(catalog []discovery.Command, needle string) []string {
 			consider(alias, alias)
 		}
 		consider(c.Category, "category "+c.Category)
+	}
+	for _, name := range builtinNames() {
+		consider(name, name)
+	}
+	// And by meaning, not only by spelling. A caller who wants to uppercase a
+	// string writes to_upper, which is nine edits from ascii_upcase and was
+	// coming back as "did you mean tonumber?". Reading the words out of the
+	// name they typed and matching those against what the builtins do turns
+	// to_upper into ascii_upcase and parse_json into fromjson.
+	//
+	// Offered at the far end of the range, so a genuine typo still outranks a
+	// guess at what the caller meant.
+	for _, word := range meaningfulWords(needle) {
+		for _, b := range jqBuiltins() {
+			if b.Gloss == "" || seen[b.Name] || !contains(b.Gloss, word) {
+				continue
+			}
+			seen[b.Name] = true
+			found = append(found, candidate{text: b.Name, distance: maxSuggestionDistance})
+		}
 	}
 
 	sort.SliceStable(found, func(i, j int) bool {

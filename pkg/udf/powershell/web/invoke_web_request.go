@@ -95,9 +95,22 @@ func RegisterInvokeWebRequest() gojq.CompilerOption {
 			}
 		}
 
+		// An options object arriving down the pipe is options, not a URI.
+		// It used to be neither: the branch above accepts only a string, so
+		// `{Uri: "https://example.com"} | invoke_web_request` fell through to "Uri is
+		// required" - with the Uri sitting in plain sight in the object the
+		// caller had just written. A message that contradicts what the caller
+		// can see sends them to doubt the option table rather than the call
+		// form, which is the one thing that was right.
+		if opts.Uri == "" {
+			if optsMap, ok := common.BindValue(v).(map[string]any); ok {
+				parseInvokeWebRequestOptions(&opts, optsMap)
+			}
+		}
+
 		// Validate URI
 		if opts.Uri == "" {
-			return common.MakeUDFErrorResult(fmt.Errorf("invoke_web_request: Uri is required"), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("invoke_web_request: Uri is required; pass it as the first argument, in the options object, or down the pipe"), nil)
 		}
 
 		// Validate and parse URI
@@ -384,9 +397,22 @@ func RegisterInvokeRestMethod() gojq.CompilerOption {
 			}
 		}
 
+		// An options object arriving down the pipe is options, not a URI.
+		// It used to be neither: the branch above accepts only a string, so
+		// `{Uri: "https://example.com"} | invoke_rest_method` fell through to "Uri is
+		// required" - with the Uri sitting in plain sight in the object the
+		// caller had just written. A message that contradicts what the caller
+		// can see sends them to doubt the option table rather than the call
+		// form, which is the one thing that was right.
+		if opts.Uri == "" {
+			if optsMap, ok := common.BindValue(v).(map[string]any); ok {
+				parseInvokeWebRequestOptions(&opts, optsMap)
+			}
+		}
+
 		// Validate URI
 		if opts.Uri == "" {
-			return common.MakeUDFErrorResult(fmt.Errorf("invoke_rest_method: Uri is required"), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("invoke_rest_method: Uri is required; pass it as the first argument, in the options object, or down the pipe"), nil)
 		}
 
 		// Make the request

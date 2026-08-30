@@ -90,9 +90,19 @@ func RegisterTestConnection() gojq.CompilerOption {
 			}
 		}
 
+		// An options object arriving down the pipe is options, not a target.
+		// See the same branch in invoke_web_request: reporting "Target is
+		// required" to a caller who piped in {Target: ...} sends them to doubt
+		// the option table rather than the call form.
+		if opts.Target == "" {
+			if optsMap, ok := common.BindValue(v).(map[string]any); ok {
+				parseTestConnectionOptions(&opts, optsMap)
+			}
+		}
+
 		// Validate target
 		if opts.Target == "" {
-			return common.MakeUDFErrorResult(fmt.Errorf("test_connection: Target is required"), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("test_connection: Target is required; pass it as the first argument, in the options object, or down the pipe"), nil)
 		}
 
 		// Perform the connection test

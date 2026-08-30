@@ -14,7 +14,7 @@ type FunctionMetadata struct {
 func GetFunctionMetadata() []FunctionMetadata {
 	return []FunctionMetadata{
 		// File operations
-		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("path"; "file")`, `find("path"; "dir")`}},
+		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("src"; "file")`, `find("."; "dir")`}},
 		{"cat", 0, 2, "Read and return contents of a file, decoded as text (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`, `cat("app.log"; {tail: 20})`}},
 		{"read_bytes", 0, 1, "Read a file's bytes verbatim, with no text decoding (use utf8bytelength, not length, to count them)", "File Operations", []string{`read_bytes("a.bin") | sha256`, `"a.bin" | read_bytes | utf8bytelength`}},
 		{"mkdir", 1, 1, "Create a directory (creates parent directories if needed)", "File Operations", []string{`mkdir("/tmp/mydir")`, `mkdir("nested/path/to/dir")`}},
@@ -26,74 +26,74 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"compress_archive", 1, 2, "Build a .zip, .tar or .tar.gz from a path or list of paths (destination)", "Archives", []string{`compress_archive("src"; "src.zip")`, `["a.txt","b.txt"] | compress_archive("pair.tar.gz")`}},
 
 		// Encoding/Decoding
-		{"base64_encode", 0, 2, "Encode to base64 (optional file arg)", "Encoding", []string{`base64_encode`, `base64_encode(true)`}},
-		{"base64_decode", 0, 2, "Decode from base64 (optional file arg)", "Encoding", []string{`base64_decode`, `base64_decode(true)`}},
-		{"hex_encode", 0, 2, "Encode to hexadecimal (optional file arg)", "Encoding", []string{`hex_encode`, `hex_encode(true)`}},
-		{"hex_decode", 0, 2, "Decode from hexadecimal (optional file arg)", "Encoding", []string{`hex_decode`, `hex_decode(true)`}},
-		{"base32_encode", 0, 2, "Encode to base32 (optional file arg)", "Encoding", []string{`base32_encode`, `base32_encode(true)`}},
-		{"base32_decode", 0, 2, "Decode from base32 (optional file arg)", "Encoding", []string{`base32_decode`, `base32_decode(true)`}},
-		{"base85_encode", 0, 2, "Encode to base85 (optional file arg)", "Encoding", []string{`base85_encode`, `base85_encode(true)`}},
-		{"base85_decode", 0, 2, "Decode from base85 (optional file arg)", "Encoding", []string{`base85_decode`, `base85_decode(true)`}},
-		{"binary_encode", 0, 2, "Encode to binary (optional file arg)", "Encoding", []string{`binary_encode`, `binary_encode(true)`}},
-		{"binary_decode", 0, 2, "Decode from binary (optional file arg)", "Encoding", []string{`binary_decode`, `binary_decode(true)`}},
-		{"url_encode", 0, 2, "URL encode (optional file arg)", "Encoding", []string{`url_encode`, `url_encode(true)`}},
-		{"url_decode", 0, 2, "URL decode (optional file arg)", "Encoding", []string{`url_decode`, `url_decode(true)`}},
-		{"html_encode", 0, 2, "HTML entity encode (optional file arg)", "Encoding", []string{`html_encode`, `html_encode(true)`}},
-		{"html_decode", 0, 2, "HTML entity decode (optional file arg)", "Encoding", []string{`html_decode`, `html_decode(true)`}},
+		{"base64_encode", 0, 2, "Encode to base64 (optional file arg)", "Encoding", []string{`"hello" | base64_encode`, `"file.txt" | base64_encode(true)`}},
+		{"base64_decode", 0, 2, "Decode from base64 (optional file arg)", "Encoding", []string{`"aGVsbG8=" | base64_decode`, `"hello" | base64_encode | base64_decode`}},
+		{"hex_encode", 0, 2, "Encode to hexadecimal (optional file arg)", "Encoding", []string{`"hello" | hex_encode`, `"file.txt" | hex_encode(true)`}},
+		{"hex_decode", 0, 2, "Decode from hexadecimal (optional file arg)", "Encoding", []string{`"68656c6c6f" | hex_decode`, `"hello" | hex_encode | hex_decode`}},
+		{"base32_encode", 0, 2, "Encode to base32 (optional file arg)", "Encoding", []string{`"hello" | base32_encode`, `"file.txt" | base32_encode(true)`}},
+		{"base32_decode", 0, 2, "Decode from base32 (optional file arg)", "Encoding", []string{`"NBSWY3DP" | base32_decode`, `"hello" | base32_encode | base32_decode`}},
+		{"base85_encode", 0, 2, "Encode to base85 (optional file arg)", "Encoding", []string{`"hello" | base85_encode`, `"file.txt" | base85_encode(true)`}},
+		{"base85_decode", 0, 2, "Decode from base85 (optional file arg)", "Encoding", []string{`"BOu!rDZ" | base85_decode`, `"hello" | base85_encode | base85_decode`}},
+		{"binary_encode", 0, 2, "Encode to binary (optional file arg)", "Encoding", []string{`"hi" | binary_encode`, `"file.txt" | binary_encode(true)`}},
+		{"binary_decode", 0, 2, "Decode from binary (optional file arg)", "Encoding", []string{`"01101000 01101001" | binary_decode`, `"hi" | binary_encode | binary_decode`}},
+		{"url_encode", 0, 2, "URL encode (optional file arg)", "Encoding", []string{`"a b&c" | url_encode`, `"file.txt" | url_encode(true)`}},
+		{"url_decode", 0, 2, "URL decode (optional file arg)", "Encoding", []string{`"a%20b%26c" | url_decode`, `"a b&c" | url_encode | url_decode`}},
+		{"html_encode", 0, 2, "HTML entity encode (optional file arg)", "Encoding", []string{`"<b>hi</b>" | html_encode`, `"file.txt" | html_encode(true)`}},
+		{"html_decode", 0, 2, "HTML entity decode (optional file arg)", "Encoding", []string{`"&lt;b&gt;hi&lt;/b&gt;" | html_decode`, `"<b>hi</b>" | html_encode | html_decode`}},
 
 		// Compression
-		{"gzip_compress", 0, 2, "Compress with gzip (optional file arg)", "Compression", []string{`gzip_compress`, `gzip_compress(true)`}},
-		{"gzip_decompress", 0, 2, "Decompress gzip (optional file arg)", "Compression", []string{`gzip_decompress`, `gzip_decompress(true)`}},
-		{"zlib_compress", 0, 2, "Compress with zlib (optional file arg)", "Compression", []string{`zlib_compress`, `zlib_compress(true)`}},
-		{"zlib_decompress", 0, 2, "Decompress zlib (optional file arg)", "Compression", []string{`zlib_decompress`, `zlib_decompress(true)`}},
-		{"deflate_compress", 0, 2, "Compress with deflate (optional file arg)", "Compression", []string{`deflate_compress`, `deflate_compress(true)`}},
-		{"deflate_decompress", 0, 2, "Decompress deflate (optional file arg)", "Compression", []string{`deflate_decompress`, `deflate_decompress(true)`}},
+		{"gzip_compress", 0, 2, "Compress with gzip (optional file arg)", "Compression", []string{`"hello" | gzip_compress`, `"file.txt" | gzip_compress(true)`}},
+		{"gzip_decompress", 0, 2, "Decompress gzip (optional file arg)", "Compression", []string{`"hello" | gzip_compress | gzip_decompress`, `"file.txt" | gzip_compress(true) | gzip_decompress`}},
+		{"zlib_compress", 0, 2, "Compress with zlib (optional file arg)", "Compression", []string{`"hello" | zlib_compress`, `"file.txt" | zlib_compress(true)`}},
+		{"zlib_decompress", 0, 2, "Decompress zlib (optional file arg)", "Compression", []string{`"hello" | zlib_compress | zlib_decompress`, `"file.txt" | zlib_compress(true) | zlib_decompress`}},
+		{"deflate_compress", 0, 2, "Compress with deflate (optional file arg)", "Compression", []string{`"hello" | deflate_compress`, `"file.txt" | deflate_compress(true)`}},
+		{"deflate_decompress", 0, 2, "Decompress deflate (optional file arg)", "Compression", []string{`"hello" | deflate_compress | deflate_decompress`, `"file.txt" | deflate_compress(true) | deflate_decompress`}},
 
 		// String operations
-		{"replace", 2, 4, "Replace substring (old, new, [input], [file])", "String", []string{`replace("old"; "new")`, `replace("old"; "new"; "text")`}},
+		{"replace", 2, 4, "Replace substring (old, new, [input], [file])", "String", []string{`"old dog" | replace("old"; "new")`, `replace("old"; "new"; "old text")`}},
 
 		// Hash functions
-		{"md5", 0, 2, "MD5 hash (optional file arg)", "Hash", []string{`md5`, `md5(true)`}},
-		{"sha1", 0, 2, "SHA1 hash (optional file arg)", "Hash", []string{`sha1`, `sha1(true)`}},
-		{"sha224", 0, 2, "SHA224 hash (optional file arg)", "Hash", []string{`sha224`, `sha224(true)`}},
-		{"sha256", 0, 2, "SHA256 hash (optional file arg)", "Hash", []string{`sha256`, `sha256(true)`}},
-		{"sha384", 0, 2, "SHA384 hash (optional file arg)", "Hash", []string{`sha384`, `sha384(true)`}},
-		{"sha512", 0, 2, "SHA512 hash (optional file arg)", "Hash", []string{`sha512`, `sha512(true)`}},
-		{"sha512_224", 0, 2, "SHA512/224 hash (optional file arg)", "Hash", []string{`sha512_224`, `sha512_224(true)`}},
-		{"sha512_256", 0, 2, "SHA512/256 hash (optional file arg)", "Hash", []string{`sha512_256`, `sha512_256(true)`}},
+		{"md5", 0, 2, "MD5 hash (optional file arg)", "Hash", []string{`"hello" | md5`, `"file.txt" | md5(true)`}},
+		{"sha1", 0, 2, "SHA1 hash (optional file arg)", "Hash", []string{`"hello" | sha1`, `"file.txt" | sha1(true)`}},
+		{"sha224", 0, 2, "SHA224 hash (optional file arg)", "Hash", []string{`"hello" | sha224`, `"file.txt" | sha224(true)`}},
+		{"sha256", 0, 2, "SHA256 hash (optional file arg)", "Hash", []string{`"hello" | sha256`, `"file.txt" | sha256(true)`}},
+		{"sha384", 0, 2, "SHA384 hash (optional file arg)", "Hash", []string{`"hello" | sha384`, `"file.txt" | sha384(true)`}},
+		{"sha512", 0, 2, "SHA512 hash (optional file arg)", "Hash", []string{`"hello" | sha512`, `"file.txt" | sha512(true)`}},
+		{"sha512_224", 0, 2, "SHA512/224 hash (optional file arg)", "Hash", []string{`"hello" | sha512_224`, `"file.txt" | sha512_224(true)`}},
+		{"sha512_256", 0, 2, "SHA512/256 hash (optional file arg)", "Hash", []string{`"hello" | sha512_256`, `"file.txt" | sha512_256(true)`}},
 
 		// HMAC functions
-		{"hmac_md5", 1, 3, "HMAC-MD5 (key, [message], [file])", "HMAC", []string{`hmac_md5("key")`, `hmac_md5("key"; "message")`}},
-		{"hmac_sha1", 1, 3, "HMAC-SHA1 (key, [message], [file])", "HMAC", []string{`hmac_sha1("key")`, `hmac_sha1("key"; "message")`}},
-		{"hmac_sha224", 1, 3, "HMAC-SHA224 (key, [message], [file])", "HMAC", []string{`hmac_sha224("key")`, `hmac_sha224("key"; "message")`}},
-		{"hmac_sha256", 1, 3, "HMAC-SHA256 (key, [message], [file])", "HMAC", []string{`hmac_sha256("key")`, `hmac_sha256("key"; "message")`}},
-		{"hmac_sha384", 1, 3, "HMAC-SHA384 (key, [message], [file])", "HMAC", []string{`hmac_sha384("key")`, `hmac_sha384("key"; "message")`}},
-		{"hmac_sha512", 1, 3, "HMAC-SHA512 (key, [message], [file])", "HMAC", []string{`hmac_sha512("key")`, `hmac_sha512("key"; "message")`}},
-		{"hmac_sha512_224", 1, 3, "HMAC-SHA512/224 (key, [message], [file])", "HMAC", []string{`hmac_sha512_224("key")`, `hmac_sha512_224("key"; "message")`}},
-		{"hmac_sha512_256", 1, 3, "HMAC-SHA512/256 (key, [message], [file])", "HMAC", []string{`hmac_sha512_256("key")`, `hmac_sha512_256("key"; "message")`}},
+		{"hmac_md5", 1, 3, "HMAC-MD5 (key, [message], [file])", "HMAC", []string{`"message" | hmac_md5("key")`, `hmac_md5("key"; "message")`}},
+		{"hmac_sha1", 1, 3, "HMAC-SHA1 (key, [message], [file])", "HMAC", []string{`"message" | hmac_sha1("key")`, `hmac_sha1("key"; "message")`}},
+		{"hmac_sha224", 1, 3, "HMAC-SHA224 (key, [message], [file])", "HMAC", []string{`"message" | hmac_sha224("key")`, `hmac_sha224("key"; "message")`}},
+		{"hmac_sha256", 1, 3, "HMAC-SHA256 (key, [message], [file])", "HMAC", []string{`"message" | hmac_sha256("key")`, `hmac_sha256("key"; "message")`}},
+		{"hmac_sha384", 1, 3, "HMAC-SHA384 (key, [message], [file])", "HMAC", []string{`"message" | hmac_sha384("key")`, `hmac_sha384("key"; "message")`}},
+		{"hmac_sha512", 1, 3, "HMAC-SHA512 (key, [message], [file])", "HMAC", []string{`"message" | hmac_sha512("key")`, `hmac_sha512("key"; "message")`}},
+		{"hmac_sha512_224", 1, 3, "HMAC-SHA512/224 (key, [message], [file])", "HMAC", []string{`"message" | hmac_sha512_224("key")`, `hmac_sha512_224("key"; "message")`}},
+		{"hmac_sha512_256", 1, 3, "HMAC-SHA512/256 (key, [message], [file])", "HMAC", []string{`"message" | hmac_sha512_256("key")`, `hmac_sha512_256("key"; "message")`}},
 
 		// Timestamp operations
-		{"timestamp_to_date", 0, 2, "Convert Unix timestamp to date (optional file arg)", "Timestamp", []string{`timestamp_to_date`, `1609459200 | timestamp_to_date`}},
-		{"date_to_timestamp", 0, 2, "Convert date to Unix timestamp (optional file arg)", "Timestamp", []string{`date_to_timestamp`, `"2021-01-01T00:00:00Z" | date_to_timestamp`}},
+		{"timestamp_to_date", 0, 2, "Convert Unix timestamp to date (optional file arg)", "Timestamp", []string{`1609459200 | timestamp_to_date`, `now | timestamp_to_date`}},
+		{"date_to_timestamp", 0, 2, "Convert date to Unix timestamp (optional file arg)", "Timestamp", []string{`"2021-01-01T00:00:00Z" | date_to_timestamp`, `"2021-01-01" | date_to_timestamp`}},
 
 		// JSON operations
 		{"json_parse", 0, 2, "Parse JSON string (optional file arg)", "JSON", []string{`json_parse`, `"{\"key\":\"value\"}" | json_parse`}},
 		{"json_stringify", 0, 2, "Convert to JSON string (optional file arg)", "JSON", []string{`json_stringify`, `{"key":"value"} | json_stringify`}},
 
 		// CSV operations
-		{"csv_parse", 0, 3, "Parse CSV (delimiter, [input], [file])", "CSV", []string{`csv_parse`, `csv_parse(",")`, `csv_parse(","; "a,b,c")`}},
-		{"csv_stringify", 0, 3, "Convert to CSV (delimiter, [input], [file])", "CSV", []string{`csv_stringify`, `csv_stringify(",")`, `[[["a","b"]]] | csv_stringify(",")`}},
+		{"csv_parse", 0, 3, "Parse CSV (delimiter, [input], [file])", "CSV", []string{`"a,b,c" | csv_parse`, `"a;b;c" | csv_parse(";")`, `csv_parse(","; "a,b,c")`}},
+		{"csv_stringify", 0, 3, "Convert to CSV (delimiter, [input], [file])", "CSV", []string{`[["a","b"],["1","2"]] | csv_stringify`, `[["a","b"],["1","2"]] | csv_stringify(";")`}},
 
 		// XML operations
-		{"xml_parse", 0, 2, "Parse XML string (optional file arg)", "XML", []string{`xml_parse`, `"<root>test</root>" | xml_parse`}},
+		{"xml_parse", 0, 2, "Parse XML string (optional file arg)", "XML", []string{`"<root>test</root>" | xml_parse`, `"<a><b>1</b></a>" | xml_parse | ._content`}},
 		{"xml_stringify", 0, 2, "Convert to XML string (optional file arg)", "XML", []string{`xml_stringify`, `{"_tag":"root","_content":"test"} | xml_stringify`}},
 
 		// Entropy
-		{"entropy", 0, 2, "Calculate Shannon entropy (optional file arg)", "Entropy", []string{`entropy`, `entropy(true)`, `"hello" | entropy`}},
+		{"entropy", 0, 2, "Calculate Shannon entropy (optional file arg)", "Entropy", []string{`"hello" | entropy`, `"a.bin" | entropy(true)`}},
 
 		// SSDeep (fuzzy hashing)
-		{"ssdeep", 0, 2, "Calculate ssdeep fuzzy hash (optional file arg)", "SSDeep", []string{`ssdeep`, `ssdeep(true)`, `"hello" | ssdeep`}},
-		{"ssdeep_compare", 2, 2, "Compare two ssdeep hashes (hash1, hash2)", "SSDeep", []string{`ssdeep_compare("hash1"; "hash2")`, `ssdeep("text1") | ssdeep_compare(.; ssdeep("text2"))`}},
+		{"ssdeep", 0, 2, "Calculate ssdeep fuzzy hash (optional file arg)", "SSDeep", []string{`read_bytes("firmware.bin") | ssdeep`, `ssdeep("firmware.bin"; true)`}},
+		{"ssdeep_compare", 2, 2, "Compare two ssdeep hashes (hash1, hash2)", "SSDeep", []string{`ssdeep_compare(ssdeep("firmware.bin"; true); ssdeep("firmware2.bin"; true))`}},
 
 		// Tee (write to stderr or file)
 		{"tee", 0, 1, "Write JSON to stderr (default) or file (optional filepath arg)", "File Operations", []string{`tee`, `tee("/tmp/output.json")`, `{"key":"value"} | tee`}},
@@ -109,20 +109,20 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"http_serve", 2, 2, "Start HTTP server (host, port) - returns server URL", "HTTP", []string{`http_serve("127.0.0.1"; 8080)`, `http_serve("0.0.0.0"; 0)`}},
 
 		// Encryption/Decryption
-		{"aes_encrypt", 2, 5, "AES encryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`aes_encrypt("data"; "key")`, `aes_encrypt("data"; "key"; "CBC")`, `aes_encrypt("data"; "key"; "ECB")`}},
-		{"aes_decrypt", 2, 5, "AES decryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=base64])", "Encryption", []string{`aes_decrypt("encrypted"; "key")`, `aes_decrypt("encrypted"; "key"; "CBC")`}},
-		{"des_encrypt", 2, 4, "DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_encrypt("data"; "key")`, `des_encrypt("data"; "key"; "CBC")`}},
-		{"des_decrypt", 2, 4, "DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_decrypt("encrypted"; "key")`, `des_decrypt("encrypted"; "key"; "CBC")`}},
+		{"aes_encrypt", 2, 5, "AES encryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`aes_encrypt("data"; "0123456789abcdef")`, `aes_encrypt("data"; "0123456789abcdef"; "CBC")`, `aes_encrypt("data"; "0123456789abcdef"; "ECB")`}},
+		{"aes_decrypt", 2, 5, "AES decryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=base64])", "Encryption", []string{`aes_encrypt("data"; "0123456789abcdef") | aes_decrypt(.; "0123456789abcdef")`, `aes_encrypt("data"; "0123456789abcdef"; "CBC") | aes_decrypt(.; "0123456789abcdef"; "CBC")`}},
+		{"des_encrypt", 2, 4, "DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_encrypt("data"; "8bytekey")`, `des_encrypt("data"; "8bytekey"; "CBC")`}},
+		{"des_decrypt", 2, 4, "DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`des_encrypt("data"; "8bytekey") | des_decrypt(.; "8bytekey")`, `des_encrypt("data"; "8bytekey"; "CBC") | des_decrypt(.; "8bytekey"; "CBC")`}},
 		// Named triple_des_encrypt rather than 3des_encrypt because jq identifiers
 		// cannot start with a digit; a 3des_encrypt function could never be
 		// called from a query.
-		{"triple_des_encrypt", 2, 4, "Triple DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`triple_des_encrypt("data"; "key")`, `triple_des_encrypt("data"; "key"; "CBC")`}},
-		{"triple_des_decrypt", 2, 4, "Triple DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`triple_des_decrypt("encrypted"; "key")`, `triple_des_decrypt("encrypted"; "key"; "CBC")`}},
-		{"blowfish_encrypt", 2, 4, "Blowfish encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_encrypt("data"; "key")`, `blowfish_encrypt("data"; "key"; "CBC")`}},
-		{"blowfish_decrypt", 2, 4, "Blowfish decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_decrypt("encrypted"; "key")`, `blowfish_decrypt("encrypted"; "key"; "CBC")`}},
-		{"rc4", 1, 3, "RC4 encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`rc4("key")`, `"data" | rc4("key")`}},
-		{"chacha20", 1, 4, "ChaCha20 encryption/decryption (key, [nonce], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`chacha20("key")`, `"data" | chacha20("key")`}},
-		{"xor", 1, 3, "XOR encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`xor("key")`, `"data" | xor("key")`}},
+		{"triple_des_encrypt", 2, 4, "Triple DES encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`triple_des_encrypt("data"; "0123456789abcdef01234567")`, `triple_des_encrypt("data"; "0123456789abcdef01234567"; "CBC")`}},
+		{"triple_des_decrypt", 2, 4, "Triple DES decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`triple_des_encrypt("data"; "0123456789abcdef01234567") | triple_des_decrypt(.; "0123456789abcdef01234567")`, `triple_des_encrypt("data"; "0123456789abcdef01234567"; "CBC") | triple_des_decrypt(.; "0123456789abcdef01234567"; "CBC")`}},
+		{"blowfish_encrypt", 2, 4, "Blowfish encryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_encrypt("data"; "blowfishkey")`, `blowfish_encrypt("data"; "blowfishkey"; "CBC")`}},
+		{"blowfish_decrypt", 2, 4, "Blowfish decryption (data, key, [mode=CBC], [keyFormat=raw])", "Encryption", []string{`blowfish_encrypt("data"; "blowfishkey") | blowfish_decrypt(.; "blowfishkey")`, `blowfish_encrypt("data"; "blowfishkey"; "CBC") | blowfish_decrypt(.; "blowfishkey"; "CBC")`}},
+		{"rc4", 1, 3, "RC4 encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`"secret" | rc4("key")`, `read_bytes("a.bin") | rc4("key")`}},
+		{"chacha20", 1, 4, "ChaCha20 encryption/decryption (key, [nonce], [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`"secret" | chacha20("0123456789abcdef0123456789abcdef")`, `read_bytes("a.bin") | chacha20("0123456789abcdef0123456789abcdef")`}},
+		{"xor", 1, 3, "XOR encryption/decryption (key, [keyFormat=raw], [dataFormat=raw])", "Encryption", []string{`"secret" | xor("key")`, `read_bytes("a.bin") | xor("key")`}},
 
 		// Text utilities
 		{"slugify", 0, 2, "Lowercase string with words joined by hyphens (URL/file safe)", "String", []string{`"Hello World!" | slugify`}},
@@ -166,7 +166,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 
 		// Duration and time
 		{"human_duration", 0, 0, "Seconds as a compact 1d 2h 3m 4s string", "Duration", []string{`3661 | human_duration`}},
-		{"parse_duration", 0, 0, "A duration string like 2h30m to seconds", "Duration", []string{`"2h30m" | parse_duration`}},
+		{"parse_duration", 0, 0, "A duration string to seconds: Go's 2h30m, ISO 8601's P1DT2H3M4S, or the spaced 1d 2h 3m 4s that human_duration writes", "Duration", []string{`"2h30m" | parse_duration`, `"P1DT2H3M4S" | parse_duration`, `93784 | human_duration | parse_duration`}},
 		{"time_ago", 0, 0, "A timestamp rendered relative to now", "Duration", []string{`1700000000 | time_ago`}},
 		{"weekday", 0, 0, "The day name for a timestamp or date", "Duration", []string{`"2026-08-10" | weekday`}},
 		{"is_weekend", 0, 0, "Whether a date is Saturday or Sunday", "Duration", []string{`"2026-08-08" | is_weekend`}},
@@ -389,7 +389,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
 		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},
 		{"add_content", 1, 3, "Append a value to a file, creating it if absent (path, [value], [options])", "PowerShell", []string{`"a line" | add_content("out.log")`, `add_content("out.log"; "a line")`}},
-		{"out_file", 1, 3, "Write a value to a file and pass it on (path, [value], [options])", "PowerShell", []string{`out_file("report.txt")`, `out_file("run.log"; {Append: true})`}},
+		{"out_file", 1, 3, "Write a value to a file and pass it on (path, [value], [options])", "PowerShell", []string{`"a line" | out_file("report.txt")`, `"a line" | out_file("run.log"; {Append: true})`}},
 		{"test_path", 1, 1, "Test if a path exists", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp")`}},
 		{"join_path", 2, 2, "Join path segments", "PowerShell", []string{`join_path("/tmp"; "file.txt")`}},
 		{"split_path", 1, 1, "Split a path into components", "PowerShell", []string{`split_path("/tmp/file.txt")`}},
@@ -410,8 +410,8 @@ func GetFunctionMetadata() []FunctionMetadata {
 		{"get_variable", 0, 2, "Get a variable (name, [options])", "PowerShell", []string{`get_variable("count")`, `get_variable("*")`, `get_variable("name"; {"ValueOnly": true})`}},
 		{"remove_variable", 1, 2, "Remove a variable (name, [options])", "PowerShell", []string{`remove_variable("temp")`, `remove_variable("*"; {"Exclude": "ErrorActionPreference"})`}},
 		// PowerShell - File System (continued)
-		{"copy_item", 2, 3, "Copy an item (source, destination, [options])", "PowerShell", []string{`copy_item("a.txt"; "b.txt")`, `copy_item("src"; "dst"; {"Recurse": true})`}},
-		{"move_item", 2, 3, "Move an item (source, destination, [options])", "PowerShell", []string{`move_item("a.txt"; "b.txt")`}},
+		{"copy_item", 2, 3, "Copy an item (source, destination, [options])", "PowerShell", []string{`copy_item("a.txt"; "a-copy.txt")`, `copy_item("src"; "dst"; {"Recurse": true})`}},
+		{"move_item", 2, 3, "Move an item (source, destination, [options])", "PowerShell", []string{`move_item("draft.txt"; "final.txt")`}},
 		{"new_item", 1, 3, "Create a file or directory (path, [type], [options])", "PowerShell", []string{`new_item("/tmp/d"; "directory")`, `new_item("/tmp/f.txt"; "file")`}},
 		{"resolve_path", 1, 2, "Resolve a path to its absolute form (path, [options])", "PowerShell", []string{`resolve_path("~/..")`, `resolve_path(".")`}},
 
@@ -633,10 +633,10 @@ func GetFunctionMetadata() []FunctionMetadata {
 		// SQLite. Each cmdlet opens the database file for the one call and
 		// closes it again; there is no connection to keep or to hand around.
 		{"invoke_sqlite_query", 1, 3, "One object per row of a SELECT, read from a database file opened read-only (db, sql, [params])", "SQLite", []string{`invoke_sqlite_query("app.db"; "select * from users")`, `invoke_sqlite_query("app.db"; "select * from users where id = ?"; [42])`, `invoke_sqlite_query("app.db"; "select * from users where email = :e"; {e: "a@b.c"})`, `"app.db" | invoke_sqlite_query("select count(*) as n from users") | .n`}},
-		{"invoke_sqlite_command", 1, 3, "Run a statement that changes the database, returning RowsAffected and LastInsertId (db, sql, [params])", "SQLite", []string{`invoke_sqlite_command("app.db"; "create table users (id integer primary key, email text)")`, `invoke_sqlite_command("app.db"; "delete from users where id = ?"; [42]) | .RowsAffected`}},
+		{"invoke_sqlite_command", 1, 3, "Run a statement that changes the database, returning RowsAffected and LastInsertId (db, sql, [params])", "SQLite", []string{`invoke_sqlite_command("app.db"; "create table audit (id integer primary key, at text)")`, `invoke_sqlite_command("app.db"; "delete from users where id = ?"; [42]) | .RowsAffected`}},
 		{"get_sqlite_table", 0, 1, "One object per table and view in a database (Name, Type, Sql)", "SQLite", []string{`[get_sqlite_table("app.db")] | map(.Name)`, `"app.db" | get_sqlite_table | select(.Type == "view") | .Sql`}},
 		{"get_sqlite_schema", 1, 2, "One object per column of a table (Name, Type, NotNull, DefaultValue, IsPrimaryKey)", "SQLite", []string{`[get_sqlite_schema("app.db"; "users")]`, `get_sqlite_table("app.db") | get_sqlite_schema(.Name)`, `[get_sqlite_schema("app.db"; "users") | select(.IsPrimaryKey) | .Name]`}},
-		{"out_sqlite", 2, 3, "Write the piped objects into a table, creating it if needed (db, table, [options])", "SQLite", []string{`[get_childitem(".")] | out_sqlite("files.db"; "files")`, `[get_childitem(".")] | out_sqlite("files.db"; "files"; {Truncate: true}) | .RowCount`}},
+		{"out_sqlite", 2, 3, "Write the piped objects into a table, creating it if needed (db, table, [options])", "SQLite", []string{`[get_childitem(".") | {Name, Length}] | out_sqlite("files.db"; "files")`, `[get_childitem(".") | {Name, Length}] | out_sqlite("files.db"; "files"; {Truncate: true}) | .RowCount`}},
 
 		// Censys Platform. Every one of these authenticates with
 		// CENSYS_PLATFORM_TOKEN and bills the wallet named by

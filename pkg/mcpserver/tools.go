@@ -33,7 +33,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "run_query",
-		Description: "Evaluate a pwrq/jq query against input data. The query language is jq augmented with ~470 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output, plus a description of the shape those values had - which keys the objects carried - so a follow-up query can be written without reading every result. Warns when two stages of a pipeline disagree about how bytes are encoded, which is the way a pwrq query most often succeeds and is still wrong.",
+		Description: "Evaluate a pwrq/jq query against input data. The query language is a strict superset of jq: every jq builtin plus ~490 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output, plus a description of the shape those values had - which keys the objects carried - so a follow-up query can be written without reading every result. Warns when two stages of a pipeline disagree about how bytes are encoded, which is the way a pwrq query most often succeeds and is still wrong.",
 		InputSchema: schemas["run_query"],
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args runQueryArgs) (result *mcp.CallToolResult, structured runQueryResult, err error) {
 		started := time.Now()
@@ -84,7 +84,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_functions",
-		Description: "List pwrq's user-defined functions (cmdlets). Each entry carries the name, argument arity, category, description, aliases and example invocations, plus what the cmdlet emits: whether it streams (and so must be collected with [...]), how its output is encoded when that is not obvious, the keys it reads out of an options object, and the shape and property names of the object it returns. Pass filter to narrow the list: unfiltered it is long. The filter is case-insensitive and matches names, aliases and categories together with descriptions and option names, keeping the description matches whenever the combined list is short enough to stay useful and naming them when it is not; a filter matching nothing comes back with the nearest names instead.",
+		Description: "List pwrq's cmdlets. Each entry carries the name, argument arity, category, description, aliases and example invocations - every example runs as written - plus what the cmdlet emits: whether it streams (and so must be collected with [...]), how its output is encoded when that is not obvious, the keys it reads out of an options object, and the shape and property names of the object it returns. A filtered search also reports the matching functions from jq's own vocabulary, which this catalogue does not otherwise document: pwrq is a strict superset of jq, so ascii_upcase, split, fromjson, to_entries and the rest are callable exactly like cmdlets. Pass filter to narrow the list: unfiltered it is long. The filter is case-insensitive and matches names, aliases and categories together with descriptions and option names, keeping the description matches whenever the combined list is short enough to stay useful and naming them when it is not; a filter matching nothing comes back with the nearest names instead.",
 		InputSchema: schemas["list_functions"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args listFunctionsArgs) (*mcp.CallToolResult, listFunctionsResult, error) {
 		started := time.Now()
@@ -102,7 +102,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate_query",
-		Description: "Check whether a pwrq/jq query parses and compiles against the cmdlet vocabulary, and return the formatted program when it does. A query this accepts will run: unresolvable cmdlet names and wrong arities are caught here, not at run time. Cheap: use it to iterate on a query before running it. Pass the same args you would pass to run_query, so a query that reads $name still compiles. Also reports encoding mismatches: a stage that will encode a hex string rather than the bytes it stands for is valid, runs, and is wrong, and this is where to find that out.",
+		Description: "Check whether a pwrq/jq query parses and compiles against the cmdlet vocabulary, and return the formatted program when it does. A query this accepts will run: unresolvable names and wrong arities, in the cmdlets and in jq's own builtins alike, are caught here rather than at run time. Cheap: use it to iterate on a query before running it. Pass the same args you would pass to run_query, so a query that reads $name still compiles. Also reports encoding mismatches: a stage that will encode a hex string rather than the bytes it stands for is valid, runs, and is wrong, and this is where to find that out.",
 		InputSchema: schemas["validate_query"],
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args validateQueryArgs) (*mcp.CallToolResult, validateQueryResult, error) {
 		started := time.Now()
@@ -197,6 +197,14 @@ const examplesUpTo = 40
 func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 	filter := strings.TrimSpace(args.Filter)
 	if res.Count == 0 {
+		// jq's half of the vocabulary is answered before any dead end is
+		// declared. "no functions match ascii_upcase, and nothing is named
+		// close to it" was this tool's answer about a function that runs, and
+		// a caller who believes it goes and writes the thing by hand.
+		if len(res.Builtins) > 0 {
+			return fmt.Sprintf("no cmdlet matches %q, but %s",
+				filter, strings.TrimSuffix(renderBuiltins(res.Builtins, false), "\n"))
+		}
 		if len(res.Suggestions) == 0 {
 			return fmt.Sprintf("no functions match %q, and nothing is named close to it", filter)
 		}
@@ -267,6 +275,12 @@ func describeFunctions(args listFunctionsArgs, res listFunctionsResult) string {
 		fmt.Fprintf(&sb, "%d more mention %q in their description or options%s\n",
 			len(res.Described), filter, heldBack(res.Described))
 	}
+	// Last, and always: the cmdlets are what the caller asked the catalogue
+	// for, and jq's own functions are the part of the answer the catalogue was
+	// silently leaving out.
+	if len(res.Builtins) > 0 {
+		sb.WriteString(renderBuiltins(res.Builtins, true))
+	}
 	return strings.TrimSuffix(sb.String(), "\n")
 }
 
@@ -322,6 +336,12 @@ func listFunctions(args listFunctionsArgs) listFunctionsResult {
 		Functions: found,
 		Count:     len(found),
 		Matched:   matched,
+	}
+	// Only ever for a filtered search. Unfiltered, the catalogue is already
+	// several hundred entries and appending jq's whole vocabulary to it would
+	// bury the answer rather than complete it.
+	if filter := strings.TrimSpace(args.Filter); filter != "" {
+		res.Builtins = findBuiltins(strings.ToLower(filter))
 	}
 	// The same slice carries the near misses of a failed search and the
 	// held-back matches of a broad one; which it is, is what Matched says.

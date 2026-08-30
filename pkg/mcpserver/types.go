@@ -142,7 +142,7 @@ type listFunctionsResult struct {
 	Functions []functionInfo `json:"functions" jsonschema:"the matching cmdlets"`
 	Count     int            `json:"count" jsonschema:"how many cmdlets matched"`
 	// Matched says which tier of the search answered.
-	Matched string `json:"matched,omitempty" jsonschema:"how the filter matched: name, when it matched a name, alias or category; description, when nothing was named that way and these merely mention it; none, when nothing matched at all"`
+	Matched string `json:"matched,omitempty" jsonschema:"how the filter matched the cmdlet catalogue: name, when it matched a name, alias or category; description, when nothing was named that way and these merely mention it; none, when no cmdlet matched at all - which does not mean nothing did, since builtins is reported separately"`
 	// Suggestions are the nearest names when nothing matched.
 	Suggestions []string `json:"suggestions,omitempty" jsonschema:"names, aliases and categories closest to a filter that matched nothing"`
 	// Described are the cmdlets that matched only on their description or
@@ -152,6 +152,13 @@ type listFunctionsResult struct {
 	// match and is being guessed at, and a caller that cannot tell the two
 	// apart will treat a real answer as a shot in the dark.
 	Described []string `json:"described,omitempty" jsonschema:"cmdlets matching the filter only in their description or options, held back to keep the listed entries' examples; search a narrower term to see them"`
+	// Builtins are the matching jq functions the cmdlet catalogue does not
+	// document. Reported separately from Functions because they are a
+	// different kind of answer: a cmdlet comes with a category, options, a
+	// declared output shape and examples, and a jq builtin comes with a name
+	// and an arity. Merging them would let the second borrow the first's
+	// authority.
+	Builtins []builtin `json:"builtins,omitempty" jsonschema:"matching functions from jq's own vocabulary, which pwrq is a superset of and this catalogue does not document; they are callable exactly like cmdlets"`
 }
 
 // validateQueryArgs asks whether a query parses and compiles.
