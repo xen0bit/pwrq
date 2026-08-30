@@ -93,10 +93,11 @@ def where_capture_not($name; $re): map(select(((.Captures[$name] // "") | test($
 # where_same($a; $b) keeps the matches whose two named holes caught the same
 # text, and where_different($a; $b) keeps the rest.
 #
-# This is what Semgrep writes as one metavariable used twice - `$X == $X` - and
-# it has to be written as two, because a match keeps one capture per name and
-# so a repeated name cannot constrain anything. select_ast refuses a pattern
-# that repeats one, rather than matching everywhere and calling it a hit.
+# A pattern can write one hole twice - `$X == $X` is a comparison of something
+# with itself, and select_ast reads it that way - so this is not how a rule
+# says "the same code in both places" any more. It is for the other question:
+# two holes that were written apart, and a rule that wants to know whether they
+# landed on the same thing after all.
 def where_same($a; $b): map(select(.Captures[$a] != null and .Captures[$a] == .Captures[$b]));
 
 # where_different($a; $b) is the negation, for a rule that needs the two holes

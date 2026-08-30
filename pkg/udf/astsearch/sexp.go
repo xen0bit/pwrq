@@ -49,6 +49,11 @@ const rootCapture = "__pwrq_match"
 // the anonymous variadic.
 const ellipsisName = "_"
 
+// againSuffix names the extra captures a hole written more than once compiles
+// to. A caller never asked for them, so they are dropped from the captures a
+// match reports; see matchObject.
+const againSuffix = "__pwrq_again_"
+
 // sexpr is one form in a tree-sitter query: a parenthesised node pattern, a
 // quoted anonymous token, or a bare word inside a predicate.
 type sexpr struct {
@@ -86,7 +91,7 @@ func (s *sexpr) isEllipsis() bool {
 // A query it cannot parse is returned unchanged. This file exists to make
 // matching stricter, and failing open is the direction that keeps a pattern
 // working when the engine's output grows a shape this parser has not seen.
-func anchorQuery(sexp string, folded map[string]int) string {
+func anchorQuery(sexp string, folded map[string][]int, unit string) string {
 	forms, err := parseSexp(sexp)
 	if err != nil || len(forms) == 0 {
 		return sexp
@@ -99,14 +104,111 @@ func anchorQuery(sexp string, folded map[string]int) string {
 		anchorChildren(form)
 	}
 	// The first form is the pattern; the rest are (#eq? ...) predicates.
-	if forms[0].capture == "" {
+	if unit != "" && forms[0].head == unit {
+		openUnit(forms[0])
+	} else if forms[0].capture == "" {
 		forms[0].capture = rootCapture
 	}
+	forms = append(forms, bindRepeats(forms[0])...)
 	parts := make([]string, len(forms))
 	for i, form := range forms {
 		parts[i] = form.render()
 	}
 	return strings.Join(parts, "\n")
+}
+
+// unitType is what a grammar calls the node holding a whole file - `module` in
+// Python, `source_file` in Go, `program` in JavaScript - or "" when it will
+// not say.
+//
+// It is asked rather than listed, by parsing nothing and reading what came
+// back, because the answer differs for all 206 grammars in this build and a
+// table of them would be wrong the first time one was added.
+func unitType(lang *gotreesitter.Language) string {
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("\n"))
+	if err != nil || tree == nil {
+		return ""
+	}
+	bound := gotreesitter.Bind(tree)
+	defer bound.Release()
+	root := bound.RootNode()
+	if root == nil {
+		return ""
+	}
+	// Copied out: the node it was read from belongs to an arena that Release
+	// hands back.
+	return strings.Clone(root.Type(lang))
+}
+
+// openUnit turns the whole-file node a sequence pattern compiled to back into
+// the "somewhere" the caller meant by it.
+//
+// A pattern of more than one statement has no single node to compile to, so
+// the engine gives it the node the grammar wraps a whole file in - `module`,
+// `source_file`, `program`. The caller did not write that node, and every part
+// of it is wrong as a claim about the code being searched:
+//
+//   - Its type says the statements are at the top of a file. They are usually
+//     in a function body, which is a different node, so the query as compiled
+//     matches nothing at all. The head becomes `_`: some node holds these.
+//   - Its ends say the first statement is the file's first and the last is its
+//     last. The pattern says neither, so the boundary anchors come off. The
+//     anchors between the statements stay: two written with nothing between
+//     them mean adjacent, and $$$_ is how a pattern says otherwise.
+//   - Capturing it would report the whole enclosing block as the match. The
+//     statements are captured instead, so the span runs from the first to the
+//     last of them, which is the code the pattern picked out.
+func openUnit(s *sexpr) {
+	s.head = "_"
+	if len(s.children) > 0 {
+		s.children[0].anchored = false
+	}
+	s.anchoredEnd = false
+	for _, c := range s.children {
+		if c.capture == "" {
+			c.capture = rootCapture
+		}
+	}
+}
+
+// bindRepeats makes a hole the pattern wrote twice mean the same code twice,
+// and returns the predicate forms that say so.
+//
+// `$X == $X` compiles to `(binary_expression left: (_) @X operator: "==" right:
+// (_) @X)`, and one capture name on two nodes does not require the two to be
+// the same: the engine binds whichever it saw last, so the pattern matches
+// `a == b`. The pattern was refused for that reason, and a caller who wanted
+// it had to name the holes apart and compare the captures afterwards.
+//
+// A tree-sitter query can say it directly. Renaming the later occurrences and
+// adding `(#eq? @X @X__pwrq_again_2)` compares the text the two captured,
+// which is what a repeated hole means - and it is what half the corpus this
+// was ported against writes: `$D = request.args`, then `foo($D)`, the same
+// variable in both places.
+//
+// The anonymous variadic is exempt. Every `$$$_` compiles to `@_`, and two of
+// them were never a claim that the two runs are equal.
+func bindRepeats(root *sexpr) []*sexpr {
+	seen := map[string]int{}
+	var preds []*sexpr
+	var walk func(*sexpr)
+	walk = func(n *sexpr) {
+		if c := n.capture; c != "" && c != ellipsisName && c != rootCapture {
+			seen[c]++
+			if nth := seen[c]; nth > 1 {
+				n.capture = fmt.Sprintf("%s%s%d", c, againSuffix, nth)
+				preds = append(preds, &sexpr{
+					head:     "#eq?",
+					children: []*sexpr{{token: "@" + c}, {token: "@" + n.capture}},
+				})
+			}
+		}
+		for _, child := range n.children {
+			walk(child)
+		}
+	}
+	walk(root)
+	return preds
 }
 
 // anchorChildren walks a form and anchors every list of siblings that the
@@ -332,6 +434,38 @@ func isWordByte(c byte) bool {
 	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
+// repeatedCapture returns the first capture name a query binds to more than
+// one node, or "" when each name is on one. It is what bindRepeats is checked
+// against: a name still on two nodes after the rewrite is a pattern whose
+// repeated hole means nothing.
+func repeatedCapture(sexp string) string {
+	forms, err := parseSexp(sexp)
+	if err != nil {
+		return ""
+	}
+	seen := map[string]bool{}
+	var found string
+	var walk func(*sexpr)
+	walk = func(n *sexpr) {
+		if c := n.capture; c != "" && c != ellipsisName && c != rootCapture && found == "" {
+			if seen[c] {
+				found = c
+			}
+			seen[c] = true
+		}
+		for _, child := range n.children {
+			walk(child)
+		}
+	}
+	for _, form := range forms {
+		if strings.HasPrefix(form.head, "#") {
+			continue
+		}
+		walk(form)
+	}
+	return found
+}
+
 // siblingVariadic returns the first named $$$NAME a pattern put beside other
 // children, or "" if it put none there.
 //
@@ -408,7 +542,7 @@ const probePrefix = "pwrqProbe_"
 //
 // It returns nil when the comparison cannot be made, which leaves the pattern
 // as the engine compiled it.
-func bubbleDepths(lang *gotreesitter.Language, pattern string, query *grep.CompiledPattern) map[string]int {
+func bubbleDepths(lang *gotreesitter.Language, pattern string, query *grep.CompiledPattern) map[string][]int {
 	pre, mvars, err := grep.Preprocess(pattern)
 	if err != nil || len(mvars) == 0 {
 		return nil
@@ -427,40 +561,48 @@ func bubbleDepths(lang *gotreesitter.Language, pattern string, query *grep.Compi
 		return nil
 	}
 
-	out := map[string]int{}
+	out := map[string][]int{}
 	for _, mv := range mvars {
 		if mv == nil || mv.Variadic || mv.Wildcard || mv.Name == "" {
 			continue
 		}
-		here, ok := captured[mv.Name]
-		if !ok {
+		here := captured[mv.Name]
+		there := probed[strings.Replace(mv.Placeholder, "__GREP_", probePrefix, 1)]
+		// A hole written more than once is folded by however much the grammar
+		// folded it at each place it was written, which is not the same number
+		// at each: `$D = x` binds $D to an identifier and `foo($D)` binds it
+		// to the argument list around one. The two queries name the
+		// occurrences in the same order, so they are paired off in that order.
+		n := min(len(here), len(there))
+		if n == 0 {
 			continue
 		}
-		there, ok := probed[strings.Replace(mv.Placeholder, "__GREP_", probePrefix, 1)]
-		if !ok {
-			continue
+		depths := make([]int, n)
+		for i := range depths {
+			if d := there[i] - here[i]; d > 0 {
+				depths[i] = d
+			}
 		}
-		if d := there - here; d > 0 {
-			out[mv.Name] = d
-		}
+		out[mv.Name] = depths
 	}
 	return out
 }
 
-// captureDepths maps each capture name to how deep in the query it sits.
-func captureDepths(sexp string) map[string]int {
+// captureDepths maps each capture name to how deep each of its occurrences
+// sits, in the order the query names them.
+func captureDepths(sexp string) map[string][]int {
 	forms, err := parseSexp(sexp)
 	if err != nil {
 		return nil
 	}
-	out := map[string]int{}
+	out := map[string][]int{}
 	for _, form := range forms {
 		if strings.HasPrefix(form.head, "#") {
 			continue
 		}
 		walkDepth(form, 0, func(n *sexpr, depth int) {
 			if n.capture != "" {
-				out[n.capture] = depth
+				out[n.capture] = append(out[n.capture], depth)
 			}
 		})
 	}
@@ -469,7 +611,7 @@ func captureDepths(sexp string) map[string]int {
 
 // literalDepths maps the source text each literal capture stands for to how
 // deep that capture sits, which is what the probe query is read for.
-func literalDepths(sexp string) map[string]int {
+func literalDepths(sexp string) map[string][]int {
 	forms, err := parseSexp(sexp)
 	if err != nil {
 		return nil
@@ -489,14 +631,14 @@ func literalDepths(sexp string) map[string]int {
 		text[name] = strings.ReplaceAll(quoted[1:len(quoted)-1], `\"`, `"`)
 	}
 
-	out := map[string]int{}
+	out := map[string][]int{}
 	for _, form := range forms {
 		if strings.HasPrefix(form.head, "#") {
 			continue
 		}
 		walkDepth(form, 0, func(n *sexpr, depth int) {
 			if lit, ok := text[n.capture]; ok {
-				out[lit] = depth
+				out[lit] = append(out[lit], depth)
 			}
 		})
 	}
@@ -520,15 +662,43 @@ func walkDepth(n *sexpr, depth int, visit func(*sexpr, int)) {
 // dropped both the wrapper and the fact that the wrapper had one child - and
 // putting it back is what makes `f($P)` mean a call with one argument and
 // .Captures.P read that argument.
-func unfold(s *sexpr, depth map[string]int) {
+func unfold(s *sexpr, depth map[string][]int) {
+	// The depths are per occurrence, so the nodes are numbered the way
+	// captureDepths numbered them - by capture name, in query order - before
+	// any of them is rewritten. Rewriting as we walk would renumber the rest.
+	want := map[*sexpr]int{}
+	seen := map[string]int{}
+	var number func(n *sexpr)
+	number = func(n *sexpr) {
+		if n.capture != "" {
+			nth := seen[n.capture]
+			seen[n.capture]++
+			if ds := depth[n.capture]; nth < len(ds) && ds[nth] > 0 {
+				want[n] = ds[nth]
+			}
+		}
+		for _, c := range n.children {
+			if c.isForm() {
+				number(c)
+			}
+		}
+	}
+	number(s)
+	putBack(s, want)
+}
+
+// putBack wraps each hole in the levels the fold removed from it.
+func putBack(s *sexpr, want map[*sexpr]int) {
 	for _, c := range s.children {
-		unfold(c, depth)
+		if c.isForm() {
+			putBack(c, want)
+		}
 	}
 	for i, c := range s.children {
 		// A hole compiles to a leaf - `(_)` for an untyped one, `(string)`
 		// for `$S:string` - so a form with children of its own is structure
 		// the pattern wrote and not a hole to put a level back around.
-		d, ok := depth[c.capture]
+		d, ok := want[c]
 		if !ok || !c.isForm() || len(c.children) > 0 {
 			continue
 		}

@@ -69,10 +69,6 @@ writing a rule.
   so there is nothing to point at. The rules that use it fire on the same code;
   the caret sits further left. `python-subprocess-shell-true` is one.
 
-- **Statement sequences.** `$CONFIG = &tls.Config{...}` then, later,
-  `$CONFIG.InsecureSkipVerify = true` is a claim about two statements in order,
-  and pwrq has no way to say it. `go-tls-skip-verify` approximates it by file.
-
 - **Import resolution.** Semgrep matches `new java.util.Random()` against `new
   Random()` because it resolves the import. pwrq matches what is written, so
   `java-weak-random` names the spelling that appears in the file and will miss
@@ -93,10 +89,10 @@ writing a rule.
   level deeper. The rules match the import path string instead, which finds
   both.
 
-- **A repeated metavariable.** `$X == $X` is refused rather than matched: a
-  match keeps one capture per name, so the second use constrains nothing and
-  the pattern would match `a == b`. Write the two holes separately and compare
-  them with `where_same`, as `go-useless-comparison` does.
+- **A comment between two statements.** A pattern of several statements says
+  the ones written next to each other are next to each other, and a grammar
+  counts a comment as a node in between. `$$$_` between them says "and whatever
+  else", which is how a rule declines to care.
 
 ## Validation
 

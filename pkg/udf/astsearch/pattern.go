@@ -33,13 +33,6 @@ const capturePrefix = "__GREP_CAP_"
 // emits for the parts of a pattern that are text rather than holes.
 var literalPredicate = regexp.MustCompile(`\(#eq\? @[A-Za-z0-9_]+ "((?:[^"\\]|\\.)*)"\)`)
 
-// metaVarUse matches the metavariable forms a pattern can write, so that a
-// name used twice can be counted. It mirrors the engine's own scanner, whose
-// results cannot be used for this: the engine keys its table by name, so by
-// the time it has finished the second use of a name is indistinguishable from
-// the first.
-var metaVarUse = regexp.MustCompile(`\$\$\$([A-Za-z_]\w*)|\$(_)\b|\$([A-Za-z_]\w*)`)
-
 // oneWord matches a pattern that is a single bare identifier. For those - and
 // only those - a query that is one text comparison is the search the caller
 // asked for rather than a symptom of one that failed. See patternProblem.
@@ -88,11 +81,20 @@ func compilePattern(pattern, language string) (*compiled, error) {
 		// compiling it for Java fails - and a JavaScript rule must not die on
 		// the Java beside it. Whether the pattern is code in anything at all
 		// is decided once, at the end, by exhausted.
+		// A pattern of several lines is the usual way to get here: where the
+		// grammar cannot read one of the lines as a statement it folds the
+		// rest of them into one piece of text, and a piece of text with a
+		// newline in it is not a query the engine can even parse.
+		lines := ""
+		if strings.Contains(strings.TrimSpace(pattern), "\n") {
+			lines = "; the pattern spans several lines, and a grammar that cannot follow one " +
+				"of them reads the rest as text rather than as statements"
+		}
 		return &compiled{
 			pattern:  pattern,
 			language: entry.Name,
-			problem: fmt.Sprintf("pattern %q will not compile for %s: %v", pattern,
-				entry.Name, err),
+			problem: fmt.Sprintf("pattern %q will not compile for %s: %v%s", pattern,
+				entry.Name, err, lines),
 		}, nil
 	}
 	c := &compiled{
@@ -114,6 +116,18 @@ func compilePattern(pattern, language string) (*compiled, error) {
 	}
 	if anchored, err := anchorPattern(entry.Language(), pattern, query); err == nil {
 		c.queries[0] = anchored
+	}
+	// A hole written twice is bound to one thing by bindRepeats. If the name
+	// is still on two nodes the rewrite did not happen - the query was a shape
+	// this build could not parse - and the pattern would match wherever the
+	// shape fits whatever the text is, which is not what it says.
+	if name := repeatedCapture(c.query().SExpr); name != "" {
+		c.problem = fmt.Sprintf("pattern %q uses $%s more than once and the query could not be "+
+			"rewritten to require the two to be the same thing, so it would match wherever the "+
+			"shape fits whatever the text is - `$X == $X` matching `a == b`. Give each hole its "+
+			"own name and compare what they caught afterwards, with "+
+			"select(.Captures.A == .Captures.B)", pattern, name)
+		return c, nil
 	}
 	if stmt := statementReading(entry.Language(), pattern, query); stmt != nil {
 		c.queries = append([]*grep.CompiledPattern{stmt}, c.queries...)
@@ -169,7 +183,7 @@ func variadicNames(mvars map[string]*grep.MetaVar) map[string]bool {
 // pattern naming two arguments matches a call that has two. See sexp.go for
 // what the engine does without it.
 func anchorPattern(lang *gotreesitter.Language, pattern string, query *grep.CompiledPattern) (*grep.CompiledPattern, error) {
-	sexp := anchorQuery(query.SExpr, bubbleDepths(lang, pattern, query))
+	sexp := anchorQuery(query.SExpr, bubbleDepths(lang, pattern, query), unitType(lang))
 	if sexp == query.SExpr {
 		return query, nil
 	}
@@ -219,14 +233,6 @@ func patternProblem(pattern, language, sexp string) string {
 			"and $$$NAME where a list does", pattern, language)
 	}
 
-	if name := repeatedMetaVariable(pattern); name != "" {
-		return fmt.Sprintf("pattern %q uses $%s more than once, and the query cannot require "+
-			"the two to be the same thing: a match keeps one capture per name, so the pattern "+
-			"matches wherever the shape fits whatever the text is - `$X == $X` matches `a == b`. "+
-			"Give each hole its own name and compare what they caught afterwards, with "+
-			"select(.Captures.A == .Captures.B)", pattern, name)
-	}
-
 	literals := literalPredicate.FindAllStringSubmatch(sexp, -1)
 	for _, m := range literals {
 		if strings.Contains(m[1], capturePrefix) {
@@ -243,28 +249,6 @@ func patternProblem(pattern, language, sexp string) string {
 		return fmt.Sprintf("pattern %q is not code in %s: the whole pattern compiled to a single "+
 			"piece of text, so the query looks for those characters rather than for the construct "+
 			"they spell; ast_pattern shows what it compiled to", pattern, language)
-	}
-	return ""
-}
-
-// repeatedMetaVariable returns the first hole a pattern names twice, or "" if
-// it names each of them once. Anonymous wildcards are exempt: $_ says "one
-// node, I do not care which", and two of them were never a claim that the two
-// nodes are equal.
-func repeatedMetaVariable(pattern string) string {
-	seen := map[string]bool{}
-	for _, m := range metaVarUse.FindAllStringSubmatch(pattern, -1) {
-		name := m[1]
-		if name == "" {
-			name = m[3]
-		}
-		if name == "" || name == "_" {
-			continue
-		}
-		if seen[name] {
-			return name
-		}
-		seen[name] = true
 	}
 	return ""
 }
