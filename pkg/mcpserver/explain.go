@@ -73,15 +73,45 @@ func arityHint(name string, called int, query string) string {
 		return fmt.Sprintf("%s takes %s, but was called with %s: %s",
 			name, arityRange(c.MinArgs, c.MaxArgs), count(called), callForms(name, arities(c)))
 	}
+	// And then jq's own, on the same terms. `"a,b" | split` is a wrong arity,
+	// not a wrong name, and without this it came back as "no cmdlet is named
+	// split; did you mean split_path?" - which sends the caller to rewrite a
+	// call that only needed its separator.
+	for _, b := range jqBuiltins() {
+		if b.Name != name {
+			continue
+		}
+		if called >= b.MinArgs && called <= b.MaxArgs {
+			return ""
+		}
+		return fmt.Sprintf("%s is a jq builtin taking %s, but was called with %s: %s",
+			name, arityRange(b.MinArgs, b.MaxArgs), count(called),
+			callForms(name, builtinArities(b)))
+	}
 	return ""
+}
+
+// builtinArities expands a builtin's arity range, as arities does for a
+// catalogue entry.
+func builtinArities(b builtin) []int {
+	out := make([]int, 0, b.MaxArgs-b.MinArgs+1)
+	for n := b.MinArgs; n <= b.MaxArgs; n++ {
+		out = append(out, n)
+	}
+	return out
 }
 
 // nameHint covers the other half: a name nothing defines, where what the
 // caller needs is the name they meant.
+//
+// It used to say "no cmdlet is named X", which was true and misleading in the
+// same breath: pwrq is jq plus the cmdlets, so a name being no cmdlet says
+// nothing about whether it exists. Both halves are searched now, and the
+// wording no longer promises that the catalogue is the whole language.
 func nameHint(name string) string {
 	suggestions := suggest(catalogue(), strings.ToLower(name))
 	if len(suggestions) == 0 {
-		return fmt.Sprintf("no cmdlet is named %s; list_functions has the vocabulary", name)
+		return fmt.Sprintf("nothing is named %s; list_functions has the vocabulary, cmdlets and jq's own", name)
 	}
 	// suggest also offers categories, which answer "where would this live"
 	// rather than "what did I mean to type". Only the callable names help here.
@@ -92,9 +122,9 @@ func nameHint(name string) string {
 		}
 	}
 	if len(callable) == 0 {
-		return fmt.Sprintf("no cmdlet is named %s; list_functions has the vocabulary", name)
+		return fmt.Sprintf("nothing is named %s; list_functions has the vocabulary, cmdlets and jq's own", name)
 	}
-	return fmt.Sprintf("no cmdlet is named %s; did you mean %s?", name, strings.Join(callable, ", "))
+	return fmt.Sprintf("nothing is named %s; did you mean %s?", name, strings.Join(callable, ", "))
 }
 
 // localArities reports the arities the query itself defines a name at.
