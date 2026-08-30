@@ -4,13 +4,12 @@ package logfile
 import (
 	"bufio"
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/filewalk"
 	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -118,54 +117,23 @@ func selectStringOptions(args []any) (selectOpts, error) {
 	return o, nil
 }
 
-// matchIter walks the tree and scans files as the caller reads matches.
-//
-// The walk is an explicit stack of directories rather than filepath.WalkDir,
-// because WalkDir pushes: it calls back for every file before returning, which
-// is the whole tree's work done up front. A stack can stop between two files
-// and resume, which is what a lazy stream needs. Entry order is the same either
-// way - os.ReadDir sorts by name, and a directory is descended into where its
-// name falls - so the matches arrive in the order they always did.
+// matchIter scans files as the caller reads matches, walking the tree lazily
+// so that `first(select_string("."; "needle"))` stops at the first hit instead
+// of grepping everything and throwing the rest away.
 type matchIter struct {
 	re    *regexp.Regexp
 	opts  selectOpts
-	stack []*dirFrame // directories still being read, deepest last
-	file  string      // the root, when it is a single file rather than a tree
-	ready []any       // matches from the file most recently scanned
+	walk  *filewalk.Walker
+	ready []any // matches from the file most recently scanned
 	done  bool
 }
 
-// dirFrame is one directory part-way through being read.
-type dirFrame struct {
-	path    string
-	entries []fs.DirEntry
-	next    int
-}
-
 func newMatchIter(root string, re *regexp.Regexp, o selectOpts) (*matchIter, error) {
-	info, err := os.Stat(root)
+	walk, err := filewalk.New(root, o.include)
 	if err != nil {
 		return nil, err
 	}
-	it := &matchIter{re: re, opts: o}
-	if !info.IsDir() {
-		it.file = root
-		return it, nil
-	}
-	frame, err := readDirFrame(root)
-	if err != nil {
-		return nil, err
-	}
-	it.stack = []*dirFrame{frame}
-	return it, nil
-}
-
-func readDirFrame(path string) (*dirFrame, error) {
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-	return &dirFrame{path: path, entries: entries}, nil
+	return &matchIter{re: re, opts: o, walk: walk}, nil
 }
 
 func (it *matchIter) Next() (any, bool) {
@@ -178,7 +146,7 @@ func (it *matchIter) Next() (any, bool) {
 		if it.done {
 			return nil, false
 		}
-		path, ok, err := it.nextFile()
+		path, ok, err := it.walk.Next()
 		if err != nil {
 			it.done = true
 			return fmt.Errorf("select_string: %v", err), true
@@ -194,45 +162,6 @@ func (it *matchIter) Next() (any, bool) {
 		}
 		it.ready = matches
 	}
-}
-
-// nextFile advances the walk to the next file worth scanning.
-func (it *matchIter) nextFile() (string, bool, error) {
-	if it.file != "" {
-		path := it.file
-		it.file = ""
-		return path, true, nil
-	}
-	for len(it.stack) > 0 {
-		frame := it.stack[len(it.stack)-1]
-		if frame.next >= len(frame.entries) {
-			it.stack = it.stack[:len(it.stack)-1]
-			continue
-		}
-		entry := frame.entries[frame.next]
-		frame.next++
-		path := filepath.Join(frame.path, entry.Name())
-		if entry.IsDir() {
-			// Skip the directories nobody means to grep.
-			if name := entry.Name(); name == ".git" || name == "node_modules" || name == "vendor" {
-				continue
-			}
-			child, err := readDirFrame(path)
-			if err != nil {
-				return "", false, err
-			}
-			it.stack = append(it.stack, child)
-			continue
-		}
-		if it.opts.include != "" {
-			ok, err := filepath.Match(it.opts.include, entry.Name())
-			if err != nil || !ok {
-				continue
-			}
-		}
-		return path, true, nil
-	}
-	return "", false, nil
 }
 
 // pendingMatch is a match that has been recorded but is still collecting the
