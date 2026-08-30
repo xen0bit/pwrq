@@ -49,11 +49,19 @@ func RegisterLevenshtein() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("levenshtein: %v", err), nil)
 		}
-		return common.MakeUDFSuccessResult(levenshtein(a, b), nil)
+		return common.MakeUDFSuccessResult(Levenshtein(a, b), nil)
 	})
 }
 
-func levenshtein(a, b string) int {
+// Levenshtein is the edit distance between two strings: the minimum
+// insertions, deletions and substitutions that turn one into the other.
+//
+// It is exported because the cmdlet catalogue needs it too. A caller who
+// filters the catalogue for a name that is not in it gets suggestions rather
+// than an empty list, and "how close are these two names" is exactly this
+// function - so the catalogue borrows it rather than growing a second,
+// slightly different copy that could disagree about which name is nearest.
+func Levenshtein(a, b string) int {
 	ar, br := []rune(a), []rune(b)
 	prev := make([]int, len(br)+1)
 	cur := make([]int, len(br)+1)
@@ -341,7 +349,7 @@ func RegisterSimilarityPercent() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("similarity_percent: %v", err), nil)
 		}
-		distance := levenshtein(a, b)
+		distance := Levenshtein(a, b)
 		maxLen := len([]rune(a))
 		if bl := len([]rune(b)); bl > maxLen {
 			maxLen = bl

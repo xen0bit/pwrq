@@ -21,6 +21,18 @@ const (
 	// maxOutputBytes stops a query whose *values* are enormous even though
 	// there are few of them - `[range(1e7)]` is one result.
 	maxOutputBytes = 64 << 20
+	// defaultMaxValueBytes caps one rendered value, which neither bound above
+	// does: a handful of results, one of them enormous, passes both.
+	//
+	// It exists because the caller here reads the values as text and pays for
+	// all of them. One fetch of a documentation page in a recorded session put
+	// nine kilobytes of Unicode samples into that caller's context - inside
+	// both limits, and none of it what the query was about. Eight kilobytes is
+	// roomy for a value someone means to read and small enough that an
+	// accident stays an accident, and a caller who wants the whole thing says
+	// so with maxBytes.
+	defaultMaxValueBytes = 8 << 10
+	maxMaxValueBytes     = 1 << 20
 )
 
 // execute runs a query to completion under the engine's vocabulary. It is
@@ -55,6 +67,7 @@ func (e *engine) execute(req runQueryArgs) runQueryResult {
 		Args:           args,
 		MaxResults:     queryrun.Clamp(req.Limit, defaultMaxResults, maxMaxResults),
 		MaxOutputBytes: maxOutputBytes,
+		MaxValueBytes:  queryrun.Clamp(req.MaxBytes, defaultMaxValueBytes, maxMaxValueBytes),
 		// The caller is a language model reading the values as text. It cannot
 		// see the output the way a terminal user can, and a run stopped by the
 		// limit gives it no way to know what the rest looked like.
@@ -65,6 +78,7 @@ func (e *engine) execute(req runQueryArgs) runQueryResult {
 		Values:    res.Values,
 		Count:     res.Count,
 		Truncated: res.Truncated,
+		Elided:    res.Elided,
 		Error:     res.Error,
 		Kind:      res.Kind,
 		Shape:     res.Shape,

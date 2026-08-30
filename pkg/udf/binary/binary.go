@@ -11,6 +11,7 @@ import (
 
 // RegisterBinaryEncode registers the binary_encode function with gojq
 func RegisterBinaryEncode() gojq.CompilerOption {
+	common.DeclareEncoding("binary_encode", common.EncodingBinary, "binary_decode")
 	return common.WithFunction("binary_encode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -50,7 +51,7 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("binary_encode: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("binary_encode: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -78,6 +79,7 @@ func RegisterBinaryEncode() gojq.CompilerOption {
 
 // RegisterBinaryDecode registers the binary_decode function with gojq
 func RegisterBinaryDecode() gojq.CompilerOption {
+	common.DeclareEncoding("binary_decode", common.EncodingBytesAsText, "binary_encode")
 	return common.WithFunction("binary_decode", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {

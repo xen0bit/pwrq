@@ -22,4 +22,6 @@ var CommandInfoShape = shape.Fixed("Pwrq.Command",
 	shape.Prop("Input", shape.String, "where it reads its input from, or \"\" when it has not said"),
 	shape.Prop("Shape", shape.String, "one-line summary of the object it emits, or \"\" when it emits none"),
 	shape.Prop("TypeName", shape.String, "the PwrqType its output carries, or \"\"; the key to look this shape up by"),
+	shape.Prop("Returns", shape.String, "how its output is encoded when that is not obvious, or \"\""),
+	shape.Prop("Options", shape.Array, "the keys it reads out of an options object, each {Name, Type, Description}"),
 )

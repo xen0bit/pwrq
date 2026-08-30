@@ -50,18 +50,18 @@ func RegisterJSONParse() gojq.CompilerOption {
 			case string:
 				// Parse JSON string
 				if err := json.Unmarshal([]byte(val), &result); err != nil {
-					return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v", err), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v%s", err, common.Excerpt(val)), nil)
 				}
 			case []byte:
 				// Parse JSON bytes
 				if err := json.Unmarshal(val, &result); err != nil {
-					return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v", err), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v%s", err, common.Excerpt(val)), nil)
 				}
 			default:
 				// Try to convert to string and parse
 				if str, ok := val.(fmt.Stringer); ok {
 					if err := json.Unmarshal([]byte(str.String()), &result); err != nil {
-						return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v", err), nil)
+						return common.MakeUDFErrorResult(fmt.Errorf("json_parse: invalid JSON: %v%s", err, common.Excerpt(val)), nil)
 					}
 				} else {
 					// If it's a simple type (number, bool, null), return as-is
@@ -184,7 +184,8 @@ func RegisterJSONLParse() gojq.CompilerOption {
 		case []byte:
 			input = string(val)
 		default:
-			return common.MakeUDFErrorResult(fmt.Errorf("jsonl_parse: expected a string, got %T", inputVal), nil)
+			return common.MakeUDFErrorResult(
+				fmt.Errorf("jsonl_parse: expected a string, got %T%s", inputVal, common.Excerpt(inputVal)), nil)
 		}
 		var out []any
 		dec := json.NewDecoder(bytes.NewBufferString(input))

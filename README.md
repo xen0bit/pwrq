@@ -620,15 +620,44 @@ server, so an agent can evaluate queries directly. The server exposes three tool
 - **run_query** — evaluate a pwrq/jq query against JSON or raw text input, with
   the full cmdlet vocabulary and the jq flags that matter (`-r`, `-c`, `-s`,
   `-n`), named arguments and per-call result limits and timeouts.
-- **list_functions** — the cmdlet catalogue with arity, description and
-  examples, so an agent knows what it can call.
-- **validate_query** — check that a query parses before running it.
+- **list_functions** — the cmdlet catalogue with arity, description, examples,
+  what the cmdlet emits, how its output is encoded, and the keys it reads out
+  of an options object.
+- **validate_query** — check that a query parses *and compiles* before running
+  it, so a query it accepts will run.
 
-Runs are always bounded — a default timeout and result limit stop a query that
-would otherwise stream forever — and each call gets a fresh session, so no state
-leaks between calls. A result nested more than 10000 levels deep is refused as a
-query error rather than encoded, because encoding it recurses deeply enough to
-exhaust the goroutine stack, which no `recover` can catch.
+Runs are always bounded — a default timeout, a result limit, and an 8KB cap on
+any one result — and each call gets a fresh session, so no state leaks between
+calls. A result nested more than 10000 levels deep is refused as a query error
+rather than encoded, because encoding it recurses deeply enough to exhaust the
+goroutine stack, which no `recover` can catch.
+
+### Answering the questions a caller actually asks
+
+An agent driving this server cannot see what a terminal user sees, so anything
+it is not told, it works out by experiment — and a wrong guess costs a round
+trip each time. Four things it used to have to guess:
+
+- **What a cmdlet is called.** The catalogue filter is case-insensitive across
+  names, aliases and categories, so `hash` finds the eight cmdlets in the
+  category spelled `Hash`. When nothing is named for the search it falls back
+  to descriptions and option keys — `redirect` reaches `invoke_web_request`,
+  which controls them through `AllowAutoRedirect` — and says which of the two
+  answered. When neither does, it offers the nearest names rather than an empty
+  list.
+- **How the output is written.** `zlib_compress` returns a hex string, not raw
+  bytes, and `sha256` does too while `aes_encrypt` returns base64. Every cmdlet
+  whose result is a text rendering of bytes now declares which, and names the
+  cmdlet that reverses it.
+- **What goes in an options object.** The twenty-five cmdlets documented as
+  taking `[options]` list their keys, their types and what each does — including
+  where the casing is fussy, since an unknown key is ignored in silence rather
+  than refused.
+- **What went wrong.** A decoder that turns its input down shows the input:
+  `json_parse: invalid JSON: invalid character 'h' … ; input was "hello world"`.
+  A call that does not resolve says whether the name exists at another arity —
+  `C/0 is not defined - you defined C taking 1 argument` — or offers the name
+  you probably meant.
 
 Over stdio, which Claude Desktop, Cursor and friends launch directly:
 

@@ -15,6 +15,8 @@ import (
 
 // RegisterGzipCompress registers the gzip_compress function with gojq
 func RegisterGzipCompress() gojq.CompilerOption {
+	common.DeclareEncoding("gzip_compress", common.EncodingHex,
+		"gzip_decompress, which takes this hex string as it stands")
 	return common.WithFunction("gzip_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -51,7 +53,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("gzip_compress: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -86,6 +88,7 @@ func RegisterGzipCompress() gojq.CompilerOption {
 
 // RegisterGzipDecompress registers the gzip_decompress function with gojq
 func RegisterGzipDecompress() gojq.CompilerOption {
+	common.DeclareEncoding("gzip_decompress", common.EncodingBytesAsText, "gzip_compress")
 	return common.WithFunction("gzip_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -125,20 +128,20 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 			case []byte:
 				inputBytes = val
 			default:
-				return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: argument must be a string or bytes, got %T", val), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 			}
 		}
 
 		// Decompress with gzip
 		reader, err := gzip.NewReader(bytes.NewReader(inputBytes))
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to create reader: %v%s", err, common.FileFlagHint("gzip_decompress", inputVal)), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to create reader: %v%s", err, common.InputHint("gzip_decompress", inputVal)), nil)
 		}
 		defer func() { _ = reader.Close() }()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to decompress: %v%s", err, common.FileFlagHint("gzip_decompress", inputVal)), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("gzip_decompress: failed to decompress: %v%s", err, common.InputHint("gzip_decompress", inputVal)), nil)
 		}
 
 		meta := map[string]any{
@@ -160,6 +163,8 @@ func RegisterGzipDecompress() gojq.CompilerOption {
 
 // RegisterZlibCompress registers the zlib_compress function with gojq
 func RegisterZlibCompress() gojq.CompilerOption {
+	common.DeclareEncoding("zlib_compress", common.EncodingHex,
+		"zlib_decompress, which takes this hex string as it stands")
 	return common.WithFunction("zlib_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -196,7 +201,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("zlib_compress: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -231,6 +236,7 @@ func RegisterZlibCompress() gojq.CompilerOption {
 
 // RegisterZlibDecompress registers the zlib_decompress function with gojq
 func RegisterZlibDecompress() gojq.CompilerOption {
+	common.DeclareEncoding("zlib_decompress", common.EncodingBytesAsText, "zlib_compress")
 	return common.WithFunction("zlib_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -270,20 +276,20 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 			case []byte:
 				inputBytes = val
 			default:
-				return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: argument must be a string or bytes, got %T", val), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 			}
 		}
 
 		// Decompress with zlib
 		reader, err := zlib.NewReader(bytes.NewReader(inputBytes))
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to create reader: %v%s", err, common.FileFlagHint("zlib_decompress", inputVal)), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to create reader: %v%s", err, common.InputHint("zlib_decompress", inputVal)), nil)
 		}
 		defer func() { _ = reader.Close() }()
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to decompress: %v%s", err, common.FileFlagHint("zlib_decompress", inputVal)), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("zlib_decompress: failed to decompress: %v%s", err, common.InputHint("zlib_decompress", inputVal)), nil)
 		}
 
 		meta := map[string]any{
@@ -305,6 +311,8 @@ func RegisterZlibDecompress() gojq.CompilerOption {
 
 // RegisterDeflateCompress registers the deflate_compress function with gojq
 func RegisterDeflateCompress() gojq.CompilerOption {
+	common.DeclareEncoding("deflate_compress", common.EncodingHex,
+		"deflate_decompress, which takes this hex string as it stands")
 	return common.WithFunction("deflate_compress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -341,7 +349,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("deflate_compress: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
@@ -379,6 +387,7 @@ func RegisterDeflateCompress() gojq.CompilerOption {
 
 // RegisterDeflateDecompress registers the deflate_decompress function with gojq
 func RegisterDeflateDecompress() gojq.CompilerOption {
+	common.DeclareEncoding("deflate_decompress", common.EncodingBytesAsText, "deflate_compress")
 	return common.WithFunction("deflate_decompress", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -418,7 +427,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 			case []byte:
 				inputBytes = val
 			default:
-				return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: argument must be a string or bytes, got %T", val), nil)
+				return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 			}
 		}
 
@@ -428,7 +437,7 @@ func RegisterDeflateDecompress() gojq.CompilerOption {
 
 		decompressed, err := io.ReadAll(reader)
 		if err != nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: failed to decompress: %v%s", err, common.FileFlagHint("deflate_decompress", inputVal)), nil)
+			return common.MakeUDFErrorResult(fmt.Errorf("deflate_decompress: failed to decompress: %v%s", err, common.InputHint("deflate_decompress", inputVal)), nil)
 		}
 
 		meta := map[string]any{

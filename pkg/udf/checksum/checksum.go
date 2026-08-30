@@ -63,6 +63,10 @@ func inputBytes(v any, args []any, name string) ([]byte, error) {
 // registerDigest builds a 0-2 arity cmdlet that hex-encodes a hash over its
 // input.
 func registerDigest(name string, newHash func() hash.Hash) gojq.CompilerOption {
+	// The %x below is the whole reason the catalogue can say these are hex, so
+	// the declaration goes beside it rather than at each of the four call
+	// sites, where one of them would eventually be forgotten.
+	common.DeclareEncoding(name, common.EncodingHex, "")
 	return common.WithFunction(name, 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, name)
 		if err != nil {
@@ -105,6 +109,7 @@ func RegisterAdler32() gojq.CompilerOption {
 
 // RegisterBlake2b256 registers blake2b_256, BLAKE2b truncated to 256 bits.
 func RegisterBlake2b256() gojq.CompilerOption {
+	common.DeclareEncoding("blake2b_256", common.EncodingHex, "")
 	return common.WithFunction("blake2b_256", 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, "blake2b_256")
 		if err != nil {
@@ -117,6 +122,7 @@ func RegisterBlake2b256() gojq.CompilerOption {
 
 // RegisterBlake2b512 registers blake2b_512, full BLAKE2b-512.
 func RegisterBlake2b512() gojq.CompilerOption {
+	common.DeclareEncoding("blake2b_512", common.EncodingHex, "")
 	return common.WithFunction("blake2b_512", 0, 2, func(v any, args []any) any {
 		data, err := inputBytes(v, args, "blake2b_512")
 		if err != nil {
@@ -254,6 +260,7 @@ func RegisterCRC16() gojq.CompilerOption {
 // RegisterPBKDF2SHA256 registers pbkdf2_sha256, a password-derived key from the
 // PBKDF2 key derivation function with SHA-256, as hex.
 func RegisterPBKDF2SHA256() gojq.CompilerOption {
+	common.DeclareEncoding("pbkdf2_sha256", common.EncodingHex, "")
 	return common.WithFunction("pbkdf2_sha256", 1, 3, func(v any, args []any) any {
 		salt, ok := common.BindValue(args[0]).(string)
 		if !ok {
@@ -286,6 +293,7 @@ func RegisterPBKDF2SHA256() gojq.CompilerOption {
 // RegisterArgon2ID registers argon2id_hash, a password-derived key from the
 // Argon2id memory-hard function, as hex.
 func RegisterArgon2ID() gojq.CompilerOption {
+	common.DeclareEncoding("argon2id_hash", common.EncodingHex, "")
 	return common.WithFunction("argon2id_hash", 1, 3, func(v any, args []any) any {
 		salt, ok := common.BindValue(args[0]).(string)
 		if !ok {
@@ -321,6 +329,7 @@ func RegisterArgon2ID() gojq.CompilerOption {
 // RegisterRandomHex registers random_hex, n cryptographically random bytes as a
 // hex string.
 func RegisterRandomHex() gojq.CompilerOption {
+	common.DeclareEncoding("random_hex", common.EncodingHex, "")
 	return common.WithFunction("random_hex", 0, 1, func(v any, args []any) any {
 		n := 16
 		if len(args) > 0 {

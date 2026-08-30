@@ -11,6 +11,7 @@ import (
 
 // RegisterSHA512_224 registers the sha512_224 function with gojq
 func RegisterSHA512_224() gojq.CompilerOption {
+	common.DeclareEncoding("sha512_224", common.EncodingHex, "")
 	return common.WithFunction("sha512_224", 0, 2, func(v any, args []any) any {
 		inputVal, isFile, err := common.ParseFileArgs(v, args)
 		if err != nil {
@@ -56,7 +57,7 @@ func RegisterSHA512_224() gojq.CompilerOption {
 				if str, ok := val.(fmt.Stringer); ok {
 					inputBytes = []byte(str.String())
 				} else {
-					return common.MakeUDFErrorResult(fmt.Errorf("sha512_224: argument must be a string or bytes, got %T", val), nil)
+					return common.MakeUDFErrorResult(fmt.Errorf("sha512_224: argument must be a string or bytes, got %T%s", val, common.Excerpt(val)), nil)
 				}
 			}
 		}
