@@ -4,6 +4,7 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf/aggregate"
 	"github.com/xen0bit/pwrq/pkg/udf/archive"
+	"github.com/xen0bit/pwrq/pkg/udf/astsearch"
 	"github.com/xen0bit/pwrq/pkg/udf/base32"
 	"github.com/xen0bit/pwrq/pkg/udf/base64"
 	"github.com/xen0bit/pwrq/pkg/udf/base85"
@@ -285,6 +286,12 @@ func DefaultRegistry() *Registry {
 	// the CLI only; WebRegistry leaves them out and the IDE marks them
 	// unavailable.
 	for _, opt := range logfile.RegisterAll() {
+		reg.Register(opt)
+	}
+
+	// Structural code search. It reads files, so it is CLI-only like the log
+	// readers above.
+	for _, opt := range astsearch.RegisterAll() {
 		reg.Register(opt)
 	}
 

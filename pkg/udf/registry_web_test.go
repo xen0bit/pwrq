@@ -64,6 +64,11 @@ func TestWebRegistryExcludesTheUnavailable(t *testing.T) {
 		"sh",
 		// Line-oriented log readers
 		"head", "tail", "grep_lines", "wc_lines",
+		// Structural code search, which walks a tree of files. ast_pattern
+		// and get_ast_language are pure and would work, but they exist to
+		// serve select_ast, and offering the two halves of a tool whose
+		// third half cannot run is worse than offering none of it.
+		"select_ast", "ast_pattern", "get_ast_language",
 		// Host lookups and PATH searches
 		"resolve_host", "reverse_dns", "which",
 		// User-database path helpers

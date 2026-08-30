@@ -13,6 +13,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24
 	github.com/mattn/go-runewidth v0.0.19
 	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/odvcencio/gotreesitter v0.51.0
 	golang.org/x/crypto v0.51.0
 	golang.org/x/net v0.55.0
 	golang.org/x/text v0.39.0
