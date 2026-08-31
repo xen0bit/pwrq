@@ -1,0 +1,11 @@
+# rules: detect-gemini
+# from: ai/python/detect-gemini.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "import google.generativeai"
+    ])) as $all
+    | ( $all | of(["import google.generativeai"])
+        | finding("detect-gemini";
+            "Possibly found usage of AI: Gemini") ) )
+| report

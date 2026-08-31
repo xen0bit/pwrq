@@ -1,0 +1,11 @@
+# rules: https-equiv
+# from: html/correctness/https-equiv.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.html"]; [
+      "<meta $$$_ https-equiv=$$$_>"
+    ])) as $all
+    | ( $all | of(["<meta $$$_ https-equiv=$$$_>"])
+        | finding("https-equiv";
+            "The correct attribute name for this meta tag is `http-equiv`, not `https-equiv`.") ) )
+| report

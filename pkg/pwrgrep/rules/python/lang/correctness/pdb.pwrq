@@ -1,0 +1,12 @@
+# rules: pdb-remove
+# from: python/lang/correctness/pdb.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "pdb.$X($$$_)",
+      "pdb.Pdb.$X($$$_)"
+    ])) as $all
+    | ( $all | of(["pdb.$X($$$_)","pdb.Pdb.$X($$$_)"])
+        | finding("pdb-remove";
+            "pdb is an interactive debugging tool and you may have forgotten to remove it before committing your code") ) )
+| report

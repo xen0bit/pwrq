@@ -1,0 +1,11 @@
+# rules: detect-angular-sce-disabled
+# from: javascript/angular/security/detect-angular-sce-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$sceProvider.enabled(false);"
+    ])) as $all
+    | ( $all | of(["$sceProvider.enabled(false);"])
+        | finding("detect-angular-sce-disabled";
+            "$sceProvider is set to false.") ) )
+| report

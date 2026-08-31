@@ -1,0 +1,11 @@
+# rules: deprecated-pervasives
+# from: ocaml/lang/compatibility/deprecated.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "Pervasives.$X"
+    ])) as $all
+    | ( $all | of(["Pervasives.$X"])
+        | finding("deprecated-pervasives";
+            "Pervasives is deprecated and will not be available after 4.10.") ) )
+| report

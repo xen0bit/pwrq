@@ -1,0 +1,14 @@
+# rules: parsing-external-entities-enabled
+# from: go/lang/security/audit/xxe/parsing-external-entities-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"github.com/lestrrat-go/libxml2/parser\"",
+      "$PARSER := parser.New(parser.XMLParseNoEnt)",
+      "import (\"github.com/lestrrat-go/libxml2/parser\")\n$$$_"
+    ])) as $all
+    | ( $all | of(["$PARSER := parser.New(parser.XMLParseNoEnt)"])
+          | in_files_with($all | of(["import (\"github.com/lestrrat-go/libxml2/parser\")\n$$$_","\"github.com/lestrrat-go/libxml2/parser\""]))
+        | finding("parsing-external-entities-enabled";
+            "Detected enabling of \"XMLParseNoEnt\", which allows parsing of external entities and can lead to XXE if user controlled data is parsed by the library.") ) )
+| report

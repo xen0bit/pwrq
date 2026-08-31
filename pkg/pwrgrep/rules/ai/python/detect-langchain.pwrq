@@ -1,0 +1,20 @@
+# rules: detect-langchain
+# from: ai/python/detect-langchain.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "ChatAnthropic($$$_)",
+      "ChatCohere($$$_)",
+      "ChatOpenAI($$$_)",
+      "Ollama($$$_)",
+      "import langchain",
+      "import langchain_anthropic",
+      "import langchain_cohere",
+      "import langchain_community",
+      "import langchain_core",
+      "import langchain_openai"
+    ])) as $all
+    | ( $all | of(["import langchain_openai","ChatOpenAI($$$_)","import langchain_community","Ollama($$$_)","import langchain_anthropic","ChatAnthropic($$$_)","import langchain_cohere","ChatCohere($$$_)","import langchain_core","import langchain"])
+        | finding("detect-langchain";
+            "Possibly found usage of AI tooling: LangChain") ) )
+| report

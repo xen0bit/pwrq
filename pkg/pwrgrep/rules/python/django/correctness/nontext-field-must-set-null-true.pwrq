@@ -1,0 +1,41 @@
+# rules: nontext-field-must-set-null-true
+# from: python/django/correctness/nontext-field-must-set-null-true.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$F = $X($$$_, blank=True, $$$_)",
+      "$F = $X($$$_, null=True, blank=True, $$$_)",
+      "$F = ckeditor.fields.RichTextField($$$_)",
+      "$F = django.contrib.gis.db.models.$MODEL($$$_)",
+      "$F = django.db.models.CharField($$$_)",
+      "$F = django.db.models.EmailField($$$_)",
+      "$F = django.db.models.FileField($$$_)",
+      "$F = django.db.models.ImageField($$$_)",
+      "$F = django.db.models.ManyToManyField($$$_)",
+      "$F = django.db.models.NullBooleanField($$$_)",
+      "$F = django.db.models.SlugField($$$_)",
+      "$F = django.db.models.TextField($$$_)",
+      "$F = django.db.models.URLField($$$_)",
+      "$F = django.db.models.UUIDField($$$_)",
+      "$F = phonenumber_field.modelfields.PhoneNumberField($$$_)",
+      "class $M($$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["$F = $X($$$_, blank=True, $$$_)"])
+          | within($all | of(["class $M($$$_):\n  $$$_"]))
+          | not_at($all | of(["$F = django.db.models.CharField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.TextField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.SlugField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.EmailField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.FileField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.ImageField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.URLField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.UUIDField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.ManyToManyField($$$_)"]))
+          | not_at($all | of(["$F = django.db.models.NullBooleanField($$$_)"]))
+          | not_at($all | of(["$F = django.contrib.gis.db.models.$MODEL($$$_)"]))
+          | not_at($all | of(["$F = phonenumber_field.modelfields.PhoneNumberField($$$_)"]))
+          | not_at($all | of(["$F = ckeditor.fields.RichTextField($$$_)"]))
+          | not_at($all | of(["$F = $X($$$_, null=True, blank=True, $$$_)"]))
+        | finding("nontext-field-must-set-null-true";
+            "null=True should be set if blank=True is set on non-text fields.") ) )
+| report

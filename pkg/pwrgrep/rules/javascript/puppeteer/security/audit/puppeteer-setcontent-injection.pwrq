@@ -1,0 +1,18 @@
+# rules: puppeteer-setcontent-injection
+# from: javascript/puppeteer/security/audit/puppeteer-setcontent-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$$$_\"",
+      "$PAGE.setContent(\"$$$_\",$$$_)",
+      "$PAGE.setContent($INPUT,$$$_)",
+      "require('puppeteer');\n$$$_",
+      "require('puppeteer');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_"
+    ])) as $all
+    | ( $all | of(["$PAGE.setContent($INPUT,$$$_)"])
+          | in_files_with($all | of(["require('puppeteer');\n$$$_"]))
+          | in_files_without($all | of(["require('puppeteer');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_","\"$$$_\""]))
+          | not_at($all | of(["$PAGE.setContent(\"$$$_\",$$$_)"]))
+        | finding("puppeteer-setcontent-injection";
+            "If unverified user data can reach the `setContent` method it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

@@ -1,0 +1,49 @@
+# rules: pg-orm-sqli
+# from: go/lang/security/audit/sqli/pg-orm-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"$$$_\"",
+      "\"$IMPORT\"",
+      "$DB = pg.Connect($$$_)\n$$$_",
+      "$DB.$INTFUNC1($$$_).$METHOD($$$_, \"$$$_\", $$$_).$INTFUNC2($$$_)",
+      "$DB.$INTFUNC1($$$_).$METHOD($$$_, $X + $Y, $$$_).$INTFUNC2($$$_)",
+      "$DB.$METHOD($$$_, fmt.Sprintf(\"$$$_\", $PARAM1, $$$_), $$$_)",
+      "$DB.$METHOD($$$_,\"$$$_\",$$$_)",
+      "$DB.$METHOD($$$_,$QUERY,$$$_)",
+      "$QUERY += \"$$$_\"\n$$$_",
+      "$QUERY += $X\n$$$_",
+      "$QUERY = \"$$$_\" + \"$$$_\"",
+      "$QUERY = \"$$$_\" + \"$$$_\"\n$$$_",
+      "$QUERY = $X + $Y\n$$$_",
+      "$QUERY = fmt.Sprintf(\"$$$_\", $$$_,\"$$$_\", $$$_)\n$$$_",
+      "$QUERY = fmt.Sprintf(\"$$$_\", $PARAM1, $$$_)\n$$$_",
+      "filepath.Join($$$_)",
+      "func $FUNCNAME($$$_, $DB *pg.DB, $$$_) {\n  $$$_\n}",
+      "import (\n  $$$_\n  \"$IMPORT\"\n)\n$$$_",
+      "path.Join($$$_)"
+    ])) as $all
+    | ( ($all | of(["$DB.$METHOD($$$_,$QUERY,$$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)))
+          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"])))
+          + ($all | of(["$DB.$INTFUNC1($$$_).$METHOD($$$_, $X + $Y, $$$_).$INTFUNC2($$$_)"]))
+          + ($all | of(["$DB.$METHOD($$$_, fmt.Sprintf(\"$$$_\", $PARAM1, $$$_), $$$_)"]))
+          + ($all)
+          + ($all)
+          | in_files_with($all | of(["import (\n  $$$_\n  \"$IMPORT\"\n)\n$$$_","\"$IMPORT\""]))
+          | where_capture("IMPORT"; ".*go-pg")
+          | in_files_without($all | of(["$QUERY = fmt.Sprintf(\"$$$_\", $$$_,\"$$$_\", $$$_)\n$$$_"]))
+          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
+          | not_at($all | of(["$DB.$METHOD($$$_,\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$DB.$INTFUNC1($$$_).$METHOD($$$_, \"$$$_\", $$$_).$INTFUNC2($$$_)"]))
+          | outside($all | of(["$QUERY = \"$$$_\" + \"$$$_\""]))
+          | not_at($all | of(["\"$$$_\""]))
+          | not_at($all | of(["path.Join($$$_)"]))
+          | not_at($all | of(["filepath.Join($$$_)"]))
+          | where_capture("METHOD"; "^(Where|WhereOr|Join|GroupExpr|OrderExpr|ColumnExpr)$")
+        | finding("pg-orm-sqli";
+            "Detected string concatenation with a non-literal variable in a go-pg ORM SQL statement.") ) )
+| report

@@ -1,0 +1,12 @@
+# rules: detect-gemini
+# from: ai/go/detect-gemini.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "genai.NewClient($$$_)",
+      "import \"github.com/google/generative-ai-go\""
+    ])) as $all
+    | ( $all | of(["import \"github.com/google/generative-ai-go\"","genai.NewClient($$$_)"])
+        | finding("detect-gemini";
+            "Possibly found usage of AI: Gemini") ) )
+| report

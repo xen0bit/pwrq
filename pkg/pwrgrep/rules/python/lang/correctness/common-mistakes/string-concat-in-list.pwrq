@@ -1,0 +1,19 @@
+# rules: string-concat-in-list
+# from: python/lang/correctness/common-mistakes/string-concat-in-list.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_\" \"$$$_\"",
+      "[$$$_]",
+      "f\"$$$_\"",
+      "{$$$_, $KEY: $VALUE, $$$_}",
+      "{$$$_}"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["\"$$$_\" \"$$$_\""])))
+          | outside($all | of(["f\"$$$_\""]))
+          | outside($all | of(["{$$$_, $KEY: $VALUE, $$$_}"]))
+        | finding("string-concat-in-list";
+            "Detected strings that are implicitly concatenated inside a list.") ) )
+| report

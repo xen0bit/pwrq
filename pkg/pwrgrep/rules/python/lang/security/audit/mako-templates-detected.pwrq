@@ -1,0 +1,11 @@
+# rules: mako-templates-detected
+# from: python/lang/security/audit/mako-templates-detected.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "mako.template.Template($$$_)"
+    ])) as $all
+    | ( $all | of(["mako.template.Template($$$_)"])
+        | finding("mako-templates-detected";
+            "Mako templates do not provide a global HTML escaping mechanism.") ) )
+| report

@@ -1,0 +1,12 @@
+# rules: xssrequestwrapper-is-insecure
+# from: java/lang/security/audit/xssrequestwrapper-is-insecure.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$P = $X.compile(\"</script>\", $X.CASE_INSENSITIVE);\n$V = $P.matcher($$$_).replaceAll(\"\");",
+      "class XSSRequestWrapper extends HttpServletRequestWrapper {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["class XSSRequestWrapper extends HttpServletRequestWrapper {\n  $$$_\n}","$P = $X.compile(\"</script>\", $X.CASE_INSENSITIVE);\n$V = $P.matcher($$$_).replaceAll(\"\");"])
+        | finding("xssrequestwrapper-is-insecure";
+            "It looks like you're using an implementation of XSSRequestWrapper from dzone.") ) )
+| report

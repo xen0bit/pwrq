@@ -1,0 +1,13 @@
+# rules: prohibit-jquery-html
+# from: javascript/jquery/security/audit/prohibit-jquery-html.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$X.html(\"$$$_\",$$$_)",
+      "$X.html($$$_)"
+    ])) as $all
+    | ( $all | of(["$X.html($$$_)"])
+          | not_at($all | of(["$X.html(\"$$$_\",$$$_)"]))
+        | finding("prohibit-jquery-html";
+            "JQuery's `html` function is susceptible to Cross Site Scripting (XSS) attacks.") ) )
+| report

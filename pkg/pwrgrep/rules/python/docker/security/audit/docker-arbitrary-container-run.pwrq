@@ -1,0 +1,20 @@
+# rules: docker-arbitrary-container-run
+# from: python/docker/security/audit/docker-arbitrary-container-run.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CLIENT = docker.DockerClient($$$_)\n$$$_",
+      "$CLIENT = docker.from_env()\n$$$_",
+      "$CLIENT.containers.create(\"$$$_\",$$$_)",
+      "$CLIENT.containers.create($$$_)",
+      "$CLIENT.containers.run(\"$$$_\",$$$_)",
+      "$CLIENT.containers.run($$$_)"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["$CLIENT.containers.run($$$_)","$CLIENT.containers.create($$$_)"])))
+          | not_at($all | of(["$CLIENT.containers.run(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$CLIENT.containers.create(\"$$$_\",$$$_)"]))
+        | finding("docker-arbitrary-container-run";
+            "If unverified user data can reach the `run` or `create` method it can result in running arbitrary container.") ) )
+| report

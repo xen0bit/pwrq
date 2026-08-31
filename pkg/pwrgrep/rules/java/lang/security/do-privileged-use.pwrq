@@ -1,0 +1,14 @@
+# rules: do-privileged-use
+# from: java/lang/security/do-privileged-use.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "AccessController.doPrivileged($$$_);",
+      "class $ACTION implements PrivilegedAction<Void> { $$$_ }",
+      "import java.security.*;\n$$$_"
+    ])) as $all
+    | ( $all | of(["AccessController.doPrivileged($$$_);","class $ACTION implements PrivilegedAction<Void> { $$$_ }"])
+          | in_files_with($all | of(["import java.security.*;\n$$$_"]))
+        | finding("do-privileged-use";
+            "Marking code as privileged enables a piece of trusted code to temporarily enable access to more resources than are available directly to the code that called it.") ) )
+| report

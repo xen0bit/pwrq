@@ -1,0 +1,22 @@
+# rules: dangerous-asyncio-shell-audit
+# from: python/lang/security/audit/dangerous-asyncio-shell-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_\"",
+      "$CMD = \"$$$_\"\n$$$_",
+      "$LOOP.subprocess_shell($PROTOCOL, \"$$$_\")",
+      "$LOOP.subprocess_shell($PROTOCOL, $CMD)",
+      "asyncio.create_subprocess_shell(\"$$$_\", $$$_)",
+      "asyncio.create_subprocess_shell($CMD, $$$_)",
+      "asyncio.subprocess.create_subprocess_shell(\"$$$_\", $$$_)",
+      "asyncio.subprocess.create_subprocess_shell($CMD, $$$_)"
+    ])) as $all
+    | ( $all | of(["$LOOP.subprocess_shell($PROTOCOL, $CMD)","asyncio.subprocess.create_subprocess_shell($CMD, $$$_)","asyncio.create_subprocess_shell($CMD, $$$_)"])
+          | in_files_without($all | of(["$CMD = \"$$$_\"\n$$$_","\"$$$_\""]))
+          | not_at($all | of(["$LOOP.subprocess_shell($PROTOCOL, \"$$$_\")"]))
+          | not_at($all | of(["asyncio.subprocess.create_subprocess_shell(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["asyncio.create_subprocess_shell(\"$$$_\", $$$_)"]))
+        | finding("dangerous-asyncio-shell-audit";
+            "Detected asyncio subprocess function without a static string.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: xml-external-entities-enabled
+# from: ruby/rails/security/audit/xxe/xml-external-entities-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "LibXML::XML.class_eval do\n  $$$_\nend",
+      "XML.class_eval do\n  $$$_\nend",
+      "XML.default_substitute_entities = true"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["XML.default_substitute_entities = true"])))
+        | finding("xml-external-entities-enabled";
+            "This application is explicitly enabling external entities enabling an attacker to inject malicious XML to exploit an XML External Entities (XXE) vulnerability.") ) )
+| report

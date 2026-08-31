@@ -1,0 +1,12 @@
+# rules: wp-file-manipulation-audit
+# from: php/wordpress-plugins/security/audit/wp-file-manipulation-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "unlink($$$_)",
+      "wp_delete_file($$$_)"
+    ])) as $all
+    | ( $all | of(["unlink($$$_)","wp_delete_file($$$_)"])
+        | finding("wp-file-manipulation-audit";
+            "These functions can be used to delete the files if the data inside the functions are user controlled.") ) )
+| report

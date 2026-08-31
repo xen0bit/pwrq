@@ -1,0 +1,44 @@
+# rules: globals-misuse-code-execution
+# from: python/django/security/injection/code/globals-misuse-code-execution.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$DATA = request.$W\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)",
+      "def $FUNC($$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals().get($DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals().get(\"$$$_\" % $DATA, $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals().get(f\"$$$_{$DATA}$$$_\", $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals().get(\"$$$_\".format($$$_, $DATA, $$$_), $$$_)\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals()[$DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals()[\"$$$_\" % $DATA]\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals()[f\"$$$_{$DATA}$$$_\"]\n$$$_\n$INTERM($$$_)","$DATA = request.$W\n$$$_\n$INTERM = globals()[\"$$$_\".format($$$_, $DATA, $$$_)]\n$$$_\n$INTERM($$$_)"])
+          | within($all | of(["def $FUNC($$$_):\n  $$$_"]))
+        | finding("globals-misuse-code-execution";
+            "Found request data as an index to 'globals()'.") ) )
+| report

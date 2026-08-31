@@ -1,0 +1,11 @@
+# rules: telnetlib
+# from: python/lang/security/audit/telnetlib.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "telnetlib.$ANYTHING($$$_)"
+    ])) as $all
+    | ( $all | of(["telnetlib.$ANYTHING($$$_)"])
+        | finding("telnetlib";
+            "Telnet does not encrypt communications.") ) )
+| report

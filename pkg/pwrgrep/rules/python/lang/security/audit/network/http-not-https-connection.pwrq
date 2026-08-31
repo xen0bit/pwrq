@@ -1,0 +1,12 @@
+# rules: http-not-https-connection
+# from: python/lang/security/audit/network/http-not-https-connection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "urllib3.HTTPConnectionPool($$$_)",
+      "urllib3.connectionpool.HTTPConnectionPool($$$_)"
+    ])) as $all
+    | ( $all | of(["urllib3.HTTPConnectionPool($$$_)","urllib3.connectionpool.HTTPConnectionPool($$$_)"])
+        | finding("http-not-https-connection";
+            "Detected HTTPConnectionPool.") ) )
+| report

@@ -1,0 +1,31 @@
+# rules: avoid_hardcoded_config_TESTING, avoid_hardcoded_config_SECRET_KEY, avoid_hardcoded_config_ENV, avoid_hardcoded_config_DEBUG
+# from: python/flask/security/audit/hardcoded-config.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$M.config['DEBUG'] = False",
+      "$M.config['DEBUG'] = True",
+      "$M.config['ENV'] = \"=~/^development|production$/\"",
+      "$M.config['SECRET_KEY'] = \"=~/.*/\"",
+      "$M.config['TESTING'] = False",
+      "$M.config['TESTING'] = True",
+      "$M.update(DEBUG=False)",
+      "$M.update(DEBUG=True)",
+      "$M.update(ENV=\"=~/^development|production$/\")",
+      "$M.update(SECRET_KEY=\"=~/.*/\")",
+      "$M.update(TESTING=False, $$$_)",
+      "$M.update(TESTING=True, $$$_)"
+    ])) as $all
+    | ( $all | of(["$M.config['TESTING'] = True","$M.config['TESTING'] = False","$M.update(TESTING=True, $$$_)","$M.update(TESTING=False, $$$_)"])
+        | finding("avoid_hardcoded_config_TESTING";
+            "Hardcoded variable `TESTING` detected.") )
+      + ( $all | of(["$M.update(SECRET_KEY=\"=~/.*/\")","$M.config['SECRET_KEY'] = \"=~/.*/\""])
+        | finding("avoid_hardcoded_config_SECRET_KEY";
+            "Hardcoded variable `SECRET_KEY` detected.") )
+      + ( $all | of(["$M.update(ENV=\"=~/^development|production$/\")","$M.config['ENV'] = \"=~/^development|production$/\""])
+        | finding("avoid_hardcoded_config_ENV";
+            "Hardcoded variable `ENV` detected.") )
+      + ( $all | of(["$M.update(DEBUG=True)","$M.update(DEBUG=False)","$M.config['DEBUG'] = True","$M.config['DEBUG'] = False"])
+        | finding("avoid_hardcoded_config_DEBUG";
+            "Hardcoded variable `DEBUG` detected.") ) )
+| report

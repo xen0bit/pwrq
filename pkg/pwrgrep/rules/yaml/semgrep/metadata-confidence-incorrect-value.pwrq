@@ -1,0 +1,21 @@
+# rules: metadata-confidence-incorrect-value
+# from: yaml/semgrep/metadata-confidence-incorrect-value.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "confidence: $VALUE",
+      "confidence: HIGH",
+      "confidence: LOW",
+      "confidence: MEDIUM",
+      "metadata: \n  $$$_\n  category: security\n  $$$_",
+      "rules: \n  $$$_"
+    ])) as $all
+    | ( $all | of(["confidence: $VALUE"])
+          | within($all | of(["rules: \n  $$$_"]))
+          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
+          | not_at($all | of(["confidence: LOW"]))
+          | not_at($all | of(["confidence: MEDIUM"]))
+          | not_at($all | of(["confidence: HIGH"]))
+        | finding("metadata-confidence-incorrect-value";
+            "Semgrep rule confidence: $VALUE detected, but the value must be LOW, MEDIUM, or HIGH.") ) )
+| report

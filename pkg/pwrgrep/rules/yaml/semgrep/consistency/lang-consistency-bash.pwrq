@@ -1,0 +1,14 @@
+# rules: lang-consistency-bash
+# from: yaml/semgrep/consistency/lang-consistency-bash.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$X",
+      "languages: $$$_"
+    ])) as $all
+    | ( $all | of(["$X"])
+          | within($all | of(["languages: $$$_"]))
+          | where_capture("X"; "^(sh)$")
+        | finding("lang-consistency-bash";
+            "Found '$X' in language config which diverges from semgrep.dev normalization.") ) )
+| report

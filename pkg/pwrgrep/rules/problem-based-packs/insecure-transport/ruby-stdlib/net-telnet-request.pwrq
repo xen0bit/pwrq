@@ -1,0 +1,12 @@
+# rules: net-telnet-request
+# from: problem-based-packs/insecure-transport/ruby-stdlib/net-telnet-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "Net::SSH::Telnet.new($$$_)",
+      "Net::Telnet::new($$$_)"
+    ])) as $all
+    | ( $all | of(["Net::Telnet::new($$$_)","Net::SSH::Telnet.new($$$_)"])
+        | finding("net-telnet-request";
+            "Checks for creation of telnet servers or attempts to connect through telnet.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: dangerous-execution
+# from: go/otto/security/audit/dangerous-execution.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$VM = otto.New($$$_)\n$$$_",
+      "$VM.Run(\"$$$_\", $$$_)",
+      "$VM.Run($$$_)"
+    ])) as $all
+    | ( $all | of(["$VM.Run($$$_)"])
+          | in_files_with($all | of(["$VM = otto.New($$$_)\n$$$_"]))
+          | not_at($all | of(["$VM.Run(\"$$$_\", $$$_)"]))
+        | finding("dangerous-execution";
+            "Detected non-static script inside otto VM.") ) )
+| report

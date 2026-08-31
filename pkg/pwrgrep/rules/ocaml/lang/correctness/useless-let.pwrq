@@ -1,0 +1,11 @@
+# rules: useless-let
+# from: ocaml/lang/correctness/useless-let.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "let $X = $E in $X"
+    ])) as $all
+    | ( $all | of(["let $X = $E in $X"])
+        | finding("useless-let";
+            "Useless let") ) )
+| report

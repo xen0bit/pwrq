@@ -1,0 +1,13 @@
+# rules: create-with
+# from: ruby/lang/security/create-with.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$FUNC.create_with($PARAMSA)",
+      "$FUNC.create_with($PARAMSB.permit($$$_))"
+    ])) as $all
+    | ( $all | of(["$FUNC.create_with($PARAMSA)"])
+          | not_at($all | of(["$FUNC.create_with($PARAMSB.permit($$$_))"]))
+        | finding("create-with";
+            "Checks for strong parameter bypass through usage of create_with.") ) )
+| report

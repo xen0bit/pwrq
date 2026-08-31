@@ -1,0 +1,64 @@
+# rules: xss-send-mail-html-message
+# from: python/django/security/injection/email/xss-send-mail-html-message.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A = django.core.mail.send_mail($$$_, html_message=request.$W($$$_), $$$_)",
+      "$A = django.core.mail.send_mail($$$_, html_message=request.$W, $$$_)",
+      "$A = django.core.mail.send_mail($$$_, html_message=request.$W.get($$$_), $$$_)",
+      "$A = django.core.mail.send_mail($$$_, html_message=request.$W[$$$_], $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)",
+      "$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)",
+      "$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)",
+      "$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)",
+      "def $FUNC($$$_):\n  $$$_",
+      "django.core.mail.send_mail($$$_, html_message=request.$W($$$_), $$$_)",
+      "django.core.mail.send_mail($$$_, html_message=request.$W, $$$_)",
+      "django.core.mail.send_mail($$$_, html_message=request.$W.get($$$_), $$$_)",
+      "django.core.mail.send_mail($$$_, html_message=request.$W[$$$_], $$$_)",
+      "return django.core.mail.send_mail($$$_, html_message=request.$W($$$_), $$$_)",
+      "return django.core.mail.send_mail($$$_, html_message=request.$W, $$$_)",
+      "return django.core.mail.send_mail($$$_, html_message=request.$W.get($$$_), $$$_)",
+      "return django.core.mail.send_mail($$$_, html_message=request.$W[$$$_], $$$_)"
+    ])) as $all
+    | ( $all | of(["django.core.mail.send_mail($$$_, html_message=request.$W.get($$$_), $$$_)","$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$A = django.core.mail.send_mail($$$_, html_message=request.$W.get($$$_), $$$_)","return django.core.mail.send_mail($$$_, html_message=request.$W.get($$$_), $$$_)","django.core.mail.send_mail($$$_, html_message=request.$W($$$_), $$$_)","$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W($$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$A = django.core.mail.send_mail($$$_, html_message=request.$W($$$_), $$$_)","return django.core.mail.send_mail($$$_, html_message=request.$W($$$_), $$$_)","django.core.mail.send_mail($$$_, html_message=request.$W[$$$_], $$$_)","$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W[$$$_]\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$A = django.core.mail.send_mail($$$_, html_message=request.$W[$$$_], $$$_)","return django.core.mail.send_mail($$$_, html_message=request.$W[$$$_], $$$_)","django.core.mail.send_mail($$$_, html_message=request.$W, $$$_)","$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$DATA, $$$_)","$DATA = request.$W\n$$$_\n$INTERM = $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR.format($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W\n$$$_\n$INTERM = $STR.format($$$_, $DATA, $$$_)\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR % $DATA, $$$_)","$DATA = request.$W\n$$$_\n$INTERM = $STR % $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$DATA = request.$W\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$STR + $DATA, $$$_)","$DATA = request.$W\n$$$_\n$INTERM = $STR + $DATA\n$$$_\ndjango.core.mail.send_mail($$$_, html_message=$INTERM, $$$_)","$A = django.core.mail.send_mail($$$_, html_message=request.$W, $$$_)","return django.core.mail.send_mail($$$_, html_message=request.$W, $$$_)"])
+          | within($all | of(["def $FUNC($$$_):\n  $$$_"]))
+        | finding("xss-send-mail-html-message";
+            "Found request data in 'send_mail(...)' that uses 'html_message'.") ) )
+| report

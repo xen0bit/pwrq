@@ -1,0 +1,13 @@
+# rules: unquoted-variable-expansion-in-command
+# from: bash/lang/correctness/unquoted-expansion.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sh"]; [
+      "$$$_ $$$_${$VAR}$$$_ $$$_",
+      "$$$_ ${$VAR} $$$_"
+    ])) as $all
+    | ( $all | of(["$$$_ ${$VAR} $$$_","$$$_ $$$_${$VAR}$$$_ $$$_"])
+          | where_capture("VAR"; "[*@0-9]|[A-Za-z].*")
+        | finding("unquoted-variable-expansion-in-command";
+            "Variable expansions must be double-quoted so as to prevent being split into multiple pieces according to whitespace or whichever separator is specified by the IFS variable.") ) )
+| report

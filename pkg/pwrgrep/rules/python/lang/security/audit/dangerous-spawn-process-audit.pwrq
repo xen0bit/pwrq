@@ -1,0 +1,26 @@
+# rules: dangerous-spawn-process-audit
+# from: python/lang/security/audit/dangerous-spawn-process-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "os.$METHOD($$$_)",
+      "os.$METHOD($MODE, \"$$$_\", \"$$$_\", \"$$$_\", $$$_)",
+      "os.$METHOD($MODE, \"$$$_\", $$$_)",
+      "os.$METHOD($MODE, \"$$$_\", [\"$$$_\",\"$$$_\",$$$_], $$$_)",
+      "os.$METHOD($MODE, $BASH, \"-c\", $CMD,$$$_)",
+      "os.$METHOD($MODE, $BASH, [\"-c\",$CMD,$$$_],$$$_)"
+    ])) as $all
+    | ( ($all | of(["os.$METHOD($$$_)"])
+          | not_at($all | of(["os.$METHOD($MODE, \"$$$_\", $$$_)"]))
+          | where_capture("METHOD"; "(spawnl|spawnle|spawnlp|spawnlpe|spawnv|spawnve|spawnvp|spawnvp|spawnvpe|posix_spawn|posix_spawnp|startfile)"))
+          + ($all | of(["os.$METHOD($MODE, $BASH, [\"-c\",$CMD,$$$_],$$$_)"])
+          | not_at($all | of(["os.$METHOD($MODE, \"$$$_\", [\"$$$_\",\"$$$_\",$$$_], $$$_)"]))
+          | where_capture("METHOD"; "(spawnv|spawnve|spawnvp|spawnvp|spawnvpe|posix_spawn|posix_spawnp)")
+          | where_capture("BASH"; "(.*)(sh|bash|ksh|csh|tcsh|zsh)"))
+          + ($all | of(["os.$METHOD($MODE, $BASH, \"-c\", $CMD,$$$_)"])
+          | not_at($all | of(["os.$METHOD($MODE, \"$$$_\", \"$$$_\", \"$$$_\", $$$_)"]))
+          | where_capture("METHOD"; "(spawnl|spawnle|spawnlp|spawnlpe)")
+          | where_capture("BASH"; "(.*)(sh|bash|ksh|csh|tcsh|zsh)"))
+        | finding("dangerous-spawn-process-audit";
+            "Found dynamic content when spawning a process.") ) )
+| report

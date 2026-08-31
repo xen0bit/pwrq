@@ -1,0 +1,14 @@
+# rules: api-key-in-query-parameter
+# from: yaml/openapi/security/api-key-in-query-parameter.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$SECURITY_SCHEME:\n  $$$_\n  type: apiKey\n  $$$_\n  in: query",
+      "openapi: $VERSION\n$$$_\ncomponents:\n  $$$_\n  securitySchemes:\n    $$$_"
+    ])) as $all
+    | ( $all | of(["$SECURITY_SCHEME:\n  $$$_\n  type: apiKey\n  $$$_\n  in: query"])
+          | within($all | of(["openapi: $VERSION\n$$$_\ncomponents:\n  $$$_\n  securitySchemes:\n    $$$_"]))
+          | where_capture("VERSION"; "3.*")
+        | finding("api-key-in-query-parameter";
+            "The $SECURITY_SCHEME security scheme passes an API key in a query parameter.") ) )
+| report

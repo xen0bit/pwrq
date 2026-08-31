@@ -1,0 +1,11 @@
+# rules: rsa-no-padding
+# from: java/lang/security/audit/crypto/rsa-no-padding.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java","*.kt"]; [
+      "$CIPHER.getInstance(\"=~/RSA/[Nn][Oo][Nn][Ee]/NoPadding/\")"
+    ])) as $all
+    | ( $all | of(["$CIPHER.getInstance(\"=~/RSA/[Nn][Oo][Nn][Ee]/NoPadding/\")"])
+        | finding("rsa-no-padding";
+            "Using RSA without OAEP mode weakens the encryption.") ) )
+| report

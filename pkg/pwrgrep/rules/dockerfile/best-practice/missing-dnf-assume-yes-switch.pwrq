@@ -1,0 +1,15 @@
+# rules: missing-dnf-assume-yes-switch
+# from: dockerfile/best-practice/missing-dnf-assume-yes-switch.yaml
+
+. as $root
+| ( ($root | scan_ast(["Dockerfile*"]; [
+      "RUN $$$_ dnf $$$_ --assumeyes $$$_",
+      "RUN $$$_ dnf install $$$_",
+      "RUN $$$_ dnf install $$$_ -y $$$_"
+    ])) as $all
+    | ( $all | of(["RUN $$$_ dnf install $$$_"])
+          | outside($all | of(["RUN $$$_ dnf install $$$_ -y $$$_"]))
+          | outside($all | of(["RUN $$$_ dnf $$$_ --assumeyes $$$_"]))
+        | finding("missing-dnf-assume-yes-switch";
+            "This 'dnf install' is missing the '-y' switch.") ) )
+| report

@@ -1,0 +1,12 @@
+# rules: insecure-use-string-copy-fn
+# from: c/lang/security/insecure-use-string-copy-fn.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "strcpy($$$_)",
+      "strncpy($$$_)"
+    ])) as $all
+    | ( $all | of(["strcpy($$$_)","strncpy($$$_)"])
+        | finding("insecure-use-string-copy-fn";
+            "Finding triggers whenever there is a strcpy or strncpy used.") ) )
+| report

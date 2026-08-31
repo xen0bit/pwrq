@@ -1,0 +1,11 @@
+# rules: avoid-raw
+# from: ruby/rails/security/audit/xss/avoid-raw.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "raw($$$_)"
+    ])) as $all
+    | ( $all | of(["raw($$$_)"])
+        | finding("avoid-raw";
+            "'raw()' bypasses HTML escaping.") ) )
+| report

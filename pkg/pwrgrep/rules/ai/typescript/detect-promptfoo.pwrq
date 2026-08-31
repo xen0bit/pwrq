@@ -1,0 +1,12 @@
+# rules: detect-promptfoo
+# from: ai/typescript/detect-promptfoo.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "import \"promptfoo\"",
+      "promptfoo.evaluate($$$_)"
+    ])) as $all
+    | ( $all | of(["import \"promptfoo\"","promptfoo.evaluate($$$_)"])
+        | finding("detect-promptfoo";
+            "Possibly found usage of AI tooling: promptfoo") ) )
+| report

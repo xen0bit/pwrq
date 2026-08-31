@@ -187,6 +187,14 @@ nfpms:
         dst: /usr/share/doc/pwrq/README.md
       - src: EXAMPLES.md
         dst: /usr/share/doc/pwrq/EXAMPLES.md
+      # The structural rules. They are built into the binary as well, so this
+      # is not what makes them work — it is what makes them editable: pwrq
+      # reads this directory before its own copy, so a rule changed here is the
+      # one that runs, and a rule added here is found beside the ones that
+      # shipped. See pkg/pwrgrep/README.md.
+      - src: pkg/pwrgrep/rules
+        dst: /usr/share/pwrq/rules
+        type: tree
 
   - id: pwrq-viz
     package_name: pwrq-viz
@@ -206,6 +214,10 @@ nfpms:
         dst: /usr/share/doc/pwrq-viz/README.md
       - src: EXAMPLES.md
         dst: /usr/share/doc/pwrq-viz/EXAMPLES.md
+      # No rules tree here, deliberately. pwrq-viz carries the same rules
+      # inside the binary, and shipping the directory in both packages would
+      # make them conflict over every file in it. Installing pwrq alongside is
+      # what puts the editable copy on disk.
 
 # ---------------------------------------------------------------------------
 # Checksums, signing, SBOMs, changelog.

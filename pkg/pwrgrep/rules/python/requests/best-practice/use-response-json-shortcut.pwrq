@@ -1,0 +1,17 @@
+# rules: python.requests.best-practice.use-response-json-shortcut
+# from: python/requests/best-practice/use-response-json-shortcut.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$RESP = requests.$METHOD($$$_); $$$_",
+      "import json; $$$_",
+      "import requests; $$$_",
+      "json.loads($RESP.text)"
+    ])) as $all
+    | ( $all | of(["json.loads($RESP.text)"])
+          | within($all | of(["import json; $$$_"]))
+          | within($all | of(["import requests; $$$_"]))
+          | within($all | of(["$RESP = requests.$METHOD($$$_); $$$_"]))
+        | finding("python.requests.best-practice.use-response-json-shortcut";
+            "The requests library has a convenient shortcut for reading JSON responses, which lets you stop worrying about deserializing the response yourself.") ) )
+| report

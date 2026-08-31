@@ -1,0 +1,24 @@
+# rules: dangerous-seq-run
+# from: scala/lang/security/audit/dangerous-seq-run.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "\"$$$_\"",
+      "$CMD = \"$$$_\"\n$$$_",
+      "Seq(\"$$$_\", $$$_)",
+      "Seq($$$_).!",
+      "Seq($$$_).!!",
+      "Seq($$$_).lazyLines",
+      "Seq($CMD, $$$_)",
+      "import sys.process\n$$$_"
+    ])) as $all
+    | ( $all | of(["Seq($CMD, $$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)))
+          | not_at($all | of(["Seq(\"$$$_\", $$$_)"]))
+          | in_files_with($all | of(["import sys.process\n$$$_"]))
+          | in_files_without($all | of(["$CMD = \"$$$_\"\n$$$_","\"$$$_\""]))
+        | finding("dangerous-seq-run";
+            "Found dynamic content used for the external process.") ) )
+| report

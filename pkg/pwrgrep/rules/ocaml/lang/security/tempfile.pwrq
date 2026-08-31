@@ -1,0 +1,11 @@
+# rules: ocamllint-tempfile
+# from: ocaml/lang/security/tempfile.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "Filename.temp_file"
+    ])) as $all
+    | ( $all | of(["Filename.temp_file"])
+        | finding("ocamllint-tempfile";
+            "Filename.temp_file might lead to race conditions, since the file could be altered or replaced by a symlink before being opened.") ) )
+| report

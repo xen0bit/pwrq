@@ -1,0 +1,15 @@
+# rules: xmlinputfactory-dtd-enabled
+# from: scala/lang/security/audit/xmlinputfactory-dtd-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "$$$_\n$XMLFACTORY.setProperty(\"javax.xml.stream.isSupportingExternalEntities\", false)",
+      "$XMLFACTORY = XMLInputFactory.newFactory($$$_)",
+      "$XMLFACTORY = XMLInputFactory.newInstance($$$_)",
+      "$XMLFACTORY = new XMLInputFactory($$$_)"
+    ])) as $all
+    | ( $all | of(["$XMLFACTORY = XMLInputFactory.newFactory($$$_)","$XMLFACTORY = XMLInputFactory.newInstance($$$_)","$XMLFACTORY = new XMLInputFactory($$$_)"])
+          | outside($all | of(["$$$_\n$XMLFACTORY.setProperty(\"javax.xml.stream.isSupportingExternalEntities\", false)"]))
+        | finding("xmlinputfactory-dtd-enabled";
+            "XMLInputFactory being instantiated without calling the setProperty functions that are generally used for disabling entity processing.") ) )
+| report

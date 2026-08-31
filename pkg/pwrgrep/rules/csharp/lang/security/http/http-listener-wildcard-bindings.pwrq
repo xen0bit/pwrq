@@ -1,0 +1,14 @@
+# rules: http-listener-wildcard-bindings
+# from: csharp/lang/security/http/http-listener-wildcard-bindings.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$LISTENER.Prefixes.Add(\"$PREFIX\")",
+      "using System.Net;\n$$$_"
+    ])) as $all
+    | ( $all | of(["$LISTENER.Prefixes.Add(\"$PREFIX\")"])
+          | in_files_with($all | of(["using System.Net;\n$$$_"]))
+          | where_capture("PREFIX"; "(http|https)://(\\*|\\+)(.[a-zA-Z]{2,})?:[0-9]+")
+        | finding("http-listener-wildcard-bindings";
+            "The top level wildcard bindings $PREFIX leaves your application open to security vulnerabilities and give attackers more control over where traffic is routed.") ) )
+| report

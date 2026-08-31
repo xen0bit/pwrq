@@ -1,0 +1,13 @@
+# rules: insecure-fspickler-deserialization
+# from: csharp/lang/security/insecure-deserialization/fs-pickler.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "FsPickler.CreateJsonSerializer();",
+      "using MBrace.FsPickler.Json;\n$$$_"
+    ])) as $all
+    | ( $all | of(["FsPickler.CreateJsonSerializer();"])
+          | in_files_with($all | of(["using MBrace.FsPickler.Json;\n$$$_"]))
+        | finding("insecure-fspickler-deserialization";
+            "The FsPickler is dangerous and is not recommended for data processing.") ) )
+| report

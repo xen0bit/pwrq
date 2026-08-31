@@ -1,0 +1,29 @@
+# rules: jquery-insecure-method
+# from: javascript/jquery/security/audit/jquery-insecure-method.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$(\"$$$_\",$$$_).$METHOD($$$_)",
+      "$($$$_).$METHOD(\"$$$_\",$$$_)",
+      "$($$$_).$METHOD($VAR,$$$_)",
+      "$.$METHOD(\"$$$_\",$$$_)",
+      "$.$METHOD($VAR,$$$_)",
+      "jQuery(\"$$$_\",$$$_).$METHOD($$$_)",
+      "jQuery($$$_).$METHOD(\"$$$_\",$$$_)",
+      "jQuery($$$_).$METHOD($VAR,$$$_)",
+      "jQuery.$METHOD(\"$$$_\",$$$_)",
+      "jQuery.$METHOD($VAR,$$$_)"
+    ])) as $all
+    | ( ($all | of(["$.$METHOD($VAR,$$$_)","$($$$_).$METHOD($VAR,$$$_)","jQuery.$METHOD($VAR,$$$_)","jQuery($$$_).$METHOD($VAR,$$$_)"])
+          | not_at($all | of(["$.$METHOD(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$($$$_).$METHOD(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["jQuery.$METHOD(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["jQuery($$$_).$METHOD(\"$$$_\",$$$_)"]))
+          | where_capture("METHOD"; "^(html|append|prepend|wrap|wrapInner|wrapAll|before|after|globalEval|getScript)$"))
+          + ($all | of(["$($$$_).$METHOD($VAR,$$$_)","jQuery($$$_).$METHOD($VAR,$$$_)"])
+          | not_at($all | of(["$(\"$$$_\",$$$_).$METHOD($$$_)"]))
+          | not_at($all | of(["jQuery(\"$$$_\",$$$_).$METHOD($$$_)"]))
+          | where_capture("METHOD"; "^(appendTo|insertAfter|insertBefore|prependTo)$"))
+        | finding("jquery-insecure-method";
+            "User controlled data in a jQuery's `.$METHOD(...)` is an anti-pattern that can lead to XSS vulnerabilities") ) )
+| report

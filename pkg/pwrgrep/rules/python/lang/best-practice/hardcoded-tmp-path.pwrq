@@ -1,0 +1,11 @@
+# rules: hardcoded-tmp-path
+# from: python/lang/best-practice/hardcoded-tmp-path.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "open(\"=~/^\\/tmp.*/\", $$$_)"
+    ])) as $all
+    | ( $all | of(["open(\"=~/^\\/tmp.*/\", $$$_)"])
+        | finding("hardcoded-tmp-path";
+            "Detected hardcoded temp directory.") ) )
+| report

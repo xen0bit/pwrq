@@ -1,0 +1,12 @@
+# rules: json-entity-escape
+# from: ruby/lang/security/json-entity-escape.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "ActiveSupport.escape_html_entities_in_json = false",
+      "config.active_support.escape_html_entities_in_json = false"
+    ])) as $all
+    | ( $all | of(["ActiveSupport.escape_html_entities_in_json = false","config.active_support.escape_html_entities_in_json = false"])
+        | finding("json-entity-escape";
+            "Checks if HTML escaping is globally disabled for JSON output.") ) )
+| report

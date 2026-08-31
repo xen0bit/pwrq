@@ -1,0 +1,16 @@
+# rules: metadata-confidence
+# from: yaml/semgrep/metadata-confidence.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "metadata: \n  $$$_\n  category: security\n  $$$_",
+      "metadata: \n  $$$_\n  confidence: $VALUE",
+      "rules: \n  $$$_"
+    ])) as $all
+    | ( $all
+          | within($all | of(["rules: \n  $$$_"]))
+          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
+          | outside($all | of(["metadata: \n  $$$_\n  confidence: $VALUE"]))
+        | finding("metadata-confidence";
+            "This Semgrep rule is missing a valid 'confidence' field in the 'metadata'.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: insecure-urlretrieve
+# from: python/lang/security/audit/insecure-transport/urllib/insecure-urlretrieve.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.urlretrieve($URL, $$$_)",
+      "def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_\n  urllib.request.urlretrieve($URL, $$$_)",
+      "urllib.request.urlretrieve(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)"
+    ])) as $all
+    | ( $all | of(["urllib.request.urlretrieve(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)","$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.urlretrieve($URL, $$$_)","def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_\n  urllib.request.urlretrieve($URL, $$$_)"])
+        | finding("insecure-urlretrieve";
+            "Detected 'urllib.urlretrieve()' using 'http://'.") ) )
+| report

@@ -1,0 +1,24 @@
+# rules: dangerous-system-call-audit
+# from: python/lang/security/audit/dangerous-system-call-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$X = __import__(\"os\")\n$$$_\n$X.system($$$_)",
+      "$X = __import__(\"os\")\n$$$_\n$Y = getattr($X, \"system\")\n$$$_\n$Y($$$_)",
+      "$X = __import__(\"os\")\n$$$_\ngetattr($X, \"system\")($$$_)",
+      "$X = getattr(os, \"system\")\n$$$_\n$X($$$_)",
+      "__import__(\"os\").system($$$_)",
+      "getattr(__import__(\"os\"), \"system\")($$$_)",
+      "getattr(os, \"system\")($$$_)",
+      "os.$W(\"$$$_\", $$$_)",
+      "os.popen($$$_)",
+      "os.popen2($$$_)",
+      "os.popen3($$$_)",
+      "os.popen4($$$_)",
+      "os.system($$$_)"
+    ])) as $all
+    | ( $all | of(["os.system($$$_)","getattr(os, \"system\")($$$_)","__import__(\"os\").system($$$_)","getattr(__import__(\"os\"), \"system\")($$$_)","$X = __import__(\"os\")\n$$$_\n$X.system($$$_)","$X = __import__(\"os\")\n$$$_\ngetattr($X, \"system\")($$$_)","$X = getattr(os, \"system\")\n$$$_\n$X($$$_)","$X = __import__(\"os\")\n$$$_\n$Y = getattr($X, \"system\")\n$$$_\n$Y($$$_)","os.popen($$$_)","os.popen2($$$_)","os.popen3($$$_)","os.popen4($$$_)"])
+          | not_at($all | of(["os.$W(\"$$$_\", $$$_)"]))
+        | finding("dangerous-system-call-audit";
+            "Found dynamic content used in a system call.") ) )
+| report

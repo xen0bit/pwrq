@@ -1,0 +1,13 @@
+# rules: insecure-binaryformatter-deserialization
+# from: csharp/lang/security/insecure-deserialization/binary-formatter.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "new BinaryFormatter();",
+      "using System.Runtime.Serialization.Formatters.Binary;\n$$$_"
+    ])) as $all
+    | ( $all | of(["new BinaryFormatter();"])
+          | in_files_with($all | of(["using System.Runtime.Serialization.Formatters.Binary;\n$$$_"]))
+        | finding("insecure-binaryformatter-deserialization";
+            "The BinaryFormatter type is dangerous and is not recommended for data processing.") ) )
+| report

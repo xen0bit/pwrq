@@ -1,0 +1,12 @@
+# rules: weak-random
+# from: java/lang/security/audit/crypto/weak-random.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "java.lang.Math.random($$$_)",
+      "new java.util.Random($$$_).$FUNC($$$_)"
+    ])) as $all
+    | ( $all | of(["new java.util.Random($$$_).$FUNC($$$_)","java.lang.Math.random($$$_)"])
+        | finding("weak-random";
+            "Detected use of the functions `Math.random()` or `java.util.Random()`.") ) )
+| report

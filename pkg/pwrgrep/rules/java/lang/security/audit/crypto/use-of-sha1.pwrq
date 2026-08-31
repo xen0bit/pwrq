@@ -1,0 +1,14 @@
+# rules: use-of-sha1
+# from: java/lang/security/audit/crypto/use-of-sha1.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$DU.getSha1Digest().digest($$$_)",
+      "java.security.MessageDigest.getInstance(\"$ALGO\", $$$_);"
+    ])) as $all
+    | ( ($all | of(["java.security.MessageDigest.getInstance(\"$ALGO\", $$$_);"])
+          | where_capture("ALGO"; "(SHA1|SHA-1)"))
+          + ($all | of(["$DU.getSha1Digest().digest($$$_)"]))
+        | finding("use-of-sha1";
+            "Detected SHA1 hash algorithm which is considered insecure.") ) )
+| report

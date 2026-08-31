@@ -1,0 +1,11 @@
+# rules: deprecated_bxor_operator
+# from: elixir/lang/best-practice/deprecated-bxor-operator.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ex"]; [
+      "$LEFT ^^^ $RIGHT"
+    ])) as $all
+    | ( $all | of(["$LEFT ^^^ $RIGHT"])
+        | finding("deprecated_bxor_operator";
+            "The bitwise operator (`^^^`) is already deprecated.") ) )
+| report

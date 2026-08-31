@@ -1,0 +1,13 @@
+# rules: insecure-request-object
+# from: python/lang/security/audit/insecure-transport/urllib/insecure-request-object.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.Request($URL, $$$_)",
+      "def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_\n  urllib.request.Request($URL, $$$_)",
+      "urllib.request.Request(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)"
+    ])) as $all
+    | ( $all | of(["urllib.request.Request(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)","$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.Request($URL, $$$_)","def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_\n  urllib.request.Request($URL, $$$_)"])
+        | finding("insecure-request-object";
+            "Detected a 'urllib.request.Request()' object using an insecure transport protocol, 'http://'.") ) )
+| report

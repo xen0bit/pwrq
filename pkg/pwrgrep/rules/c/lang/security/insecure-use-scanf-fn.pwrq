@@ -1,0 +1,11 @@
+# rules: insecure-use-scanf-fn
+# from: c/lang/security/insecure-use-scanf-fn.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "scanf($$$_)"
+    ])) as $all
+    | ( $all | of(["scanf($$$_)"])
+        | finding("insecure-use-scanf-fn";
+            "Avoid using 'scanf()'.") ) )
+| report

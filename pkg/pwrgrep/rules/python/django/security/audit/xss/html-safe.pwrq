@@ -1,0 +1,12 @@
+# rules: html-safe
+# from: python/django/security/audit/xss/html-safe.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "@django.utils.html.html_safe\nclass $CLASS($$$_):\n  $$$_",
+      "django.utils.html.html_safe($$$_)"
+    ])) as $all
+    | ( $all | of(["django.utils.html.html_safe($$$_)","@django.utils.html.html_safe\nclass $CLASS($$$_):\n  $$$_"])
+        | finding("html-safe";
+            "`html_safe()` add the `__html__` magic method to the provided class.") ) )
+| report

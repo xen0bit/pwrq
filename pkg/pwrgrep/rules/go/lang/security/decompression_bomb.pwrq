@@ -1,0 +1,32 @@
+# rules: potential-dos-via-decompression-bomb
+# from: go/lang/security/decompression_bomb.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "bzip2.NewReader($$$_)\n$$$_",
+      "flate.NewReader($$$_)\n$$$_",
+      "flate.NewReaderDict($$$_)\n$$$_",
+      "gzip.NewReader($$$_)\n$$$_",
+      "io.Copy($$$_)",
+      "io.CopyBuffer($$$_)",
+      "lzw.NewReader($$$_)\n$$$_",
+      "tar.NewReader($$$_)\n$$$_",
+      "zip.NewReader($$$_)\n$$$_",
+      "zip.OpenReader($$$_)\n$$$_",
+      "zlib.NewReader($$$_)\n$$$_",
+      "zlib.NewReaderDict($$$_)\n$$$_"
+    ])) as $all
+    | ( $all | of(["io.Copy($$$_)","io.CopyBuffer($$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+        | finding("potential-dos-via-decompression-bomb";
+            "Detected a possible denial-of-service via a zip bomb attack.") ) )
+| report

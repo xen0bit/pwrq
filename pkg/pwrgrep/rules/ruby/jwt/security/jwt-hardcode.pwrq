@@ -1,0 +1,22 @@
+# rules: ruby-jwt-hardcoded-secret
+# from: ruby/jwt/security/jwt-hardcode.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$SECRET = \"$$$_\"\n$$$_\nJWT.decode($PAYLOAD,$SECRET,$$$_)",
+      "$SECRET = \"$$$_\"\n$$$_\nJWT.encode($PAYLOAD,$SECRET,$$$_)",
+      "JWT.decode($PAYLOAD, nil, $$$_, jwks: $$$_, $$$_)",
+      "JWT.decode($PAYLOAD,\"$$$_\",$$$_)",
+      "JWT.decode($PAYLOAD,nil,$$$_)",
+      "JWT.encode($PAYLOAD, nil, $$$_ , jwks: $$$_, $$$_)",
+      "JWT.encode($PAYLOAD,\"$$$_\",$$$_)",
+      "JWT.encode($PAYLOAD,nil,$$$_)",
+      "require 'jwt'\n$$$_"
+    ])) as $all
+    | ( $all | of(["JWT.encode($PAYLOAD,\"$$$_\",$$$_)","JWT.decode($PAYLOAD,\"$$$_\",$$$_)","JWT.encode($PAYLOAD,nil,$$$_)","JWT.decode($PAYLOAD,nil,$$$_)","$SECRET = \"$$$_\"\n$$$_\nJWT.encode($PAYLOAD,$SECRET,$$$_)","$SECRET = \"$$$_\"\n$$$_\nJWT.decode($PAYLOAD,$SECRET,$$$_)"])
+          | in_files_with($all | of(["require 'jwt'\n$$$_"]))
+          | not_at($all | of(["JWT.encode($PAYLOAD, nil, $$$_ , jwks: $$$_, $$$_)"]))
+          | not_at($all | of(["JWT.decode($PAYLOAD, nil, $$$_, jwks: $$$_, $$$_)"]))
+        | finding("ruby-jwt-hardcoded-secret";
+            "Hardcoded JWT secret or private key is used.") ) )
+| report

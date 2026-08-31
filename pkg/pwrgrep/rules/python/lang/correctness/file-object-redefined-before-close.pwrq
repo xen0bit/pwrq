@@ -1,0 +1,13 @@
+# rules: file-object-redefined-before-close
+# from: python/lang/correctness/file-object-redefined-before-close.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$F = open($X, $$$_)\n$$$_\n$F = open($Y, $$$_)",
+      "$F = open($X, $$$_)\n$$$_\n$F.close()\n$$$_\n$F = open($Y, $$$_)"
+    ])) as $all
+    | ( $all | of(["$F = open($X, $$$_)\n$$$_\n$F = open($Y, $$$_)"])
+          | not_at($all | of(["$F = open($X, $$$_)\n$$$_\n$F.close()\n$$$_\n$F = open($Y, $$$_)"]))
+        | finding("file-object-redefined-before-close";
+            "Detected a file object that is redefined and never closed.") ) )
+| report

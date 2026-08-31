@@ -1,0 +1,13 @@
+# rules: cbc-padding-oracle
+# from: java/lang/security/audit/cbc-padding-oracle.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "\"=~/.*\\/CBC\\/PKCS5Padding/\"",
+      "Cipher.getInstance(\"=~/.*\\/CBC\\/PKCS5Padding/\")"
+    ])) as $all
+    | ( $all | of(["\"=~/.*\\/CBC\\/PKCS5Padding/\""])
+          | within($all | of(["Cipher.getInstance(\"=~/.*\\/CBC\\/PKCS5Padding/\")"]))
+        | finding("cbc-padding-oracle";
+            "Using CBC with PKCS5Padding is susceptible to padding oracle attacks.") ) )
+| report

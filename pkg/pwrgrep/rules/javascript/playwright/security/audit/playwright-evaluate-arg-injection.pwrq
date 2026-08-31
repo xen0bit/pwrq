@@ -1,0 +1,18 @@
+# rules: playwright-evaluate-arg-injection
+# from: javascript/playwright/security/audit/playwright-evaluate-arg-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$PAGE.evaluate($CODE,$$$_,<$$$_ $INPUT $$$_>,$$$_)",
+      "$PAGE.evaluateHandle($CODE,$$$_,<$$$_ $INPUT $$$_>,$$$_)",
+      "function $FUNC ($$$_,$INPUT,$$$_) {$$$_}",
+      "function ($$$_,$INPUT,$$$_) {$$$_}",
+      "require('playwright');\n$$$_"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["$PAGE.evaluate($CODE,$$$_,<$$$_ $INPUT $$$_>,$$$_)","$PAGE.evaluateHandle($CODE,$$$_,<$$$_ $INPUT $$$_>,$$$_)"])))
+          | in_files_with($all | of(["require('playwright');\n$$$_"]))
+        | finding("playwright-evaluate-arg-injection";
+            "If unverified user data can reach the `evaluate` method it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

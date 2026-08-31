@@ -1,0 +1,13 @@
+# rules: insecure-urlopen
+# from: python/lang/security/audit/insecure-transport/urllib/insecure-urlopen.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.urlopen($URL, $$$_)",
+      "def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_\n  urllib.request.urlopen($URL, $$$_)",
+      "urllib.request.urlopen(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)"
+    ])) as $all
+    | ( $all | of(["urllib.request.urlopen(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)","$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.urlopen($URL, $$$_)","def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_\n  urllib.request.urlopen($URL, $$$_)"])
+        | finding("insecure-urlopen";
+            "Detected 'urllib.urlopen()' using 'http://'.") ) )
+| report

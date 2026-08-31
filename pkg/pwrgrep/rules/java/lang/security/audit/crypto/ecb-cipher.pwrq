@@ -1,0 +1,12 @@
+# rules: ecb-cipher
+# from: java/lang/security/audit/crypto/ecb-cipher.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "Cipher $VAR = $CIPHER.getInstance($MODE);"
+    ])) as $all
+    | ( $all | of(["Cipher $VAR = $CIPHER.getInstance($MODE);"])
+          | where_capture("MODE"; ".*ECB.*")
+        | finding("ecb-cipher";
+            "Cipher in ECB mode is detected.") ) )
+| report

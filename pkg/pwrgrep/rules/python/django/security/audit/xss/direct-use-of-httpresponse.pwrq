@@ -1,0 +1,38 @@
+# rules: direct-use-of-httpresponse
+# from: python/django/security/audit/xss/direct-use-of-httpresponse.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "django.http.$ANY(\"$$$_\", $$$_)",
+      "django.http.$ANY($$$_, content=None, $$$_)",
+      "django.http.$ANY($$$_,content_type=$TYPE,$$$_)",
+      "django.http.$ANY()",
+      "django.http.$ANY(status=$$$_)",
+      "django.http.HttpResponse($$$_)",
+      "django.http.HttpResponse($$$_,content_type=$TYPE,$$$_)",
+      "django.http.HttpResponseBadRequest($$$_)",
+      "django.http.HttpResponseBadRequest($$$_,content_type=$TYPE,$$$_)",
+      "django.http.HttpResponseForbidden($$$_)",
+      "django.http.HttpResponseForbidden($$$_,content_type=$TYPE,$$$_)",
+      "django.http.HttpResponseGone($$$_)",
+      "django.http.HttpResponseGone($$$_,content_type=$TYPE,$$$_)",
+      "django.http.HttpResponseNotAllowed($$$_)",
+      "django.http.HttpResponseNotAllowed($$$_,content_type=$TYPE,$$$_)",
+      "django.http.HttpResponseNotAllowed([$$$_])",
+      "django.http.HttpResponseNotFound($$$_)",
+      "django.http.HttpResponseNotFound($$$_,content_type=$TYPE,$$$_)",
+      "django.http.HttpResponseServerError($$$_)",
+      "django.http.HttpResponseServerError($$$_,content_type=$TYPE,$$$_)"
+    ])) as $all
+    | ( ($all | of(["django.http.HttpResponse($$$_)","django.http.HttpResponseBadRequest($$$_)","django.http.HttpResponseNotFound($$$_)","django.http.HttpResponseForbidden($$$_)","django.http.HttpResponseNotAllowed($$$_)","django.http.HttpResponseGone($$$_)","django.http.HttpResponseServerError($$$_)"])
+          | not_at($all | of(["django.http.$ANY($$$_,content_type=$TYPE,$$$_)"])))
+          + ($all | of(["django.http.HttpResponse($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseBadRequest($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseNotFound($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseForbidden($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseNotAllowed($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseGone($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseServerError($$$_,content_type=$TYPE,$$$_)"])
+          | where_capture("TYPE"; ".*[tT][eE][xX][tT]/[hH][tT][mM][lL].*"))
+          | not_at($all | of(["django.http.$ANY(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["django.http.$ANY()"]))
+          | not_at($all | of(["django.http.$ANY($$$_, content=None, $$$_)"]))
+          | not_at($all | of(["django.http.$ANY(status=$$$_)"]))
+          | not_at($all | of(["django.http.HttpResponseNotAllowed([$$$_])"]))
+        | finding("direct-use-of-httpresponse";
+            "Detected data rendered directly to the end user via 'HttpResponse' or a similar object.") ) )
+| report

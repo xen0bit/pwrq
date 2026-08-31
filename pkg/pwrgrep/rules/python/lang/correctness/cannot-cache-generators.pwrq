@@ -1,0 +1,13 @@
+# rules: cannot-cache-generators
+# from: python/lang/correctness/cannot-cache-generators.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "@functools.lru_cache($$$_)\ndef $FUNC($$$_):\n    $$$_\n    yield $$$_",
+      "functools.lru_cache($$$_)"
+    ])) as $all
+    | ( $all | of(["functools.lru_cache($$$_)"])
+          | within($all | of(["@functools.lru_cache($$$_)\ndef $FUNC($$$_):\n    $$$_\n    yield $$$_"]))
+        | finding("cannot-cache-generators";
+            "Generators can only be consumed once, so in most cases, caching them will cause an error when the already-consumed generator is retrieved from cache.") ) )
+| report

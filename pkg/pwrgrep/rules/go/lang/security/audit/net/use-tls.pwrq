@@ -1,0 +1,11 @@
+# rules: use-tls
+# from: go/lang/security/audit/net/use-tls.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "http.ListenAndServe($ADDR, $HANDLER)"
+    ])) as $all
+    | ( $all | of(["http.ListenAndServe($ADDR, $HANDLER)"])
+        | finding("use-tls";
+            "Found an HTTP server without TLS.") ) )
+| report

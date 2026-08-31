@@ -1,0 +1,14 @@
+# rules: missing-template-string-indicator
+# from: javascript/lang/correctness/missing-template-string-indicator.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$STR",
+      "`$$$_`"
+    ])) as $all
+    | ( $all | of(["$STR"])
+          | within($all | of(["`$$$_`"]))
+          | where_capture("STR"; ".*[^$]+{[^{}]*}.*")
+        | finding("missing-template-string-indicator";
+            "This looks like a JavaScript template string.") ) )
+| report

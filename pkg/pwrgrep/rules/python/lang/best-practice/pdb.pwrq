@@ -1,0 +1,12 @@
+# rules: python-debugger-found
+# from: python/lang/best-practice/pdb.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "import pdb",
+      "pdb.set_trace()"
+    ])) as $all
+    | ( $all | of(["import pdb","pdb.set_trace()"])
+        | finding("python-debugger-found";
+            "Importing the python debugger; did you mean to leave this in?") ) )
+| report

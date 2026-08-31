@@ -1,0 +1,18 @@
+# rules: reverseproxy-director
+# from: go/lang/security/reverseproxy-director.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"net/http/httputil\"",
+      "$PROXY.Director = $FUNC",
+      "Director: $FUNC",
+      "httputil.ReverseProxy{\n    $$$_\n}",
+      "import \"net/http/httputil\"\n$$$_"
+    ])) as $all
+    | ( ($all | of(["$PROXY.Director = $FUNC"]))
+          + ($all | of(["Director: $FUNC"])
+          | within($all | of(["httputil.ReverseProxy{\n    $$$_\n}"])))
+          | in_files_with($all | of(["import \"net/http/httputil\"\n$$$_","\"net/http/httputil\""]))
+        | finding("reverseproxy-director";
+            "ReverseProxy can remove headers added by Director.") ) )
+| report

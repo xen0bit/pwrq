@@ -1,0 +1,16 @@
+# rules: use-of-md5
+# from: clojure/lang/security/use-of-md5.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.clj"]; [
+      "(MessageDigest/getInstance \"MD5\")",
+      "(MessageDigest/getInstance MessageDigestAlgorithms/MD5)",
+      "(MessageDigest/getInstance org.apache.commons.codec.digest.MessageDigestAlgorithms/MD5)",
+      "(java.security.MessageDigest/getInstance \"MD5\")",
+      "(java.security.MessageDigest/getInstance MessageDigestAlgorithms/MD5)",
+      "(java.security.MessageDigest/getInstance org.apache.commons.codec.digest.MessageDigestAlgorithms/MD5)"
+    ])) as $all
+    | ( $all | of(["(MessageDigest/getInstance \"MD5\")","(MessageDigest/getInstance MessageDigestAlgorithms/MD5)","(MessageDigest/getInstance org.apache.commons.codec.digest.MessageDigestAlgorithms/MD5)","(java.security.MessageDigest/getInstance \"MD5\")","(java.security.MessageDigest/getInstance MessageDigestAlgorithms/MD5)","(java.security.MessageDigest/getInstance org.apache.commons.codec.digest.MessageDigestAlgorithms/MD5)"])
+        | finding("use-of-md5";
+            "MD5 hash algorithm detected.") ) )
+| report

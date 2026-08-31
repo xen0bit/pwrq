@@ -1,0 +1,13 @@
+# rules: use-earliest-or-latest
+# from: python/django/performance/upsell_earliest_latest.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$X.objects.$FUNC($$$_).$FILTER($$$_).order_by($$$_)[0]",
+      "$X.objects.$FUNC($$$_).order_by($$$_)[0]",
+      "$X.objects.order_by($$$_)[0]"
+    ])) as $all
+    | ( $all | of(["$X.objects.order_by($$$_)[0]","$X.objects.$FUNC($$$_).order_by($$$_)[0]","$X.objects.$FUNC($$$_).$FILTER($$$_).order_by($$$_)[0]"])
+        | finding("use-earliest-or-latest";
+            "Looks like you are only accessing first element of an ordered QuerySet.") ) )
+| report

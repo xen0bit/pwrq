@@ -1,0 +1,17 @@
+# rules: metadata-references
+# from: yaml/semgrep/metadata-references.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "metadata: $$$_",
+      "references: $$$_",
+      "references: [$$$_]",
+      "rules: $$$_"
+    ])) as $all
+    | ( $all | of(["references: $$$_"])
+          | within($all | of(["rules: $$$_"]))
+          | within($all | of(["metadata: $$$_"]))
+          | not_at($all | of(["references: [$$$_]"]))
+        | finding("metadata-references";
+            "The references in rule metadata should always be a list, even if there's only one.") ) )
+| report

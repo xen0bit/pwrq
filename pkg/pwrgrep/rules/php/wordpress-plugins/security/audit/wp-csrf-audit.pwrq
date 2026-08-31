@@ -1,0 +1,11 @@
+# rules: wp-csrf-audit
+# from: php/wordpress-plugins/security/audit/wp-csrf-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "check_ajax_referer($$$_,$$$_,false)"
+    ])) as $all
+    | ( $all | of(["check_ajax_referer($$$_,$$$_,false)"])
+        | finding("wp-csrf-audit";
+            "Passing false or 0 as the third argument to this function will not cause the script to die, making the check useless.") ) )
+| report

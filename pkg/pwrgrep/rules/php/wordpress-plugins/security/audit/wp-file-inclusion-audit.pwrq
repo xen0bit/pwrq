@@ -1,0 +1,15 @@
+# rules: wp-file-inclusion-audit
+# from: php/wordpress-plugins/security/audit/wp-file-inclusion-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "fread($$$_)",
+      "include($$$_)",
+      "include_once($$$_)",
+      "require($$$_)",
+      "require_once($$$_)"
+    ])) as $all
+    | ( $all | of(["include($$$_)","require($$$_)","include_once($$$_)","require_once($$$_)","fread($$$_)"])
+        | finding("wp-file-inclusion-audit";
+            "These functions can lead to Local File Inclusion (LFI) or Remote File Inclusion (RFI) if the data inside is user-controlled.") ) )
+| report

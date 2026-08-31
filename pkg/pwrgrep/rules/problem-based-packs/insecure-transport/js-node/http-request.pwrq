@@ -1,0 +1,21 @@
+# rules: http-request
+# from: problem-based-packs/insecure-transport/js-node/http-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js"]; [
+      "$HTTP = require('http');\n$$$_",
+      "$HTTP.get(\"=~/http://.*/\", $$$_)",
+      "$HTTP.request(\"=~/http://.*/\",$$$_);",
+      "$HTTP.request($$$_, {$$$_,hostname: \"$$$_\"}, $$$_);",
+      "$HTTP.request($$$_, {$$$_,protocol: \"https\"}, $$$_);",
+      "$VAR = new URL(\"=~/http://.*/\");\n$$$_\n$HTTP.request($VAR, $$$_);",
+      "$VAR = {$$$_,hostname: \"$$$_\"};\n$$$_\n$HTTP.request($$$_, $VAR, $$$_);",
+      "$VAR = {$$$_,protocol: \"https\"};\n$$$_\n$HTTP.request($$$_, $VAR, $$$_);"
+    ])) as $all
+    | ( $all | of(["$HTTP.request(\"=~/http://.*/\",$$$_);","$HTTP.get(\"=~/http://.*/\", $$$_)","$VAR = new URL(\"=~/http://.*/\");\n$$$_\n$HTTP.request($VAR, $$$_);","$VAR = {$$$_,hostname: \"$$$_\"};\n$$$_\n$HTTP.request($$$_, $VAR, $$$_);","$HTTP.request($$$_, {$$$_,hostname: \"$$$_\"}, $$$_);"])
+          | in_files_with($all | of(["$HTTP = require('http');\n$$$_"]))
+          | not_at($all | of(["$VAR = {$$$_,protocol: \"https\"};\n$$$_\n$HTTP.request($$$_, $VAR, $$$_);"]))
+          | not_at($all | of(["$HTTP.request($$$_, {$$$_,protocol: \"https\"}, $$$_);"]))
+        | finding("http-request";
+            "Checks for requests sent to http:// URLs.") ) )
+| report

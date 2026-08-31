@@ -1,0 +1,12 @@
+# rules: bad-reraise
+# from: ocaml/lang/best-practice/exception.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "raise $EXN"
+    ])) as $all
+    | ( $all | of(["raise $EXN"])
+          | where_capture("EXN"; "\\A[a-z_][a-z_A-Z0-9']*\\z")
+        | finding("bad-reraise";
+            "You should not re-raise exceptions using 'raise' because it loses track of where the exception was raised originally, leading to a useless and possibly confusing stack trace.") ) )
+| report

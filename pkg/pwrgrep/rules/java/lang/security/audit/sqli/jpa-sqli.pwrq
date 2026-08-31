@@ -1,0 +1,30 @@
+# rules: jpa-sqli
+# from: java/lang/security/audit/sqli/jpa-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$EM.$METHOD(\"$$$_\" + \"$$$_\",$$$_);",
+      "$EM.$METHOD($SQL,$$$_)",
+      "$EM.$METHOD($X + $Y,$$$_);",
+      "$EM.$METHOD(String.format($$$_),$$$_);",
+      "$TYPE $FUNC($$$_,EntityManager $EM,$$$_) {\n  $$$_\n}",
+      "$TYPE $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}",
+      "EntityManager $EM = $$$_;\n$$$_",
+      "String $SQL = \"$$$_\" + \"$$$_\";\n$$$_",
+      "String $SQL = $X + $Y;\n$$$_",
+      "String $SQL = String.format($$$_);\n$$$_"
+    ])) as $all
+    | ( (($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$EM.$METHOD($SQL,$$$_)"])))
+          | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
+          + ($all | of(["$EM.$METHOD(String.format($$$_),$$$_);"]))
+          + ($all | of(["$EM.$METHOD($X + $Y,$$$_);"]))
+          | at_same_place((($all)
+          + ($all)))
+          | not_at($all | of(["$EM.$METHOD(\"$$$_\" + \"$$$_\",$$$_);"]))
+          | where_capture("METHOD"; "^(createQuery|createNativeQuery)$")
+        | finding("jpa-sqli";
+            "Detected a formatted string in a SQL statement.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: backticks-use
+# from: php/lang/security/backticks-use.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "`$$$_`;"
+    ])) as $all
+    | ( $all | of(["`$$$_`;"])
+        | finding("backticks-use";
+            "Backticks use may lead to command injection vulnerabilities.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: enum_map_into
+# from: elixir/lang/best-practice/enum-map-into.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ex"]; [
+      "$E\n|> Enum.map($FUN)\n|> Enum.into($INTO)",
+      "Enum.into(Enum.map($E, $FUN), $INTO)",
+      "Enum.map($E, $FUN)\n|> Enum.into($INTO)"
+    ])) as $all
+    | ( $all | of(["Enum.into(Enum.map($E, $FUN), $INTO)","Enum.map($E, $FUN)\n|> Enum.into($INTO)","$E\n|> Enum.map($FUN)\n|> Enum.into($INTO)"])
+        | finding("enum_map_into";
+            "Using `Enum.into/3` is more efficient than using `Enum.map/2 |> Enum.into/2`.") ) )
+| report

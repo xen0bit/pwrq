@@ -1,0 +1,12 @@
+# rules: no-static-initialization-vector
+# from: java/lang/security/audit/crypto/no-static-initialization-vector.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "byte[] $IV = {\n    $$$_\n};\n$$$_\nnew IvParameterSpec($IV, $$$_);",
+      "class $CLASS {\n    byte[] $IV = {\n        $$$_\n    };\n    $$$_\n    $METHOD($$$_) {\n        $$$_\n        new IvParameterSpec($IV, $$$_);\n        $$$_\n    }\n}"
+    ])) as $all
+    | ( $all | of(["byte[] $IV = {\n    $$$_\n};\n$$$_\nnew IvParameterSpec($IV, $$$_);","class $CLASS {\n    byte[] $IV = {\n        $$$_\n    };\n    $$$_\n    $METHOD($$$_) {\n        $$$_\n        new IvParameterSpec($IV, $$$_);\n        $$$_\n    }\n}"])
+        | finding("no-static-initialization-vector";
+            "Initialization Vectors (IVs) for block ciphers should be randomly generated each time they are used.") ) )
+| report

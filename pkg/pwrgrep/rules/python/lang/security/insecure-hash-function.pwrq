@@ -1,0 +1,12 @@
+# rules: insecure-hash-function
+# from: python/lang/security/insecure-hash-function.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "hashlib.new(\"=~/[M|m][D|d][4|5]/\", $$$_)",
+      "hashlib.new($$$_, name=\"=~/[M|m][D|d][4|5]/\", $$$_)"
+    ])) as $all
+    | ( $all | of(["hashlib.new(\"=~/[M|m][D|d][4|5]/\", $$$_)","hashlib.new($$$_, name=\"=~/[M|m][D|d][4|5]/\", $$$_)"])
+        | finding("insecure-hash-function";
+            "Detected use of an insecure MD4 or MD5 hash function.") ) )
+| report

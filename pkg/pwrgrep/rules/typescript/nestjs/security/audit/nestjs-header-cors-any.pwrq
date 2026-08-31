@@ -1,0 +1,15 @@
+# rules: nestjs-header-cors-any
+# from: typescript/nestjs/security/audit/nestjs-header-cors-any.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$APP.enableCors()",
+      "$APP.enableCors({origin: '*'})",
+      "NestFactory.create($MODULE, {cors: true})",
+      "NestFactory.create($MODULE, {cors: {origin: '*'}})",
+      "class $CN {\n    @Header(\"=~/[Aa][Cc][Cc][Ee][Ss][Ss]-[Cc][Oo][Nn][Tt][Rr][Oo][Ll]-[Aa][Ll][Ll][Oo][Ww]-[Oo][Rr][Ii][Gg][Ii][Nn]/\", '*')\n    $FN($$$_) {\n        $$$_\n    }\n}"
+    ])) as $all
+    | ( $all | of(["class $CN {\n    @Header(\"=~/[Aa][Cc][Cc][Ee][Ss][Ss]-[Cc][Oo][Nn][Tt][Rr][Oo][Ll]-[Aa][Ll][Ll][Oo][Ww]-[Oo][Rr][Ii][Gg][Ii][Nn]/\", '*')\n    $FN($$$_) {\n        $$$_\n    }\n}","NestFactory.create($MODULE, {cors: true})","NestFactory.create($MODULE, {cors: {origin: '*'}})","$APP.enableCors()","$APP.enableCors({origin: '*'})"])
+        | finding("nestjs-header-cors-any";
+            "Access-Control-Allow-Origin response header is set to \"*\".") ) )
+| report

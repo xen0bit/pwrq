@@ -1,0 +1,18 @@
+# rules: slow-pattern-single-metavariable
+# from: yaml/semgrep/slow-pattern-single-metavariable.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "pattern-inside: $PATTERN",
+      "pattern-not-inside: $PATTERN",
+      "pattern-not: $PATTERN",
+      "pattern: $PATTERN"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          | where_capture("PATTERN"; "\\$[A-Z_]*")
+        | finding("slow-pattern-single-metavariable";
+            "Using a single metavariable as a pattern drastically slows down the rule performance because it will match every expression in a file.") ) )
+| report

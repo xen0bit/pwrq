@@ -1,0 +1,13 @@
+# rules: ruby-jwt-none-alg
+# from: ruby/jwt/security/jwt-none-alg.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "JWT.encode($PAYLOAD, $SECRET, 'none', $$$_)",
+      "require 'jwt'\n$$$_"
+    ])) as $all
+    | ( $all | of(["JWT.encode($PAYLOAD, $SECRET, 'none', $$$_)"])
+          | in_files_with($all | of(["require 'jwt'\n$$$_"]))
+        | finding("ruby-jwt-none-alg";
+            "Detected use of the 'none' algorithm in a JWT token.") ) )
+| report

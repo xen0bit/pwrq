@@ -1,0 +1,13 @@
+# rules: missing-hash-with-eq
+# from: python/lang/best-practice/missing-hash-with-eq.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class A($$$_):\n    $$$_\n    def __hash__(self):\n        $$$_\n    $$$_\n    def __eq__(self, $O):\n        $$$_",
+      "class A($$$_):\n  $$$_\n  def __eq__(self, $O): $$$_\n  $$$_"
+    ])) as $all
+    | ( $all | of(["class A($$$_):\n  $$$_\n  def __eq__(self, $O): $$$_\n  $$$_"])
+          | outside($all | of(["class A($$$_):\n    $$$_\n    def __hash__(self):\n        $$$_\n    $$$_\n    def __eq__(self, $O):\n        $$$_"]))
+        | finding("missing-hash-with-eq";
+            "Class `$A` has defined `__eq__` which means it should also have defined `__hash__`;") ) )
+| report

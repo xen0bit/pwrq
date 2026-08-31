@@ -1,0 +1,13 @@
+# rules: spring-actuator-fully-enabled-yaml
+# from: java/spring/security/audit/spring-actuator-fully-enabled-yaml.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "include: \"*\"",
+      "management:\n  $$$_\n  endpoints:\n    $$$_\n    web:\n      $$$_\n      exposure:\n        $$$_"
+    ])) as $all
+    | ( $all | of(["include: \"*\""])
+          | within($all | of(["management:\n  $$$_\n  endpoints:\n    $$$_\n    web:\n      $$$_\n      exposure:\n        $$$_"]))
+        | finding("spring-actuator-fully-enabled-yaml";
+            "Spring Boot Actuator is fully enabled.") ) )
+| report

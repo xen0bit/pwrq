@@ -1,0 +1,13 @@
+# rules: use-defusedcsv
+# from: python/lang/security/use-defusedcsv.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "csv.writer($$$_)",
+      "defusedcsv.writer($$$_)"
+    ])) as $all
+    | ( $all | of(["csv.writer($$$_)"])
+          | not_at($all | of(["defusedcsv.writer($$$_)"]))
+        | finding("use-defusedcsv";
+            "Detected the generation of a CSV file using the built-in `csv` module.") ) )
+| report

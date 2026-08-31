@@ -1,0 +1,17 @@
+# rules: no-fprintf-to-responsewriter
+# from: go/lang/security/audit/xss/no-fprintf-to-responsewriter.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "fmt.$PRINTF($WRITER, \"$$$_\")",
+      "fmt.$PRINTF($WRITER, $$$_)",
+      "func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}",
+      "func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["fmt.$PRINTF($WRITER, $$$_)"])))
+          | not_at($all | of(["fmt.$PRINTF($WRITER, \"$$$_\")"]))
+        | finding("no-fprintf-to-responsewriter";
+            "Detected 'Fprintf' or similar writing to 'http.ResponseWriter'.") ) )
+| report

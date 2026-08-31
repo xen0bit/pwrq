@@ -1,0 +1,15 @@
+# rules: detect-anthropic
+# from: ai/python/detect-anthropic.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CLIENT.messages.$FUNC($$$_,model=$$$_,$$$_)",
+      "Anthropic($$$_)",
+      "anthropic.Anthropic($$$_)",
+      "from anthropic import $ANYTHING",
+      "import anthropic"
+    ])) as $all
+    | ( $all | of(["import anthropic","from anthropic import $ANYTHING","Anthropic($$$_)","anthropic.Anthropic($$$_)","$CLIENT.messages.$FUNC($$$_,model=$$$_,$$$_)"])
+        | finding("detect-anthropic";
+            "Possibly found usage of AI: Anthropic") ) )
+| report

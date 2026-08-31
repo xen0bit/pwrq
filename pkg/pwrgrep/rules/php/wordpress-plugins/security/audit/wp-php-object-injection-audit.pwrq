@@ -1,0 +1,12 @@
+# rules: wp-php-object-injection-audit
+# from: php/wordpress-plugins/security/audit/wp-php-object-injection-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "maybe_unserialize($$$_)",
+      "unserialize($$$_)"
+    ])) as $all
+    | ( $all | of(["unserialize($$$_)","maybe_unserialize($$$_)"])
+        | finding("wp-php-object-injection-audit";
+            "If the data used inside the patterns are directly used without proper sanitization, then this could lead to PHP Object Injection.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: multi-line-message
+# from: yaml/semgrep/multi-line-message.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "message: \"=~/[\\\\n\\\\r]/\"",
+      "rules: [$$$_, $RULE, $$$_]"
+    ])) as $all
+    | ( $all | of(["message: \"=~/[\\\\n\\\\r]/\""])
+          | within($all | of(["rules: [$$$_, $RULE, $$$_]"]))
+        | finding("multi-line-message";
+            "This rule has a multi-line message field, which may display poorly in a terminal.") ) )
+| report

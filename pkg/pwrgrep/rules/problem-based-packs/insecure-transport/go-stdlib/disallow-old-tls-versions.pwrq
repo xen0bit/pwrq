@@ -1,0 +1,13 @@
+# rules: disallow-old-tls-versions
+# from: problem-based-packs/insecure-transport/go-stdlib/disallow-old-tls-versions.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$CONFIG = &tls.Config{$$$_}\n$$$_\n$CONFIG.MinVersion = $TLS.$VERSION",
+      "tls.Config{$$$_, MinVersion: $TLS.$VERSION, $$$_}"
+    ])) as $all
+    | ( $all | of(["tls.Config{$$$_, MinVersion: $TLS.$VERSION, $$$_}","$CONFIG = &tls.Config{$$$_}\n$$$_\n$CONFIG.MinVersion = $TLS.$VERSION"])
+          | where_capture("VERSION"; "(VersionTLS10|VersionTLS11|VersionSSL30)")
+        | finding("disallow-old-tls-versions";
+            "Detects creations of tls configuration objects with an insecure MinVersion of TLS.") ) )
+| report

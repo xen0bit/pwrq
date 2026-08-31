@@ -1,0 +1,11 @@
+# rules: current-exe
+# from: rust/lang/security/current-exe.yml
+
+. as $root
+| ( ($root | scan_ast(["*.rs"]; [
+      "std::env::current_exe()"
+    ])) as $all
+    | ( $all | of(["std::env::current_exe()"])
+        | finding("current-exe";
+            "current_exe should not be used for security operations.") ) )
+| report

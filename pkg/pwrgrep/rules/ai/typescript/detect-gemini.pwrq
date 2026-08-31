@@ -1,0 +1,14 @@
+# rules: detect-gemini
+# from: ai/typescript/detect-gemini.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$GENAI.getGenerativeModel($$$_)",
+      "import \"@google/generative-ai\"",
+      "import $ANYTHING from \"@google/generative-ai\";",
+      "new GoogleGenerativeAI($$$_)"
+    ])) as $all
+    | ( $all | of(["import \"@google/generative-ai\"","import $ANYTHING from \"@google/generative-ai\";","new GoogleGenerativeAI($$$_)","$GENAI.getGenerativeModel($$$_)"])
+        | finding("detect-gemini";
+            "Possibly found usage of AI: Gemini") ) )
+| report

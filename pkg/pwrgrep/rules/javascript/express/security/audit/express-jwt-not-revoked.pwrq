@@ -1,0 +1,17 @@
+# rules: express-jwt-not-revoked
+# from: javascript/express/security/audit/express-jwt-not-revoked.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$JWT = require('express-jwt');\n$$$_",
+      "$JWT($$$_)",
+      "$JWT(<$$$_ {isRevoked:$$$_} $$$_>,$$$_)",
+      "$OPTS = <$$$_ {isRevoked:$$$_} $$$_>;\n$$$_\n$JWT($OPTS,$$$_);"
+    ])) as $all
+    | ( $all | of(["$JWT($$$_)"])
+          | in_files_with($all | of(["$JWT = require('express-jwt');\n$$$_"]))
+          | outside($all | of(["$JWT(<$$$_ {isRevoked:$$$_} $$$_>,$$$_)"]))
+          | outside($all | of(["$OPTS = <$$$_ {isRevoked:$$$_} $$$_>;\n$$$_\n$JWT($OPTS,$$$_);"]))
+        | finding("express-jwt-not-revoked";
+            "No token revoking configured for `express-jwt`.") ) )
+| report

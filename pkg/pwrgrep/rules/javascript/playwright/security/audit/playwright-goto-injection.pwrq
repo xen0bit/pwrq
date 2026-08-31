@@ -1,0 +1,17 @@
+# rules: playwright-goto-injection
+# from: javascript/playwright/security/audit/playwright-goto-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$PAGE.goto(\"$$$_\",$$$_)",
+      "$PAGE.goto($INPUT,$$$_)",
+      "require('playwright');\n$$$_",
+      "require('playwright');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_\n$PAGE.goto($INPUT,$$$_)"
+    ])) as $all
+    | ( $all | of(["$PAGE.goto($INPUT,$$$_)"])
+          | in_files_with($all | of(["require('playwright');\n$$$_"]))
+          | outside($all | of(["require('playwright');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_\n$PAGE.goto($INPUT,$$$_)"]))
+          | not_at($all | of(["$PAGE.goto(\"$$$_\",$$$_)"]))
+        | finding("playwright-goto-injection";
+            "If unverified user data can reach the `goto` method it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

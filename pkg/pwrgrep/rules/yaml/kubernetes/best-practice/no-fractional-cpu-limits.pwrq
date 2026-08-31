@@ -1,0 +1,14 @@
+# rules: no-fractional-cpu-limits
+# from: yaml/kubernetes/best-practice/no-fractional-cpu-limits.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "cpu: $CPU_LIMIT",
+      "limits:\n  $$$_"
+    ])) as $all
+    | ( $all | of(["cpu: $CPU_LIMIT"])
+          | within($all | of(["limits:\n  $$$_"]))
+          | where_capture("CPU_LIMIT"; "\\d{0,3}m")
+        | finding("no-fractional-cpu-limits";
+            "When you set a fractional CPU limit on a container, the CPU cycles available will be throttled, even though most nodes can handle processes alternating between using 100% of the CPU.") ) )
+| report

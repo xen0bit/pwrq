@@ -1,0 +1,11 @@
+# rules: detect-tensorflow
+# from: ai/python/detect-tensorflow.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "import tensorflow"
+    ])) as $all
+    | ( $all | of(["import tensorflow"])
+        | finding("detect-tensorflow";
+            "Possibly found usage of AI tooling: Tensorflow") ) )
+| report

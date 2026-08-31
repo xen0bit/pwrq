@@ -1,0 +1,12 @@
+# rules: incomplete-sanitization
+# from: javascript/lang/security/audit/incomplete-sanitization.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$STR.replace(($CHAR: string), $$$_)"
+    ])) as $all
+    | ( $all | of(["$STR.replace(($CHAR: string), $$$_)"])
+          | where_capture("CHAR"; "^[\\\"\\']([\\'\\\"\\<\\>\\*\\|\\{\\}\\[\\]\\%\\$]{1}|\\\\n|\\\\r|\\\\t|\\\\&)[\\\"\\']$")
+        | finding("incomplete-sanitization";
+            "`$STR.replace` method will only replace the first occurrence when used with a string argument ($CHAR).") ) )
+| report

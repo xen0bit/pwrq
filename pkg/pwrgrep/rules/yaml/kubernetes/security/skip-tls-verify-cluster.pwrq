@@ -1,0 +1,11 @@
+# rules: skip-tls-verify-cluster
+# from: yaml/kubernetes/security/skip-tls-verify-cluster.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "cluster:\n  $$$_\n  insecure-skip-tls-verify: true"
+    ])) as $all
+    | ( $all | of(["cluster:\n  $$$_\n  insecure-skip-tls-verify: true"])
+        | finding("skip-tls-verify-cluster";
+            "Cluster is disabling TLS certificate verification when communicating with the server.") ) )
+| report

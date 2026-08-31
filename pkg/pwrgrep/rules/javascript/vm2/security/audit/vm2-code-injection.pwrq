@@ -1,0 +1,32 @@
+# rules: vm2-code-injection
+# from: javascript/vm2/security/audit/vm2-code-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$$$_\"",
+      "$CODE = \"$$$_\";\n$$$_",
+      "$VM = new NodeVM($$$_);\n$$$_\n$VM.run(\"$$$_\",$$$_);",
+      "$VM = new NodeVM($$$_);\n$$$_\n$VM.run($CODE,$$$_);",
+      "$VM = new VM($$$_);\n$$$_\n$VM.run(\"$$$_\",$$$_);",
+      "$VM = new VM($$$_);\n$$$_\n$VM.run($CODE,$$$_);",
+      "(new NodeVM($$$_)).run(\"$$$_\",$$$_);",
+      "(new VM($$$_)).run(\"$$$_\",$$$_);",
+      "new NodeVM($$$_).run($CODE,$$$_);",
+      "new VM($$$_).run($CODE,$$$_);",
+      "new VMScript(\"$$$_\",$$$_);",
+      "new VMScript($CODE,$$$_);",
+      "require('vm2');\n$$$_",
+      "require('vm2');\n$$$_\n$CODE = new VMScript($$$_);\n$$$_"
+    ])) as $all
+    | ( $all | of(["$VM = new VM($$$_);\n$$$_\n$VM.run($CODE,$$$_);","new VM($$$_).run($CODE,$$$_);","$VM = new NodeVM($$$_);\n$$$_\n$VM.run($CODE,$$$_);","new NodeVM($$$_).run($CODE,$$$_);","new VMScript($CODE,$$$_);"])
+          | in_files_with($all | of(["require('vm2');\n$$$_"]))
+          | in_files_without($all | of(["$CODE = \"$$$_\";\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["require('vm2');\n$$$_\n$CODE = new VMScript($$$_);\n$$$_"]))
+          | not_at($all | of(["$VM = new VM($$$_);\n$$$_\n$VM.run(\"$$$_\",$$$_);"]))
+          | not_at($all | of(["$VM = new NodeVM($$$_);\n$$$_\n$VM.run(\"$$$_\",$$$_);"]))
+          | not_at($all | of(["(new VM($$$_)).run(\"$$$_\",$$$_);"]))
+          | not_at($all | of(["(new NodeVM($$$_)).run(\"$$$_\",$$$_);"]))
+          | not_at($all | of(["new VMScript(\"$$$_\",$$$_);"]))
+        | finding("vm2-code-injection";
+            "Make sure that unverified user data can not reach `vm2`.") ) )
+| report

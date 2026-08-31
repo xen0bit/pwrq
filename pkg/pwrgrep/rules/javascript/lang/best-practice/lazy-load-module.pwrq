@@ -1,0 +1,13 @@
+# rules: lazy-load-module
+# from: javascript/lang/best-practice/lazy-load-module.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "function $NAME($$$_) {\n    $$$_\n}",
+      "require($$$_)"
+    ])) as $all
+    | ( $all | of(["require($$$_)"])
+          | within($all | of(["function $NAME($$$_) {\n    $$$_\n}"]))
+        | finding("lazy-load-module";
+            "Lazy loading can complicate code bundling if care is not taken, also `require`s are run synchronously by Node.js.") ) )
+| report

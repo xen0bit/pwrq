@@ -1,0 +1,14 @@
+# rules: grpc-nodejs-insecure-connection
+# from: javascript/grpc/security/grpc-nodejs-insecure-connection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "require('grpc');\n$$$_\n$CREDS = <$$$_ $CREDENTIALS.createInsecure() $$$_>;\n$$$_\n$GRPC($ADDR,$$$_,$CREDS,$$$_);",
+      "require('grpc');\n$$$_\n$CREDS = <$$$_ $CREDENTIALS.createInsecure() $$$_>;\n$$$_\nnew $GRPC($ADDR,$$$_,$CREDS,$$$_);",
+      "require('grpc');\n$$$_\n$GRPC($ADDR,$$$_,$CREDENTIALS.createInsecure(),$$$_);",
+      "require('grpc');\n$$$_\nnew $GRPC($ADDR,$$$_,$CREDENTIALS.createInsecure(),$$$_);"
+    ])) as $all
+    | ( $all | of(["require('grpc');\n$$$_\n$GRPC($ADDR,$$$_,$CREDENTIALS.createInsecure(),$$$_);","require('grpc');\n$$$_\nnew $GRPC($ADDR,$$$_,$CREDENTIALS.createInsecure(),$$$_);","require('grpc');\n$$$_\n$CREDS = <$$$_ $CREDENTIALS.createInsecure() $$$_>;\n$$$_\n$GRPC($ADDR,$$$_,$CREDS,$$$_);","require('grpc');\n$$$_\n$CREDS = <$$$_ $CREDENTIALS.createInsecure() $$$_>;\n$$$_\nnew $GRPC($ADDR,$$$_,$CREDS,$$$_);"])
+        | finding("grpc-nodejs-insecure-connection";
+            "Found an insecure gRPC connection.") ) )
+| report

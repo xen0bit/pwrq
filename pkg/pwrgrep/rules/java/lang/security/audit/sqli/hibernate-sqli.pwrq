@@ -1,0 +1,43 @@
+# rules: hibernate-sqli
+# from: java/lang/security/audit/sqli/hibernate-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$SESSION.$METHOD(\"$$$_\" + \"$$$_\",$$$_);",
+      "$SESSION.$METHOD($SQL,$$$_)",
+      "$SESSION.$METHOD($X + $Y,$$$_);",
+      "$SESSION.$METHOD(String.format($$$_),$$$_);",
+      "$TYPE $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}",
+      "$TYPE $FUNC($$$_,org.hibernate.Session $SESSION,$$$_) {\n  $$$_\n}",
+      "$VAL $FUNC($$$_,String $SQL,$$$_) {\n$$$_\n}",
+      "String $SQL = \"$$$_\" + \"$$$_\";\n$$$_",
+      "String $SQL = $X + $Y;\n$$$_",
+      "String $SQL = String.format($$$_);\n$$$_",
+      "org.hibernate.Session $SESSION = $$$_;\n$$$_",
+      "org.hibernate.criterion.Restrictions.sqlRestriction(\"$$$_\" + \"$$$_\",$$$_)",
+      "org.hibernate.criterion.Restrictions.sqlRestriction($SQL,$$$_)",
+      "org.hibernate.criterion.Restrictions.sqlRestriction($X + $Y,$$$_)",
+      "org.hibernate.criterion.Restrictions.sqlRestriction(String.format($$$_),$$$_)"
+    ])) as $all
+    | ( (($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction($SQL,$$$_)"])))
+          | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
+          + ($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction(String.format($$$_),$$$_)"]))
+          + ($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction($X + $Y,$$$_)"])
+          | not_at($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction(\"$$$_\" + \"$$$_\",$$$_)"])))
+          + ((($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$SESSION.$METHOD($SQL,$$$_)"])))
+          | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
+          + ($all | of(["$SESSION.$METHOD(String.format($$$_),$$$_);"]))
+          + ($all | of(["$SESSION.$METHOD($X + $Y,$$$_);"]))
+          | at_same_place((($all)
+          + ($all)))
+          | not_at($all | of(["$SESSION.$METHOD(\"$$$_\" + \"$$$_\",$$$_);"]))
+          | where_capture("METHOD"; "^(createQuery|createSQLQuery)$"))
+        | finding("hibernate-sqli";
+            "Detected a formatted string in a SQL statement.") ) )
+| report

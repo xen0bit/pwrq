@@ -1,0 +1,48 @@
+# rules: dangerous-exec-cmd
+# from: go/lang/security/audit/dangerous-exec-cmd.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"$$$_\"",
+      "\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\"",
+      "\"os/exec\"",
+      "$ARGS = []string{\"$$$_\",$$$_};\n$$$_",
+      "$CMD = \"$$$_\";\n$$$_",
+      "$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_",
+      "$CMD = exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_",
+      "$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_",
+      "$CMD,$ERR := exec.LookPath(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\");\n$$$_",
+      "$EXE = \"$$$_\";\n$$$_",
+      "exec.Cmd {$$$_,Args: $ARGS,$$$_}",
+      "exec.Cmd {$$$_,Args: []string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_}",
+      "exec.Cmd {$$$_,Args: []string{\"$$$_\",$$$_},$$$_}",
+      "exec.Cmd {$$$_,Args: []string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_},$$$_}",
+      "exec.Cmd {$$$_,Args: []string{$$$_},$$$_}",
+      "exec.Cmd {$$$_,Args: []string{$CMD,\"-c\",$EXE,$$$_},$$$_}",
+      "exec.Cmd {$$$_,Args: []string{$CMD,$$$_},$$$_}",
+      "exec.Cmd {$$$_,Path: \"$$$_\",$$$_}",
+      "exec.Cmd {$$$_,Path: $CMD,$$$_}",
+      "import \"os/exec\"\n$$$_"
+    ])) as $all
+    | ( ($all | of(["exec.Cmd {$$$_,Path: $CMD,$$$_}"])
+          | not_at($all | of(["exec.Cmd {$$$_,Path: \"$$$_\",$$$_}"]))
+          | in_files_without($all | of(["$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_","\"$$$_\""])))
+          + ($all | of(["exec.Cmd {$$$_,Args: $ARGS,$$$_}"])
+          | not_at($all | of(["exec.Cmd {$$$_,Args: []string{$$$_},$$$_}"]))
+          | in_files_without($all | of(["$ARGS = []string{\"$$$_\",$$$_};\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$CMD = exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_","\"$$$_\""])))
+          + ($all | of(["exec.Cmd {$$$_,Args: []string{$CMD,$$$_},$$$_}"])
+          | not_at($all | of(["exec.Cmd {$$$_,Args: []string{\"$$$_\",$$$_},$$$_}"]))
+          | in_files_without($all | of(["$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_","\"$$$_\""])))
+          + (($all | of(["exec.Cmd {$$$_,Args: []string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_},$$$_}"]))
+          + ($all | of(["exec.Cmd {$$$_,Args: []string{$CMD,\"-c\",$EXE,$$$_},$$$_}"])
+          | in_files_with($all | of(["$CMD,$ERR := exec.LookPath(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\");\n$$$_","\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\""])))
+          | not_at($all | of(["exec.Cmd {$$$_,Args: []string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_}"]))
+          | in_files_without($all | of(["$EXE = \"$$$_\";\n$$$_","\"$$$_\""])))
+          | in_files_with($all | of(["import \"os/exec\"\n$$$_","\"os/exec\""]))
+        | finding("dangerous-exec-cmd";
+            "Detected non-static command inside exec.Cmd.") ) )
+| report

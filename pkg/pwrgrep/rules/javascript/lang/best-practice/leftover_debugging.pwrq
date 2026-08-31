@@ -1,0 +1,22 @@
+# rules: javascript-alert, javascript-confirm, javascript-prompt
+# from: javascript/lang/best-practice/leftover_debugging.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "alert($X)",
+      "alert()",
+      "confirm($$$_)",
+      "prompt($X)",
+      "prompt($X, $Y)",
+      "prompt()"
+    ])) as $all
+    | ( $all | of(["alert()","alert($X)"])
+        | finding("javascript-alert";
+            "found alert() call; should this be in production code?") )
+      + ( $all | of(["confirm($$$_)"])
+        | finding("javascript-confirm";
+            "found confirm() call; should this be in production code?") )
+      + ( $all | of(["prompt()","prompt($X)","prompt($X, $Y)"])
+        | finding("javascript-prompt";
+            "found prompt() call; should this be in production code?") ) )
+| report

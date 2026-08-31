@@ -1,0 +1,11 @@
+# rules: render-template-string
+# from: python/flask/security/audit/render-template-string.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "flask.render_template_string($$$_)"
+    ])) as $all
+    | ( $all | of(["flask.render_template_string($$$_)"])
+        | finding("render-template-string";
+            "Found a template created with string formatting.") ) )
+| report

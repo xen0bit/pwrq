@@ -1,0 +1,12 @@
+# rules: avoid-default-routes
+# from: ruby/rails/security/audit/xss/avoid-default-routes.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "map.connect \":controller/:action/:id\"",
+      "match ':controller(/:action(/:id(.:format)))'"
+    ])) as $all
+    | ( $all | of(["map.connect \":controller/:action/:id\"","match ':controller(/:action(/:id(.:format)))'"])
+        | finding("avoid-default-routes";
+            "Default routes are enabled in this routes file.") ) )
+| report

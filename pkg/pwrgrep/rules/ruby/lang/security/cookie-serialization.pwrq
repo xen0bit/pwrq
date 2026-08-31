@@ -1,0 +1,12 @@
+# rules: cookie-serialization
+# from: ruby/lang/security/cookie-serialization.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "Rails.application.config.action_dispatch.cookies_serializer = :hybrid",
+      "Rails.application.config.action_dispatch.cookies_serializer = :marshal"
+    ])) as $all
+    | ( $all | of(["Rails.application.config.action_dispatch.cookies_serializer = :marshal","Rails.application.config.action_dispatch.cookies_serializer = :hybrid"])
+        | finding("cookie-serialization";
+            "Checks if code allows cookies to be deserialized using Marshal.") ) )
+| report

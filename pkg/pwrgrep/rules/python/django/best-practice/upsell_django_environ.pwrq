@@ -1,0 +1,14 @@
+# rules: use-django-environ
+# from: python/django/best-practice/upsell_django_environ.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "import django\n$$$_\nimport os\n$$$_\n$FOO = $M.environ[$$$_]",
+      "import environ\n$$$_",
+      "import os\n$$$_\nimport django\n$$$_\n$FOO = $M.environ[$$$_]"
+    ])) as $all
+    | ( $all | of(["import django\n$$$_\nimport os\n$$$_\n$FOO = $M.environ[$$$_]","import os\n$$$_\nimport django\n$$$_\n$FOO = $M.environ[$$$_]"])
+          | in_files_without($all | of(["import environ\n$$$_"]))
+        | finding("use-django-environ";
+            "You are using environment variables inside django app.") ) )
+| report

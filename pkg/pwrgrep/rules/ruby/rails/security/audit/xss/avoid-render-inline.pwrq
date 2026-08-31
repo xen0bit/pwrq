@@ -1,0 +1,11 @@
+# rules: avoid-render-inline
+# from: ruby/rails/security/audit/xss/avoid-render-inline.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "render inline: $$$_"
+    ])) as $all
+    | ( $all | of(["render inline: $$$_"])
+        | finding("avoid-render-inline";
+            "'render inline: ...' renders an entire ERB template inline and is dangerous.") ) )
+| report

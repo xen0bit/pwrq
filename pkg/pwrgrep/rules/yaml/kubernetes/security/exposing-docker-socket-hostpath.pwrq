@@ -1,0 +1,13 @@
+# rules: exposing-docker-socket-hostpath
+# from: yaml/kubernetes/security/exposing-docker-socket-hostpath.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "hostPath:\n  $$$_\n  path: /var/run/docker.sock",
+      "volumes:\n  $$$_"
+    ])) as $all
+    | ( $all | of(["hostPath:\n  $$$_\n  path: /var/run/docker.sock"])
+          | within($all | of(["volumes:\n  $$$_"]))
+        | finding("exposing-docker-socket-hostpath";
+            "Exposing host's Docker socket to containers via a volume.") ) )
+| report

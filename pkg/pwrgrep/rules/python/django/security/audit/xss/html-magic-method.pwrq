@@ -1,0 +1,13 @@
+# rules: html-magic-method
+# from: python/django/security/audit/xss/html-magic-method.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class $CLASS($$$_):\n  $$$_",
+      "def __html__($$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["def __html__($$$_):\n  $$$_"])
+          | within($all | of(["class $CLASS($$$_):\n  $$$_"]))
+        | finding("html-magic-method";
+            "The `__html__` method indicates to the Django template engine that the value is 'safe' for rendering.") ) )
+| report

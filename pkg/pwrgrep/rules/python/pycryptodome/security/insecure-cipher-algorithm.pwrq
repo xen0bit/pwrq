@@ -1,0 +1,12 @@
+# rules: insecure-cipher-algorithm-xor
+# from: python/pycryptodome/security/insecure-cipher-algorithm.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "Crypto.Cipher.XOR.new($$$_)",
+      "Cryptodome.Cipher.XOR.new($$$_)"
+    ])) as $all
+    | ( $all | of(["Cryptodome.Cipher.XOR.new($$$_)","Crypto.Cipher.XOR.new($$$_)"])
+        | finding("insecure-cipher-algorithm-xor";
+            "Detected XOR cipher algorithm which is considered insecure.") ) )
+| report

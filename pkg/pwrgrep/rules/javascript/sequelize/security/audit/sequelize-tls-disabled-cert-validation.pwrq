@@ -1,0 +1,12 @@
+# rules: sequelize-tls-disabled-cert-validation
+# from: javascript/sequelize/security/audit/sequelize-tls-disabled-cert-validation.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "{\n  host: $HOST,\n  database: $DATABASE,\n  dialect: $DIALECT,\n  dialectOptions: {\n    ssl: {\n      rejectUnauthorized: false\n    }\n  }\n }"
+    ])) as $all
+    | ( $all | of(["{\n  host: $HOST,\n  database: $DATABASE,\n  dialect: $DIALECT,\n  dialectOptions: {\n    ssl: {\n      rejectUnauthorized: false\n    }\n  }\n }"])
+          | where_capture("DIALECT"; "['\"](mariadb|mysql|postgres)['\"]")
+        | finding("sequelize-tls-disabled-cert-validation";
+            "Set \"rejectUnauthorized\" to false is a convenient way to resolve certificate error.") ) )
+| report

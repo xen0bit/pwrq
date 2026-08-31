@@ -1,0 +1,12 @@
+# rules: unencrypted-socket
+# from: kotlin/lang/security/unencrypted-socket.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.kt"]; [
+      "ServerSocket($$$_)",
+      "Socket($$$_)"
+    ])) as $all
+    | ( $all | of(["ServerSocket($$$_)","Socket($$$_)"])
+        | finding("unencrypted-socket";
+            "This socket is not encrypted.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: avoid-query-set-extra
+# from: python/django/security/audit/query-set-extra.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$MODEL.extra($$$_)",
+      "$MODEL.extra(select = {$KEY: \"$$$_\"})"
+    ])) as $all
+    | ( $all | of(["$MODEL.extra($$$_)"])
+          | outside($all | of(["$MODEL.extra(select = {$KEY: \"$$$_\"})"]))
+        | finding("avoid-query-set-extra";
+            "QuerySet.extra' does not provide safeguards against SQL injection and requires very careful use.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: is-not-is-not
+# from: python/lang/correctness/common-mistakes/is-not-is-not.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$S is (not $$$_)"
+    ])) as $all
+    | ( $all | of(["$S is (not $$$_)"])
+        | finding("is-not-is-not";
+            "In Python 'X is not ...' is different from 'X is (not ...)'.") ) )
+| report

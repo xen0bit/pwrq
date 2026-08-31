@@ -1,0 +1,21 @@
+# rules: metadata-subcategory-incorrect-value
+# from: yaml/semgrep/metadata-subcategory-incorrect-value.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "metadata: \n  $$$_\n  category: security\n  $$$_",
+      "rules: \n  $$$_",
+      "subcategory: \n  - $VALUE",
+      "subcategory: \n  - audit",
+      "subcategory: \n  - secure default",
+      "subcategory: \n  - vuln"
+    ])) as $all
+    | ( $all | of(["subcategory: \n  - $VALUE"])
+          | within($all | of(["rules: \n  $$$_"]))
+          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
+          | not_at($all | of(["subcategory: \n  - vuln"]))
+          | not_at($all | of(["subcategory: \n  - audit"]))
+          | not_at($all | of(["subcategory: \n  - secure default"]))
+        | finding("metadata-subcategory-incorrect-value";
+            "Semgrep rule likelihood: $VALUE detected, but the value must be vuln, audit, or secure default.") ) )
+| report

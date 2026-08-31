@@ -1,0 +1,17 @@
+# rules: playwright-setcontent-injection
+# from: javascript/playwright/security/audit/playwright-setcontent-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$PAGE.setContent(\"$$$_\",$$$_)",
+      "$PAGE.setContent($INPUT,$$$_)",
+      "require('playwright');\n$$$_",
+      "require('playwright');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_\n$PAGE.setContent($INPUT,$$$_)"
+    ])) as $all
+    | ( $all | of(["$PAGE.setContent($INPUT,$$$_)"])
+          | in_files_with($all | of(["require('playwright');\n$$$_"]))
+          | outside($all | of(["require('playwright');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_\n$PAGE.setContent($INPUT,$$$_)"]))
+          | not_at($all | of(["$PAGE.setContent(\"$$$_\",$$$_)"]))
+        | finding("playwright-setcontent-injection";
+            "If unverified user data can reach the `setContent` method it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

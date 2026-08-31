@@ -1,0 +1,16 @@
+# rules: websocket-missing-origin-check
+# from: go/gorilla/security/audit/websocket-missing-origin-check.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"github.com/gorilla/websocket\"",
+      "$UPGRADER = websocket.Upgrader{$$$_, CheckOrigin: $FN ,$$$_}\n$$$_",
+      "$UPGRADER.CheckOrigin = $FN2\n$$$_",
+      "$UPGRADER.Upgrade($$$_)",
+      "import (\"github.com/gorilla/websocket\")\n$$$_"
+    ])) as $all
+    | ( $all
+          | in_files_with($all | of(["import (\"github.com/gorilla/websocket\")\n$$$_","\"github.com/gorilla/websocket\""]))
+        | finding("websocket-missing-origin-check";
+            "The Origin header in the HTTP WebSocket handshake is used to guarantee that the connection accepted by the WebSocket is from a trusted origin domain.") ) )
+| report

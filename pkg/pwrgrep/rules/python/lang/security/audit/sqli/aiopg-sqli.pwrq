@@ -1,0 +1,55 @@
+# rules: aiopg-sqli
+# from: python/lang/security/audit/sqli/aiopg-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_\"",
+      "$CONN = await aiopg.connect($$$_)\n$$$_\n$CUR = await $CONN.cursor($$$_)\n$$$_",
+      "$CUR.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)",
+      "$CUR.$METHOD($$$_, $X + $Y, $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_' % ($$$_), $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_'%(), $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_'.format($$$_), $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_'.format(), $$$_)",
+      "$CUR.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)",
+      "$CUR.$METHOD($$$_,$QUERY,$$$_)",
+      "$POOL = await aiopg.create_pool($$$_)\n$$$_\nasync with $POOL as $CONN:\n  $$$_\n  $CUR = await $CONN.cursor($$$_)\n  $$$_",
+      "$POOL = await aiopg.create_pool($$$_)\n$$$_\nasync with $POOL.acquire($$$_) as $CONN:\n  $$$_\n  async with $CONN.cursor($$$_) as $CUR:\n    $$$_",
+      "$POOL = await aiopg.create_pool($$$_)\n$$$_\nasync with $POOL.cursor($$$_) as $CUR:\n  $$$_",
+      "$POOL = await aiopg.create_pool($$$_)\n$$$_\nwith (await $POOL.cursor($$$_)) as $CUR:\n  $$$_",
+      "$QUERY += \"$$$_\"\n$$$_",
+      "$QUERY += $X\n$$$_",
+      "$QUERY = \"$$$_\" + \"$$$_\"\n$$$_",
+      "$QUERY = $X + $Y\n$$$_",
+      "$QUERY = '$$$_' % ($$$_)\n$$$_",
+      "$QUERY = '$$$_' % ()\n$$$_",
+      "$QUERY = '$$$_'.format($$$_)\n$$$_",
+      "$QUERY = '$$$_'.format()\n$$$_",
+      "$QUERY = f'$$$_{$USERINPUT}$$$_'\n$$$_"
+    ])) as $all
+    | ( ($all | of(["$CUR.$METHOD($$$_,$QUERY,$$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_'.format()\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_' % ()\n$$$_"])))
+          + ($all | of(["$CUR.$METHOD($$$_, $X + $Y, $$$_)"]))
+          + ($all | of(["$CUR.$METHOD($$$_, '$$$_'.format($$$_), $$$_)"]))
+          + ($all | of(["$CUR.$METHOD($$$_, '$$$_' % ($$$_), $$$_)"]))
+          + ($all | of(["$CUR.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)"]))
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | not_at($all | of(["$CUR.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)"]))
+          | not_at($all | of(["$CUR.$METHOD($$$_, '$$$_'.format(), $$$_)"]))
+          | not_at($all | of(["$CUR.$METHOD($$$_, '$$$_'%(), $$$_)"]))
+          | where_capture("METHOD"; "^(execute)$")
+        | finding("aiopg-sqli";
+            "Detected string concatenation with a non-literal variable in an aiopg Python SQL statement.") ) )
+| report

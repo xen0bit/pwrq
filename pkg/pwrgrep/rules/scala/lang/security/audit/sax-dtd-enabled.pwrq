@@ -1,0 +1,29 @@
+# rules: sax-dtd-enabled
+# from: scala/lang/security/audit/sax-dtd-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)",
+      "$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)",
+      "$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)",
+      "$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)",
+      "$$$_\n$X = $SR.newSAXParser($$$_)",
+      "$SF = SAXParserFactory.newInstance($$$_)\n$$$_\n$SR = $SF.newSAXParser($$$_)",
+      "$SR = SAXParserFactory.newInstance($$$_)",
+      "$SR = SAXParserFactory.newInstance($$$_).newSAXParser($$$_)",
+      "$SR = new SAXBuilder($$$_)",
+      "$SR = new SAXReader($$$_)"
+    ])) as $all
+    | ( ($all | of(["$SR = new SAXReader($$$_)"]))
+          + ($all | of(["$SF = SAXParserFactory.newInstance($$$_)\n$$$_\n$SR = $SF.newSAXParser($$$_)"]))
+          + ($all | of(["$SR = SAXParserFactory.newInstance($$$_)"])
+          | outside($all | of(["$$$_\n$X = $SR.newSAXParser($$$_)"])))
+          + ($all | of(["$SR = SAXParserFactory.newInstance($$$_).newSAXParser($$$_)"]))
+          + ($all | of(["$SR = new SAXBuilder($$$_)"]))
+          | outside($all | of(["$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)"]))
+          | outside($all | of(["$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)"]))
+          | outside($all | of(["$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)"]))
+          | outside($all | of(["$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$SR.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$SR.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)"]))
+        | finding("sax-dtd-enabled";
+            "XML processor being instantiated without calling the `setFeature` functions that are generally used for disabling entity processing.") ) )
+| report

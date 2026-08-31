@@ -1,0 +1,13 @@
+# rules: class-extends-safestring
+# from: python/django/security/audit/xss/class-extends-safestring.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class $CLASS(django.utils.safestring.SafeData):\n  $$$_",
+      "class $CLASS(django.utils.safestring.SafeString):\n  $$$_",
+      "class $CLASS(django.utils.safestring.SafeText):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["class $CLASS(django.utils.safestring.SafeString):\n  $$$_","class $CLASS(django.utils.safestring.SafeText):\n  $$$_","class $CLASS(django.utils.safestring.SafeData):\n  $$$_"])
+        | finding("class-extends-safestring";
+            "Found a class extending 'SafeString', 'SafeText' or 'SafeData'.") ) )
+| report

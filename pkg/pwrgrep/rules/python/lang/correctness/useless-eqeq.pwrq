@@ -1,0 +1,26 @@
+# rules: useless-eqeq
+# from: python/lang/correctness/useless-eqeq.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$X != $X",
+      "$X == $X",
+      "1 == 1",
+      "assert $$$_, $$$_",
+      "assert($$$_)",
+      "assertFalse($$$_)",
+      "assertTrue($$$_)",
+      "def __cmp__($$$_):\n    $$$_",
+      "def __eq__($$$_):\n    $$$_"
+    ])) as $all
+    | ( $all | of(["$X == $X","$X != $X"])
+          | outside($all | of(["def __eq__($$$_):\n    $$$_"]))
+          | outside($all | of(["def __cmp__($$$_):\n    $$$_"]))
+          | outside($all | of(["assert($$$_)"]))
+          | outside($all | of(["assert $$$_, $$$_"]))
+          | outside($all | of(["assertTrue($$$_)"]))
+          | outside($all | of(["assertFalse($$$_)"]))
+          | not_at($all | of(["1 == 1"]))
+        | finding("useless-eqeq";
+            "This expression is always True: `$X == $X` or `$X != $X`.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: useless-if-conditional, useless-if-body
+# from: go/lang/maintainability/useless-ifelse.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "if ($X) {\n    $$$_\n} else if ($X) {\n    $$$_\n}",
+      "if ($X) {\n    $S\n} else {\n    $S\n}"
+    ])) as $all
+    | ( $all | of(["if ($X) {\n    $$$_\n} else if ($X) {\n    $$$_\n}"])
+        | finding("useless-if-conditional";
+            "Detected an if block that checks for the same condition on both branches (`$X`).") )
+      + ( $all | of(["if ($X) {\n    $S\n} else {\n    $S\n}"])
+        | finding("useless-if-body";
+            "Detected identical statements in the if body and the else body of an if-statement.") ) )
+| report

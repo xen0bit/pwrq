@@ -1,0 +1,23 @@
+# rules: example-1, example-2, example-3, example-4, example-4
+# from: yaml/semgrep/metadata-cwe.test.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.json","*.yaml"]; [
+      "$$$_"
+    ])) as $all
+    | ( $all | of(["$$$_"])
+        | finding("example-1";
+            "Example") )
+      + ( $all | of(["$$$_"])
+        | finding("example-2";
+            "Example") )
+      + ( $all | of(["$$$_"])
+        | finding("example-3";
+            "Example") )
+      + ( $all | of(["$$$_"])
+        | finding("example-4";
+            "Example") )
+      + ( $all | of(["$$$_"])
+        | finding("example-4";
+            "Example") ) )
+| report
