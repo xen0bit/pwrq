@@ -1,0 +1,16 @@
+# rules: insufficient-rsa-key-size
+# languages: python
+# from: python/pycryptodome/security/insufficient-rsa-key-size.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "Crypto.PublicKey.RSA.generate($$$_, bits=$SIZE, $$$_)",
+      "Crypto.PublicKey.RSA.generate($SIZE, $$$_)",
+      "Cryptodome.PublicKey.RSA.generate($$$_, bits=$SIZE, $$$_)",
+      "Cryptodome.PublicKey.RSA.generate($SIZE, $$$_)"
+    ])) as $all
+    | ( $all | of(["Crypto.PublicKey.RSA.generate($$$_, bits=$SIZE, $$$_)","Crypto.PublicKey.RSA.generate($SIZE, $$$_)","Cryptodome.PublicKey.RSA.generate($$$_, bits=$SIZE, $$$_)","Cryptodome.PublicKey.RSA.generate($SIZE, $$$_)"])
+          | where_capture_compare("$SIZE < 3072")
+        | finding("insufficient-rsa-key-size";
+            "Detected an insufficient key size for RSA.") ) )
+| report

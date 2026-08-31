@@ -1,4 +1,5 @@
 # rules: skip-tls-verify-cluster
+# languages: yaml
 # from: yaml/kubernetes/security/skip-tls-verify-cluster.yaml
 
 . as $root

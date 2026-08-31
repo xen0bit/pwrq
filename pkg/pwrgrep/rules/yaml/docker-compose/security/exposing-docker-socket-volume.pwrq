@@ -1,4 +1,5 @@
 # rules: exposing-docker-socket-volume
+# languages: yaml
 # from: yaml/docker-compose/security/exposing-docker-socket-volume.yaml
 
 . as $root

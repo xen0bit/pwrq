@@ -1,4 +1,5 @@
 # rules: avoid-query-set-extra
+# languages: python
 # from: python/django/security/audit/query-set-extra.yaml
 
 . as $root

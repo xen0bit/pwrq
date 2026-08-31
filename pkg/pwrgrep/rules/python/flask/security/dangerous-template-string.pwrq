@@ -1,4 +1,5 @@
 # rules: dangerous-template-string
+# languages: python
 # from: python/flask/security/dangerous-template-string.yaml
 
 . as $root

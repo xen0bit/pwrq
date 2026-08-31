@@ -1,0 +1,23 @@
+# rules: disallow-old-tls-versions1
+# from: problem-based-packs/insecure-transport/java-stdlib/disallow-old-tls-versions1.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.java"]; [
+      "\\(SSLConnectionSocketFactory\\s+(?P<SF>\\S+)\\)\\s+=\\s+new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\(TlsConfig\\s+(?P<TLSCONFIG>\\S+)\\)\\s+=\\s+TlsConfig\\.custom\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSupportedProtocols\\(TLS\\.V_1_2\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);\\s+[\\s\\S]*?\\s+HttpClientConnectionManager\\s+cm\\s+=\\s+(?P<CM>\\S+)\\.create\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSSLSocketFactory\\((?P<SF>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.setDefaultTlsConfig\\((?P<TLSCONFIG>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);",
+      "\\(SSLConnectionSocketFactory\\s+(?P<SF>\\S+)\\)\\s+=\\s+new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\(TlsConfig\\s+(?P<TLSCONFIG>\\S+)\\)\\s+=\\s+TlsConfig\\.custom\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSupportedProtocols\\(TLS\\.V_1_3\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);\\s+[\\s\\S]*?\\s+HttpClientConnectionManager\\s+cm\\s+=\\s+(?P<CM>\\S+)\\.create\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSSLSocketFactory\\((?P<SF>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.setDefaultTlsConfig\\((?P<TLSCONFIG>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);",
+      "new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.2\",\\s+\"TLSv1\\.3\"\\},\\s+[\\s\\S]*?\\);",
+      "new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.2\"\\},\\s+[\\s\\S]*?\\);",
+      "new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.3\",\\s+\"TLSv1\\.2\"\\},\\s+[\\s\\S]*?\\);",
+      "new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.3\"\\},\\s+[\\s\\S]*?\\);",
+      "new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?\\);"
+    ])) as $all
+    | ( $all | of(["new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?\\);"])
+          | not_at($all | of(["new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.2\",\\s+\"TLSv1\\.3\"\\},\\s+[\\s\\S]*?\\);"]))
+          | not_at($all | of(["new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.3\",\\s+\"TLSv1\\.2\"\\},\\s+[\\s\\S]*?\\);"]))
+          | not_at($all | of(["new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.3\"\\},\\s+[\\s\\S]*?\\);"]))
+          | not_at($all | of(["new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?,\\s+new\\s+String\\[\\]\\s+\\{\"TLSv1\\.2\"\\},\\s+[\\s\\S]*?\\);"]))
+          | outside($all | of(["\\(SSLConnectionSocketFactory\\s+(?P<SF>\\S+)\\)\\s+=\\s+new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\(TlsConfig\\s+(?P<TLSCONFIG>\\S+)\\)\\s+=\\s+TlsConfig\\.custom\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSupportedProtocols\\(TLS\\.V_1_2\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);\\s+[\\s\\S]*?\\s+HttpClientConnectionManager\\s+cm\\s+=\\s+(?P<CM>\\S+)\\.create\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSSLSocketFactory\\((?P<SF>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.setDefaultTlsConfig\\((?P<TLSCONFIG>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);"]))
+          | outside($all | of(["\\(SSLConnectionSocketFactory\\s+(?P<SF>\\S+)\\)\\s+=\\s+new\\s+SSLConnectionSocketFactory\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\(TlsConfig\\s+(?P<TLSCONFIG>\\S+)\\)\\s+=\\s+TlsConfig\\.custom\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSupportedProtocols\\(TLS\\.V_1_3\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);\\s+[\\s\\S]*?\\s+HttpClientConnectionManager\\s+cm\\s+=\\s+(?P<CM>\\S+)\\.create\\(\\)\\.\\s+[\\s\\S]*?\\s+\\.setSSLSocketFactory\\((?P<SF>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.setDefaultTlsConfig\\((?P<TLSCONFIG>\\S+)\\)\\.\\s+[\\s\\S]*?\\s+\\.build\\(\\);"]))
+        | finding("disallow-old-tls-versions1";
+            "Detects direct creations of SSLConnectionSocketFactories that don't disallow SSL v2, SSL v3, and TLS v1.") ) )
+| report

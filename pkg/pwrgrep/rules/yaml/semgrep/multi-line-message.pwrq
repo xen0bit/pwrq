@@ -1,4 +1,5 @@
 # rules: multi-line-message
+# languages: yaml
 # from: yaml/semgrep/multi-line-message.yaml
 
 . as $root

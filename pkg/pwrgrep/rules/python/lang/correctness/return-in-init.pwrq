@@ -1,4 +1,5 @@
 # rules: return-in-init, yield-in-init
+# languages: python
 # from: python/lang/correctness/return-in-init.yaml
 
 . as $root

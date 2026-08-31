@@ -1,0 +1,14 @@
+# rules: gcp-compute-os-login
+# languages: hcl
+# from: terraform/gcp/security/gcp-compute-os-login.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_compute_instance\" \"$$$_\" {\n$$$_\nmetadata = {\n    enable-oslogin = false\n}\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_compute_instance\" \"$$$_\" {\n$$$_\nmetadata = {\n    enable-oslogin = false\n}\n$$$_\n}"]))
+        | finding("gcp-compute-os-login";
+            "Ensure that no instance in the project overrides the project setting for enabling OSLogin (OSLogin needs to be enabled in project metadata for all instances)") ) )
+| report

@@ -1,0 +1,14 @@
+# rules: stacktrace-disclosure
+# languages: c_sharp
+# from: csharp/lang/security/stacktrace-disclosure.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$APP.UseDeveloperExceptionPage($$$_);",
+      "if ($ENV.IsDevelopment($$$_)) {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$APP.UseDeveloperExceptionPage($$$_);"])
+          | outside($all | of(["if ($ENV.IsDevelopment($$$_)) {\n  $$$_\n}"]))
+        | finding("stacktrace-disclosure";
+            "Stacktrace information is displayed in a non-Development environment.") ) )
+| report

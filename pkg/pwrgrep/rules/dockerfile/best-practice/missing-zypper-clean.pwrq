@@ -1,0 +1,14 @@
+# rules: missing-zypper-clean
+# from: dockerfile/best-practice/missing-zypper-clean.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "RUN\\s+[\\s\\S]*?\\s+zypper\\s+(?P<COMMAND>\\S+)\\s+[\\s\\S]*?",
+      "RUN\\s+[\\s\\S]*?\\s+zypper\\s+clean"
+    ])) as $all
+    | ( $all | of(["RUN\\s+[\\s\\S]*?\\s+zypper\\s+(?P<COMMAND>\\S+)\\s+[\\s\\S]*?"])
+          | outside($all | of(["RUN\\s+[\\s\\S]*?\\s+zypper\\s+clean"]))
+          | outside($all | of(["RUN\\s+[\\s\\S]*?\\s+zypper\\s+clean"]))
+        | finding("missing-zypper-clean";
+            "This zypper command does not end with '&& zypper clean'.") ) )
+| report

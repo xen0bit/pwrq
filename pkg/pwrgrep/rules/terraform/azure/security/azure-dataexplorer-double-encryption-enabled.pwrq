@@ -1,0 +1,16 @@
+# rules: azure-dataexplorer-double-encryption-enabled
+# languages: hcl
+# from: terraform/azure/security/azure-dataexplorer-double-encryption-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_kusto_cluster\" \"$$$_\" {\n$$$_\ndouble_encryption_enabled = true\n$$$_\n}",
+      "resource \"azurerm_kusto_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_kusto_cluster\" \"$$$_\" {\n$$$_\ndouble_encryption_enabled = true\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_kusto_cluster\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-dataexplorer-double-encryption-enabled";
+            "Ensure that Azure Data Explorer uses double encryption") ) )
+| report

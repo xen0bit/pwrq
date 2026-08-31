@@ -1,4 +1,5 @@
 # rules: unverified-ssl-context
+# languages: python
 # from: python/lang/security/unverified-ssl-context.yaml
 
 . as $root

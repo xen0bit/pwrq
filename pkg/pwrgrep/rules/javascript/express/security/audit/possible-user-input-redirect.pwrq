@@ -1,0 +1,22 @@
+# rules: unknown-value-in-redirect
+# languages: javascript, typescript
+# from: javascript/express/security/audit/possible-user-input-redirect.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$RES.redirect($$$_, $PWRQDEEP1, $$$_)",
+      "$UNK = $A.query.$B;\n$$$_",
+      "$UNK = query.$B;\n$$$_",
+      "$UNK = req.$SOMETHING;\n$$$_"
+    ])) as $all
+    | ( ($all
+          | in_files_with($all | of(["$UNK = query.$B;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$UNK = $A.query.$B;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$UNK = req.$SOMETHING;\n$$$_"])))
+          | at_same_place(($all | of(["$RES.redirect($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$UNK")))
+        | finding("unknown-value-in-redirect";
+            "It looks like '$UNK' is read from user input and it is used to as a redirect.") ) )
+| report

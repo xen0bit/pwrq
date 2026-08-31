@@ -1,0 +1,14 @@
+# rules: aws-transfer-server-is-public
+# languages: hcl
+# from: terraform/aws/security/aws-transfer-server-is-public.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_transfer_server\" $ANYTHING {\n  $$$_\n  endpoint_type = \"VPC\"\n  $$$_\n}",
+      "resource \"aws_transfer_server\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_transfer_server\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_transfer_server\" $ANYTHING {\n  $$$_\n  endpoint_type = \"VPC\"\n  $$$_\n}"]))
+        | finding("aws-transfer-server-is-public";
+            "Transfer Server endpoint type should not have public or null configured in order to block public access.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: exec-detected
+# languages: python
 # from: python/lang/security/audit/exec-detected.yaml
 
 . as $root

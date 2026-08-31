@@ -1,4 +1,5 @@
 # rules: javascript-spawn-shell
+# languages: javascript
 # fixture: javascript/spawn-shell.js
 # from: javascript/lang/security/audit/spawn-shell-true.yaml (spawn-shell-true)
 #

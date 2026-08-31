@@ -1,0 +1,14 @@
+# rules: aws-dynamodb-point-in-time-recovery-disabled
+# languages: hcl
+# from: terraform/aws/security/aws-dynamodb-point-in-time-recovery-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_dynamodb_table\" $ANYTHING {\n  $$$_\n  point_in_time_recovery {\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"aws_dynamodb_table\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_dynamodb_table\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_dynamodb_table\" $ANYTHING {\n  $$$_\n  point_in_time_recovery {\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("aws-dynamodb-point-in-time-recovery-disabled";
+            "Point-in-time recovery is not enabled for the DynamoDB table.") ) )
+| report

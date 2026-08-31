@@ -1,0 +1,16 @@
+# rules: gcp-dataflow-private-job
+# languages: hcl
+# from: terraform/gcp/security/gcp-dataflow-private-job.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_dataflow_job\" \"$$$_\" {\n$$$_\nip_configuration = \"WORKER_IP_PRIVATE\"\n$$$_\n}",
+      "resource \"google_dataflow_job\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_dataflow_job\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_dataflow_job\" \"$$$_\" {\n$$$_\nip_configuration = \"WORKER_IP_PRIVATE\"\n$$$_\n}"]))
+        | finding("gcp-dataflow-private-job";
+            "Ensure Dataflow jobs are private") ) )
+| report

@@ -1,0 +1,14 @@
+# rules: aws-efs-filesystem-encrypted-with-cmk
+# languages: hcl
+# from: terraform/aws/security/aws-efs-filesystem-encrypted-with-cmk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_efs_file_system\" $ANYTHING {\n  $$$_\n  encrypted  = true\n  $$$_\n}",
+      "resource \"aws_efs_file_system\" $ANYTHING {\n  $$$_\n  encrypted  = true\n  kms_key_id = $$$_\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_efs_file_system\" $ANYTHING {\n  $$$_\n  encrypted  = true\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_efs_file_system\" $ANYTHING {\n  $$$_\n  encrypted  = true\n  kms_key_id = $$$_\n  $$$_\n}"]))
+        | finding("aws-efs-filesystem-encrypted-with-cmk";
+            "Ensure EFS filesystem is encrypted at rest using KMS CMKs.") ) )
+| report

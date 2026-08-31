@@ -1,13 +1,20 @@
-# rules: unquoted-variable-expansion-in-command
+# rules: unquoted-variable-expansion-in-command, unquoted-command-substitution-in-command
+# languages: bash
 # from: bash/lang/correctness/unquoted-expansion.yaml
 
 . as $root
 | ( ($root | scan_ast(["*.sh"]; [
+      "$$$_ $$$_$($$$_)$$$_ $$$_",
       "$$$_ $$$_${$VAR}$$$_ $$$_",
+      "$$$_ $($$$_) $$$_",
       "$$$_ ${$VAR} $$$_"
     ])) as $all
     | ( $all | of(["$$$_ ${$VAR} $$$_","$$$_ $$$_${$VAR}$$$_ $$$_"])
-          | where_capture("VAR"; "[*@0-9]|[A-Za-z].*")
+          | where_capture("VAR"; "^(?:[*@0-9]|[A-Za-z].*)")
         | finding("unquoted-variable-expansion-in-command";
-            "Variable expansions must be double-quoted so as to prevent being split into multiple pieces according to whitespace or whichever separator is specified by the IFS variable.") ) )
+            "Variable expansions must be double-quoted so as to prevent being split into multiple pieces according to whitespace or whichever separator is specified by the IFS variable.") )
+      + ( $all | of(["$$$_ $($$$_) $$$_","$$$_ $$$_$($$$_)$$$_ $$$_"])
+          | where_text(".*(\\$\\([^\\(]|`).+([^\\)]\\)|`).*\n")
+        | finding("unquoted-command-substitution-in-command";
+            "The result of command substitution $(...) or `...`, if unquoted, is split on whitespace or other separators specified by the IFS variable.") ) )
 | report

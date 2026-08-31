@@ -1,0 +1,22 @@
+# rules: gcp-compute-ssl-policy
+# languages: hcl
+# from: terraform/gcp/security/gcp-compute-ssl-policy.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"CUSTOM\"\ncustom_features = [\"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384\", \"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384\"]\n$$$_\n}",
+      "resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"CUSTOM\"\ncustom_features = [$$$_, \"TLS_RSA_WITH_AES_256_GCM_SHA384\", $$$_]\n$$$_\n}",
+      "resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"MODERN\"\n$$$_\n}",
+      "resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"MODERN\"\nmin_tls_version = \"TLS_1_2\"\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"MODERN\"\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"CUSTOM\"\ncustom_features = [$$$_, \"TLS_RSA_WITH_AES_256_GCM_SHA384\", $$$_]\n$$$_\n}"])))))
+          | outside($all | of(["resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"MODERN\"\nmin_tls_version = \"TLS_1_2\"\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_compute_ssl_policy\" \"$$$_\" {\n$$$_\nprofile = \"CUSTOM\"\ncustom_features = [\"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384\", \"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384\"]\n$$$_\n}"]))
+        | finding("gcp-compute-ssl-policy";
+            "Ensure no HTTPS or SSL proxy load balancers permit SSL policies with weak cipher suites") ) )
+| report

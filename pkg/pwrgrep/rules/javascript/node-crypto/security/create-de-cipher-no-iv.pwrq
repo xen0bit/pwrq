@@ -1,4 +1,5 @@
 # rules: create-de-cipher-no-iv
+# languages: javascript, typescript
 # from: javascript/node-crypto/security/create-de-cipher-no-iv.yaml
 
 . as $root

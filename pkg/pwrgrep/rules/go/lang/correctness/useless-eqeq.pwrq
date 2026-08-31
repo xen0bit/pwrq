@@ -1,4 +1,5 @@
 # rules: eqeq-is-bad, hardcoded-eq-true-or-false
+# languages: go
 # from: go/lang/correctness/useless-eqeq.yaml
 
 . as $root

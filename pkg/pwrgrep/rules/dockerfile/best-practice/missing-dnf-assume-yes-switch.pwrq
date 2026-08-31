@@ -1,4 +1,5 @@
 # rules: missing-dnf-assume-yes-switch
+# languages: dockerfile
 # from: dockerfile/best-practice/missing-dnf-assume-yes-switch.yaml
 
 . as $root

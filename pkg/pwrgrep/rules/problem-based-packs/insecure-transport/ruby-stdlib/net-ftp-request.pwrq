@@ -1,4 +1,5 @@
 # rules: net-ftp-request
+# languages: ruby
 # from: problem-based-packs/insecure-transport/ruby-stdlib/net-ftp-request.yaml
 
 . as $root

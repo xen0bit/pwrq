@@ -2,20 +2,20 @@
 # from: yaml/semgrep/metadata-likelihood-incorrect-value.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "likelihood: $VALUE",
-      "likelihood: HIGH",
-      "likelihood: LOW",
-      "likelihood: MEDIUM",
-      "metadata: \n  $$$_\n  category: security\n  $$$_",
-      "rules: \n  $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "likelihood:\\s+(?P<VALUE>\\S+)",
+      "likelihood:\\s+HIGH",
+      "likelihood:\\s+LOW",
+      "likelihood:\\s+MEDIUM",
+      "metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?",
+      "rules:\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["likelihood: $VALUE"])
-          | within($all | of(["rules: \n  $$$_"]))
-          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
-          | not_at($all | of(["likelihood: LOW"]))
-          | not_at($all | of(["likelihood: MEDIUM"]))
-          | not_at($all | of(["likelihood: HIGH"]))
+    | ( $all | of(["likelihood:\\s+(?P<VALUE>\\S+)"])
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | within($all | of(["metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["likelihood:\\s+LOW"]))
+          | not_at($all | of(["likelihood:\\s+MEDIUM"]))
+          | not_at($all | of(["likelihood:\\s+HIGH"]))
         | finding("metadata-likelihood-incorrect-value";
             "Semgrep rule likelihood: $VALUE detected, but the value must be LOW, MEDIUM, or HIGH.") ) )
 | report

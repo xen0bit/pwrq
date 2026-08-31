@@ -1,0 +1,73 @@
+# rules: dangerous-interactive-code-run-tainted-env-args
+# languages: python
+# from: python/lang/security/audit/dangerous-code-run-tainted-env-args.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A",
+      "$ARGS",
+      "$ARGS = $PARSER.parse_args()",
+      "$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_",
+      "$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_",
+      "$PARSER = argparse.ArgumentParser($$$_)\n$$$_",
+      "$PARSER = optparse.OptionParser($$$_)\n$$$_",
+      "$PAYLOAD",
+      "$PL = code.compile_command(\"$$$_\",$$$_)\n$$$_\n$X.runcode($PL,$$$_)",
+      "$PL = code.compile_command($PAYLOAD,$$$_)\n$$$_\n$X.runcode($PL,$$$_)",
+      "$PWRQDEEP1",
+      "$X = code.InteractiveConsole($$$_)\n$$$_",
+      "$X = code.InteractiveInterpreter($$$_)\n$$$_",
+      "$X.push(\"$$$_\",$$$_)",
+      "$X.push($PAYLOAD,$$$_)",
+      "$X.runcode(code.compile_command(\"$$$_\"),$$$_)",
+      "$X.runcode(code.compile_command($PAYLOAD),$$$_)",
+      "$X.runsource(\"$$$_\",$$$_)",
+      "$X.runsource($PAYLOAD,$$$_)",
+      "for $O, $A in $OPTS:\n  $$$_",
+      "os.environ",
+      "os.environ.get('$FOO', $$$_)",
+      "os.environb",
+      "os.environb.get('$FOO', $$$_)",
+      "os.getenv('$ANYTHING', $$$_)",
+      "os.getenvb('$ANYTHING', $$$_)",
+      "sys.argv",
+      "sys.orig_argv"
+    ])) as $all
+    | ( ((($all
+          | in_files_with($all | of(["$X = code.InteractiveConsole($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$X = code.InteractiveInterpreter($$$_)\n$$$_"])))
+          | at_same_place((($all
+          | within($all | of(["$X.push($PAYLOAD,$$$_)"])))
+          + ($all
+          | within($all | of(["$X.runsource($PAYLOAD,$$$_)"])))
+          + ($all
+          | within($all | of(["$X.runcode(code.compile_command($PAYLOAD),$$$_)"])))
+          + ($all
+          | within($all | of(["$PL = code.compile_command($PAYLOAD,$$$_)\n$$$_\n$X.runcode($PL,$$$_)"])))))
+          | at_same_place(($all | of(["$PAYLOAD"])))
+          | not_at($all | of(["$X.push(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$X.runsource(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$X.runcode(code.compile_command(\"$$$_\"),$$$_)"]))
+          | not_at($all | of(["$PL = code.compile_command(\"$$$_\",$$$_)\n$$$_\n$X.runcode($PL,$$$_)"]))))
+          | reaching(((($all | of(["os.environ","os.environ.get('$FOO', $$$_)","os.environb","os.environb.get('$FOO', $$$_)","os.getenv('$ANYTHING', $$$_)","os.getenvb('$ANYTHING', $$$_)"]))
+          + (($all | of(["sys.argv","sys.orig_argv"]))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = argparse.ArgumentParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = optparse.OptionParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + (($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_"])))
+          | at_same_place((($all | of(["$A"])
+          | within($all | of(["for $O, $A in $OPTS:\n  $$$_"])))
+          + ($all | of(["$ARGS"]))))))));
+              ([]))
+        | finding("dangerous-interactive-code-run-tainted-env-args";
+            "Found user controlled data inside InteractiveConsole/InteractiveInterpreter method.") ) )
+| report

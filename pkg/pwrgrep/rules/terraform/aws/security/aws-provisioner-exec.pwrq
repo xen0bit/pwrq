@@ -1,0 +1,15 @@
+# rules: aws-provisioner-exec
+# languages: hcl
+# from: terraform/aws/security/aws-provisioner-exec.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "provisioner \"local-exec\" {\n    $$$_\n}",
+      "provisioner \"remote-exec\" {\n    $$$_\n}",
+      "resource \"aws_instance\" \"$$$_\" {\n    $$$_\n}"
+    ])) as $all
+    | ( $all | of(["provisioner \"remote-exec\" {\n    $$$_\n}","provisioner \"local-exec\" {\n    $$$_\n}"])
+          | within($all | of(["resource \"aws_instance\" \"$$$_\" {\n    $$$_\n}"]))
+        | finding("aws-provisioner-exec";
+            "Provisioners are a tool of last resort and should be avoided where possible.") ) )
+| report

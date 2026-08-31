@@ -1,0 +1,13 @@
+# rules: mcrypt-use
+# languages: php
+# from: php/lang/security/mcrypt-use.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$FUNC($$$_);"
+    ])) as $all
+    | ( $all | of(["$FUNC($$$_);"])
+          | where_capture("FUNC"; "^(?:(mcrypt_|mdecrypt_).+)")
+        | finding("mcrypt-use";
+            "Mcrypt functionality has been deprecated and/or removed in recent PHP versions.") ) )
+| report

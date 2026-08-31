@@ -1,4 +1,5 @@
 # rules: no-null-cipher
+# languages: kotlin, scala
 # from: kotlin/lang/security/no-null-cipher.yaml
 
 . as $root

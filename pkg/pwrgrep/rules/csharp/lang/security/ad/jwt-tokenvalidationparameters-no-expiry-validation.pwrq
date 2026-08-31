@@ -1,0 +1,19 @@
+# rules: jwt-tokenvalidationparameters-no-expiry-validation
+# languages: c_sharp
+# from: csharp/lang/security/ad/jwt-tokenvalidationparameters-no-expiry-validation.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$LIFETIME = $FALSE",
+      "(TokenValidationParameters $OPTS). $$$_ .$LIFETIME = $FALSE",
+      "new TokenValidationParameters {$$$_}"
+    ])) as $all
+    | ( ($all | of(["$LIFETIME = $FALSE"])
+          | within($all | of(["new TokenValidationParameters {$$$_}"])))
+          + ($all | of(["(TokenValidationParameters $OPTS). $$$_ .$LIFETIME = $FALSE"]))
+          | where_capture("LIFETIME"; "^(?:(RequireExpirationTime|ValidateLifetime))")
+          | where_capture("FALSE"; "^(?:(false))")
+          | focus("FALSE")
+        | finding("jwt-tokenvalidationparameters-no-expiry-validation";
+            "The TokenValidationParameters.$LIFETIME is set to $FALSE, this means the JWT tokens lifetime is not validated.") ) )
+| report

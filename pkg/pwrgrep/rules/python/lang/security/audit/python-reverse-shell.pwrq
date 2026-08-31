@@ -1,4 +1,5 @@
 # rules: python-reverse-shell
+# languages: python
 # from: python/lang/security/audit/python-reverse-shell.yaml
 
 . as $root
@@ -8,7 +9,7 @@
       "subprocess.call([\"$BINPATH\",$$$_],$$$_)"
     ])) as $all
     | ( $all | of(["pty.spawn(\"$BINPATH\",$$$_)","subprocess.call([\"$BINPATH\",$$$_],$$$_)"])
-          | where_capture("BINPATH"; "/bin/.*?sh\\b")
+          | where_capture("BINPATH"; "^(?:/bin/.*?sh\\b)")
           | in_files_with($all | of(["import socket\n$$$_\n$S = socket.socket($$$_)\n$$$_\n$S.connect(($IP,$PORT),$$$_)\n$$$_"]))
         | finding("python-reverse-shell";
             "Semgrep found a Python reverse shell using $BINPATH to $IP at $PORT") ) )

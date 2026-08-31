@@ -1,0 +1,16 @@
+# rules: azure-apiservices-use-virtualnetwork
+# languages: hcl
+# from: terraform/azure/security/apiservice/azure-apiservices-use-virtualnetwork.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_api_management\" \"$$$_\" {\n$$$_\nvirtual_network_configuration {\n  subnet_id = $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_api_management\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_api_management\" \"$$$_\" {\n$$$_\nvirtual_network_configuration {\n  subnet_id = $$$_\n}\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_api_management\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-apiservices-use-virtualnetwork";
+            "Ensure that API management services use virtual networks") ) )
+| report

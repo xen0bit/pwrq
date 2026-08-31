@@ -1,0 +1,13 @@
+# rules: ftp-request
+# languages: java
+# from: problem-based-packs/insecure-transport/java-stdlib/ftp-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "FTPClient $FTPCLIENT = new FTPClient();\n$$$_\n$FTPCLIENT.connect($$$_);",
+      "URL $URL = new URL(\"=~/^[fF][tT][pP]://.*/\");\n$$$_\nURLConnection $CONN = $URL.openConnection($$$_);"
+    ])) as $all
+    | ( $all | of(["FTPClient $FTPCLIENT = new FTPClient();\n$$$_\n$FTPCLIENT.connect($$$_);","URL $URL = new URL(\"=~/^[fF][tT][pP]://.*/\");\n$$$_\nURLConnection $CONN = $URL.openConnection($$$_);"])
+        | finding("ftp-request";
+            "Checks for outgoing connections to ftp servers.") ) )
+| report

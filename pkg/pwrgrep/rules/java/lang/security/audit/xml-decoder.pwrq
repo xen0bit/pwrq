@@ -1,4 +1,5 @@
 # rules: xml-decoder
+# languages: java
 # from: java/lang/security/audit/xml-decoder.yaml
 
 . as $root

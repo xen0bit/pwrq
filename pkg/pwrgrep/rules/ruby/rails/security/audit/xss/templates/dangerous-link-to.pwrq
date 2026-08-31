@@ -1,0 +1,17 @@
+# rules: dangerous-link-to
+# from: ruby/rails/security/audit/xss/templates/dangerous-link-to.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.erb"]; [
+      "<%=\\s+[\\s\\S]*?\\s+%>",
+      "link_to\\s+[\\s\\S]*?\\s+\"\\/\"\\s+\\+\\s+[\\s\\S]*?\\s+@(?P<VAR>\\S+)",
+      "link_to\\s+[\\s\\S]*?\\s+'\\/'\\s+\\+\\s+[\\s\\S]*?\\s+@(?P<VAR>\\S+)",
+      "link_to\\s+[\\s\\S]*?\\s+@(?P<VAR>\\S+)"
+    ])) as $all
+    | ( $all | of(["link_to\\s+[\\s\\S]*?\\s+@(?P<VAR>\\S+)"])
+          | within($all | of(["<%=\\s+[\\s\\S]*?\\s+%>"]))
+          | outside($all | of(["link_to\\s+[\\s\\S]*?\\s+\"\\/\"\\s+\\+\\s+[\\s\\S]*?\\s+@(?P<VAR>\\S+)"]))
+          | outside($all | of(["link_to\\s+[\\s\\S]*?\\s+'\\/'\\s+\\+\\s+[\\s\\S]*?\\s+@(?P<VAR>\\S+)"]))
+        | finding("dangerous-link-to";
+            "Detected a template variable used in 'link_to'.") ) )
+| report

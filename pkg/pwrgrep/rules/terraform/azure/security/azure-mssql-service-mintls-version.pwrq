@@ -1,0 +1,16 @@
+# rules: azure-mssql-service-mintls-version
+# from: terraform/azure/security/azure-mssql-service-mintls-version.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "\"1\\.0\"",
+      "\"1\\.1\"",
+      "(?P<RESOURCE>\\S+)\\s+\"azurerm_mssql_server\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "minimum_tls_version\\s+=\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["\"1\\.0\"","\"1\\.1\""])
+          | within($all | of(["minimum_tls_version\\s+=\\s+[\\s\\S]*?"]))
+          | within($all | of(["(?P<RESOURCE>\\S+)\\s+\"azurerm_mssql_server\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("azure-mssql-service-mintls-version";
+            "Ensure MSSQL is using the latest version of TLS encryption") ) )
+| report

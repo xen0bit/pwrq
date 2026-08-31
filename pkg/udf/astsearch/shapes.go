@@ -25,6 +25,7 @@ var AstMatch = shape.Fixed("Pwrq.AstMatch",
 	shape.Prop("EndOffset", shape.Number, "zero-based byte offset just past the match"),
 	shape.Prop("Text", shape.String, "the source text the pattern matched, spanning every line it covers"),
 	shape.Prop("Captures", shape.Object, "one key per metavariable in the pattern, holding the text it caught"),
+	shape.Prop("CaptureSpans", shape.Object, "one key per metavariable, holding where it landed: LineNumber, Column, EndLineNumber, EndColumn, Offset, EndOffset"),
 	shape.Prop("PwrqValue", shape.String, "the path, as the bindable value"),
 ).Note("Offset and EndOffset are what let one match be tested for being inside another, which is how a rule that means \"this call, but only inside that function\" is written")
 

@@ -1,4 +1,5 @@
 # rules: eqeq-is-bad
+# languages: javascript, typescript
 # from: javascript/lang/correctness/useless-eqeq.yaml
 
 . as $root

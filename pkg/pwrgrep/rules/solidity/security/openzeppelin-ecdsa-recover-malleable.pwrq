@@ -1,4 +1,5 @@
 # rules: openzeppelin-ecdsa-recover-malleable
+# languages: solidity
 # from: solidity/security/openzeppelin-ecdsa-recover-malleable.yaml
 
 . as $root

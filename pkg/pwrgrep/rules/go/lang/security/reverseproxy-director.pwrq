@@ -2,17 +2,16 @@
 # from: go/lang/security/reverseproxy-director.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "\"net/http/httputil\"",
-      "$PROXY.Director = $FUNC",
-      "Director: $FUNC",
-      "httputil.ReverseProxy{\n    $$$_\n}",
-      "import \"net/http/httputil\"\n$$$_"
+| ( ($root | scan_regex(["*.go"]; [
+      "(?P<PROXY>\\S+)\\.Director\\s+=\\s+(?P<FUNC>\\S+)",
+      "Director:\\s+(?P<FUNC>\\S+)",
+      "httputil\\.ReverseProxy\\{\\s+[\\s\\S]*?\\s+\\}",
+      "import\\s+\"net\\/http\\/httputil\"\\s+[\\s\\S]*?"
     ])) as $all
-    | ( ($all | of(["$PROXY.Director = $FUNC"]))
-          + ($all | of(["Director: $FUNC"])
-          | within($all | of(["httputil.ReverseProxy{\n    $$$_\n}"])))
-          | in_files_with($all | of(["import \"net/http/httputil\"\n$$$_","\"net/http/httputil\""]))
+    | ( ($all | of(["(?P<PROXY>\\S+)\\.Director\\s+=\\s+(?P<FUNC>\\S+)"]))
+          + ($all | of(["Director:\\s+(?P<FUNC>\\S+)"])
+          | within($all | of(["httputil\\.ReverseProxy\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          | in_files_with($all | of(["import\\s+\"net\\/http\\/httputil\"\\s+[\\s\\S]*?"]))
         | finding("reverseproxy-director";
             "ReverseProxy can remove headers added by Director.") ) )
 | report

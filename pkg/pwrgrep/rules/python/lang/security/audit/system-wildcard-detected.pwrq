@@ -1,0 +1,29 @@
+# rules: system-wildcard-detected
+# languages: python
+# from: python/lang/security/audit/system-wildcard-detected.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "os.popen(\"$$$_\")",
+      "os.popen2(\"$$$_\")",
+      "os.popen3(\"$$$_\")",
+      "os.popen4(\"$$$_\")",
+      "os.system(\"$$$_\")",
+      "subprocess.$W($$$_, shell=True, $$$_)"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["os.system(\"$$$_\")"])))
+          + ($all
+          | within($all | of(["os.popen(\"$$$_\")"])))
+          + ($all
+          | within($all | of(["os.popen2(\"$$$_\")"])))
+          + ($all
+          | within($all | of(["os.popen3(\"$$$_\")"])))
+          + ($all
+          | within($all | of(["os.popen4(\"$$$_\")"])))
+          + ($all
+          | within($all | of(["subprocess.$W($$$_, shell=True, $$$_)"])))
+          | where_text("(tar|chmod|chown|rsync)(.*?)\\*")
+        | finding("system-wildcard-detected";
+            "Detected use of the wildcard character in a system call that spawns a shell.") ) )
+| report

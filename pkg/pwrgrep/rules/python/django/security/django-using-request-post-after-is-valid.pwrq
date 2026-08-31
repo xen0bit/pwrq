@@ -1,4 +1,5 @@
 # rules: django-using-request-post-after-is-valid
+# languages: python
 # from: python/django/security/django-using-request-post-after-is-valid.yaml
 
 . as $root

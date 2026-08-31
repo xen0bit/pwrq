@@ -1,4 +1,5 @@
 # rules: plaintext-http-link
+# languages: html
 # from: html/security/plaintext-http-link.yaml
 
 . as $root

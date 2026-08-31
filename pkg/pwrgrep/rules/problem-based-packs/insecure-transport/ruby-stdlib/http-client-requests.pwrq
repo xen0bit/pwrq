@@ -1,4 +1,5 @@
 # rules: http-client-requests
+# languages: ruby
 # from: problem-based-packs/insecure-transport/ruby-stdlib/http-client-requests.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: session-cookie-samesitenone
+# languages: go
 # from: go/gorilla/security/audit/session-cookie-samesitenone.yaml
 
 . as $root

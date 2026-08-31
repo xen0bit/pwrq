@@ -1,4 +1,5 @@
 # rules: cookie-missing-httponly
+# languages: java
 # from: java/lang/security/audit/cookie-missing-httponly.yaml
 
 . as $root

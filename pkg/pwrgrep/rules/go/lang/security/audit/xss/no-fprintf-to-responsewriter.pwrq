@@ -1,4 +1,5 @@
 # rules: no-fprintf-to-responsewriter
+# languages: go
 # from: go/lang/security/audit/xss/no-fprintf-to-responsewriter.yaml
 
 . as $root
@@ -8,8 +9,10 @@
       "func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}",
       "func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
           | at_same_place(($all | of(["fmt.$PRINTF($WRITER, $$$_)"])))
           | not_at($all | of(["fmt.$PRINTF($WRITER, \"$$$_\")"]))
         | finding("no-fprintf-to-responsewriter";

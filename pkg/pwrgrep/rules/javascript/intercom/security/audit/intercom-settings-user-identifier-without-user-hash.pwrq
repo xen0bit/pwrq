@@ -1,4 +1,5 @@
 # rules: intercom-settings-user-identifier-without-user-hash
+# languages: javascript
 # from: javascript/intercom/security/audit/intercom-settings-user-identifier-without-user-hash.yaml
 
 . as $root

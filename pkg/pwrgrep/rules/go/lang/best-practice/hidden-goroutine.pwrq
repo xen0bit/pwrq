@@ -1,4 +1,5 @@
 # rules: hidden-goroutine
+# languages: go
 # from: go/lang/best-practice/hidden-goroutine.yaml
 
 . as $root

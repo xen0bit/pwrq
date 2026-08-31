@@ -1,4 +1,5 @@
 # rules: is-not-is-not
+# languages: python
 # from: python/lang/correctness/common-mistakes/is-not-is-not.yaml
 
 . as $root

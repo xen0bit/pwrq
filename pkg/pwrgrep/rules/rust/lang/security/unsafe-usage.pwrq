@@ -1,4 +1,5 @@
 # rules: unsafe-usage
+# languages: rust
 # from: rust/lang/security/unsafe-usage.yml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: telnetlib
+# languages: python
 # from: python/lang/security/audit/telnetlib.yaml
 
 . as $root

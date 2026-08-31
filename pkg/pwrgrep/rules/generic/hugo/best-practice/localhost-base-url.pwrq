@@ -1,0 +1,13 @@
+# rules: localhost-base-url
+# from: generic/hugo/best-practice/localhost-base-url.yaml
+
+. as $root
+| ( ($root | scan_regex(["*"]; [
+      "\\.\\*\\(localhost\\|127\\\\\\.0\\\\\\.0\\\\\\.1\\)\\.\\*",
+      "baseURL\\s+=\\s+\"[\\s\\S]*?\""
+    ])) as $all
+    | ( $all | of(["baseURL\\s+=\\s+\"[\\s\\S]*?\""])
+          | at_same_place(($all | of(["\\.\\*\\(localhost\\|127\\\\\\.0\\\\\\.0\\\\\\.1\\)\\.\\*"])))
+        | finding("localhost-base-url";
+            "The 'baseURL' is set to localhost.") ) )
+| report

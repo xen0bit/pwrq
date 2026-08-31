@@ -1,4 +1,5 @@
 # rules: read-string-unsafe
+# languages: clojure
 # from: clojure/security/clojure-read-string/read-string-unsafe.yaml
 
 . as $root

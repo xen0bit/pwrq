@@ -1,0 +1,28 @@
+# rules: missing-language-field
+# from: yaml/semgrep/missing-language-field.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "(?P<INNER_RULE>\\S+)",
+      "(?P<OUTER_RULE>\\S+)",
+      "\\-\\s+[\\s\\S]*?\\s+languages:\\s+[\\s\\S]*?",
+      "\\-\\s+[\\s\\S]*?\\s+mode:\\s+join",
+      "\\-\\s+languages:\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "id:\\s+(?P<OUTER_RULEID>\\S+)\\s+mode:\\s+join\\s+join:\\s+rules:\\s+\\[\\s+[\\s\\S]*?,\\s+(?P<INNER_RULE>\\S+),\\s+[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "id:\\s+(?P<RULEID>\\S+)",
+      "rules:\\s+\\[[\\s\\S]*?,\\s+(?P<RULE>\\S+),\\s+[\\s\\S]*?\\]",
+      "rules:\\s+\\[\\s+[\\s\\S]*?,\\s+(?P<OUTER_RULE>\\S+),\\s+[\\s\\S]*?\\]"
+    ])) as $all
+    | ( ($all | of(["id:\\s+(?P<RULEID>\\S+)"])
+          | within($all | of(["rules:\\s+\\[[\\s\\S]*?,\\s+(?P<RULE>\\S+),\\s+[\\s\\S]*?\\]"]))
+          | outside($all | of(["\\-\\s+[\\s\\S]*?\\s+languages:\\s+[\\s\\S]*?"]))
+          | outside($all | of(["\\-\\s+[\\s\\S]*?\\s+mode:\\s+join"])))
+          + ($all | of(["id:\\s+(?P<RULEID>\\S+)"])
+          | within($all | of(["rules:\\s+\\[\\s+[\\s\\S]*?,\\s+(?P<OUTER_RULE>\\S+),\\s+[\\s\\S]*?\\]"]))
+          | within($all | of(["(?P<OUTER_RULE>\\S+)"]))
+          | in_files_with($all | of(["id:\\s+(?P<OUTER_RULEID>\\S+)\\s+mode:\\s+join\\s+join:\\s+rules:\\s+\\[\\s+[\\s\\S]*?,\\s+(?P<INNER_RULE>\\S+),\\s+[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?"]))
+          | within($all | of(["(?P<INNER_RULE>\\S+)"]))
+          | outside($all | of(["\\-\\s+languages:\\s+[\\s\\S]*?\\s+[\\s\\S]*?"])))
+        | finding("missing-language-field";
+            "Please include a 'languages' field for your rule $RULEID!") ) )
+| report

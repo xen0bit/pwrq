@@ -1,4 +1,5 @@
 # rules: http-not-https-connection
+# languages: python
 # from: python/lang/security/audit/network/http-not-https-connection.yaml
 
 . as $root

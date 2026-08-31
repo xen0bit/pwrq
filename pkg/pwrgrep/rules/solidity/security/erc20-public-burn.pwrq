@@ -1,4 +1,5 @@
 # rules: erc20-public-burn
+# languages: solidity
 # from: solidity/security/erc20-public-burn.yaml
 
 . as $root

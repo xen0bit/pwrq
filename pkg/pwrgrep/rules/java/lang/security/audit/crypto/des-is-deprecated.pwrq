@@ -1,15 +1,18 @@
 # rules: des-is-deprecated
+# languages: java, kotlin
 # from: java/lang/security/audit/crypto/des-is-deprecated.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.kt"]; [
+| ( ($root | scan_ast(["*.java","*.kt"]; [
       "\"=~/DES/.*/\"",
       "\"DES\"",
       "$CIPHER.getInstance(\"=~/DES/.*/\")",
       "$CIPHER.getInstance(\"DES\")"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["$CIPHER.getInstance(\"=~/DES/.*/\")"])))
+          + ($all
+          | within($all | of(["$CIPHER.getInstance(\"DES\")"])))
           | at_same_place(($all | of(["\"=~/DES/.*/\"","\"DES\""])))
         | finding("des-is-deprecated";
             "DES is considered deprecated.") ) )

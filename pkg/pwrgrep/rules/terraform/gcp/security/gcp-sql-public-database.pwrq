@@ -1,0 +1,18 @@
+# rules: gcp-sql-public-database
+# languages: hcl
+# from: terraform/gcp/security/gcp-sql-public-database.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nip_configuration {\n  $$$_\n  authorized_networks {\n    $$$_\n    value = \"0.0.0.0/0\"\n    $$$_\n  }\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nip_configuration {\n  $$$_\n  dynamic \"authorized_networks\" {\n    $$$_\n    content {\n      $$$_\n      value = \"0.0.0.0/0\"\n      $$$_\n    }\n    $$$_\n  }\n  $$$_\n}\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nip_configuration {\n  $$$_\n  authorized_networks {\n    $$$_\n    value = \"0.0.0.0/0\"\n    $$$_\n  }\n  $$$_\n}\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nip_configuration {\n  $$$_\n  dynamic \"authorized_networks\" {\n    $$$_\n    content {\n      $$$_\n      value = \"0.0.0.0/0\"\n      $$$_\n    }\n    $$$_\n  }\n  $$$_\n}\n$$$_\n}"])))))
+        | finding("gcp-sql-public-database";
+            "Ensure that Cloud SQL database Instances are not open to the world") ) )
+| report

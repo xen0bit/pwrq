@@ -1,0 +1,14 @@
+# rules: gcp-memory-store-for-redis-intransit-encryption
+# languages: hcl
+# from: terraform/gcp/security/gcp-memory-store-for-redis-intransit-encryption.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_redis_instance\" $ANYTHING {\n  $$$_\n  transit_encryption_mode = \"SERVER_AUTHENTICATION\"\n  $$$_\n}",
+      "resource \"google_redis_instance\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_redis_instance\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_redis_instance\" $ANYTHING {\n  $$$_\n  transit_encryption_mode = \"SERVER_AUTHENTICATION\"\n  $$$_\n}"]))
+        | finding("gcp-memory-store-for-redis-intransit-encryption";
+            "Ensure Memorystore for Redis uses intransit encryption") ) )
+| report

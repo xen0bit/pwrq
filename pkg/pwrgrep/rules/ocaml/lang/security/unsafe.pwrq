@@ -1,4 +1,5 @@
 # rules: ocamllint-unsafe
+# languages: ocaml
 # from: ocaml/lang/security/unsafe.yaml
 
 . as $root

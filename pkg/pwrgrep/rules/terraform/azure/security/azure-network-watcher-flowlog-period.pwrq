@@ -1,0 +1,17 @@
+# rules: azure-network-watcher-flowlog-period
+# languages: hcl
+# from: terraform/azure/security/azure-network-watcher-flowlog-period.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_network_watcher_flow_log\" \"$$$_\" {\n$$$_\nretention_policy {\n$$$_\nenabled = true\ndays = $DAYS\n$$$_\n}\n$$$_\n}",
+      "resource \"azurerm_network_watcher_flow_log\" \"$$$_\" {\n$$$_\nretention_policy {\n$$$_\nenabled = true\ndays = 0\n$$$_\n}\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_network_watcher_flow_log\" \"$$$_\" {\n$$$_\nretention_policy {\n$$$_\nenabled = true\ndays = $DAYS\n$$$_\n}\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_network_watcher_flow_log\" \"$$$_\" {\n$$$_\nretention_policy {\n$$$_\nenabled = true\ndays = 0\n$$$_\n}\n$$$_\n}"]))
+          | where_capture_compare("$DAYS < 90")
+        | finding("azure-network-watcher-flowlog-period";
+            "Ensure that Network Security Group Flow Log retention period is 90 days or greater") ) )
+| report

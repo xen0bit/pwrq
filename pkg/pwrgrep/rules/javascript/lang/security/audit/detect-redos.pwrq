@@ -1,0 +1,18 @@
+# rules: detect-redos
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/detect-redos.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$REDOS\".test($$$_)",
+      "$X.match(\"$REDOS\")",
+      "$X.match(/$REDOS/)",
+      "/$REDOS/.test($$$_)",
+      "new RegExp(\"$REDOS\",$$$_)",
+      "new RegExp(/$REDOS/,$$$_)"
+    ])) as $all
+    | ( $all | of(["new RegExp(/$REDOS/,$$$_)","new RegExp(\"$REDOS\",$$$_)","/$REDOS/.test($$$_)","\"$REDOS\".test($$$_)","$X.match(/$REDOS/)","$X.match(\"$REDOS\")"])
+          | where_capture_redos("REDOS")
+        | finding("detect-redos";
+            "Detected the use of a regular expression `$REDOS` which appears to be vulnerable to a Regular expression Denial-of-Service (ReDoS).") ) )
+| report

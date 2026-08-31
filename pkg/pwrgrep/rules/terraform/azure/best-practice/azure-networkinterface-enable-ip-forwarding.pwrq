@@ -1,0 +1,14 @@
+# rules: azure-networkinterface-enable-ip-forwarding
+# languages: hcl
+# from: terraform/azure/best-practice/azure-networkinterface-enable-ip-forwarding.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_network_interface\" \"$$$_\" {\n$$$_\nenable_ip_forwarding = true\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_network_interface\" \"$$$_\" {\n$$$_\nenable_ip_forwarding = true\n$$$_\n}"]))
+        | finding("azure-networkinterface-enable-ip-forwarding";
+            "Ensure that Network Interfaces disable IP forwarding") ) )
+| report

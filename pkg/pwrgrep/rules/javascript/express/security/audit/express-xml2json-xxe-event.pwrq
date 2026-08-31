@@ -1,0 +1,52 @@
+# rules: express-xml2json-xxe-event
+# languages: typescript
+# from: javascript/express/security/audit/express-xml2json-xxe-event.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})",
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})",
+      "$REQ.body",
+      "$REQ.cookies",
+      "$REQ.headers",
+      "$REQ.on('$$$_', function($$$_) { $$$_ $EXPAT.toJson($INPUT,$$$_); $$$_ })",
+      "$REQ.params",
+      "$REQ.query",
+      "({ $REQ }: Request,$RES: Response) => {$$$_}",
+      "({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) => {$$$_}",
+      "body",
+      "cookies",
+      "function $$$_ ($REQ, $RES) {$$$_}",
+      "function $$$_ ($REQ, $RES, $NEXT) {$$$_}",
+      "headers",
+      "import 'xml2json';\n$$$_",
+      "params",
+      "query",
+      "require('xml2json');\n$$$_"
+    ])) as $all
+    | ( ((($all
+          | in_files_with($all | of(["require('xml2json');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import 'xml2json';\n$$$_"])))
+          | at_same_place(($all | of(["$REQ.on('$$$_', function($$$_) { $$$_ $EXPAT.toJson($INPUT,$$$_); $$$_ })"])))
+          | focus("INPUT")))
+          | reaching(((($all
+          | within($all | of(["function $$$_ ($REQ, $RES) {$$$_}"])))
+          + ($all
+          | within($all | of(["function $$$_ ($REQ, $RES, $NEXT) {$$$_}"])))
+          + (($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})"])))
+          + ($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})"])))
+          | where_capture("METHOD"; "^(get|post|put|head|delete|options)$"))
+          | at_same_place(($all | of(["$REQ.query","$REQ.body","$REQ.params","$REQ.cookies","$REQ.headers"]))))
+              + (($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) => {$$$_}"])))
+          + ($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response) => {$$$_}"])))
+          | at_same_place(($all | of(["params","query","cookies","headers","body"])))
+          | focus("REQ")));
+              ([]))
+        | finding("express-xml2json-xxe-event";
+            "Xml Parser is used inside Request Event.") ) )
+| report

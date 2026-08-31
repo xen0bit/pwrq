@@ -1,0 +1,23 @@
+# rules: insufficient-rsa-key-size
+# languages: ruby
+# from: ruby/lang/security/insufficient-rsa-key-size.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$ASSIGN = $SIZE\n$$$_",
+      "OpenSSL::PKey::RSA.generate($ASSIGN, $$$_)",
+      "OpenSSL::PKey::RSA.generate($SIZE,$$$_)",
+      "OpenSSL::PKey::RSA.new($ASSIGN, $$$_)",
+      "OpenSSL::PKey::RSA.new($SIZE, $$$_)",
+      "def $METHOD1($$$_)\n$$$_\n$ASSIGN = $SIZE\n$$$_\nend\n$$$_"
+    ])) as $all
+    | ( ($all | of(["OpenSSL::PKey::RSA.generate($SIZE,$$$_)"]))
+          + ($all | of(["OpenSSL::PKey::RSA.new($SIZE, $$$_)"]))
+          + (($all | of(["OpenSSL::PKey::RSA.new($ASSIGN, $$$_)","OpenSSL::PKey::RSA.generate($ASSIGN, $$$_)"])
+          | in_files_with($all | of(["$ASSIGN = $SIZE\n$$$_"])))
+          + ($all | of(["OpenSSL::PKey::RSA.new($ASSIGN, $$$_)","OpenSSL::PKey::RSA.generate($ASSIGN, $$$_)"])
+          | in_files_with($all | of(["def $METHOD1($$$_)\n$$$_\n$ASSIGN = $SIZE\n$$$_\nend\n$$$_"]))))
+          | where_capture_compare("$SIZE < 2048")
+        | finding("insufficient-rsa-key-size";
+            "The RSA key size $SIZE is insufficent by NIST standards.") ) )
+| report

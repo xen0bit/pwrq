@@ -1,0 +1,18 @@
+# rules: request-with-http
+# languages: python
+# from: python/lang/security/audit/insecure-transport/requests/request-with-http.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$URL\"",
+      "requests.$W($SINK, $$$_)",
+      "requests.Request($METHOD, $SINK, $$$_)",
+      "requests.request($METHOD, $SINK, $$$_)"
+    ])) as $all
+    | ( (($all | of(["requests.$W($SINK, $$$_)","requests.request($METHOD, $SINK, $$$_)","requests.Request($METHOD, $SINK, $$$_)"])
+          | focus("SINK")))
+          | reaching((($all | of(["\"$URL\""])));
+              ([]))
+        | finding("request-with-http";
+            "Detected a request using 'http://'.") ) )
+| report

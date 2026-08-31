@@ -1,4 +1,5 @@
 # rules: list-modify-while-iterate
+# languages: python
 # from: python/lang/correctness/list-modify-iterating.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: mass-assignment
+# languages: python
 # from: python/django/security/injection/mass-assignment.yaml
 
 . as $root

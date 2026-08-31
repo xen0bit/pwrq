@@ -1,4 +1,5 @@
 # rules: use-ftp-tls
+# languages: python
 # from: python/lang/security/audit/insecure-transport/ftplib/use-ftp-tls.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: marshal-usage
+# languages: python
 # from: python/lang/security/audit/marshal.yaml
 
 . as $root

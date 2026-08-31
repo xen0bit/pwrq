@@ -1,4 +1,5 @@
 # rules: secure-set-cookie
+# languages: python
 # from: python/flask/security/audit/secure-set-cookie.yaml
 
 . as $root
@@ -9,8 +10,10 @@
       "$RESP.set_cookie($$$_, **$A)",
       "$RESP.set_cookie($$$_, secure=$A, httponly=$B, samesite=$C, $$$_)"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | in_files_with($all | of(["$RESP = flask.make_response($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$RESP = flask.Response($$$_)\n$$$_"])))
           | at_same_place(($all | of(["$RESP.set_cookie($$$_)"])))
           | not_at($all | of(["$RESP.set_cookie($$$_, secure=$A, httponly=$B, samesite=$C, $$$_)"]))
           | not_at($all | of(["$RESP.set_cookie($$$_, **$A)"]))

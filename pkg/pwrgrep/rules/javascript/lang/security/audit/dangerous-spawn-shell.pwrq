@@ -1,0 +1,38 @@
+# rules: dangerous-spawn-shell
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/dangerous-spawn-shell.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\"\n$$$_",
+      "$CP.spawn($$$_)",
+      "$CP.spawnSync($$$_)",
+      "$EXEC(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",[\"-c\", $ARG, $$$_],$$$_)",
+      "$EXEC(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",[$ARG, $$$_],$$$_)",
+      "$EXEC($CMD,[\"-c\", $ARG, $$$_],$$$_)",
+      "$EXEC($CMD,[$ARG, $$$_],$$$_)",
+      "function $$$_ ($$$_,$FUNC,$$$_) {\n  $$$_\n}",
+      "import 'child_process'\n$$$_",
+      "require('child_process')\n$$$_",
+      "spawn($$$_)",
+      "spawnSync($$$_)"
+    ])) as $all
+    | ( ((($all
+          | in_files_with($all | of(["require('child_process')\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import 'child_process'\n$$$_"])))
+          | at_same_place(($all | of(["spawn($$$_)","spawnSync($$$_)","$CP.spawn($$$_)","$CP.spawnSync($$$_)"])))
+          | at_same_place((($all | of(["$EXEC(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",[\"-c\", $ARG, $$$_],$$$_)"]))
+          + ($all | of(["$EXEC($CMD,[\"-c\", $ARG, $$$_],$$$_)"])
+          | in_files_with($all | of(["$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\"\n$$$_"])))
+          + ($all | of(["$EXEC(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",[$ARG, $$$_],$$$_)"]))
+          + ($all | of(["$EXEC($CMD,[$ARG, $$$_],$$$_)"])
+          | in_files_with($all | of(["$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\"\n$$$_"])))))
+          | focus("ARG")))
+          | reaching((($all
+          | within($all | of(["function $$$_ ($$$_,$FUNC,$$$_) {\n  $$$_\n}"]))
+          | focus("FUNC")));
+              ([]))
+        | finding("dangerous-spawn-shell";
+            "Detected non-literal calls to $EXEC().") ) )
+| report

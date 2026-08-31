@@ -1,4 +1,5 @@
 # rules: insecure-soapformatter-deserialization
+# languages: c_sharp
 # from: csharp/lang/security/insecure-deserialization/soap-formatter.yaml
 
 . as $root

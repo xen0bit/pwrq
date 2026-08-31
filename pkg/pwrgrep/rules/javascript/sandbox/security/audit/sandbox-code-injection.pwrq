@@ -1,4 +1,5 @@
 # rules: sandbox-code-injection
+# languages: javascript, typescript
 # from: javascript/sandbox/security/audit/sandbox-code-injection.yaml
 
 . as $root

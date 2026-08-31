@@ -1,4 +1,5 @@
 # rules: missing-template-string-indicator
+# languages: javascript, typescript
 # from: javascript/lang/correctness/missing-template-string-indicator.yaml
 
 . as $root
@@ -8,7 +9,7 @@
     ])) as $all
     | ( $all | of(["$STR"])
           | within($all | of(["`$$$_`"]))
-          | where_capture("STR"; ".*[^$]+{[^{}]*}.*")
+          | where_capture("STR"; "^(?:.*[^$]+{[^{}]*}.*)")
         | finding("missing-template-string-indicator";
             "This looks like a JavaScript template string.") ) )
 | report

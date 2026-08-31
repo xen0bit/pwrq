@@ -1,0 +1,26 @@
+# rules: function-use-after-free
+# languages: c
+# from: c/lang/security/function-use-after-free.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "$FUNC($$$_, $PWRQDEEP1, $$$_)",
+      "free($VAR); $$$_",
+      "free($VAR); $$$_ $VAR = NULL; $$$_",
+      "free($VAR); $$$_ $VAR = malloc($$$_); $$$_"
+    ])) as $all
+    | ( ($all | of(["$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$VAR"))
+          + ($all | of(["$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$VAR->$ACCESSOR"))
+          + ($all | of(["$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "(*$VAR).$ACCESSOR"))
+          + ($all | of(["$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$VAR[$NUM]"))
+          | where_capture_not("FUNC"; "^free$")
+          | within($all | of(["free($VAR); $$$_"]))
+          | outside($all | of(["free($VAR); $$$_ $VAR = NULL; $$$_"]))
+          | outside($all | of(["free($VAR); $$$_ $VAR = malloc($$$_); $$$_"]))
+        | finding("function-use-after-free";
+            "Variable '$VAR' was passed to a function after being freed.") ) )
+| report

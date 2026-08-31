@@ -1,0 +1,20 @@
+# rules: interfile-true-under-metadata-and-options-already-present
+# languages: yaml
+# from: yaml/semgrep/interfile-true-under-metadata-and-options-already-present.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "rules:\n  - id: $ID\n    $$$_\n    $METADATA:\n      $$$_\n      $INTERFILE: true\n      $$$_\n    $$$_",
+      "rules:\n  - id: $ID\n    $$$_\n    $OPTIONS:\n      $$$_\n      interfile: true\n      $$$_\n    $$$_",
+      "rules:\n  - id: $ID\n    $$$_\n    $OPTIONS:\n      $FIRST_OPT: $VAL\n      $$$_\n    $$$_"
+    ])) as $all
+    | ( $all | of(["rules:\n  - id: $ID\n    $$$_\n    $METADATA:\n      $$$_\n      $INTERFILE: true\n      $$$_\n    $$$_"])
+          | within($all | of(["rules:\n  - id: $ID\n    $$$_\n    $OPTIONS:\n      $FIRST_OPT: $VAL\n      $$$_\n    $$$_"]))
+          | outside($all | of(["rules:\n  - id: $ID\n    $$$_\n    $OPTIONS:\n      $$$_\n      interfile: true\n      $$$_\n    $$$_"]))
+          | where_capture("INTERFILE"; "^(?:interfile)")
+          | where_capture("METADATA"; "^(?:metadata)")
+          | where_capture("OPTIONS"; "^(?:options)")
+          | focus("FIRST_OPT")
+        | finding("interfile-true-under-metadata-and-options-already-present";
+            "`interfile: true` should be under the `options` field, not the `metadata` field.") ) )
+| report

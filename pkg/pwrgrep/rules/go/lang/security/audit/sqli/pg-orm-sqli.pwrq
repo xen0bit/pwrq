@@ -2,47 +2,51 @@
 # from: go/lang/security/audit/sqli/pg-orm-sqli.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "\"$$$_\"",
-      "\"$IMPORT\"",
-      "$DB = pg.Connect($$$_)\n$$$_",
-      "$DB.$INTFUNC1($$$_).$METHOD($$$_, \"$$$_\", $$$_).$INTFUNC2($$$_)",
-      "$DB.$INTFUNC1($$$_).$METHOD($$$_, $X + $Y, $$$_).$INTFUNC2($$$_)",
-      "$DB.$METHOD($$$_, fmt.Sprintf(\"$$$_\", $PARAM1, $$$_), $$$_)",
-      "$DB.$METHOD($$$_,\"$$$_\",$$$_)",
-      "$DB.$METHOD($$$_,$QUERY,$$$_)",
-      "$QUERY += \"$$$_\"\n$$$_",
-      "$QUERY += $X\n$$$_",
-      "$QUERY = \"$$$_\" + \"$$$_\"",
-      "$QUERY = \"$$$_\" + \"$$$_\"\n$$$_",
-      "$QUERY = $X + $Y\n$$$_",
-      "$QUERY = fmt.Sprintf(\"$$$_\", $$$_,\"$$$_\", $$$_)\n$$$_",
-      "$QUERY = fmt.Sprintf(\"$$$_\", $PARAM1, $$$_)\n$$$_",
-      "filepath.Join($$$_)",
-      "func $FUNCNAME($$$_, $DB *pg.DB, $$$_) {\n  $$$_\n}",
-      "import (\n  $$$_\n  \"$IMPORT\"\n)\n$$$_",
-      "path.Join($$$_)"
+| ( ($root | scan_regex(["*.go"]; [
+      "\"[\\s\\S]*?\"",
+      "(?P<DB>\\S+)\\.(?P<INTFUNC1>\\S+)\\([\\s\\S]*?\\)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\\s+\"[\\s\\S]*?\",\\s+[\\s\\S]*?\\)\\.(?P<INTFUNC2>\\S+)\\([\\s\\S]*?\\)",
+      "(?P<DB>\\S+)\\.(?P<INTFUNC1>\\S+)\\([\\s\\S]*?\\)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\\s+(?P<X>\\S+)\\s+\\+\\s+(?P<Y>\\S+),\\s+[\\s\\S]*?\\)\\.(?P<INTFUNC2>\\S+)\\([\\s\\S]*?\\)",
+      "(?P<DB>\\S+)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\"[\\s\\S]*?\",[\\s\\S]*?\\)",
+      "(?P<DB>\\S+)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,(?P<QUERY>\\S+),[\\s\\S]*?\\)",
+      "(?P<DB>\\S+)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\\s+fmt\\.Sprintf\\(\"[\\s\\S]*?\",\\s+(?P<PARAM1>\\S+),\\s+[\\s\\S]*?\\),\\s+[\\s\\S]*?\\)",
+      "(?P<DB>\\S+)\\s+=\\s+pg\\.Connect\\([\\s\\S]*?\\)\\s+[\\s\\S]*?",
+      "(?P<QUERY>\\S+)\\s+=\\s+\"[\\s\\S]*?\"\\s+\\+\\s+\"[\\s\\S]*?\"",
+      "(?P<QUERY>\\S+)\\s+=\\s+\"[\\s\\S]*?\"\\s+\\+\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?",
+      "(?P<QUERY>\\S+)\\s+=\\s+(?P<X>\\S+)\\s+\\+\\s+(?P<Y>\\S+)\\s+[\\s\\S]*?",
+      "(?P<QUERY>\\S+)\\s+=\\s+fmt\\.Sprintf\\(\"[\\s\\S]*?\",\\s+(?P<PARAM1>\\S+),\\s+[\\s\\S]*?\\)\\s+[\\s\\S]*?",
+      "(?P<QUERY>\\S+)\\s+=\\s+fmt\\.Sprintf\\(\"[\\s\\S]*?\",\\s+[\\s\\S]*?,\"[\\s\\S]*?\",\\s+[\\s\\S]*?\\)\\s+[\\s\\S]*?",
+      "(?P<QUERY>\\S+)\\s+\\+=\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?",
+      "(?P<QUERY>\\S+)\\s+\\+=\\s+(?P<X>\\S+)\\s+[\\s\\S]*?",
+      "filepath\\.Join\\([\\s\\S]*?\\)",
+      "func\\s+(?P<FUNCNAME>\\S+)\\([\\s\\S]*?,\\s+(?P<DB>\\S+)\\s+\\*pg\\.DB,\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "import\\s+\\(\\s+[\\s\\S]*?\\s+\"(?P<IMPORT>\\S+)\"\\s+\\)\\s+[\\s\\S]*?",
+      "path\\.Join\\([\\s\\S]*?\\)"
     ])) as $all
-    | ( ($all | of(["$DB.$METHOD($$$_,$QUERY,$$$_)"])
-          | at_same_place((($all)
-          + ($all)
-          + ($all)))
-          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
-          | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"])))
-          + ($all | of(["$DB.$INTFUNC1($$$_).$METHOD($$$_, $X + $Y, $$$_).$INTFUNC2($$$_)"]))
-          + ($all | of(["$DB.$METHOD($$$_, fmt.Sprintf(\"$$$_\", $PARAM1, $$$_), $$$_)"]))
-          + ($all)
-          + ($all)
-          | in_files_with($all | of(["import (\n  $$$_\n  \"$IMPORT\"\n)\n$$$_","\"$IMPORT\""]))
-          | where_capture("IMPORT"; ".*go-pg")
-          | in_files_without($all | of(["$QUERY = fmt.Sprintf(\"$$$_\", $$$_,\"$$$_\", $$$_)\n$$$_"]))
-          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
-          | not_at($all | of(["$DB.$METHOD($$$_,\"$$$_\",$$$_)"]))
-          | not_at($all | of(["$DB.$INTFUNC1($$$_).$METHOD($$$_, \"$$$_\", $$$_).$INTFUNC2($$$_)"]))
-          | outside($all | of(["$QUERY = \"$$$_\" + \"$$$_\""]))
-          | not_at($all | of(["\"$$$_\""]))
-          | not_at($all | of(["path.Join($$$_)"]))
-          | not_at($all | of(["filepath.Join($$$_)"]))
+    | ( ($all | of(["(?P<DB>\\S+)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,(?P<QUERY>\\S+),[\\s\\S]*?\\)"])
+          | at_same_place((($all
+          | in_files_with($all | of(["(?P<QUERY>\\S+)\\s+=\\s+(?P<X>\\S+)\\s+\\+\\s+(?P<Y>\\S+)\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["(?P<QUERY>\\S+)\\s+\\+=\\s+(?P<X>\\S+)\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["(?P<QUERY>\\S+)\\s+=\\s+fmt\\.Sprintf\\(\"[\\s\\S]*?\",\\s+(?P<PARAM1>\\S+),\\s+[\\s\\S]*?\\)\\s+[\\s\\S]*?","\"[\\s\\S]*?\""])))))
+          | in_files_without($all | of(["(?P<QUERY>\\S+)\\s+\\+=\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?","\"[\\s\\S]*?\""]))
+          | in_files_without($all | of(["(?P<QUERY>\\S+)\\s+=\\s+\"[\\s\\S]*?\"\\s+\\+\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?"])))
+          + ($all | of(["(?P<DB>\\S+)\\.(?P<INTFUNC1>\\S+)\\([\\s\\S]*?\\)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\\s+(?P<X>\\S+)\\s+\\+\\s+(?P<Y>\\S+),\\s+[\\s\\S]*?\\)\\.(?P<INTFUNC2>\\S+)\\([\\s\\S]*?\\)"]))
+          + ($all | of(["(?P<DB>\\S+)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\\s+fmt\\.Sprintf\\(\"[\\s\\S]*?\",\\s+(?P<PARAM1>\\S+),\\s+[\\s\\S]*?\\),\\s+[\\s\\S]*?\\)"]))
+          + ($all
+          | in_files_with($all | of(["(?P<DB>\\S+)\\s+=\\s+pg\\.Connect\\([\\s\\S]*?\\)\\s+[\\s\\S]*?"])))
+          + ($all
+          | within($all | of(["func\\s+(?P<FUNCNAME>\\S+)\\([\\s\\S]*?,\\s+(?P<DB>\\S+)\\s+\\*pg\\.DB,\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          | in_files_with($all | of(["import\\s+\\(\\s+[\\s\\S]*?\\s+\"(?P<IMPORT>\\S+)\"\\s+\\)\\s+[\\s\\S]*?"]))
+          | where_capture("IMPORT"; "^(?:.*go-pg)")
+          | in_files_without($all | of(["(?P<QUERY>\\S+)\\s+=\\s+fmt\\.Sprintf\\(\"[\\s\\S]*?\",\\s+[\\s\\S]*?,\"[\\s\\S]*?\",\\s+[\\s\\S]*?\\)\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["(?P<QUERY>\\S+)\\s+\\+=\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?","\"[\\s\\S]*?\""]))
+          | not_at($all | of(["(?P<DB>\\S+)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\"[\\s\\S]*?\",[\\s\\S]*?\\)"]))
+          | not_at($all | of(["(?P<DB>\\S+)\\.(?P<INTFUNC1>\\S+)\\([\\s\\S]*?\\)\\.(?P<METHOD>\\S+)\\([\\s\\S]*?,\\s+\"[\\s\\S]*?\",\\s+[\\s\\S]*?\\)\\.(?P<INTFUNC2>\\S+)\\([\\s\\S]*?\\)"]))
+          | outside($all | of(["(?P<QUERY>\\S+)\\s+=\\s+\"[\\s\\S]*?\"\\s+\\+\\s+\"[\\s\\S]*?\""]))
+          | not_at($all | of(["\"[\\s\\S]*?\""]))
+          | not_at($all | of(["path\\.Join\\([\\s\\S]*?\\)"]))
+          | not_at($all | of(["filepath\\.Join\\([\\s\\S]*?\\)"]))
           | where_capture("METHOD"; "^(Where|WhereOr|Join|GroupExpr|OrderExpr|ColumnExpr)$")
         | finding("pg-orm-sqli";
             "Detected string concatenation with a non-literal variable in a go-pg ORM SQL statement.") ) )

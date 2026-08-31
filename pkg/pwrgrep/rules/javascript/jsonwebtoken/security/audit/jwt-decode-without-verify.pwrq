@@ -1,17 +1,18 @@
 # rules: jwt-decode-without-verify
+# languages: javascript, typescript
 # from: javascript/jsonwebtoken/security/audit/jwt-decode-without-verify.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.ts"]; [
+| ( ($root | scan_ast(["*.js","*.ts"]; [
       "$$$_\n$JWT.verify($TOKEN, $$$_)\n$$$_",
-      "$$$_\nif (<$$$_ $JWT.verify($TOKEN, $$$_) $$$_>) { $$$_ }\n$$$_",
+      "$$$_\nif ($PWRQDEEP1) { $$$_ }\n$$$_",
       "$JWT = require('jsonwebtoken');\n$$$_",
       "$JWT.decode($TOKEN, $$$_)"
     ])) as $all
     | ( $all | of(["$JWT.decode($TOKEN, $$$_)"])
           | in_files_with($all | of(["$JWT = require('jsonwebtoken');\n$$$_"]))
           | in_files_without($all | of(["$$$_\n$JWT.verify($TOKEN, $$$_)\n$$$_"]))
-          | in_files_without($all | of(["$$$_\nif (<$$$_ $JWT.verify($TOKEN, $$$_) $$$_>) { $$$_ }\n$$$_"]))
+          | in_files_without($all | of(["$$$_\nif ($PWRQDEEP1) { $$$_ }\n$$$_"]))
         | finding("jwt-decode-without-verify";
             "Detected the decoding of a JWT token without a verify step.") ) )
 | report

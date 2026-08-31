@@ -1,4 +1,5 @@
 # rules: go-weak-hash
+# languages: go
 # fixture: go/weak-hash.go
 # from: go/lang/security/audit/crypto/use_of_weak_crypto.yaml (use-of-md5, use-of-sha1)
 #

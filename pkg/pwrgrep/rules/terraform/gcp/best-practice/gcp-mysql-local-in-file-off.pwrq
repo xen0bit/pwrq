@@ -1,0 +1,14 @@
+# rules: gcp-mysql-local-in-file-off
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-mysql-local-in-file-off.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"local_infile\"\n    value = \"on\"\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"local_infile\"\n    value = \"on\"\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-mysql-local-in-file-off";
+            "Ensure MySQL database 'local_infile' flag is set to 'off'") ) )
+| report

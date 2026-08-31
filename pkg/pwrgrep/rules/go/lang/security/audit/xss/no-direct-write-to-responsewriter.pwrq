@@ -1,4 +1,5 @@
 # rules: no-direct-write-to-responsewriter
+# languages: go
 # from: go/lang/security/audit/xss/no-direct-write-to-responsewriter.yaml
 
 . as $root
@@ -10,9 +11,12 @@
       "func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}",
       "func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"
     ])) as $all
-    | ( ($all)
-          + ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["func $HANDLER($$$_, $WRITER *http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
           | at_same_place(($all | of(["$WRITER.Write($$$_)","(*$WRITER).Write($$$_)"])))
           | not_at($all | of(["$WRITER.Write([]byte(\"$$$_\"))"]))
         | finding("no-direct-write-to-responsewriter";

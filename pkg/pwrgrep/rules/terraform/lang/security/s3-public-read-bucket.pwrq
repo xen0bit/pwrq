@@ -1,0 +1,14 @@
+# rules: s3-public-read-bucket
+# from: terraform/lang/security/s3-public-read-bucket.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "acl\\s+=\\s+\"authenticated\\-read\"",
+      "acl\\s+=\\s+\"public\\-read\"",
+      "resource\\s+\"aws_s3_bucket\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+website\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["acl\\s+=\\s+\"public\\-read\"","acl\\s+=\\s+\"authenticated\\-read\""])
+          | outside($all | of(["resource\\s+\"aws_s3_bucket\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+website\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("s3-public-read-bucket";
+            "S3 bucket with public read access detected.") ) )
+| report

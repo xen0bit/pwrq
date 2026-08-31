@@ -1,0 +1,21 @@
+# rules: pyramid-authtkt-cookie-secure-unsafe-value
+# languages: python
+# from: python/pyramid/audit/authtkt-cookie-secure-unsafe-value.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$SECURE",
+      "pyramid.authentication.AuthTktAuthenticationPolicy($$$_, **$PARAMS)",
+      "pyramid.authentication.AuthTktAuthenticationPolicy($$$_, secure=$SECURE, $$$_)",
+      "pyramid.authentication.AuthTktCookieHelper($$$_, **$PARAMS)",
+      "pyramid.authentication.AuthTktCookieHelper($$$_, secure=$SECURE, $$$_)"
+    ])) as $all
+    | ( ($all | of(["pyramid.authentication.AuthTktCookieHelper($$$_, secure=$SECURE, $$$_)"])
+          | not_at($all | of(["pyramid.authentication.AuthTktCookieHelper($$$_, **$PARAMS)"])))
+          + ($all | of(["pyramid.authentication.AuthTktAuthenticationPolicy($$$_, secure=$SECURE, $$$_)"])
+          | not_at($all | of(["pyramid.authentication.AuthTktAuthenticationPolicy($$$_, **$PARAMS)"])))
+          | at_same_place(($all | of(["$SECURE"])))
+          | where_capture_ast("SECURE"; "False")
+        | finding("pyramid-authtkt-cookie-secure-unsafe-value";
+            "Found a Pyramid Authentication Ticket cookie without the secure option correctly set.") ) )
+| report

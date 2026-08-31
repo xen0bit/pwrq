@@ -1,4 +1,5 @@
 # rules: wkhtmltopdf-injection
+# languages: javascript, typescript
 # from: javascript/wkhtmltopdf/security/audit/wkhtmltopdf-injection.yaml
 
 . as $root

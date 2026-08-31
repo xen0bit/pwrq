@@ -1,4 +1,5 @@
 # rules: define-styled-components-on-module-level
+# languages: javascript, typescript
 # from: typescript/react/best-practice/define-styled-components-on-module-level.yaml
 
 . as $root
@@ -9,8 +10,10 @@
       "styled($EL)`$$$_`;",
       "styled.$EL`$$$_`;"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["function $FUNC($$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["class $CLASS {\n  $$$_\n}"])))
           | at_same_place(($all | of(["styled.$EL`$$$_`;","styled($EL)`$$$_`;"])))
           | in_files_with($all | of(["import styled from 'styled-components';\n$$$_"]))
         | finding("define-styled-components-on-module-level";

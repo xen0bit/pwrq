@@ -1,0 +1,17 @@
+# rules: detect-non-literal-require
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/detect-non-literal-require.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "function $$$_ ($$$_, $ARG,$$$_) {$$$_}",
+      "require($$$_)"
+    ])) as $all
+    | ( (($all | of(["require($$$_)"])))
+          | reaching((($all
+          | within($all | of(["function $$$_ ($$$_, $ARG,$$$_) {$$$_}"]))
+          | focus("ARG")));
+              ([]))
+        | finding("detect-non-literal-require";
+            "Detected the use of require(variable).") ) )
+| report

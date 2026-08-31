@@ -2,13 +2,12 @@
 # from: go/jwt-go/security/audit/jwt-parse-unverified.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "\"github.com/dgrijalva/jwt-go\"",
-      "$JWT.ParseUnverified($$$_)",
-      "import \"github.com/dgrijalva/jwt-go\"\n$$$_"
+| ( ($root | scan_regex(["*.go"]; [
+      "(?P<JWT>\\S+)\\.ParseUnverified\\([\\s\\S]*?\\)",
+      "import\\s+\"github\\.com\\/dgrijalva\\/jwt\\-go\"\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["$JWT.ParseUnverified($$$_)"])
-          | in_files_with($all | of(["import \"github.com/dgrijalva/jwt-go\"\n$$$_","\"github.com/dgrijalva/jwt-go\""]))
+    | ( $all | of(["(?P<JWT>\\S+)\\.ParseUnverified\\([\\s\\S]*?\\)"])
+          | in_files_with($all | of(["import\\s+\"github\\.com\\/dgrijalva\\/jwt\\-go\"\\s+[\\s\\S]*?"]))
         | finding("jwt-go-parse-unverified";
             "Detected the decoding of a JWT token without a verify step.") ) )
 | report

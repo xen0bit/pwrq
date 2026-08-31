@@ -1,4 +1,5 @@
 # rules: user-eval-format-string
+# languages: python
 # from: python/django/security/injection/code/user-eval-format-string.yaml
 
 . as $root

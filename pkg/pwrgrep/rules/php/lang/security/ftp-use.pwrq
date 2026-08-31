@@ -1,0 +1,13 @@
+# rules: ftp-use
+# languages: php
+# from: php/lang/security/ftp-use.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$FUNC($$$_);"
+    ])) as $all
+    | ( $all | of(["$FUNC($$$_);"])
+          | where_capture("FUNC"; "^(?:ftp_.+)")
+        | finding("ftp-use";
+            "FTP allows for unencrypted file transfers.") ) )
+| report

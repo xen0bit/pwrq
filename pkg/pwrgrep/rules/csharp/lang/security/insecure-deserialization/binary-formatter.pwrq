@@ -1,4 +1,5 @@
 # rules: insecure-binaryformatter-deserialization
+# languages: c_sharp
 # from: csharp/lang/security/insecure-deserialization/binary-formatter.yaml
 
 . as $root

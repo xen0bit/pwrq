@@ -1,0 +1,19 @@
+# rules: missing-image-version
+# from: dockerfile/best-practice/missing-image-version.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "FROM\\s+(?P<IMAGE>\\S+)",
+      "FROM\\s+(?P<IMAGE>\\S+):(?P<VERSION>\\S+)",
+      "FROM\\s+(?P<IMAGE>\\S+):(?P<VERSION>\\S+)@(?P<DIGEST>\\S+)",
+      "FROM\\s+(?P<IMAGE>\\S+)@(?P<DIGEST>\\S+)",
+      "FROM\\s+scratch"
+    ])) as $all
+    | ( $all | of(["FROM\\s+(?P<IMAGE>\\S+)"])
+          | not_at($all | of(["FROM\\s+(?P<IMAGE>\\S+):(?P<VERSION>\\S+)"]))
+          | not_at($all | of(["FROM\\s+(?P<IMAGE>\\S+)@(?P<DIGEST>\\S+)"]))
+          | not_at($all | of(["FROM\\s+(?P<IMAGE>\\S+):(?P<VERSION>\\S+)@(?P<DIGEST>\\S+)"]))
+          | not_at($all | of(["FROM\\s+scratch"]))
+        | finding("missing-image-version";
+            "Detected docker image with no explicit version attached.") ) )
+| report

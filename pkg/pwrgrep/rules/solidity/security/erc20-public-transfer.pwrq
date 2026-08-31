@@ -1,4 +1,5 @@
 # rules: erc20-public-transfer
+# languages: solidity
 # from: solidity/security/erc20-public-transfer.yaml
 
 . as $root

@@ -1,0 +1,20 @@
+# rules: functionapp-authentication-enabled
+# languages: hcl
+# from: terraform/azure/security/functionapp/functionapp-authentication-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n  auth_settings {\n    $$$_\n    enabled = false\n    $$$_\n  }\n$$$_\n}",
+      "resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n  auth_settings {\n    $$$_\n    enabled = true\n    $$$_\n  }\n$$$_\n}",
+      "resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n  auth_settings {\n    $$$_\n    enabled = false\n    $$$_\n  }\n$$$_\n}"])))))
+          | outside($all | of(["resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n  auth_settings {\n    $$$_\n    enabled = true\n    $$$_\n  }\n$$$_\n}"]))
+        | finding("functionapp-authentication-enabled";
+            "Enabling authentication ensures that all communications in the application are authenticated.") ) )
+| report

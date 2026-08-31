@@ -1,0 +1,15 @@
+# rules: superfluid-ctx-injection
+# languages: solidity
+# from: solidity/security/superfluid-ctx-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "\"$$$_\"",
+      "$T.decodeCtx(ctx);",
+      "require($T.isCtxValid($$$_), \"$$$_\");\n$$$_"
+    ])) as $all
+    | ( $all | of(["$T.decodeCtx(ctx);"])
+          | in_files_without($all | of(["require($T.isCtxValid($$$_), \"$$$_\");\n$$$_","\"$$$_\""]))
+        | finding("superfluid-ctx-injection";
+            "A specially crafted calldata may be used to impersonate other accounts") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: vm2-code-injection
+# languages: javascript, typescript
 # from: javascript/vm2/security/audit/vm2-code-injection.yaml
 
 . as $root

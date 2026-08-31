@@ -1,4 +1,5 @@
 # rules: detect-mistral
+# languages: python
 # from: ai/python/detect-mistral.yaml
 
 . as $root

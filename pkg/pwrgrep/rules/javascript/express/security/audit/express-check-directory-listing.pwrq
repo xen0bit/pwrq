@@ -1,4 +1,5 @@
 # rules: express-check-directory-listing
+# languages: javascript, typescript
 # from: javascript/express/security/audit/express-check-directory-listing.yaml
 
 . as $root
@@ -12,9 +13,12 @@
       "import * as $SERVEINDEX from 'serve-index'\n$$$_"
     ])) as $all
     | ( ($all | of(["$APP.use(require('serve-index')($$$_))"]))
-          + (($all)
-          + ($all)
-          + ($all)
+          + (($all
+          | in_files_with($all | of(["$SERVEINDEX = require('serve-index')\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import $SERVEINDEX from 'serve-index'\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import * as $SERVEINDEX from 'serve-index'\n$$$_"])))
           | at_same_place((($all | of(["$VALUE($$$_)"])
           | in_files_with($all | of(["$VALUE = $SERVEINDEX($$$_)\n$$$_"])))
           + ($all | of(["$APP.use($$$_, $SERVEINDEX($$$_), $$$_)"])))))

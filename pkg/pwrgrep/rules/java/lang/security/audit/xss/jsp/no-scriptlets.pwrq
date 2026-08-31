@@ -1,0 +1,11 @@
+# rules: no-scriptlets
+# from: java/lang/security/audit/xss/jsp/no-scriptlets.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.jsp"]; [
+      "\\<\\%[^\\@].*"
+    ])) as $all
+    | ( $all | of(["\\<\\%[^\\@].*"])
+        | finding("no-scriptlets";
+            "JSP scriptlet detected.") ) )
+| report

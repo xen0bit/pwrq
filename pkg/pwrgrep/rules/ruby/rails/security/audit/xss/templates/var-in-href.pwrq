@@ -1,0 +1,12 @@
+# rules: var-in-href
+# from: ruby/rails/security/audit/xss/templates/var-in-href.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.erb"]; [
+      "<a\\s+[\\s\\S]*?\\s+href\\s+=\\s+\"<%=\\s+[\\s\\S]*?\\s+%>\"\\s+[\\s\\S]*?\\s+>",
+      "<a\\s+[\\s\\S]*?\\s+href\\s+=\\s+'<%=\\s+[\\s\\S]*?\\s+%>'\\s+[\\s\\S]*?\\s+>"
+    ])) as $all
+    | ( $all | of(["<a\\s+[\\s\\S]*?\\s+href\\s+=\\s+\"<%=\\s+[\\s\\S]*?\\s+%>\"\\s+[\\s\\S]*?\\s+>","<a\\s+[\\s\\S]*?\\s+href\\s+=\\s+'<%=\\s+[\\s\\S]*?\\s+%>'\\s+[\\s\\S]*?\\s+>"])
+        | finding("var-in-href";
+            "Detected a template variable used in an anchor tag with the 'href' attribute.") ) )
+| report

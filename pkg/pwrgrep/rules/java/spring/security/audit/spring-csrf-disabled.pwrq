@@ -1,4 +1,5 @@
 # rules: spring-csrf-disabled
+# languages: java
 # from: java/spring/security/audit/spring-csrf-disabled.yaml
 
 . as $root

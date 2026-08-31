@@ -2,11 +2,14 @@ package pwrgrep
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/filewalk"
 	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/astsearch"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
@@ -185,6 +188,183 @@ func stringsOf(op, what string, arg any) ([]string, error) {
 		return nil, fmt.Errorf("%s: %v", op, err)
 	}
 	return []string{s}, nil
+}
+
+// RegisterScanRegex registers scan_regex, the search a rule starts from when
+// what it is looking for is text rather than syntax.
+//
+// Not every rule is about a parse tree, and pretending otherwise is how a
+// corpus loses a third of itself. A Django template with `{% autoescape off
+// %}` in it is a real finding and there is no grammar in which that is a
+// construct; the rule says so by being written as a regex, and this is what
+// runs it.
+//
+//	"src" | scan_regex("*.html"; "{%\\s*autoescape\\s+off\\s*%}")
+//	"." | scan_regex(["*.yml", "*.yaml"]; $patterns) | of($patterns)
+//
+// What comes back is the same kind of value scan_ast produces - a path, a
+// span, the text - so every operator downstream works on it unchanged, and a
+// rule can mix the two. A named group in the regex becomes a hole of that
+// name, so `(?P<KEY>\\w+)` fills in $KEY in the message the way a pattern's
+// hole does.
+//
+// The regexes are RE2: no backreferences and no lookaround, in exchange for
+// running in time linear in the input.
+func RegisterScanRegex() gojq.CompilerOption {
+	const op = "scan_regex"
+	common.DeclareInput(op, common.InputPipeline)
+	return common.WithFunction(op, 2, 3, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 2)
+		root, ok := common.BindPath(in)
+		if !ok {
+			return common.MakeUDFErrorResult(
+				fmt.Errorf("%s: expected a path to search, got %T", op, common.BindValue(in)), nil)
+		}
+		globs, err := stringsOf(op, "file glob", rest[0])
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		exprs, err := stringsOf(op, "regex", rest[1])
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		compiled := make([]*regexp.Regexp, len(exprs))
+		for i, expr := range exprs {
+			re, err := regexp.Compile(expr)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
+			}
+			compiled[i] = re
+		}
+		out := []any{}
+		for _, glob := range globs {
+			found, err := scanTree(root, glob, exprs, compiled)
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
+			}
+			out = append(out, found...)
+		}
+		return out
+	})
+}
+
+// scanTree runs every regex over every file one glob names.
+func scanTree(root, glob string, exprs []string, compiled []*regexp.Regexp) ([]any, error) {
+	walk, err := filewalk.New(root, glob)
+	if err != nil {
+		return nil, err
+	}
+	var out []any
+	for {
+		path, ok, err := walk.Next()
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return out, nil
+		}
+		source, err := os.ReadFile(path)
+		if err != nil {
+			// A file that cannot be read is not a finding and not a failure of
+			// the rule; a tree has sockets and dangling links in it.
+			continue
+		}
+		text := string(source)
+		var hits []any
+		for i, re := range compiled {
+			for _, span := range re.FindAllStringSubmatchIndex(text, -1) {
+				hits = append(hits, textMatch(path, exprs[i], re, text, span))
+			}
+		}
+		// A file reads top to bottom whatever order the regexes were written
+		// in, which is what scan_ast promises too.
+		sort.SliceStable(hits, func(a, b int) bool {
+			x, _ := number(object(hits[a])["Offset"])
+			y, _ := number(object(hits[b])["Offset"])
+			return x < y
+		})
+		out = append(out, hits...)
+	}
+}
+
+// textMatch renders one regex hit as the match object scan_ast would have
+// produced, so that a rule cannot tell the two apart.
+func textMatch(path, expr string, re *regexp.Regexp, text string, span []int) any {
+	start, end := span[0], span[1]
+	line, column := position(text, start)
+	endLine, endColumn := position(text, end)
+	captures := map[string]any{}
+	for i, name := range re.SubexpNames() {
+		if name == "" || 2*i+1 >= len(span) || span[2*i] < 0 {
+			continue
+		}
+		captures[name] = text[span[2*i]:span[2*i+1]]
+	}
+	return astsearch.AstMatch.Build(map[string]any{
+		"Path":          path,
+		"Language":      "text",
+		"Pattern":       expr,
+		"LineNumber":    line,
+		"Column":        column,
+		"EndLineNumber": endLine,
+		"EndColumn":     endColumn,
+		"Offset":        start,
+		"EndOffset":     end,
+		"Text":          text[start:end],
+		"Captures":      captures,
+		"PwrqValue":     path,
+	})
+}
+
+// position is the one-based line and column of a byte offset, counting bytes
+// for the column the way every other pwrq path-and-position pair does.
+func position(text string, offset int) (int, int) {
+	if offset > len(text) {
+		offset = len(text)
+	}
+	before := text[:offset]
+	return strings.Count(before, "\n") + 1, offset - (strings.LastIndex(before, "\n") + 1) + 1
+}
+
+// RegisterWhereText registers where_text: keep the matches whose own text
+// matches a regex.
+//
+// This is a regex used as a guard rather than as a search - "this call, but
+// only where it is written like that" - which is what a rule means by putting
+// a regex beside a pattern rather than instead of one.
+//
+//	$all | of($calls) | where_text("password|secret")
+func RegisterWhereText() gojq.CompilerOption {
+	return textOp("where_text", true)
+}
+
+// RegisterWhereTextNot registers where_text_not, its negation.
+//
+//	$all | of($calls) | where_text_not("^// ")
+func RegisterWhereTextNot() gojq.CompilerOption {
+	return textOp("where_text_not", false)
+}
+
+func textOp(name string, want bool) gojq.CompilerOption {
+	common.DeclareInput(name, common.InputPipeline)
+	return common.WithFunction(name, 1, 2, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 1)
+		list, err := matches(name, in)
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		expr, err := common.BindString(rest[0], "regex")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
+		}
+		re, err := regexp.Compile(expr)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", name, err), nil)
+		}
+		return keepIf(list, func(m map[string]any) bool {
+			return re.MatchString(text(m, "Text")) == want
+		})
+	})
 }
 
 // RegisterOf registers of: keep the matches that one pattern found, or that
@@ -422,6 +602,304 @@ func RegisterWhereDifferent() gojq.CompilerOption {
 	}, false)
 }
 
+// RegisterReaching registers reaching: keep the sinks that a source flows
+// into.
+//
+// This is the operator a rule needs when neither end is a finding on its own.
+// Reading a query parameter is what a web application does and running a
+// command is what a program does; the finding is that the one reached the
+// other.
+//
+//	$all | of($sinks) | reaching($all | of($sources); $all | of($sanitizers))
+//
+// The following is intraprocedural and syntactic - see astsearch.Reaches. It
+// knows assignment, which is what carries a value from one line to the next in
+// every language here, and it does not know what a library does with an
+// argument. Where that is not enough it reports nothing rather than guessing,
+// so a rule written this way finds less than one with a whole-program analysis
+// behind it and does not find the wrong thing.
+func RegisterReaching() gojq.CompilerOption {
+	const op = "reaching"
+	common.DeclareInput(op, common.InputPipeline)
+	return common.WithFunction(op, 2, 3, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 2)
+		sinks, err := matches(op, in)
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		sources, err := matches(op, rest[0])
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		sanitizers, err := matches(op, rest[1])
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		// One file at a time: following a value means parsing the file it is
+		// in, and a rule run over a tree has sinks in many.
+		out := []any{}
+		for _, path := range filesOf(sinks) {
+			mine := inFile(sinks, path)
+			reached, err := astsearch.Reaches(path, languageOf(mine),
+				spansOf(inFile(sources, path)), spansOf(mine), spansOf(inFile(sanitizers, path)))
+			if err != nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("%s: %s: %v", op, path, err), nil)
+			}
+			for _, i := range reached {
+				out = append(out, mine[i])
+			}
+		}
+		return out
+	})
+}
+
+// filesOf are the paths a list of matches covers, in the order they first
+// appear, so that a run over one tree reports in the same order twice.
+func filesOf(list []any) []string {
+	var paths []string
+	seen := map[string]bool{}
+	for _, item := range list {
+		path := text(object(item), "Path")
+		if path == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		paths = append(paths, path)
+	}
+	return paths
+}
+
+func inFile(list []any, path string) []any {
+	var out []any
+	for _, item := range list {
+		if text(object(item), "Path") == path {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func languageOf(list []any) string {
+	for _, item := range list {
+		if language := text(object(item), "Language"); language != "" {
+			return language
+		}
+	}
+	return ""
+}
+
+func spansOf(list []any) []astsearch.Span {
+	out := make([]astsearch.Span, 0, len(list))
+	for _, item := range list {
+		m := object(item)
+		start, ok := number(m["Offset"])
+		end, done := number(m["EndOffset"])
+		if !ok || !done {
+			continue
+		}
+		out = append(out, astsearch.Span{Start: int(start), End: int(end)})
+	}
+	return out
+}
+
+// RegisterFocus registers focus: report the hole rather than the construct it
+// was found in.
+//
+// A rule often matches a whole call in order to say something about one
+// argument of it - `subprocess.run($CMD, shell=True)` is matched, and what the
+// reader needs to look at is `shell=True`. The finding is the same finding
+// either way; focus moves where it points.
+//
+//	$all | of($calls) | focus("TRUE") | finding("shell-true"; "...")
+//
+// A match whose pattern has no such hole is left where it was, because a rule
+// that focuses on a hole one of its alternatives does not have still means the
+// alternatives it does.
+func RegisterFocus() gojq.CompilerOption {
+	const op = "focus"
+	common.DeclareInput(op, common.InputPipeline)
+	return common.WithFunction(op, 1, 2, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 1)
+		list, err := matches(op, in)
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		hole, err := common.BindString(rest[0], "hole name")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
+		}
+		out := make([]any, 0, len(list))
+		for _, item := range list {
+			out = append(out, focused(object(item), hole))
+		}
+		return out
+	})
+}
+
+// focused is one match moved onto one of its holes.
+func focused(m map[string]any, hole string) any {
+	if m == nil {
+		return m
+	}
+	spans, _ := m["CaptureSpans"].(map[string]any)
+	span, _ := spans[hole].(map[string]any)
+	if span == nil {
+		return m
+	}
+	moved := make(map[string]any, len(m))
+	for k, value := range m {
+		moved[k] = value
+	}
+	for _, key := range []string{"LineNumber", "Column", "EndLineNumber", "EndColumn", "Offset", "EndOffset"} {
+		if at, ok := span[key]; ok {
+			moved[key] = at
+		}
+	}
+	if caught, ok := m["Captures"].(map[string]any); ok {
+		if s, ok := caught[hole].(string); ok {
+			moved["Text"] = s
+		}
+	}
+	return moved
+}
+
+// RegisterWhereCaptureAst registers where_capture_ast: keep the matches whose
+// named hole caught something that is itself a match for another pattern.
+//
+// This is a constraint on a hole written as syntax rather than as a regex -
+// "the argument, but only when it is a call to getenv" - and it is what a rule
+// reaches for when a regex over the text would be a guess.
+//
+//	$all | of($calls) | where_capture_ast("ARG"; "os.getenv($$$_)")
+func RegisterWhereCaptureAst() gojq.CompilerOption {
+	const op = "where_capture_ast"
+	common.DeclareInput(op, common.InputPipeline)
+	return common.WithFunction(op, 2, 3, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 2)
+		list, err := matches(op, in)
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		hole, err := common.BindString(rest[0], "hole name")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
+		}
+		pattern, err := common.BindString(rest[1], "pattern")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
+		}
+		return keepIf(list, func(m map[string]any) bool {
+			caught := capture(m, hole)
+			if caught == "" {
+				return false
+			}
+			// A pattern that is not code in this match's language cannot
+			// constrain it, and saying so by keeping nothing is the safe
+			// direction for a rule deciding what to report.
+			ok, err := astsearch.MatchesText(pattern, text(m, "Language"), caught)
+			return err == nil && ok
+		})
+	})
+}
+
+// comparison splits a rule's `$X > 5` into the three parts it is made of.
+var comparison = regexp.MustCompile(`^\s*\$?([A-Za-z_][A-Za-z_0-9]*)\s*(<=|>=|==|!=|<|>)\s*(-?[0-9]+(?:\.[0-9]+)?|0[bBoOxX][0-9A-Fa-f]+)\s*$`)
+
+// RegisterWhereCaptureCompare registers where_capture_compare: keep the
+// matches whose named hole caught a number standing in some relation to
+// another.
+//
+// File modes are what this is for. `chmod($PATH, $MODE)` finds every chmod;
+// only `$MODE & 0o002` - or, as the corpus writes it, `$MODE >= 0o666` - says
+// which ones are worth reporting.
+//
+//	$all | of($calls) | where_capture_compare("MODE"; "$MODE >= 0o666")
+//
+// The hole's text is read as a number the way the language wrote it, so 0o777,
+// 0x1FF and 511 are the same value, and quotes around it are ignored - a mode
+// passed as a string is the same mode.
+func RegisterWhereCaptureCompare() gojq.CompilerOption {
+	const op = "where_capture_compare"
+	common.DeclareInput(op, common.InputPipeline)
+	return common.WithFunction(op, 1, 2, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 1)
+		list, err := matches(op, in)
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
+		}
+		expr, err := common.BindString(rest[0], "comparison")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
+		}
+		parts := comparison.FindStringSubmatch(expr)
+		if parts == nil {
+			return common.MakeUDFErrorResult(fmt.Errorf(
+				"%s: %q is not a comparison of a hole with a number, which is all this reads: "+
+					"$MODE >= 0o666", op, expr), nil)
+		}
+		hole, operator := parts[1], parts[2]
+		want, ok := asNumber(parts[3])
+		if !ok {
+			return common.MakeUDFErrorResult(fmt.Errorf("%s: %q is not a number", op, parts[3]), nil)
+		}
+		return keepIf(list, func(m map[string]any) bool {
+			got, ok := asNumber(capture(m, hole))
+			if !ok {
+				return false
+			}
+			switch operator {
+			case "<":
+				return got < want
+			case "<=":
+				return got <= want
+			case ">":
+				return got > want
+			case ">=":
+				return got >= want
+			case "==":
+				return got == want
+			default:
+				return got != want
+			}
+		})
+	})
+}
+
+// asNumber reads a hole's text as a number, in whatever base it was written
+// in, with any quotes around it ignored.
+func asNumber(s string) (float64, bool) {
+	s = strings.TrimSpace(strings.Trim(strings.TrimSpace(s), `"'`))
+	if s == "" {
+		return 0, false
+	}
+	negative := strings.HasPrefix(s, "-")
+	digits := strings.TrimPrefix(s, "-")
+	// 0o777 and 0777 are the same mode, and a language writes it both ways.
+	if len(digits) > 1 && digits[0] == '0' && !strings.ContainsAny(digits, ".eE") {
+		rest := digits[1:]
+		if rest[0] == 'o' || rest[0] == 'O' {
+			rest = rest[1:]
+		}
+		if n, err := strconv.ParseInt(rest, 8, 64); err == nil && !strings.ContainsAny(rest, "xXbB89") {
+			return sign(negative) * float64(n), true
+		}
+	}
+	if n, err := strconv.ParseInt(digits, 0, 64); err == nil {
+		return sign(negative) * float64(n), true
+	}
+	if f, err := strconv.ParseFloat(digits, 64); err == nil {
+		return sign(negative) * f, true
+	}
+	return 0, false
+}
+
+func sign(negative bool) float64 {
+	if negative {
+		return -1
+	}
+	return 1
+}
+
 // metaVariable is a `$NAME` reference in a rule's message.
 var metaVariable = regexp.MustCompile(`\$([A-Z_][A-Za-z_0-9]*)`)
 
@@ -532,6 +1010,7 @@ func sortKey(m map[string]any) string {
 func RegisterVocabulary() []gojq.CompilerOption {
 	return []gojq.CompilerOption{
 		RegisterScanAst(),
+		RegisterScanRegex(),
 		RegisterOf(),
 		RegisterWithin(),
 		RegisterOutside(),
@@ -543,6 +1022,14 @@ func RegisterVocabulary() []gojq.CompilerOption {
 		RegisterWhereCaptureNot(),
 		RegisterWhereSame(),
 		RegisterWhereDifferent(),
+		RegisterWhereText(),
+		RegisterWhereTextNot(),
+		RegisterWhereCaptureAst(),
+		RegisterWhereCaptureCompare(),
+		RegisterWhereCaptureEntropy(),
+		RegisterWhereCaptureRedos(),
+		RegisterFocus(),
+		RegisterReaching(),
 		RegisterFinding(),
 		RegisterReport(),
 	}

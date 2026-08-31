@@ -1,0 +1,16 @@
+# rules: ecr-image-scan-on-push
+# languages: hcl
+# from: terraform/lang/security/ecr-image-scan-on-push.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"aws_ecr_repository\" \"$$$_\" {\n  $$$_\n  image_scanning_configuration {\n    $$$_\n    scan_on_push=true\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"aws_ecr_repository\" \"$$$_\" {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"aws_ecr_repository\" \"$$$_\" {\n  $$$_\n  image_scanning_configuration {\n    $$$_\n    scan_on_push=true\n    $$$_\n  }\n  $$$_\n}"]))
+          | within($all | of(["resource \"aws_ecr_repository\" \"$$$_\" {\n  $$$_\n}"]))
+        | finding("ecr-image-scan-on-push";
+            "The ECR Repository isn't configured to scan images on push") ) )
+| report

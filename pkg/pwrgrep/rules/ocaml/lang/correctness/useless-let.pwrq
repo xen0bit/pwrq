@@ -1,4 +1,5 @@
 # rules: useless-let
+# languages: ocaml
 # from: ocaml/lang/correctness/useless-let.yaml
 
 . as $root

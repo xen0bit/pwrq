@@ -1,4 +1,5 @@
 # rules: session-cookie-missing-secure
+# languages: go
 # from: go/gorilla/security/audit/session-cookie-missing-secure.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: psycopg-sqli
+# languages: python
 # from: python/lang/security/audit/sqli/psycopg-sqli.yaml
 
 . as $root
@@ -25,11 +26,16 @@
       "$QUERY = f'$$$_{$USERINPUT}$$$_'\n$$$_"
     ])) as $all
     | ( ($all | of(["$CUR.$METHOD($$$_,$QUERY,$$$_)"])
-          | at_same_place((($all)
-          + ($all)
-          + ($all)
-          + ($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["$QUERY = $X + $Y\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY += $X\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY = '$$$_'.format($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY = '$$$_' % ($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY = f'$$$_{$USERINPUT}$$$_'\n$$$_"])))))
           | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
           | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"]))
           | in_files_without($all | of(["$QUERY = '$$$_'.format()\n$$$_"]))
@@ -38,8 +44,10 @@
           + ($all | of(["$CUR.$METHOD($$$_, '$$$_'.format($$$_), $$$_)"]))
           + ($all | of(["$CUR.$METHOD($$$_, '$$$_' % ($$$_), $$$_)"]))
           + ($all | of(["$CUR.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)"]))
-          | at_same_place((($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["$CONN = psycopg2.connect($$$_)\n$$$_\n$CUR = $CONN.cursor($$$_)\n$$$_"])))
+          + ($all
+          | within($all | of(["$CONN = psycopg2.connect($$$_)\n$$$_\nwith $CONN.cursor($$$_) as $CUR:\n  $$$_"])))))
           | not_at($all | of(["$CUR.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)"]))
           | not_at($all | of(["$CUR.$METHOD($$$_, '$$$_'.format(), $$$_)"]))
           | not_at($all | of(["$CUR.$METHOD($$$_, '$$$_'%(), $$$_)"]))

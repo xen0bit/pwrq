@@ -1,0 +1,23 @@
+# rules: pyramid-set-cookie-httponly-unsafe-value
+# languages: python
+# from: python/pyramid/audit/set-cookie-httponly-unsafe-value.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$HTTPONLY",
+      "$RESPONSE.set_cookie($$$_, **$PARAMS)",
+      "$RESPONSE.set_cookie($$$_, httponly=$HTTPONLY, $$$_)",
+      "@pyramid.view.view_config($$$_)\ndef $VIEW($REQUEST):\n    $$$_\n    $RESPONSE = $REQUEST.response\n    $$$_",
+      "def $VIEW($$$_):\n    $$$_\n    $RESPONSE = pyramid.httpexceptions.HTTPFound($$$_)\n    $$$_"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["@pyramid.view.view_config($$$_)\ndef $VIEW($REQUEST):\n    $$$_\n    $RESPONSE = $REQUEST.response\n    $$$_"])))
+          + ($all
+          | within($all | of(["def $VIEW($$$_):\n    $$$_\n    $RESPONSE = pyramid.httpexceptions.HTTPFound($$$_)\n    $$$_"])))
+          | at_same_place(($all | of(["$RESPONSE.set_cookie($$$_, httponly=$HTTPONLY, $$$_)"])))
+          | at_same_place(($all | of(["$HTTPONLY"])))
+          | not_at($all | of(["$RESPONSE.set_cookie($$$_, **$PARAMS)"]))
+          | where_capture_ast("HTTPONLY"; "False")
+        | finding("pyramid-set-cookie-httponly-unsafe-value";
+            "Found a Pyramid cookie without the httponly option correctly set.") ) )
+| report

@@ -1,0 +1,16 @@
+# rules: appservice-use-secure-tls-policy
+# languages: hcl
+# from: terraform/azure/security/appservice/appservice-use-secure-tls-policy.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "min_tls_version = \"1.2\"",
+      "min_tls_version = $ANYTHING",
+      "resource \"azurerm_app_service\" \"$NAME\" {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["min_tls_version = $ANYTHING"])
+          | within($all | of(["resource \"azurerm_app_service\" \"$NAME\" {\n  $$$_\n}"]))
+          | outside($all | of(["min_tls_version = \"1.2\""]))
+        | finding("appservice-use-secure-tls-policy";
+            "Detected an AppService that was not configured to use TLS 1.2.") ) )
+| report

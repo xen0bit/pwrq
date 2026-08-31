@@ -1,0 +1,13 @@
+# rules: spring-ftp-request
+# languages: java
+# from: problem-based-packs/insecure-transport/java-spring/spring-ftp-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$SF = new DefaultFtpSessionFactory($$$_);\n$$$_\n$SF.setHost(\"=~/^[fF][tT][pP]://.*/\");\n$$$_\n$SF.$FUNC($$$_);",
+      "$SF = new DefaultFtpSessionFactory($$$_);\n$$$_\nString $URL = \"=~/^[fF][tT][pP]://.*/\";\n$$$_\n$SF.setHost($URL);\n$$$_\n$SF.$FUNC($$$_);"
+    ])) as $all
+    | ( $all | of(["$SF = new DefaultFtpSessionFactory($$$_);\n$$$_\n$SF.setHost(\"=~/^[fF][tT][pP]://.*/\");\n$$$_\n$SF.$FUNC($$$_);","$SF = new DefaultFtpSessionFactory($$$_);\n$$$_\nString $URL = \"=~/^[fF][tT][pP]://.*/\";\n$$$_\n$SF.setHost($URL);\n$$$_\n$SF.$FUNC($$$_);"])
+        | finding("spring-ftp-request";
+            "Checks for outgoing connections to ftp servers via Spring plugin ftpSessionFactory.") ) )
+| report

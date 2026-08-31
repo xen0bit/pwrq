@@ -2,24 +2,26 @@
 # from: clojure/lang/security/documentbuilderfactory-xxe.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.clj"]; [
-      "(.setFeature \"http://apache.org/xml/features/disallow-doctype-decl\" false)",
-      "(clojure.xml/parse $INPUT)",
-      "(def $$$_ $$$_ ( $$$_ ))",
-      "(defn $$$_ $$$_ ( $$$_ ))",
-      "(doto (javax.xml.parsers.SAXParserFactory/newInstance)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-general-entities\" false)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-parameter-entities\" false)\n  $$$_)",
-      "(doto (javax.xml.parsers.SAXParserFactory/newInstance)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-parameter-entities\" false)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-general-entities\" false)\n  $$$_)",
-      "(doto (javax.xml.parsers.SAXParserFactory/newInstance) $$$_)",
-      "(ns $$$_ (:require [clojure.xml :as $$$_]))\n$$$_"
+| ( ($root | scan_regex(["*.clj"]; [
+      "\\(\\.setFeature\\s+\"http:\\/\\/apache\\.org\\/xml\\/features\\/disallow\\-doctype\\-decl\"\\s+false\\)",
+      "\\(clojure\\.xml\\/parse\\s+(?P<INPUT>\\S+)\\)",
+      "\\(def\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\(\\s+[\\s\\S]*?\\s+\\)\\)",
+      "\\(defn\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\(\\s+[\\s\\S]*?\\s+\\)\\)",
+      "\\(doto\\s+\\(javax\\.xml\\.parsers\\.SAXParserFactory\\/newInstance\\)\\s+[\\s\\S]*?\\)",
+      "\\(doto\\s+\\(javax\\.xml\\.parsers\\.SAXParserFactory\\/newInstance\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-general\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-parameter\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\)",
+      "\\(doto\\s+\\(javax\\.xml\\.parsers\\.SAXParserFactory\\/newInstance\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-parameter\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-general\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\)",
+      "\\(ns\\s+[\\s\\S]*?\\s+\\(:require\\s+\\[clojure\\.xml\\s+:as\\s+[\\s\\S]*?\\]\\)\\)\\s+[\\s\\S]*?"
     ])) as $all
-    | ( ($all)
-          + ($all)
-          | at_same_place((($all | of(["(clojure.xml/parse $INPUT)"]))
-          + ($all | of(["(.setFeature \"http://apache.org/xml/features/disallow-doctype-decl\" false)"])
-          | within($all | of(["(doto (javax.xml.parsers.SAXParserFactory/newInstance) $$$_)"]))
-          | outside($all | of(["(doto (javax.xml.parsers.SAXParserFactory/newInstance)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-general-entities\" false)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-parameter-entities\" false)\n  $$$_)"]))
-          | outside($all | of(["(doto (javax.xml.parsers.SAXParserFactory/newInstance)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-parameter-entities\" false)\n  $$$_\n  (.setFeature \"http://xml.org/sax/features/external-general-entities\" false)\n  $$$_)"])))))
-          | in_files_with($all | of(["(ns $$$_ (:require [clojure.xml :as $$$_]))\n$$$_"]))
+    | ( ($all
+          | within($all | of(["\\(def\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\(\\s+[\\s\\S]*?\\s+\\)\\)"])))
+          + ($all
+          | within($all | of(["\\(defn\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\(\\s+[\\s\\S]*?\\s+\\)\\)"])))
+          | at_same_place((($all | of(["\\(clojure\\.xml\\/parse\\s+(?P<INPUT>\\S+)\\)"]))
+          + ($all | of(["\\(\\.setFeature\\s+\"http:\\/\\/apache\\.org\\/xml\\/features\\/disallow\\-doctype\\-decl\"\\s+false\\)"])
+          | within($all | of(["\\(doto\\s+\\(javax\\.xml\\.parsers\\.SAXParserFactory\\/newInstance\\)\\s+[\\s\\S]*?\\)"]))
+          | outside($all | of(["\\(doto\\s+\\(javax\\.xml\\.parsers\\.SAXParserFactory\\/newInstance\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-general\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-parameter\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\)"]))
+          | outside($all | of(["\\(doto\\s+\\(javax\\.xml\\.parsers\\.SAXParserFactory\\/newInstance\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-parameter\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\s+\\(\\.setFeature\\s+\"http:\\/\\/xml\\.org\\/sax\\/features\\/external\\-general\\-entities\"\\s+false\\)\\s+[\\s\\S]*?\\)"])))))
+          | in_files_with($all | of(["\\(ns\\s+[\\s\\S]*?\\s+\\(:require\\s+\\[clojure\\.xml\\s+:as\\s+[\\s\\S]*?\\]\\)\\)\\s+[\\s\\S]*?"]))
         | finding("documentbuilderfactory-xxe";
             "DOCTYPE declarations are enabled for javax.xml.parsers.SAXParserFactory.") ) )
 | report

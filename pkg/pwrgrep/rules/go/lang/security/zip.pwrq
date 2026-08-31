@@ -1,4 +1,5 @@
 # rules: path-traversal-inside-zip-extraction
+# languages: go
 # from: go/lang/security/zip.yaml
 
 . as $root

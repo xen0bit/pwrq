@@ -1,0 +1,13 @@
+# rules: conf-insecure-cookie-settings
+# from: scala/play/security/conf-insecure-cookie-settings.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf"]; [
+      "secure\\s+=\\s+false",
+      "session\\s+=\\s+\\{\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["secure\\s+=\\s+false"])
+          | within($all | of(["session\\s+=\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("conf-insecure-cookie-settings";
+            "Session cookie `Secure` flag is explicitly disabled.") ) )
+| report

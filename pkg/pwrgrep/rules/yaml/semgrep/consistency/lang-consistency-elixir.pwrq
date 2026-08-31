@@ -2,12 +2,12 @@
 # from: yaml/semgrep/consistency/lang-consistency-elixir.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "$X",
-      "languages: $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "(?P<X>\\S+)",
+      "languages:\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["$X"])
-          | within($all | of(["languages: $$$_"]))
+    | ( $all | of(["(?P<X>\\S+)"])
+          | within($all | of(["languages:\\s+[\\s\\S]*?"]))
           | where_capture("X"; "^(ex)$")
         | finding("lang-consistency-elixir";
             "Found '$X' in language config which diverges from semgrep.dev normalization.") ) )

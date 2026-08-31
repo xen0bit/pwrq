@@ -1,0 +1,14 @@
+# rules: java-reverse-shell
+# languages: java
+# from: java/lang/security/audit/java-reverse-shell.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "Process $P=new ProcessBuilder($$$_).redirectErrorStream(true).start();\n$$$_\n$P.destroy();",
+      "Socket $S=new Socket($$$_);\n$$$_\nInputStream $SI = $S.getInputStream();\n$$$_\nwhile(!$S.isClosed())\n{\n  $$$_\n  while($SI.available()>0)$PO.write($SI.read());\n  $$$_\n  $SO.flush();\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["Socket $S=new Socket($$$_);\n$$$_\nInputStream $SI = $S.getInputStream();\n$$$_\nwhile(!$S.isClosed())\n{\n  $$$_\n  while($SI.available()>0)$PO.write($SI.read());\n  $$$_\n  $SO.flush();\n  $$$_\n}"])
+          | within($all | of(["Process $P=new ProcessBuilder($$$_).redirectErrorStream(true).start();\n$$$_\n$P.destroy();"]))
+        | finding("java-reverse-shell";
+            "Semgrep found potential reverse shell behavior") ) )
+| report

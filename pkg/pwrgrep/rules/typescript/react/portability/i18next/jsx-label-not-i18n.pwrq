@@ -1,4 +1,5 @@
 # rules: jsx-label-not-i18n
+# languages: javascript
 # from: typescript/react/portability/i18next/jsx-label-not-i18n.yaml
 
 . as $root
@@ -9,7 +10,7 @@
       "<TextField $$$_ label=\"$MESSAGE\" $$$_ />"
     ])) as $all
     | ( $all | of(["<TextField $$$_ label=\"$MESSAGE\" $$$_ />","<Tab $$$_ label=\"$MESSAGE\" $$$_ />"])
-          | where_capture("MESSAGE"; "(.*[a-zA-Z]+.*)")
+          | where_capture("MESSAGE"; "^(?:(.*[a-zA-Z]+.*))")
           | not_at($all | of(["<$ELEMENT $$$_ label=\"\" $$$_ />"]))
           | not_at($all | of(["<$ELEMENT $$$_ label={t($KEY, $$$_)} $$$_ />"]))
         | finding("jsx-label-not-i18n";

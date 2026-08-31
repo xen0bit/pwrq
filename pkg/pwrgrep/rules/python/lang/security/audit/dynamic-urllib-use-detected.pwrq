@@ -1,4 +1,5 @@
 # rules: dynamic-urllib-use-detected
+# languages: python
 # from: python/lang/security/audit/dynamic-urllib-use-detected.yaml
 
 . as $root
@@ -21,10 +22,14 @@
           + ($all | of(["urllib.request.urlopen($$$_)"]))
           + ($all | of(["urllib.urlretrieve($$$_)"]))
           + ($all | of(["urllib.request.urlretrieve($$$_)"]))
-          + (($all)
-          + ($all)
-          + ($all)
-          + ($all)
+          + (($all
+          | in_files_with($all | of(["$OPENER = urllib.URLopener($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$OPENER = urllib.request.URLopener($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$OPENER = urllib.FancyURLopener($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$OPENER = urllib.request.FancyURLopener($$$_)\n$$$_"])))
           | at_same_place(($all | of(["$OPENER.open($$$_)","$OPENER.retrieve($$$_)"]))))
           | not_at($all | of(["urllib.$W(\"$$$_\")"]))
           | not_at($all | of(["urllib.request.$W(\"$$$_\")"]))

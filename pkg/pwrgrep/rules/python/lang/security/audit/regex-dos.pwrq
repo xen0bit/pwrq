@@ -1,0 +1,14 @@
+# rules: regex_dos
+# languages: python
+# from: python/lang/security/audit/regex-dos.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A = re.compile(\"$B\", $$$_)\n$$$_\n$A.$METHOD($$$_)"
+    ])) as $all
+    | ( $all | of(["$A = re.compile(\"$B\", $$$_)\n$$$_\n$A.$METHOD($$$_)"])
+          | where_capture_redos("B")
+          | where_capture_not("METHOD"; "^(?:(escape)|(purge))")
+        | finding("regex_dos";
+            "Detected usage of re.compile with an inefficient regular expression.") ) )
+| report

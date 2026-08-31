@@ -1,4 +1,5 @@
 # rules: insecure-urlretrieve-ftp
+# languages: python
 # from: python/lang/security/audit/insecure-transport/urllib/insecure-urlretrieve-ftp.yaml
 
 . as $root

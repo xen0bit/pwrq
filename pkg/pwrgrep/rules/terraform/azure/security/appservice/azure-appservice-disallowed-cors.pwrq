@@ -1,0 +1,15 @@
+# rules: azure-appservice-disallowed-cors
+# from: terraform/azure/security/appservice/azure-appservice-disallowed-cors.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "(?P<RESOURCE>\\S+)\\s+\"azurerm_app_service\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "\\[\"\\*\"\\]",
+      "allowed_origins\\s+=\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["\\[\"\\*\"\\]"])
+          | within($all | of(["allowed_origins\\s+=\\s+[\\s\\S]*?"]))
+          | within($all | of(["(?P<RESOURCE>\\S+)\\s+\"azurerm_app_service\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("azure-appservice-disallowed-cors";
+            "Ensure that CORS disallows every resource to access app services") ) )
+| report

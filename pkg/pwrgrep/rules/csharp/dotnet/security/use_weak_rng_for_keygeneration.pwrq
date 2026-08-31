@@ -1,0 +1,30 @@
+# rules: use_weak_rng_for_keygeneration
+# languages: c_sharp
+# from: csharp/dotnet/security/use_weak_rng_for_keygeneration.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$KEY",
+      "($KEYTYPE $CIPHER).Key = $SINK;",
+      "(System.Random $RNG).NextBytes($KEY); $$$_",
+      "Aes",
+      "DES",
+      "RC2",
+      "Rijndael",
+      "SymmetricAlgorithm",
+      "TripleDES",
+      "new AesCcm($$$_)",
+      "new AesGcm($$$_)",
+      "new ChaCha20Poly1305($$$_)"
+    ])) as $all
+    | ( ((($all | of(["($KEYTYPE $CIPHER).Key = $SINK;"])
+          | focus("SINK"))
+          + ($all | of(["new AesGcm($$$_)"]))
+          + ($all | of(["new AesCcm($$$_)"]))
+          + ($all | of(["new ChaCha20Poly1305($$$_)"]))))
+          | reaching((($all | of(["$KEY"])
+          | within($all | of(["(System.Random $RNG).NextBytes($KEY); $$$_"]))));
+              ([]))
+        | finding("use_weak_rng_for_keygeneration";
+            "You are using an insecure random number generator (RNG) to create a cryptographic key.") ) )
+| report

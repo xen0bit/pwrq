@@ -1,4 +1,5 @@
 # rules: default-mutable-list
+# languages: python
 # from: python/lang/correctness/common-mistakes/default-mutable-list.yaml
 
 . as $root

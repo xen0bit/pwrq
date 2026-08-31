@@ -1,0 +1,18 @@
+# rules: baseclass-attribute-override
+# languages: python
+# from: python/lang/correctness/baseclass-attribute-override.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class $A($$$_):\n  $$$_\n  def $F1($$$_):\n    $$$_\n  $$$_\n$$$_",
+      "class $B($$$_):\n  $$$_\n  def $F2($$$_):\n    $$$_\n  $$$_\n$$$_",
+      "class $C($$$_, $A, $$$_, $B, $$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["class $C($$$_, $A, $$$_, $B, $$$_):\n  $$$_"])
+          | in_files_with($all | of(["class $A($$$_):\n  $$$_\n  def $F1($$$_):\n    $$$_\n  $$$_\n$$$_"]))
+          | in_files_with($all | of(["class $B($$$_):\n  $$$_\n  def $F2($$$_):\n    $$$_\n  $$$_\n$$$_"]))
+          | where_same("F1"; "F2")
+          | focus("C")
+        | finding("baseclass-attribute-override";
+            "Class $C inherits from both `$A` and `$B` which both have a method named `$F`; one of these methods will be overwritten.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: useless-cat
+# languages: bash
 # from: bash/lang/best-practice/useless-cat.yaml
 
 . as $root

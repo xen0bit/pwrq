@@ -1,4 +1,5 @@
 # rules: open-never-closed
+# languages: python
 # from: python/lang/best-practice/open-never-closed.yaml
 
 . as $root

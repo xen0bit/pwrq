@@ -1,0 +1,21 @@
+# rules: xpath-injection
+# languages: c_sharp
+# from: csharp/dotnet/security/audit/xpath-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$T $M($$$_) {\n  $$$_\n  string $INPUT;\n}",
+      "$T $M($INPUT,$$$_) {$$$_}",
+      "Object $OBJ = $NAV.Evaluate(\"$$$_\" + $INPUT + \"$$$_\");",
+      "XPathExpression $EXPR = $NAV.Compile(\"$$$_\" + $INPUT + \"$$$_\");",
+      "XPathNodeIterator $NODE = $NAV.Select(\"$$$_\" + $INPUT + \"$$$_\");",
+      "var $EXPR = $NAV.Compile(\"$$$_\" + $INPUT + \"$$$_\");",
+      "var $NODE = $NAV.Select(\"$$$_\" + $INPUT + \"$$$_\");",
+      "var $OBJ = $NAV.Evaluate(\"$$$_\" + $INPUT + \"$$$_\");"
+    ])) as $all
+    | ( (($all | of(["XPathExpression $EXPR = $NAV.Compile(\"$$$_\" + $INPUT + \"$$$_\");","var $EXPR = $NAV.Compile(\"$$$_\" + $INPUT + \"$$$_\");","XPathNodeIterator $NODE = $NAV.Select(\"$$$_\" + $INPUT + \"$$$_\");","var $NODE = $NAV.Select(\"$$$_\" + $INPUT + \"$$$_\");","Object $OBJ = $NAV.Evaluate(\"$$$_\" + $INPUT + \"$$$_\");","var $OBJ = $NAV.Evaluate(\"$$$_\" + $INPUT + \"$$$_\");"])))
+          | reaching((($all | of(["$T $M($INPUT,$$$_) {$$$_}","$T $M($$$_) {\n  $$$_\n  string $INPUT;\n}"])));
+              ([]))
+        | finding("xpath-injection";
+            "XPath queries are constructed dynamically on user-controlled input.") ) )
+| report

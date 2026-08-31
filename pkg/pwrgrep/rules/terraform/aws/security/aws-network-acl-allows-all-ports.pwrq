@@ -1,0 +1,19 @@
+# rules: aws-network-acl-allows-all-ports
+# languages: hcl
+# from: terraform/aws/security/aws-network-acl-allows-all-ports.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "egress {\n  $$$_\n  protocol = $PROTOCOL\n  action = \"allow\"\n  $$$_\n}",
+      "ingress {\n  $$$_\n  protocol = $PROTOCOL\n  action = \"allow\"\n  $$$_\n}",
+      "resource \"$NETWORK_ACL\" $ANYTHING {\n  $$$_\n}",
+      "resource \"aws_network_acl_rule\" $ANYTHING {\n  $$$_\n  protocol = $PROTOCOL\n  rule_action = \"allow\"\n  $$$_\n}"
+    ])) as $all
+    | ( ($all | of(["resource \"aws_network_acl_rule\" $ANYTHING {\n  $$$_\n  protocol = $PROTOCOL\n  rule_action = \"allow\"\n  $$$_\n}"]))
+          + ($all | of(["ingress {\n  $$$_\n  protocol = $PROTOCOL\n  action = \"allow\"\n  $$$_\n}","egress {\n  $$$_\n  protocol = $PROTOCOL\n  action = \"allow\"\n  $$$_\n}"])
+          | within($all | of(["resource \"$NETWORK_ACL\" $ANYTHING {\n  $$$_\n}"]))
+          | where_capture("NETWORK_ACL"; "^(aws_network_acl|aws_default_network_acl)$"))
+          | where_capture("PROTOCOL"; "^(\"all\"|\"-1\"|-1)$")
+        | finding("aws-network-acl-allows-all-ports";
+            "Ingress and/or egress is allowed for all ports in the network ACL rule.") ) )
+| report

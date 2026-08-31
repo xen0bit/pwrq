@@ -1,4 +1,5 @@
 # rules: wp-code-execution-audit
+# languages: php
 # from: php/wordpress-plugins/security/audit/wp-code-execution-audit.yaml
 
 . as $root

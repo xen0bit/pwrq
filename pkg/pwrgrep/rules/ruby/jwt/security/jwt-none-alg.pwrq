@@ -1,4 +1,5 @@
 # rules: ruby-jwt-none-alg
+# languages: ruby
 # from: ruby/jwt/security/jwt-none-alg.yaml
 
 . as $root

@@ -225,18 +225,26 @@ void read_name(char *dst)
 	}
 }
 
-// TestAFragmentCIsRefusedRatherThanRescued is the control on that. A bare
-// `$A + $B` is not a C program in any context, and reading it as a statement
-// makes the grammar produce something - an update_expression with an empty
-// operator - rather than nothing. The terminated reading is only reached for a
-// pattern that already parses, so the refusal stands.
-func TestAFragmentCIsRefusedRatherThanRescued(t *testing.T) {
+// TestAFragmentCIsReadWhereItCouldStand is the control on that. A bare `$A +
+// $B` is not a C program, and there are two ways to make the grammar accept
+// it: put it where an expression can stand, or let the grammar repair it. The
+// first is the pattern - an addition, anywhere one is written - and the second
+// is an update_expression whose `++` the grammar invented and the caller never
+// wrote, which would match `a++` and not `a + b`.
+//
+// So the reading has to be the addition, and the repair has to be refused. A
+// pattern is only ever read as something the caller could have typed.
+func TestAFragmentCIsReadWhereItCouldStand(t *testing.T) {
 	c, err := compilePattern("$A + $B", "c")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.valid() {
-		t.Errorf("`$A + $B` was accepted for c, compiling to %s", c.query().SExpr)
+	if !c.valid() {
+		t.Fatalf("`$A + $B` was refused for c: %s", c.problem)
+	}
+	if got := c.query().SExpr; !strings.Contains(got, "binary_expression") ||
+		strings.Contains(got, "update_expression") {
+		t.Errorf("`$A + $B` compiled to %s, want the addition it spells", got)
 	}
 }
 
@@ -292,9 +300,9 @@ func TestARepeatedHoleIsNotReportedTwice(t *testing.T) {
 	}
 }
 
-// flow is source where the same variable is set and then used, once with the
+// setThenUsed is source where the same variable is set and then used, once with the
 // call the pattern names and once with another.
-const flow = `import os
+const setThenUsed = `import os
 
 def handler(request):
     name = request.args
@@ -317,7 +325,7 @@ def other(request):
 // function body - a different node - so it matched nothing anywhere, silently.
 // See openUnit.
 func TestAPatternOfSeveralStatementsMatchesInsideAnyBlock(t *testing.T) {
-	dir := tree(t, map[string]string{"v.py": flow})
+	dir := tree(t, map[string]string{"v.py": setThenUsed})
 	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, `$D = request.args
 $$$_
 foo($D)`))
@@ -335,7 +343,7 @@ foo($D)`))
 // stops. Capturing the node the statements share would report the whole
 // enclosing block; the span runs from the first statement to the last.
 func TestASequenceSpansTheStatementsItNamed(t *testing.T) {
-	dir := tree(t, map[string]string{"v.py": flow})
+	dir := tree(t, map[string]string{"v.py": setThenUsed})
 	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, `$D = request.args
 $$$_
 foo($D)`))
@@ -351,5 +359,195 @@ foo($D)`))
 	if text := fmt.Sprint(field(t, got[0], "Text")); !strings.HasPrefix(text, "name = request.args") ||
 		!strings.HasSuffix(text, "foo(name)") {
 		t.Errorf("matched text is %q, want the three statements the pattern named", text)
+	}
+}
+
+// terraform is a file of the shape a quarter of the rule corpus is written
+// against: resources whose bodies the pattern does not want to enumerate.
+const terraform = `resource "aws_lambda_function" "encrypted" {
+  function_name = "ok"
+  kms_key_arn   = aws_kms_key.a.arn
+  environment {
+    variables = { A = "1" }
+  }
+}
+
+resource "aws_lambda_function" "plain" {
+  function_name = "bad"
+  environment {
+    variables = { B = "2" }
+  }
+}
+
+resource "aws_s3_bucket" "b" {
+  bucket = "x"
+}
+`
+
+// hclMatches runs a pattern over one Terraform file.
+func hclMatches(t *testing.T, pattern string) []any {
+	t.Helper()
+	dir := tree(t, map[string]string{"main.tf": terraform})
+	return collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, pattern))
+}
+
+// TestAnEllipsisStandsWhereAnItemGoes is the defect that kept every Terraform
+// rule in the corpus from doing anything.
+//
+// `...` inside a block body becomes an identifier, and an HCL body holds
+// attributes and blocks - an identifier is neither, so the whole pattern was
+// an ERROR parse. The error node then carried HCL's significant whitespace as
+// literals, so the query text ended up with a raw newline inside a string and
+// would not parse as a query at all. What the caller was told about was the
+// newline. See bodyReading.
+func TestAnEllipsisStandsWhereAnItemGoes(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		pattern string
+		want    []string
+	}{
+		{"a body the pattern does not enumerate", "resource \"aws_lambda_function\" $A {\n  $$$_\n}",
+			[]string{"1", "9"}},
+		{"an ellipsis between braces on one line", "environment { $$$_ }", []string{"4", "11"}},
+		{"an item named among items that are not", "resource $A $B {\n  $$$_\n  kms_key_arn = $$$_\n  $$$_\n}",
+			[]string{"1"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := hclMatches(t, tc.pattern)
+			var lines []string
+			for _, m := range got {
+				lines = append(lines, fmt.Sprint(field(t, m, "LineNumber")))
+			}
+			if strings.Join(lines, ",") != strings.Join(tc.want, ",") {
+				t.Errorf("%s\n  matched lines %v\n  want          %v", tc.pattern, lines, tc.want)
+			}
+		})
+	}
+}
+
+// java is source where a rule's three-statement pattern has somewhere to be.
+// The two cookies differ only in the argument to setSecure, which is what a
+// pattern of statements in sequence is written to tell apart.
+const java = `class Session {
+  void open(HttpServletResponse resp) {
+    Cookie a, b;
+
+    a = new Cookie("a", "1");
+    a.setPath("/");
+    a.setSecure(false);
+    resp.addCookie(a);
+
+    b = new Cookie("b", "2");
+    b.setSecure(true);
+    resp.addCookie(b);
+  }
+}
+`
+
+// TestAPatternIsReadWhereItCouldBeWritten is the wrapper half of a scaffolded
+// reading, and it is what a quarter of a rule corpus is written as:
+//
+//	$COOKIE = new Cookie(...);
+//	...
+//	$COOKIE.setSecure(false);
+//
+// Java has nowhere to put a statement outside a method, so as written this is
+// an ERROR parse and every rule shaped like it found nothing. Compiled inside
+// a method it is three statements in a body, which is what it says - and the
+// method has to be walked back off afterwards, or the pattern would be a claim
+// that the code sits in a method with that name and that return type.
+//
+// The `...` between the statements has to survive that: it says the two need
+// not be adjacent, and the run it stands for is the second cookie's setPath.
+func TestAPatternIsReadWhereItCouldBeWritten(t *testing.T) {
+	dir := tree(t, map[string]string{"S.java": java})
+	pattern := "$C = new Cookie($$$_);\n$$$_\n$C.setSecure(false);"
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, pattern))
+	if len(got) != 1 {
+		t.Fatalf("matched %d times, want 1 - the cookie left insecure", len(got))
+	}
+	if line := fmt.Sprint(field(t, got[0], "LineNumber")); line != "5" {
+		t.Errorf("matched at line %s, want 5", line)
+	}
+}
+
+// TestAnEllipsisDoesNotTakeTheStatementBelowIt is the check on a reading that
+// parses.
+//
+// Java reads `...` on a line of its own as an identifier, and an identifier
+// followed by `HttpServletRequest $REQ = ...;` as one declaration - the
+// ellipsis becomes the type and the pattern's own statement becomes the name.
+// The query compiles, reports no error, and is a search for a declaration
+// whose name is the word HttpServletRequest, which no Java has. Every rule
+// written this way found nothing and said nothing.
+//
+// What settles it is what the ellipsis means: nothing in particular is there.
+// So the pattern with the line struck out has to compile to the same query.
+func TestAnEllipsisDoesNotTakeTheStatementBelowIt(t *testing.T) {
+	pattern := "$X $M($$$_) {\n  $$$_\n  HttpServletRequest $REQ = $$$_;\n  $$$_\n}"
+	c, err := compilePattern(pattern, "java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.valid() {
+		t.Fatalf("refused: %s", c.problem)
+	}
+	for i, q := range c.queries {
+		if strings.Contains(q.SExpr, `name: (identifier) @_lit`) {
+			t.Errorf("reading %d read the ellipsis as the declaration's type:\n%s", i, q.SExpr)
+		}
+	}
+	dir := tree(t, map[string]string{"S.java": java})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir,
+		"$X $M($$$_) {\n  $$$_\n  Cookie $A, $B;\n  $$$_\n}"))
+	if len(got) != 1 {
+		t.Fatalf("matched %d times, want the one method", len(got))
+	}
+}
+
+// TestAQueryOfNothingIsRefused is the inverse of the failure this package
+// exists to prevent, and the worse half of it.
+//
+// `return ...` followed by a statement is how a rule says "code after a
+// return". Python folds the two lines into one hole, and the query becomes
+// `(_) @S` - every node in every file. The pattern parses, reports no problem,
+// and the rule built on it fires on a file with no return statement in it at
+// all. A search that finds nothing is a rule that says nothing; a search that
+// finds everything is a rule that is wrong.
+func TestAQueryOfNothingIsRefused(t *testing.T) {
+	c, err := compilePattern("return $$$_\n$S", "python")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.valid() {
+		t.Errorf("`return $$$_\\n$S` was accepted for python, compiling to %s", c.query().SExpr)
+	}
+	// The half of the same pattern that does say something still does.
+	ok, err := compilePattern("return $$$_", "python")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok.valid() {
+		t.Errorf("`return $$$_` was refused for python: %s", ok.problem)
+	}
+}
+
+// TestAPatternsOwnBracketsAreNotScaffolding is the other half of finding the
+// file node, and the reason it is measured by doubling the pattern rather than
+// by parsing an empty file.
+//
+// `[$X]` compiles to a list holding one thing, which has exactly the shape a
+// grammar's file node has - one child, wrapping what the caller wrote. Opening
+// it would turn "a list of one element" into "anything containing $X". The
+// difference is that doubling the pattern gives a file node two children and
+// leaves a list with one.
+func TestAPatternsOwnBracketsAreNotScaffolding(t *testing.T) {
+	dir := tree(t, map[string]string{"a.py": "x = [1]\ny = 1\n"})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, "[$X]"))
+	if len(got) != 1 {
+		t.Fatalf("`[$X]` matched %d times; the source has one list", len(got))
+	}
+	if text := fmt.Sprint(field(t, got[0], "Text")); text != "[1]" {
+		t.Errorf("matched %q, want the list itself", text)
 	}
 }

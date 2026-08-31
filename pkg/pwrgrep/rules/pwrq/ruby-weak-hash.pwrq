@@ -1,4 +1,5 @@
 # rules: ruby-weak-hash
+# languages: ruby
 # fixture: ruby/weak-hash.rb
 # from: ruby/lang/security/weak-hashes-sha1.yaml (weak-hashes-sha1)
 #

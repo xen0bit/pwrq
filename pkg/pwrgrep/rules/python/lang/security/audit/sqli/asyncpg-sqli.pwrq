@@ -1,4 +1,5 @@
 # rules: asyncpg-sqli
+# languages: python
 # from: python/lang/security/audit/sqli/asyncpg-sqli.yaml
 
 . as $root
@@ -30,11 +31,16 @@
       "def $FUNCNAME($$$_, $CONN: asyncpg.Connection, $$$_):\n    $$$_"
     ])) as $all
     | ( ($all | of(["$CONN.$METHOD($$$_,$QUERY,$$$_)"])
-          | at_same_place((($all)
-          + ($all)
-          + ($all)
-          + ($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["$QUERY = $X + $Y\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY += $X\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY = '$$$_'.format($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY = '$$$_' % ($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY = f'$$$_{$USERINPUT}$$$_'\n$$$_"])))))
           | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
           | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"]))
           | in_files_without($all | of(["$QUERY = '$$$_'.format()\n$$$_"]))
@@ -44,12 +50,18 @@
           + ($all | of(["$CONN.$METHOD($$$_, '$$$_'.format($$$_), $$$_)"]))
           + ($all | of(["$CONN.$METHOD($$$_, '$$$_' % ($$$_), $$$_)"]))
           + ($all | of(["$CONN.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)"]))
-          | at_same_place((($all)
-          + ($all)
-          + ($all)
-          + ($all)
-          + ($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["$CONN = await asyncpg.connect($$$_)\n$$$_"])))
+          + ($all
+          | within($all | of(["async with asyncpg.create_pool($$$_) as $CONN:\n    $$$_"])))
+          + ($all
+          | within($all | of(["async with $POOL.acquire($$$_) as $CONN:\n    $$$_"])))
+          + ($all
+          | in_files_with($all | of(["$CONN = await $POOL.acquire($$$_)\n$$$_"])))
+          + ($all
+          | within($all | of(["def $FUNCNAME($$$_, $CONN: Connection, $$$_):\n    $$$_"])))
+          + ($all
+          | within($all | of(["def $FUNCNAME($$$_, $CONN: asyncpg.Connection, $$$_):\n    $$$_"])))))
           | not_at($all | of(["$CONN.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)"]))
           | not_at($all | of(["$CONN.$METHOD($$$_, '$$$_'.format(), $$$_)"]))
           | not_at($all | of(["$CONN.$METHOD($$$_, '$$$_'%(), $$$_)"]))

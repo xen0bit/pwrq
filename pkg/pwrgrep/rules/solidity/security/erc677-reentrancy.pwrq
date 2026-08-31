@@ -1,0 +1,14 @@
+# rules: erc677-reentrancy
+# languages: solidity
+# from: solidity/security/erc677-reentrancy.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "callAfterTransfer($$$_);",
+      "function transfer($$$_) {\n    $$$_\n}"
+    ])) as $all
+    | ( $all | of(["callAfterTransfer($$$_);"])
+          | within($all | of(["function transfer($$$_) {\n    $$$_\n}"]))
+        | finding("erc677-reentrancy";
+            "ERC677 callAfterTransfer() reentrancy") ) )
+| report

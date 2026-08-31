@@ -1,4 +1,5 @@
 # rules: detect-langchain
+# languages: python
 # from: ai/python/detect-langchain.yaml
 
 . as $root

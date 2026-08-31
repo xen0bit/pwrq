@@ -1,0 +1,11 @@
+# rules: debug-template-tag
+# from: python/django/security/audit/templates/debug-template-tag.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.html"]; [
+      "({% debug %})"
+    ])) as $all
+    | ( $all | of(["({% debug %})"])
+        | finding("debug-template-tag";
+            "Detected a debug template tag in a Django template.") ) )
+| report

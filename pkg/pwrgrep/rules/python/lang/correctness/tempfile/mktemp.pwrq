@@ -1,4 +1,5 @@
 # rules: tempfile-insecure
+# languages: python
 # from: python/lang/correctness/tempfile/mktemp.yaml
 
 . as $root

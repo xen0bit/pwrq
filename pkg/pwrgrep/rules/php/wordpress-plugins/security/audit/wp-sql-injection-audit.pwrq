@@ -1,0 +1,25 @@
+# rules: wp-sql-injection-audit
+# languages: php
+# from: php/wordpress-plugins/security/audit/wp-sql-injection-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$wpdb->delete($$$_)",
+      "$wpdb->get_col($$$_)",
+      "$wpdb->get_results($$$_)",
+      "$wpdb->get_row($$$_)",
+      "$wpdb->get_var($$$_)",
+      "$wpdb->insert($$$_)",
+      "$wpdb->prepare($$$_)",
+      "$wpdb->query($$$_)",
+      "$wpdb->replace($$$_)",
+      "$wpdb->update($$$_)"
+    ])) as $all
+    | ( $all | of(["$wpdb->query($$$_)","$wpdb->get_var($$$_)","$wpdb->get_row($$$_)","$wpdb->get_col($$$_)","$wpdb->get_results($$$_)","$wpdb->replace($$$_)"])
+          | not_at($all | of(["$wpdb->prepare($$$_)"]))
+          | not_at($all | of(["$wpdb->delete($$$_)"]))
+          | not_at($all | of(["$wpdb->update($$$_)"]))
+          | not_at($all | of(["$wpdb->insert($$$_)"]))
+        | finding("wp-sql-injection-audit";
+            "Detected unsafe API methods.") ) )
+| report

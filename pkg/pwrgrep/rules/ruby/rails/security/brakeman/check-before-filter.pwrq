@@ -1,4 +1,5 @@
 # rules: check-before-filter
+# languages: ruby
 # from: ruby/rails/security/brakeman/check-before-filter.yaml
 
 . as $root

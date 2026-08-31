@@ -1,4 +1,5 @@
 # rules: ssrf-injection-requests
+# languages: python
 # from: python/django/security/injection/ssrf/ssrf-injection-requests.yaml
 
 . as $root

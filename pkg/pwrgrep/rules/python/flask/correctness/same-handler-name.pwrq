@@ -1,4 +1,5 @@
 # rules: flask-duplicate-handler-name
+# languages: python
 # from: python/flask/correctness/same-handler-name.yaml
 
 . as $root

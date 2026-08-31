@@ -1,4 +1,5 @@
 # rules: useless-equal
+# languages: ocaml
 # from: ocaml/lang/correctness/useless-eq.yaml
 
 . as $root

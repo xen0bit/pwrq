@@ -1,0 +1,20 @@
+# rules: documentbuilderfactory-disallow-doctype-decl-false
+# languages: java
+# from: java/lang/security/audit/xxe/documentbuilderfactory-disallow-doctype-decl-false.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$DBFACTORY.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", false);",
+      "$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, \"\");\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, \"\");\n  $$$_\n}",
+      "$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, \"\");\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, \"\");\n  $$$_\n}",
+      "$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-general-entities\", false);\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false);\n  $$$_\n}",
+      "$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false);\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-general-entities\", false);\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$DBFACTORY.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", false);"])
+          | outside($all | of(["$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-general-entities\", false);\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false);\n  $$$_\n}"]))
+          | outside($all | of(["$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false);\n  $$$_\n  $DBF.setFeature(\"http://xml.org/sax/features/external-general-entities\", false);\n  $$$_\n}"]))
+          | outside($all | of(["$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, \"\");\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, \"\");\n  $$$_\n}"]))
+          | outside($all | of(["$RETURNTYPE $METHOD($$$_){\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, \"\");\n  $$$_\n  $DBF.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, \"\");\n  $$$_\n}"]))
+        | finding("documentbuilderfactory-disallow-doctype-decl-false";
+            "DOCTYPE declarations are enabled for $DBFACTORY.") ) )
+| report

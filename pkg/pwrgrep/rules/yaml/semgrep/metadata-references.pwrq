@@ -1,4 +1,5 @@
 # rules: metadata-references
+# languages: yaml
 # from: yaml/semgrep/metadata-references.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: insecure-document-method
+# languages: javascript, typescript
 # from: javascript/browser/security/insecure-document-method.yaml
 
 . as $root

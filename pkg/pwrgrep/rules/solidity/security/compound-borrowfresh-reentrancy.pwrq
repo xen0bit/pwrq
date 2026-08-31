@@ -1,0 +1,16 @@
+# rules: compound-borrowfresh-reentrancy
+# languages: solidity
+# from: solidity/security/compound-borrowfresh-reentrancy.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "accountBorrows[borrower].interestIndex = borrowIndex;\n$$$_",
+      "doTransferOut($$$_);",
+      "function borrowFresh($$$_) {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["doTransferOut($$$_);"])
+          | within($all | of(["function borrowFresh($$$_) {\n  $$$_\n}"]))
+          | in_files_without($all | of(["accountBorrows[borrower].interestIndex = borrowIndex;\n$$$_"]))
+        | finding("compound-borrowfresh-reentrancy";
+            "Function borrowFresh() in Compound performs state update after doTransferOut()") ) )
+| report

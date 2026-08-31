@@ -1,4 +1,5 @@
 # rules: skip-tls-verify-service
+# languages: yaml
 # from: yaml/kubernetes/security/skip-tls-verify-service.yaml
 
 . as $root

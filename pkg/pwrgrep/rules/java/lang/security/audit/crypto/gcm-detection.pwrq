@@ -1,4 +1,5 @@
 # rules: gcm-detection
+# languages: java
 # from: java/lang/security/audit/crypto/gcm-detection.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: ocamllint-useless-else, ocamllint-backwards-if
+# languages: ocaml
 # from: ocaml/lang/best-practice/ifs.yaml
 
 . as $root

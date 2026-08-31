@@ -1,0 +1,16 @@
+# rules: no-new-privileges
+# from: yaml/docker-compose/security/no-new-privileges.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?",
+      "(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+security_opt:\\s+\\-\\s+[\\s\\S]*?\\s+\\-\\s+no\\-new\\-privileges:true\\s+\\-\\s+[\\s\\S]*?",
+      "version:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+services:\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?"])
+          | within($all | of(["version:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+services:\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+security_opt:\\s+\\-\\s+[\\s\\S]*?\\s+\\-\\s+no\\-new\\-privileges:true\\s+\\-\\s+[\\s\\S]*?"]))
+          | focus("SERVICE")
+        | finding("no-new-privileges";
+            "Service '$SERVICE' allows for privilege escalation via setuid or setgid binaries.") ) )
+| report

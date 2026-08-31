@@ -1,0 +1,20 @@
+# rules: insufficient-postmessage-origin-validation
+# languages: javascript, typescript
+# from: javascript/browser/security/insufficient-postmessage-origin-validation.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$FNAME = ($$$_) => { $CONTEXT }\n$$$_",
+      "function $FNAME($OBJ) { $CONTEXT }\n$$$_",
+      "window.addEventListener('message', $FNAME,$$$_)",
+      "window.addEventListener('message', $FUNC, $$$_)"
+    ])) as $all
+    | ( ($all | of(["window.addEventListener('message', $FUNC, $$$_)"]))
+          + (($all
+          | in_files_with($all | of(["function $FNAME($OBJ) { $CONTEXT }\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$FNAME = ($$$_) => { $CONTEXT }\n$$$_"])))
+          | at_same_place(($all | of(["window.addEventListener('message', $FNAME,$$$_)"]))))
+        | finding("insufficient-postmessage-origin-validation";
+            "No validation of origin is done by the addEventListener API.") ) )
+| report

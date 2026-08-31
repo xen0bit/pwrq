@@ -1,4 +1,5 @@
 # rules: empty-message
+# languages: yaml
 # from: yaml/semgrep/empty-message.yaml
 
 . as $root

@@ -1,0 +1,167 @@
+# rules: ognl-injection
+# languages: java
+# from: java/lang/security/audit/ognl-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.callMethod(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.commaDelimitedStringToSet(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.compile(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.evaluate(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.findString(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.findValue(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.getField($T,\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.getGetMethod($T,\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.getSetMethod($T,\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.getText(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.getValue(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.isTrue(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.makeSelectList(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.setParameter(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.setProperties(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.setProperty(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.setValue(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.shallBeIncluded(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.translateVariables(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  $P.translateVariablesCollection(\"$$$_\",$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlTextParser $P = $$$_;\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlTool $P = $$$_;\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.callMethod($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.compile($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.callMethod($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.commaDelimitedStringToSet($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.compile($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.evaluate($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.findString($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.findValue($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getField($T,$S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getGetMethod($T,$S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getSetMethod($T,$S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getText($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getValue($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.isTrue($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.makeSelectList($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setParameter($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setProperties($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setProperty($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setValue($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.shallBeIncluded($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.translateVariables($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.translateVariablesCollection($S,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.getText($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.isTrue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.makeSelectList($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.commaDelimitedStringToSet($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.shallBeIncluded($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.translateVariablesCollection($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  TextParser $P = $$$_;\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.setParameter($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  VelocityStrutsUtil $P = $$$_;\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlTextParser $P,$$$_) {\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlTool $P,$$$_) {\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.callMethod($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.compile($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.getText($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.isTrue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.makeSelectList($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.commaDelimitedStringToSet($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.shallBeIncluded($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.translateVariablesCollection($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,TextParser $P,$$$_) {\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.setParameter($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}",
+      "$X $METHOD($$$_,VelocityStrutsUtil $P,$$$_) {\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ReflectionProvider $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.translateVariablesCollection($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.shallBeIncluded($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,TextParseUtil $P,$$$_) {\n  $$$_\n  $P.commaDelimitedStringToSet($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,TextParser $P,$$$_) {\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlTextParser $P,$$$_) {\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.callMethod($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlUtil $P,$$$_) {\n  $$$_\n  $P.compile($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,VelocityStrutsUtil $P,$$$_) {\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.isTrue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.getText($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,StrutsUtil $P,$$$_) {\n  $$$_\n  $P.makeSelectList($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,OgnlTool $P,$$$_) {\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_,ValueStack $P,$$$_) {\n  $$$_\n  $P.setParameter($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlReflectionProvider $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getGetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getSetMethod($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getField($T, $INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ReflectionProvider $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.translateVariablesCollection($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.shallBeIncluded($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  TextParseUtil $P = $$$_;\n  $$$_\n  $P.commaDelimitedStringToSet($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  TextParser $P = $$$_;\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlTextParser $P = $$$_;\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.setProperties($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.setProperty($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.getValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.callMethod($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlUtil $P = $$$_;\n  $$$_\n  $P.compile($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  VelocityStrutsUtil $P = $$$_;\n  $$$_\n  $P.evaluate($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.isTrue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.getText($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.translateVariables($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  StrutsUtil $P = $$$_;\n  $$$_\n  $P.makeSelectList($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  OgnlTool $P = $$$_;\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.findString($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.findValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.setValue($INPUT,$$$_);\n  $$$_\n}","$X $METHOD($$$_) {\n  $$$_\n  ValueStack $P = $$$_;\n  $$$_\n  $P.setParameter($INPUT,$$$_);\n  $$$_\n}"])
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.getGetMethod($T,\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.getSetMethod($T,\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.getField($T,\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.setProperties(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.setProperty(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.getValue(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.setValue(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.translateVariables(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.translateVariablesCollection(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.shallBeIncluded(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.commaDelimitedStringToSet(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.evaluate(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.callMethod(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.compile(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.isTrue(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.findString(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.findValue(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.getText(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.makeSelectList(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  $P.setParameter(\"$$$_\",$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getGetMethod($T,$S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getSetMethod($T,$S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getField($T,$S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setProperties($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setProperty($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getValue($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setValue($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.translateVariables($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.translateVariablesCollection($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.shallBeIncluded($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.commaDelimitedStringToSet($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.evaluate($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.callMethod($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.compile($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.isTrue($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.findString($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.findValue($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.getText($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.makeSelectList($S,$$$_);\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $S = \"$$$_\";\n  $$$_\n  $P.setParameter($S,$$$_);\n  $$$_\n}"]))
+        | finding("ognl-injection";
+            "A expression is built with a dynamic value.") ) )
+| report

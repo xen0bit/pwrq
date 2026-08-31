@@ -1,4 +1,5 @@
 # rules: ocamllint-tempfile
+# languages: ocaml
 # from: ocaml/lang/security/tempfile.yaml
 
 . as $root

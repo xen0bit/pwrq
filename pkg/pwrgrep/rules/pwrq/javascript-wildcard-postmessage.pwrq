@@ -1,4 +1,5 @@
 # rules: javascript-wildcard-postmessage
+# languages: javascript
 # fixture: javascript/wildcard-postmessage.js
 # from: javascript/browser/security/wildcard-postmessage-configuration.yaml (wildcard-postmessage-configuration)
 #

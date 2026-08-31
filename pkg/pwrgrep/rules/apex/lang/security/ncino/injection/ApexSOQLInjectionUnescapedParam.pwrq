@@ -1,0 +1,20 @@
+# rules: soql-injection-unescaped-param
+# languages: apex
+# from: apex/lang/security/ncino/injection/ApexSOQLInjectionUnescapedParam.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cls"]; [
+      "$M($$$_,String $P,$$$_) { $$$_ }",
+      "Database.query($PWRQDEEP1)",
+      "String.escapeSingleQuotes($P)"
+    ])) as $all
+    | ( (($all | of(["Database.query($PWRQDEEP1)"])
+          | where_capture_ast("PWRQDEEP1"; "$P")))
+          | reaching((($all | of(["$M($$$_,String $P,$$$_) { $$$_ }"])
+          | focus("P")));
+              ((($all | of(["String.escapeSingleQuotes($P)"]))
+          + ($all | of(["Database.query($PWRQDEEP1)"])
+          | where_capture_ast("PWRQDEEP1"; "String.escapeSingleQuotes($P)")))))
+        | finding("soql-injection-unescaped-param";
+            "If a dynamic query must be used,leverage nFORCE Query Builder.") ) )
+| report

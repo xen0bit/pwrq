@@ -1,0 +1,25 @@
+# rules: jackson-unsafe-deserialization
+# from: java/lang/security/jackson-unsafe-deserialization.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.java"]; [
+      "(?P<METHODTYPE>\\S+)\\s+(?P<METHOD>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "(?P<OM>\\S+)\\.enableDefaultTyping\\(\\);\\s+[\\s\\S]*?",
+      "(?P<OM>\\S+)\\.readValue\\((?P<JSON>\\S+),\\s+(?P<CLASS>\\S+)\\.class\\);",
+      "(?P<OM>\\S+)\\.readValue\\((?P<JSON>\\S+),\\s+[\\s\\S]*?\\);",
+      "ObjectMapper\\s+(?P<OM>\\S+)\\s+=\\s+new\\s+ObjectMapper\\([\\s\\S]*?\\);\\s+[\\s\\S]*?",
+      "class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+@JsonTypeInfo\\(use\\s+=\\s+Id\\.CLASS,[\\s\\S]*?\\)\\s+(?P<TYPE>\\S+)\\s+(?P<VAR>\\S+);\\s+[\\s\\S]*?\\s+\\}",
+      "class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+ObjectMapper\\s+(?P<OM>\\S+);\\s+[\\s\\S]*?\\s+(?P<INITMETHODTYPE>\\S+)\\s+(?P<INITMETHOD>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<OM>\\S+)\\s+=\\s+new\\s+ObjectMapper\\(\\);\\s+[\\s\\S]*?\\s+(?P<OM>\\S+)\\.enableDefaultTyping\\(\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( ($all | of(["(?P<OM>\\S+)\\.readValue\\((?P<JSON>\\S+),\\s+[\\s\\S]*?\\);"])
+          | in_files_with($all | of(["ObjectMapper\\s+(?P<OM>\\S+)\\s+=\\s+new\\s+ObjectMapper\\([\\s\\S]*?\\);\\s+[\\s\\S]*?"]))
+          | in_files_with($all | of(["(?P<OM>\\S+)\\.enableDefaultTyping\\(\\);\\s+[\\s\\S]*?"])))
+          + ($all | of(["(?P<OM>\\S+)\\.readValue\\((?P<JSON>\\S+),\\s+(?P<CLASS>\\S+)\\.class\\);"])
+          | within($all | of(["class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+@JsonTypeInfo\\(use\\s+=\\s+Id\\.CLASS,[\\s\\S]*?\\)\\s+(?P<TYPE>\\S+)\\s+(?P<VAR>\\S+);\\s+[\\s\\S]*?\\s+\\}"]))
+          | where_capture("TYPE"; "^(?:(Object|Serializable|Comparable))"))
+          + ($all | of(["(?P<OM>\\S+)\\.readValue\\((?P<JSON>\\S+),\\s+[\\s\\S]*?\\);"])
+          | within($all | of(["class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+ObjectMapper\\s+(?P<OM>\\S+);\\s+[\\s\\S]*?\\s+(?P<INITMETHODTYPE>\\S+)\\s+(?P<INITMETHOD>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<OM>\\S+)\\s+=\\s+new\\s+ObjectMapper\\(\\);\\s+[\\s\\S]*?\\s+(?P<OM>\\S+)\\.enableDefaultTyping\\(\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | within($all | of(["(?P<METHODTYPE>\\S+)\\s+(?P<METHOD>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+        | finding("jackson-unsafe-deserialization";
+            "When using Jackson to marshall/unmarshall JSON to Java objects, enabling default typing is dangerous and can lead to RCE.") ) )
+| report

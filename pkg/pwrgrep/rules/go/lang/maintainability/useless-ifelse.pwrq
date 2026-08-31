@@ -1,4 +1,5 @@
 # rules: useless-if-conditional, useless-if-body
+# languages: go
 # from: go/lang/maintainability/useless-ifelse.yaml
 
 . as $root

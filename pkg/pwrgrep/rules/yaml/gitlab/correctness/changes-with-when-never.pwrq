@@ -1,4 +1,5 @@
 # rules: changes-with-when-never
+# languages: yaml
 # from: yaml/gitlab/correctness/changes-with-when-never.yaml
 
 . as $root

@@ -1,0 +1,55 @@
+# rules: avoid-tainted-http-request
+# languages: ruby
+# from: ruby/rails/security/audit/avoid-tainted-http-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "Copy",
+      "Delete",
+      "Get",
+      "Head",
+      "Lock",
+      "Mkcol",
+      "Move",
+      "Net::HTTP.$X($$$_)",
+      "Net::HTTP::$METHOD.new($$$_)",
+      "Options",
+      "Patch",
+      "Post",
+      "Propfind",
+      "Proppatch",
+      "Put",
+      "Trace",
+      "Unlock",
+      "cookies",
+      "get",
+      "get2",
+      "get_print",
+      "get_response",
+      "head",
+      "head2",
+      "options",
+      "params",
+      "patch",
+      "post",
+      "post2",
+      "post_form",
+      "put",
+      "request",
+      "request.env",
+      "request_get",
+      "request_head",
+      "request_post",
+      "send_request",
+      "start",
+      "trace"
+    ])) as $all
+    | ( ((($all | of(["Net::HTTP::$METHOD.new($$$_)"]))
+          + ($all | of(["Net::HTTP.$X($$$_)"]))))
+          | reaching((($all | of(["params"]))
+              + ($all | of(["cookies"]))
+              + ($all | of(["request.env"])));
+              ([]))
+        | finding("avoid-tainted-http-request";
+            "Using user input when accessing files is potentially dangerous.") ) )
+| report

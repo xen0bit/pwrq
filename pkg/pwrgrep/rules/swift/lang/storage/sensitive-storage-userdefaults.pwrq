@@ -1,0 +1,38 @@
+# rules: swift-user-defaults
+# languages: swift
+# from: swift/lang/storage/sensitive-storage-userdefaults.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.swift"]; [
+      "UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")",
+      "UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)",
+      "UserDefaults.standard.set($VALUE, forKey: \"$KEY\")",
+      "UserDefaults.standard.set($VALUE, forKey: $KEY)"
+    ])) as $all
+    | ( ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("VALUE"; "^(?:(?i).*(passcode|password|pass_word|passphrase|pass_code|pass_word|pass_phrase)$)")
+          | focus("VALUE"))
+          + ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("KEY"; "^(?:(?i).*(passcode|password|pass_word|passphrase|pass_code|pass_word|pass_phrase)$)")
+          | focus("KEY"))
+          + ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("VALUE"; "^(?:(?i).*(api_key|apikey)$)")
+          | focus("VALUE"))
+          + ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("KEY"; "^(?:(?i).*(api_key|apikey)$)")
+          | focus("KEY"))
+          + ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("VALUE"; "^(?:(?i).*(secretkey|secret_key|secrettoken|secret_token|clientsecret|client_secret)$)")
+          | focus("VALUE"))
+          + ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("KEY"; "^(?:(?i).*(secretkey|secret_key|secrettoken|secret_token|clientsecret|client_secret)$)")
+          | focus("KEY"))
+          + ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("VALUE"; "^(?:(?i).*(cryptkey|cryptokey|crypto_key|cryptionkey|symmetrickey|privatekey|symmetric_key|private_key)$)")
+          | focus("VALUE"))
+          + ($all | of(["UserDefaults.standard.set(\"$VALUE\", forKey: \"$KEY\")","UserDefaults.standard.set(\"$VALUE\", forKey: $KEY)","UserDefaults.standard.set($VALUE, forKey: \"$KEY\")","UserDefaults.standard.set($VALUE, forKey: $KEY)"])
+          | where_capture("KEY"; "^(?:(?i).*(cryptkey|cryptokey|crypto_key|cryptionkey|symmetrickey|privatekey|symmetric_key|private_key)$)")
+          | focus("KEY"))
+        | finding("swift-user-defaults";
+            "Potentially sensitive data was observed to be stored in UserDefaults, which is not adequate protection of sensitive information.") ) )
+| report

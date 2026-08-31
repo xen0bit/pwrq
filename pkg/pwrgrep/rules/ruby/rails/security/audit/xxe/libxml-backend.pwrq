@@ -1,4 +1,5 @@
 # rules: libxml-backend
+# languages: ruby
 # from: ruby/rails/security/audit/xxe/libxml-backend.yaml
 
 . as $root

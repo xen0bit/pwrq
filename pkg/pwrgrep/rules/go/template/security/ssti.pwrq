@@ -1,4 +1,5 @@
 # rules: go-ssti
+# languages: go
 # from: go/template/security/ssti.yaml
 
 . as $root

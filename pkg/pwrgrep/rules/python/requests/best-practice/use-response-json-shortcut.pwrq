@@ -1,4 +1,5 @@
 # rules: python.requests.best-practice.use-response-json-shortcut
+# languages: python
 # from: python/requests/best-practice/use-response-json-shortcut.yaml
 
 . as $root

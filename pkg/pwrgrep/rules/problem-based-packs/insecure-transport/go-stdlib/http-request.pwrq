@@ -1,4 +1,5 @@
 # rules: http-request
+# languages: go
 # from: problem-based-packs/insecure-transport/go-stdlib/http-request.yaml
 
 . as $root
@@ -18,7 +19,7 @@
           | not_at($all | of(["client.$FUNC(\"=~/[hH][tT][tT][pP]://127.0.0.1.*/\", $$$_)"]))
           | not_at($all | of(["http.$FUNC(\"=~/[hH][tT][tT][pP]://localhost.*/\", $$$_)"]))
           | not_at($all | of(["client.$FUNC(\"=~/[hH][tT][tT][pP]://localhost.*/\", $$$_)"]))
-          | where_capture("FUNC"; "(Get|Post|Head|PostForm)")
+          | where_capture("FUNC"; "^(?:(Get|Post|Head|PostForm))")
         | finding("http-request";
             "Checks for requests sent via http.$FUNC to http:// URLS.") ) )
 | report

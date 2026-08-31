@@ -1,104 +1,121 @@
 # rules: express-cookie-session-default-name, express-cookie-session-no-secure, express-cookie-session-no-httponly, express-cookie-session-no-domain, express-cookie-session-no-path, express-cookie-session-no-expires
+# languages: javascript, typescript
 # from: javascript/express/security/audit/express-cookie-settings.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.ts"]; [
-      "$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {domain:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {expires:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {httpOnly:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {path:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {secure:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$OPTS = $$$_;\n$$$_\n$COOKIE = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$COOKIE.domain = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$COOKIE.expires = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$COOKIE.httpOnly = true;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$COOKIE.path = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$COOKIE.secure = true;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {domain:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {expires:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {httpOnly:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {path:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {secure:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
+      "$OPTS = $$$_;\n$$$_\n$OPTS.cookie = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$OPTS.cookie.domain = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$OPTS.cookie.expires = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$OPTS.cookie.httpOnly = true;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$OPTS.cookie.path = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$OPTS.cookie.secure = true;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$OPTS = $$$_;\n$$$_\n$OPTS.name = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = <$$$_ {cookie:{domain:$$$_}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = <$$$_ {cookie:{expires:$$$_}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = <$$$_ {cookie:{httpOnly:true}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = <$$$_ {cookie:{path:$$$_}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = <$$$_ {cookie:{secure:true}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
-      "$OPTS = <$$$_ {name:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);",
+      "$OPTS = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);",
       "$SESSION = require('cookie-session');\n$$$_",
       "$SESSION = require('express-session');\n$$$_",
       "$SESSION($$$_)",
-      "$SESSION(<$$$_ {cookie:{domain:$$$_}} $$$_>,$$$_)",
-      "$SESSION(<$$$_ {cookie:{expires:$$$_}} $$$_>,$$$_)",
-      "$SESSION(<$$$_ {cookie:{httpOnly:true}} $$$_>,$$$_)",
-      "$SESSION(<$$$_ {cookie:{path:$$$_}} $$$_>,$$$_)",
-      "$SESSION(<$$$_ {cookie:{secure:true}} $$$_>,$$$_)",
-      "$SESSION(<$$$_ {name:$$$_} $$$_>,$$$_)"
+      "$SESSION($PWRQDEEP1,$$$_)"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | in_files_with($all | of(["$SESSION = require('cookie-session');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$SESSION = require('express-session');\n$$$_"])))
           | at_same_place(($all | of(["$SESSION($$$_)"])))
-          | outside($all | of(["$SESSION(<$$$_ {name:$$$_} $$$_>,$$$_)"]))
-          | outside($all | of(["$OPTS = <$$$_ {name:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
+          | outside($all | of(["$SESSION($PWRQDEEP1,$$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "{name:$$$_}"))
+          | outside($all | of(["$OPTS = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{name:$$$_}"))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.name = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);"]))
         | finding("express-cookie-session-default-name";
             "Don’t use the default session cookie name Using the default session cookie name can open your app to attacks.") )
-      + ( ($all)
-          + ($all)
+      + ( ($all
+          | in_files_with($all | of(["$SESSION = require('cookie-session');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$SESSION = require('express-session');\n$$$_"])))
           | at_same_place(($all | of(["$SESSION($$$_)"])))
-          | outside($all | of(["$SESSION(<$$$_ {cookie:{secure:true}} $$$_>,$$$_)"]))
-          | outside($all | of(["$OPTS = <$$$_ {cookie:{secure:true}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {secure:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {secure:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
+          | outside($all | of(["$SESSION($PWRQDEEP1,$$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{secure:true}}"))
+          | outside($all | of(["$OPTS = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{secure:true}}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{secure:true}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{secure:true}"))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE.secure = true;\n$$$_\n$SESSION($OPTS,$$$_);"]))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie.secure = true;\n$$$_\n$SESSION($OPTS,$$$_);"]))
         | finding("express-cookie-session-no-secure";
             "Default session middleware settings: `secure` not set.") )
-      + ( ($all)
-          + ($all)
+      + ( ($all
+          | in_files_with($all | of(["$SESSION = require('cookie-session');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$SESSION = require('express-session');\n$$$_"])))
           | at_same_place(($all | of(["$SESSION($$$_)"])))
-          | outside($all | of(["$SESSION(<$$$_ {cookie:{httpOnly:true}} $$$_>,$$$_)"]))
-          | outside($all | of(["$OPTS = <$$$_ {cookie:{httpOnly:true}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {httpOnly:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {httpOnly:true} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
+          | outside($all | of(["$SESSION($PWRQDEEP1,$$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{httpOnly:true}}"))
+          | outside($all | of(["$OPTS = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{httpOnly:true}}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{httpOnly:true}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{httpOnly:true}"))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE.httpOnly = true;\n$$$_\n$SESSION($OPTS,$$$_);"]))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie.httpOnly = true;\n$$$_\n$SESSION($OPTS,$$$_);"]))
         | finding("express-cookie-session-no-httponly";
             "Default session middleware settings: `httpOnly` not set.") )
-      + ( ($all)
-          + ($all)
+      + ( ($all
+          | in_files_with($all | of(["$SESSION = require('cookie-session');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$SESSION = require('express-session');\n$$$_"])))
           | at_same_place(($all | of(["$SESSION($$$_)"])))
-          | outside($all | of(["$SESSION(<$$$_ {cookie:{domain:$$$_}} $$$_>,$$$_)"]))
-          | outside($all | of(["$OPTS = <$$$_ {cookie:{domain:$$$_}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {domain:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {domain:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
+          | outside($all | of(["$SESSION($PWRQDEEP1,$$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{domain:$$$_}}"))
+          | outside($all | of(["$OPTS = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{domain:$$$_}}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{domain:$$$_}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{domain:$$$_}"))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE.domain = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);"]))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie.domain = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);"]))
         | finding("express-cookie-session-no-domain";
             "Default session middleware settings: `domain` not set.") )
-      + ( ($all)
-          + ($all)
+      + ( ($all
+          | in_files_with($all | of(["$SESSION = require('cookie-session');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$SESSION = require('express-session');\n$$$_"])))
           | at_same_place(($all | of(["$SESSION($$$_)"])))
-          | outside($all | of(["$SESSION(<$$$_ {cookie:{path:$$$_}} $$$_>,$$$_)"]))
-          | outside($all | of(["$OPTS = <$$$_ {cookie:{path:$$$_}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {path:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {path:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
+          | outside($all | of(["$SESSION($PWRQDEEP1,$$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{path:$$$_}}"))
+          | outside($all | of(["$OPTS = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{path:$$$_}}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{path:$$$_}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{path:$$$_}"))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE.path = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);"]))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie.path = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);"]))
         | finding("express-cookie-session-no-path";
             "Default session middleware settings: `path` not set.") )
-      + ( ($all)
-          + ($all)
+      + ( ($all
+          | in_files_with($all | of(["$SESSION = require('cookie-session');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$SESSION = require('express-session');\n$$$_"])))
           | at_same_place(($all | of(["$SESSION($$$_)"])))
-          | outside($all | of(["$SESSION(<$$$_ {cookie:{expires:$$$_}} $$$_>,$$$_)"]))
-          | outside($all | of(["$OPTS = <$$$_ {cookie:{expires:$$$_}} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = <$$$_ {expires:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
-          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = <$$$_ {expires:$$$_} $$$_>;\n$$$_\n$SESSION($OPTS,$$$_);"]))
+          | outside($all | of(["$SESSION($PWRQDEEP1,$$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{expires:$$$_}}"))
+          | outside($all | of(["$OPTS = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{cookie:{expires:$$$_}}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{expires:$$$_}"))
+          | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie = $PWRQDEEP1;\n$$$_\n$SESSION($OPTS,$$$_);"])
+          | where_capture_ast("PWRQDEEP1"; "{expires:$$$_}"))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$COOKIE.expires = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);"]))
           | outside($all | of(["$OPTS = $$$_;\n$$$_\n$OPTS.cookie.expires = $$$_;\n$$$_\n$SESSION($OPTS,$$$_);"]))
         | finding("express-cookie-session-no-expires";

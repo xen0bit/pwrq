@@ -1,0 +1,15 @@
+# rules: global-access-modifiers
+# from: apex/lang/best-practice/ncino/accessModifiers/GlobalAccessModifiers.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.cls"]; [
+      "\\/\\/\\(\\\\s\\+\\(\\[a\\-zA\\-Z\\]\\+\\\\s\\+\\)\\+\\)\\[a\\-zA\\-Z\\]\\+",
+      "\\[\\*\\]\\(\\\\s\\+\\(\\[a\\-zA\\-Z\\]\\+\\\\s\\+\\)\\+\\)\\[a\\-zA\\-Z\\]\\+",
+      "global\\s+\\[A\\-Za\\-z0\\-9_\\]\\{3,\\}"
+    ])) as $all
+    | ( $all | of(["global\\s+\\[A\\-Za\\-z0\\-9_\\]\\{3,\\}"])
+          | not_at($all | of(["\\/\\/\\(\\\\s\\+\\(\\[a\\-zA\\-Z\\]\\+\\\\s\\+\\)\\+\\)\\[a\\-zA\\-Z\\]\\+"]))
+          | not_at($all | of(["\\[\\*\\]\\(\\\\s\\+\\(\\[a\\-zA\\-Z\\]\\+\\\\s\\+\\)\\+\\)\\[a\\-zA\\-Z\\]\\+"]))
+        | finding("global-access-modifiers";
+            "Global classes, methods, and variables should be avoided (especially in managed packages) as they can never be deleted or changed in signature.") ) )
+| report

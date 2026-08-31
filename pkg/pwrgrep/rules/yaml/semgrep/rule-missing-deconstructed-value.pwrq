@@ -1,0 +1,28 @@
+# rules: missing-deconstructed-value
+# from: yaml/semgrep/rule-missing-deconstructed-value.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "[\\s\\S]*?\\s+\\-\\s+pattern\\-inside:\\s+(?P<Z>\\S+)\\s+[\\s\\S]*?\\s+\\-\\s+pattern\\-inside:\\s+(?P<B>\\S+)\\s+[\\s\\S]*?\\s+\\-\\s+pattern\\-inside:\\s+(?P<C>\\S+)\\s+[\\s\\S]*?",
+      "\\-\\s+pattern\\-either:\\s+(?P<VALUE>\\S+)",
+      "\\-\\s+pattern\\-either:\\s+[\\s\\S]*?",
+      "\\-\\s+pattern\\-inside:\\s+(?P<A>\\S+)",
+      "\\-\\s+pattern\\-inside:\\s+(?P<VALUE>\\S+)",
+      "const\\s+\\{\\.\\*\\}\\.\\*=",
+      "let\\s+\\{\\.\\*\\}\\.\\*=",
+      "rules:\\s+[\\s\\S]*?",
+      "var\\s+\\{\\.\\*\\}\\.\\*="
+    ])) as $all
+    | ( ($all | of(["\\-\\s+pattern\\-inside:\\s+(?P<VALUE>\\S+)"])
+          | at_same_place(($all | of(["const\\s+\\{\\.\\*\\}\\.\\*=","let\\s+\\{\\.\\*\\}\\.\\*=","var\\s+\\{\\.\\*\\}\\.\\*="])))
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | outside($all | of(["\\-\\s+pattern\\-either:\\s+[\\s\\S]*?"])))
+          + ($all
+          | not_at(($all
+          | in_files_with($all | of(["[\\s\\S]*?\\s+\\-\\s+pattern\\-inside:\\s+(?P<Z>\\S+)\\s+[\\s\\S]*?\\s+\\-\\s+pattern\\-inside:\\s+(?P<B>\\S+)\\s+[\\s\\S]*?\\s+\\-\\s+pattern\\-inside:\\s+(?P<C>\\S+)\\s+[\\s\\S]*?"]))
+          | where_capture("Z"; "^(?:.*\\s.*(var|const|let).*{.*})")
+          | where_capture("B"; "^(?:.*\\s.*(var|const|let).*{.*})")
+          | where_capture("C"; "^(?:.*\\s.*(var|const|let).*{.*})"))))
+        | finding("missing-deconstructed-value";
+            "Looks like this value is deconstructing a const/var/let you need to use all three `const {...} =` `var {...} =` and `let {...} =` to provide accurate coverage consider adding the missing patterns in a `pattern-inside` for better coverage.") ) )
+| report

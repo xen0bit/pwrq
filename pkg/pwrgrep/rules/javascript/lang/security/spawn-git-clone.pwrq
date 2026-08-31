@@ -1,4 +1,5 @@
 # rules: spawn-git-clone
+# languages: javascript, typescript
 # from: javascript/lang/security/spawn-git-clone.yaml
 
 . as $root

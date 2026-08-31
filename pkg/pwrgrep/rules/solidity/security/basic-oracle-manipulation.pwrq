@@ -1,0 +1,17 @@
+# rules: basic-oracle-manipulation
+# languages: solidity
+# from: solidity/security/basic-oracle-manipulation.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "$X / $Y",
+      "$X.div($Y)",
+      "function $F($$$_) {\n    $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$X.div($Y)","$X / $Y"])
+          | within($all | of(["function $F($$$_) {\n    $$$_\n}"]))
+          | where_capture("F"; "^(?:(?i)get([a-z0-9_])*price)")
+          | where_capture("Y"; "^(?:.*totalSupply.*)")
+        | finding("basic-oracle-manipulation";
+            "Price oracle can be manipulated via flashloan") ) )
+| report

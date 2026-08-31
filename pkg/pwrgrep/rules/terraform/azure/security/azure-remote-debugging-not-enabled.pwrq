@@ -1,0 +1,14 @@
+# rules: azure-remote-debugging-not-enabled
+# languages: hcl
+# from: terraform/azure/security/azure-remote-debugging-not-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nremote_debugging_enabled = true\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nremote_debugging_enabled = true\n$$$_\n}"]))
+        | finding("azure-remote-debugging-not-enabled";
+            "Ensure that remote debugging is not enabled for app services") ) )
+| report

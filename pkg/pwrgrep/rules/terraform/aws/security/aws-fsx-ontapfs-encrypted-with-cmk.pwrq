@@ -1,0 +1,14 @@
+# rules: aws-fsx-ontapfs-encrypted-with-cmk
+# languages: hcl
+# from: terraform/aws/security/aws-fsx-ontapfs-encrypted-with-cmk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_fsx_ontap_file_system\" $ANYTHING {\n  $$$_\n  kms_key_id = $$$_\n  $$$_\n}",
+      "resource \"aws_fsx_ontap_file_system\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_fsx_ontap_file_system\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_fsx_ontap_file_system\" $ANYTHING {\n  $$$_\n  kms_key_id = $$$_\n  $$$_\n}"]))
+        | finding("aws-fsx-ontapfs-encrypted-with-cmk";
+            "Ensure FSX ONTAP file system is encrypted at rest using KMS CMKs.") ) )
+| report

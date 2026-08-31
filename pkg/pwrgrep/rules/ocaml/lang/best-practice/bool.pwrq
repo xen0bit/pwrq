@@ -1,4 +1,5 @@
 # rules: ocamllint-bool-true, ocamllint-bool-false
+# languages: ocaml
 # from: ocaml/lang/best-practice/bool.yaml
 
 . as $root

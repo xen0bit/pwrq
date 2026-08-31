@@ -1,4 +1,5 @@
 # rules: hardcoded-tmp-path
+# languages: python
 # from: python/lang/best-practice/hardcoded-tmp-path.yaml
 
 . as $root

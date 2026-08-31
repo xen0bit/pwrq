@@ -1,4 +1,5 @@
 # rules: httpsconnection-detected
+# languages: python
 # from: python/lang/security/audit/httpsconnection-detected.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: insecure-use-scanf-fn
+# languages: c
 # from: c/lang/security/insecure-use-scanf-fn.yaml
 
 . as $root

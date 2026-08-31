@@ -1,4 +1,5 @@
 # rules: gcm-detection
+# languages: kotlin
 # from: kotlin/lang/security/gcm-detection.yaml
 
 . as $root

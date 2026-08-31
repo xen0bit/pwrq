@@ -1,0 +1,20 @@
+# rules: dangerous-asyncio-shell
+# languages: python
+# from: python/aws-lambda/security/dangerous-asyncio-shell.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$LOOP.subprocess_shell($PROTOCOL, $CMD)",
+      "asyncio.create_subprocess_shell($CMD, $$$_)",
+      "asyncio.subprocess.create_subprocess_shell($CMD, $$$_)",
+      "def $HANDLER(event, context):\n  $$$_",
+      "event"
+    ])) as $all
+    | ( (($all | of(["$LOOP.subprocess_shell($PROTOCOL, $CMD)","asyncio.subprocess.create_subprocess_shell($CMD, $$$_)","asyncio.create_subprocess_shell($CMD, $$$_)"])
+          | focus("CMD")))
+          | reaching((($all | of(["event"])
+          | within($all | of(["def $HANDLER(event, context):\n  $$$_"]))));
+              ([]))
+        | finding("dangerous-asyncio-shell";
+            "Detected asyncio subprocess function with argument tainted by `event` object.") ) )
+| report

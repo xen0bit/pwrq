@@ -1,4 +1,5 @@
 # rules: dangerous-asyncio-exec-audit
+# languages: python
 # from: python/lang/security/audit/dangerous-asyncio-exec-audit.yaml
 
 . as $root

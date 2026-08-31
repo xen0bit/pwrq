@@ -1,0 +1,33 @@
+# rules: apex-csrf-constructor
+# languages: apex
+# from: apex/lang/security/ncino/dml/ApexCSRFConstructor.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cls"]; [
+      "delete $DATA;",
+      "insert $DATA;",
+      "private $CLASSNAME() {$$$_}",
+      "private $SOME sharing class $CLASSNAME {$$$_}",
+      "private class $CLASSNAME {$$$_}",
+      "public $CLASSNAME() {$$$_}",
+      "public $SOME sharing class $CLASSNAME {$$$_}",
+      "public class $CLASSNAME {$$$_}",
+      "update $DATA;",
+      "upsert $DATA;"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["public class $CLASSNAME {$$$_}"])))
+          + ($all
+          | within($all | of(["private class $CLASSNAME {$$$_}"])))
+          + ($all
+          | within($all | of(["public $SOME sharing class $CLASSNAME {$$$_}"])))
+          + ($all
+          | within($all | of(["private $SOME sharing class $CLASSNAME {$$$_}"])))
+          | at_same_place((($all
+          | within($all | of(["public $CLASSNAME() {$$$_}"])))
+          + ($all
+          | within($all | of(["private $CLASSNAME() {$$$_}"])))))
+          | at_same_place(($all | of(["insert $DATA;","update $DATA;","upsert $DATA;","delete $DATA;"])))
+        | finding("apex-csrf-constructor";
+            "Having DML operations in Apex class constructor or initializers can have unexpected side effects: By just accessing a page, the DML statements would be executed and the database would be modified.") ) )
+| report

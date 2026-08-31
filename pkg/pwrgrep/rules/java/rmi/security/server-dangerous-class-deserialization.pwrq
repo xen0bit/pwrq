@@ -1,0 +1,13 @@
+# rules: server-dangerous-class-deserialization
+# languages: java
+# from: java/rmi/security/server-dangerous-class-deserialization.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "interface $INTERFACE extends Remote {\n  $RETURNTYPE $METHOD($CLASS $PARAM) throws RemoteException;\n}"
+    ])) as $all
+    | ( $all | of(["interface $INTERFACE extends Remote {\n  $RETURNTYPE $METHOD($CLASS $PARAM) throws RemoteException;\n}"])
+          | where_capture_not("CLASS"; "^(?:int|boolean|short|long|byte|char|float|double)")
+        | finding("server-dangerous-class-deserialization";
+            "Using a non-primitive class with Java RMI may be an insecure deserialization vulnerability.") ) )
+| report

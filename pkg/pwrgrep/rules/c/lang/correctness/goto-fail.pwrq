@@ -1,4 +1,5 @@
 # rules: double_goto
+# languages: c
 # from: c/lang/correctness/goto-fail.yaml
 
 . as $root

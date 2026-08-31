@@ -1,4 +1,5 @@
 # rules: aws-cdk-bucket-enforcessl
+# languages: typescript
 # from: typescript/aws-cdk/security/audit/awscdk-bucket-enforcessl.yml
 
 . as $root

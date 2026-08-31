@@ -1,4 +1,5 @@
 # rules: ssl-mode-no-verify
+# languages: ruby
 # from: ruby/lang/security/ssl-mode-no-verify.yaml
 
 . as $root

@@ -1,0 +1,13 @@
+# rules: aws-ec2-has-public-ip
+# languages: hcl
+# from: terraform/aws/security/aws-ec2-has-public-ip.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_instance\" $ANYTHING {\n  $$$_\n  associate_public_ip_address = true\n  $$$_\n}",
+      "resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n  network_interfaces {\n    $$$_\n    associate_public_ip_address = true\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_instance\" $ANYTHING {\n  $$$_\n  associate_public_ip_address = true\n  $$$_\n}","resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n  network_interfaces {\n    $$$_\n    associate_public_ip_address = true\n    $$$_\n  }\n  $$$_\n}"])
+        | finding("aws-ec2-has-public-ip";
+            "EC2 instances should not have a public IP address attached in order to block public access to the instances.") ) )
+| report

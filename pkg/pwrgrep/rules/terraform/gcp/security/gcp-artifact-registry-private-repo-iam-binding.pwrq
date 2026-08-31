@@ -1,0 +1,18 @@
+# rules: gcp-artifact-registry-private-repo-iam-binding
+# languages: hcl
+# from: terraform/gcp/security/gcp-artifact-registry-private-repo-iam-binding.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_artifact_registry_repository_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allAuthenticatedUsers\", $$$_]\n$$$_\n}",
+      "resource \"google_artifact_registry_repository_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allUsers\", $$$_]\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"google_artifact_registry_repository_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allAuthenticatedUsers\", $$$_]\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"google_artifact_registry_repository_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allUsers\", $$$_]\n$$$_\n}"])))))
+        | finding("gcp-artifact-registry-private-repo-iam-binding";
+            "Ensure that Artifact Registry repositories are not anonymously or publicly accessible") ) )
+| report

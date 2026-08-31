@@ -1,4 +1,5 @@
 # rules: puppeteer-evaluate-code-injection
+# languages: javascript, typescript
 # from: javascript/puppeteer/security/audit/puppeteer-evaluate-code-injection.yaml
 
 . as $root

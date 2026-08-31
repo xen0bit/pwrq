@@ -1,4 +1,5 @@
 # rules: documentbuilderfactory-external-parameter-entities-true
+# languages: java
 # from: java/lang/security/audit/xxe/documentbuilderfactory-external-parameter-entities-true.yaml
 
 . as $root

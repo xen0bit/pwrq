@@ -1,4 +1,5 @@
 # rules: use-timeout
+# languages: python
 # from: python/requests/best-practice/use-timeout.yaml
 
 . as $root

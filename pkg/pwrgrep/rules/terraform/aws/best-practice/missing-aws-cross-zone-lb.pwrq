@@ -1,0 +1,17 @@
+# rules: missing-aws-cross-zone-lb
+# languages: hcl
+# from: terraform/aws/best-practice/missing-aws-cross-zone-lb.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_alb\" $ANYTHING {\n  $$$_\n  load_balancer_type = $$$_\n  $$$_\n}",
+      "resource \"aws_lb\" $ANYTHING {\n  $$$_\n  load_balancer_type = $$$_\n  $$$_\n}",
+      "resource $ANYLB $ANYTHING {\n  $$$_\n  enable_cross_zone_load_balancing = true\n  $$$_\n}",
+      "resource $ANYLB $ANYTHING {\n  $$$_\n  load_balancer_type = \"application\"\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_lb\" $ANYTHING {\n  $$$_\n  load_balancer_type = $$$_\n  $$$_\n}","resource \"aws_alb\" $ANYTHING {\n  $$$_\n  load_balancer_type = $$$_\n  $$$_\n}"])
+          | outside($all | of(["resource $ANYLB $ANYTHING {\n  $$$_\n  enable_cross_zone_load_balancing = true\n  $$$_\n}"]))
+          | outside($all | of(["resource $ANYLB $ANYTHING {\n  $$$_\n  load_balancer_type = \"application\"\n  $$$_\n}"]))
+        | finding("missing-aws-cross-zone-lb";
+            "The AWS cross zone load balancing is not enabled.") ) )
+| report

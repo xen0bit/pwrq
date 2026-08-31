@@ -1,0 +1,26 @@
+# rules: scalajs-eval
+# languages: scala
+# from: scala/lang/security/audit/scalajs-eval.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "$JS.eval($$$_)",
+      "$PARAM",
+      "def $CTRL($$$_, $PARAM: $TYPE, $$$_) = $A {\n  $$$_\n}",
+      "def $CTRL($$$_, $PARAM: $TYPE, $$$_) = $A($$$_) {\n  $$$_\n}",
+      "def $CTRL($$$_, $PARAM: $TYPE, $$$_) = {\n  $$$_\n}",
+      "import scala.scalajs.$X\n$$$_"
+    ])) as $all
+    | ( (($all | of(["$JS.eval($$$_)"])
+          | in_files_with($all | of(["import scala.scalajs.$X\n$$$_"]))))
+          | reaching((($all | of(["$PARAM"])
+          | at_same_place((($all
+          | within($all | of(["def $CTRL($$$_, $PARAM: $TYPE, $$$_) = {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["def $CTRL($$$_, $PARAM: $TYPE, $$$_) = $A {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["def $CTRL($$$_, $PARAM: $TYPE, $$$_) = $A($$$_) {\n  $$$_\n}"])))))));
+              ([]))
+        | finding("scalajs-eval";
+            "`eval()` function evaluates JavaScript code represented as a string.") ) )
+| report

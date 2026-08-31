@@ -1,4 +1,5 @@
 # rules: react-legacy-component
+# languages: javascript, typescript
 # from: typescript/react/best-practice/react-legacy-component.yaml
 
 . as $root
@@ -6,7 +7,7 @@
       "$METHOD($$$_) {\n  $$$_\n}"
     ])) as $all
     | ( $all | of(["$METHOD($$$_) {\n  $$$_\n}"])
-          | where_capture("METHOD"; "componentWillMount|componentWillReceiveProps|componentWillUpdate")
+          | where_capture("METHOD"; "^(?:componentWillMount|componentWillReceiveProps|componentWillUpdate)")
         | finding("react-legacy-component";
             "Legacy component lifecycle was detected - $METHOD.") ) )
 | report

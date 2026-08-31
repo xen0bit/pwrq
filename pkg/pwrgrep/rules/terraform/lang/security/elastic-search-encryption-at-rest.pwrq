@@ -1,0 +1,16 @@
+# rules: elastic-search-encryption-at-rest
+# languages: hcl
+# from: terraform/lang/security/elastic-search-encryption-at-rest.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"aws_elasticsearch_domain\" \"$$$_\" {$$$_}",
+      "resource \"aws_elasticsearch_domain\" \"$$$_\"{\n  $$$_\n  encrypt_at_rest{\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"aws_elasticsearch_domain\" \"$$$_\"{\n  $$$_\n  encrypt_at_rest{\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}"]))
+          | within($all | of(["resource \"aws_elasticsearch_domain\" \"$$$_\" {$$$_}"]))
+        | finding("elastic-search-encryption-at-rest";
+            "Encryption at rest is not enabled for the elastic search domain resource") ) )
+| report

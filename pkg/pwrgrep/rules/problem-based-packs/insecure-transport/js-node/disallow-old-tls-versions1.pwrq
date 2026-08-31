@@ -1,4 +1,5 @@
 # rules: disallow-old-tls-versions1
+# languages: javascript, typescript
 # from: problem-based-packs/insecure-transport/js-node/disallow-old-tls-versions1.yaml
 
 . as $root
@@ -14,8 +15,10 @@
       "$HTTPS.createServer({secureOptions:$CONST.SSL_OP_NO_SSLv3 | $CONST.SSL_OP_NO_SSLv2 |$CONST.SSL_OP_NO_TLSv1}, $$$_).$FUNC($$$_);",
       "$HTTPS.createServer({secureOptions:$CONST.SSL_OP_NO_SSLv3 | $CONST.SSL_OP_NO_TLSv1| $CONST.SSL_OP_NO_SSLv2}, $$$_).$FUNC($$$_);"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | in_files_with($all | of(["$CONST = require('crypto');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$CONST = require('constants');\n$$$_"])))
           | at_same_place(($all | of(["$HTTPS.createServer($$$_).$FUNC($$$_);"])))
           | in_files_with($all | of(["$HTTPS = require('https');\n$$$_"]))
           | not_at($all | of(["$HTTPS.createServer({secureOptions: $CONST.SSL_OP_NO_TLSv1 | $CONST.SSL_OP_NO_SSLv3 | $CONST.SSL_OP_NO_SSLv2 }, $$$_).$FUNC($$$_);"]))

@@ -1,0 +1,16 @@
+# rules: azure-vmscale-sets-auto-os-image-patching-enabled
+# languages: hcl
+# from: terraform/azure/best-practice/azure-vmscale-sets-auto-os-image-patching-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_virtual_machine_scale_set\" \"$$$_\" {\n$$$_\nautomatic_os_upgrade = true\nos_profile_windows_config {\n  $$$_\n  enable_automatic_upgrades = true\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_virtual_machine_scale_set\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_virtual_machine_scale_set\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_virtual_machine_scale_set\" \"$$$_\" {\n$$$_\nautomatic_os_upgrade = true\nos_profile_windows_config {\n  $$$_\n  enable_automatic_upgrades = true\n  $$$_\n}\n$$$_\n}"]))
+        | finding("azure-vmscale-sets-auto-os-image-patching-enabled";
+            "Ensure that automatic OS image patching is enabled for Virtual Machine Scale Sets") ) )
+| report

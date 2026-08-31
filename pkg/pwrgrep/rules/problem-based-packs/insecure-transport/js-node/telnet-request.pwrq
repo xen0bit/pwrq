@@ -1,4 +1,5 @@
 # rules: telnet-request
+# languages: javascript
 # from: problem-based-packs/insecure-transport/js-node/telnet-request.yaml
 
 . as $root
@@ -9,8 +10,10 @@
       "$SERVER.on($$$_)",
       "$TEL = require('telnet-client');\n$$$_\n$SERVER = new $TEL();\n$$$_"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | in_files_with($all | of(["$TEL = require('telnet-client');\n$$$_\n$SERVER = new $TEL();\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$SERVER = require('telnet');\n$$$_"])))
           | at_same_place(($all | of(["$SERVER.on($$$_)","$SERVER.connect($$$_)","$SERVER.createServer($$$_)"])))
         | finding("telnet-request";
             "Checks for creation of telnet servers or attempts to connect through telnet.") ) )

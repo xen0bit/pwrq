@@ -2,12 +2,12 @@
 # from: java/lang/security/audit/crypto/ssl/insecure-hostname-verifier.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.java"]; [
-      "class $CLASS implements HostnameVerifier {\n  $$$_\n  public boolean verify($$$_) { return true; }\n}",
-      "import org.apache.http.conn.ssl.NoopHostnameVerifier;",
-      "new HostnameVerifier($$$_){\n  public boolean verify($$$_) {\n    return true;\n  }\n}"
+| ( ($root | scan_regex(["*.java"]; [
+      "class\\s+(?P<CLASS>\\S+)\\s+implements\\s+HostnameVerifier\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+boolean\\s+verify\\([\\s\\S]*?\\)\\s+\\{\\s+return\\s+true;\\s+\\}\\s+\\}",
+      "import\\s+org\\.apache\\.http\\.conn\\.ssl\\.NoopHostnameVerifier;",
+      "new\\s+HostnameVerifier\\([\\s\\S]*?\\)\\{\\s+public\\s+boolean\\s+verify\\([\\s\\S]*?\\)\\s+\\{\\s+return\\s+true;\\s+\\}\\s+\\}"
     ])) as $all
-    | ( $all | of(["class $CLASS implements HostnameVerifier {\n  $$$_\n  public boolean verify($$$_) { return true; }\n}","new HostnameVerifier($$$_){\n  public boolean verify($$$_) {\n    return true;\n  }\n}","import org.apache.http.conn.ssl.NoopHostnameVerifier;"])
+    | ( $all | of(["class\\s+(?P<CLASS>\\S+)\\s+implements\\s+HostnameVerifier\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+boolean\\s+verify\\([\\s\\S]*?\\)\\s+\\{\\s+return\\s+true;\\s+\\}\\s+\\}","new\\s+HostnameVerifier\\([\\s\\S]*?\\)\\{\\s+public\\s+boolean\\s+verify\\([\\s\\S]*?\\)\\s+\\{\\s+return\\s+true;\\s+\\}\\s+\\}","import\\s+org\\.apache\\.http\\.conn\\.ssl\\.NoopHostnameVerifier;"])
         | finding("insecure-hostname-verifier";
             "Insecure HostnameVerifier implementation detected.") ) )
 | report

@@ -1,0 +1,16 @@
+# rules: aws-ec2-launch-template-metadata-service-v1-enabled
+# languages: hcl
+# from: terraform/aws/security/aws-ec2-launch-template-metadata-service-v1-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n  metadata_options {\n    $$$_\n    http_endpoint = \"disabled\"\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n  metadata_options {\n    $$$_\n    http_tokens = \"required\"\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n  metadata_options {\n    $$$_\n    http_endpoint = \"disabled\"\n    $$$_\n  }\n  $$$_\n}"]))
+          | outside($all | of(["resource \"aws_launch_template\" $ANYTHING {\n  $$$_\n  metadata_options {\n    $$$_\n    http_tokens = \"required\"\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("aws-ec2-launch-template-metadata-service-v1-enabled";
+            "The EC2 launch template has Instance Metadata Service Version 1 (IMDSv1) enabled.") ) )
+| report

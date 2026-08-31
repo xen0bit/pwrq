@@ -1,4 +1,5 @@
 # rules: go-sql-string-concat
+# languages: go
 # fixture: go/sql-string-concat.go
 # from: go/lang/security/audit/sqli/gosql-sqli.yaml (gosql-sqli)
 #

@@ -1,4 +1,5 @@
 # rules: formatted-sql-query
+# languages: python
 # from: python/lang/security/audit/formatted-sql-query.yaml
 
 . as $root
@@ -15,9 +16,12 @@
     | ( ($all | of(["$DB.execute(\"$$$_\" % $$$_)"]))
           + ($all | of(["$DB.execute(\"$$$_\".format($$$_))"]))
           + ($all | of(["$DB.execute(f\"$$$_\")"]))
-          + (($all)
-          + ($all)
-          + ($all)
+          + (($all
+          | in_files_with($all | of(["$SQL = \"$$$_\" % $$$_\n$$$_","\"$$$_\""])))
+          + ($all
+          | in_files_with($all | of(["$SQL = \"$$$_\".format($$$_)\n$$$_","\"$$$_\""])))
+          + ($all
+          | in_files_with($all | of(["$SQL = f\"$$$_{$X}$$$_\"\n$$$_"])))
           | at_same_place(($all | of(["$DB.execute($SQL)"]))))
         | finding("formatted-sql-query";
             "Detected possible formatted SQL query.") ) )

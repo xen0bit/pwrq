@@ -1,4 +1,5 @@
 # rules: use_weak_rsa_encryption_padding
+# languages: c_sharp
 # from: csharp/dotnet/security/use_weak_rsa_encryption_padding.yaml
 
 . as $root

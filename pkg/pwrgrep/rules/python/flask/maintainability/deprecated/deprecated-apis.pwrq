@@ -1,4 +1,5 @@
 # rules: flask-deprecated-apis
+# languages: python
 # from: python/flask/maintainability/deprecated/deprecated-apis.yaml
 
 . as $root

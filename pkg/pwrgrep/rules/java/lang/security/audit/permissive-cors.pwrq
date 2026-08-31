@@ -1,0 +1,22 @@
+# rules: permissive-cors
+# languages: java
+# from: java/lang/security/audit/permissive-cors.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.addHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.setHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}",
+      "$X $METHOD($$$_,ServerHttpResponse $RES,$$$_) {\n  $$$_\n  $RES.getHeaders().add(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}",
+      "$X $METHOD($$$_,ServerWebExchange $SWE,$$$_) {\n  $$$_\n  $SWE.getResponse().getHeaders().add(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}",
+      "HttpHeaders $HEADERS = $$$_;\n$$$_\n$HEADERS.set(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");",
+      "HttpServletResponse $RES = $$$_;\n$$$_\n$RES.addHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");",
+      "HttpServletResponse $RES = $$$_;\n$$$_\n$RES.setHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");",
+      "ResponseEntity.$RES().header(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\")",
+      "ServerHttpResponse $RES = $$$_;\n$$$_\n$RES.getHeaders().add(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");",
+      "ServerResponse.$RES().header(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\")",
+      "ServerWebExchange $SWE = $$$_;\n$$$_\n$SWE.getResponse().getHeaders().add(\"Access-Control-Allow-Origin\", \"*\");"
+    ])) as $all
+    | ( $all | of(["HttpServletResponse $RES = $$$_;\n$$$_\n$RES.addHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");","HttpServletResponse $RES = $$$_;\n$$$_\n$RES.setHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");","ServerHttpResponse $RES = $$$_;\n$$$_\n$RES.getHeaders().add(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");","HttpHeaders $HEADERS = $$$_;\n$$$_\n$HEADERS.set(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");","ServerWebExchange $SWE = $$$_;\n$$$_\n$SWE.getResponse().getHeaders().add(\"Access-Control-Allow-Origin\", \"*\");","$X $METHOD($$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.addHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}","$X $METHOD($$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.setHeader(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}","$X $METHOD($$$_,ServerHttpResponse $RES,$$$_) {\n  $$$_\n  $RES.getHeaders().add(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}","$X $METHOD($$$_,ServerWebExchange $SWE,$$$_) {\n  $$$_\n  $SWE.getResponse().getHeaders().add(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\");\n  $$$_\n}","ResponseEntity.$RES().header(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\")","ServerResponse.$RES().header(\"=~/access-control-allow-origin/i\", \"=~/^\\*|null$/i\")"])
+        | finding("permissive-cors";
+            "https://find-sec-bugs.github.io/bugs.htm#PERMISSIVE_CORS Permissive CORS policy will allow a malicious application to communicate with the victim application in an inappropriate way, leading to spoofing, data theft, relay and other attacks.") ) )
+| report

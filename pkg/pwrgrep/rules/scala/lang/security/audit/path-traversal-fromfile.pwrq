@@ -1,4 +1,5 @@
 # rules: path-traversal-fromfile
+# languages: scala
 # from: scala/lang/security/audit/path-traversal-fromfile.yaml
 
 . as $root
@@ -15,10 +16,14 @@
       "Source.fromFile($VAR + \"$$$_\", $$$_)",
       "def $FUNC($$$_, $VAR: $TYPE, $$$_) = Action {\n  $$$_\n}"
     ])) as $all
-    | ( (($all)
-          + ($all)
-          + ($all)
-          + ($all)
+    | ( (($all
+          | in_files_with($all | of(["$FILENAME = \"$$$_\" + $VAR\n$$$_","\"$$$_\""])))
+          + ($all
+          | in_files_with($all | of(["$FILENAME = $VAR + \"$$$_\"\n$$$_","\"$$$_\""])))
+          + ($all
+          | in_files_with($all | of(["$FILENAME = $STR.concat($VAR)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$FILENAME = \"$$$_\".format($$$_, $VAR, $$$_)\n$$$_","\"$$$_\""])))
           | at_same_place(($all | of(["Source.fromFile($FILENAME, $$$_)"]))))
           + ($all | of(["Source.fromFile(\"$$$_\" + $VAR, $$$_)","Source.fromFile($VAR + \"$$$_\", $$$_)","Source.fromFile($STR.concat($VAR), $$$_)","Source.fromFile(\"$$$_\".format($$$_, $VAR, $$$_), $$$_)"]))
           | within($all | of(["def $FUNC($$$_, $VAR: $TYPE, $$$_) = Action {\n  $$$_\n}"]))

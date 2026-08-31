@@ -1,0 +1,15 @@
+# rules: missing-aws-autoscaling-tags
+# from: terraform/aws/best-practice/missing-aws-autoscaling-tags.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "resource\\s+\"aws_autoscaling_group\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+\"aws_autoscaling_group\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+tag\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+\"aws_autoscaling_group\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+tags\\s+=\\s+concat\\(\\s+[\\s\\S]*?\\s+\\)\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["resource\\s+\"aws_autoscaling_group\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])
+          | outside($all | of(["resource\\s+\"aws_autoscaling_group\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+tag\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["resource\\s+\"aws_autoscaling_group\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+tags\\s+=\\s+concat\\(\\s+[\\s\\S]*?\\s+\\)\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("missing-aws-autoscaling-tags";
+            "The AWS Autoscaling Group is not tagged.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: use-of-weak-rsa-key
+# languages: java
+# from: java/lang/security/audit/crypto/weak-rsa.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "KeyPairGenerator $KEY = $G.getInstance(\"RSA\");\n$$$_\n$KEY.initialize($BITS);"
+    ])) as $all
+    | ( $all | of(["KeyPairGenerator $KEY = $G.getInstance(\"RSA\");\n$$$_\n$KEY.initialize($BITS);"])
+          | where_capture_compare("$BITS < 2048")
+        | finding("use-of-weak-rsa-key";
+            "RSA keys should be at least 2048 bits based on NIST recommendation.") ) )
+| report

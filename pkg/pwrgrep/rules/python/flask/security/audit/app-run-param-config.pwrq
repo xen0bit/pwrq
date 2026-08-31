@@ -1,4 +1,5 @@
 # rules: avoid_app_run_with_bad_host
+# languages: python
 # from: python/flask/security/audit/app-run-param-config.yaml
 
 . as $root

@@ -1,0 +1,24 @@
+# rules: pymysql-sqli
+# languages: python
+# from: python/aws-lambda/security/pymysql-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CURSOR.execute($QUERY,$$$_)",
+      "def $HANDLER(event, context):\n  $$$_",
+      "event",
+      "import pymysql\n$$$_",
+      "import pymysql.cursors\n$$$_"
+    ])) as $all
+    | ( (($all | of(["$CURSOR.execute($QUERY,$$$_)"])
+          | at_same_place((($all
+          | in_files_with($all | of(["import pymysql\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import pymysql.cursors\n$$$_"])))))
+          | focus("QUERY")))
+          | reaching((($all | of(["event"])
+          | within($all | of(["def $HANDLER(event, context):\n  $$$_"]))));
+              ([]))
+        | finding("pymysql-sqli";
+            "Detected SQL statement that is tainted by `event` object.") ) )
+| report

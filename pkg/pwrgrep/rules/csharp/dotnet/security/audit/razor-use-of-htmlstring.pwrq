@@ -1,0 +1,20 @@
+# rules: razor-use-of-htmlstring
+# from: csharp/dotnet/security/audit/razor-use-of-htmlstring.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.cshtml"]; [
+      "@\\(new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?Encode\\([\\s\\S]*?\\)\\)\\)",
+      "@\\(new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?HtmlEncode\\([\\s\\S]*?\\)\\)\\)",
+      "@\\(new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?\\)\\)",
+      "new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?Encode\\([\\s\\S]*?\\)\\)",
+      "new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?HtmlEncode\\([\\s\\S]*?\\)\\)",
+      "new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?\\)"
+    ])) as $all
+    | ( $all | of(["new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?\\)","@\\(new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?\\)\\)"])
+          | outside($all | of(["@\\(new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?HtmlEncode\\([\\s\\S]*?\\)\\)\\)"]))
+          | outside($all | of(["@\\(new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?Encode\\([\\s\\S]*?\\)\\)\\)"]))
+          | outside($all | of(["new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?HtmlEncode\\([\\s\\S]*?\\)\\)"]))
+          | outside($all | of(["new\\s+[\\s\\S]*?HtmlString\\([\\s\\S]*?Encode\\([\\s\\S]*?\\)\\)"]))
+        | finding("razor-use-of-htmlstring";
+            "ASP.NET Core MVC provides an HtmlString class which isn't automatically encoded upon output.") ) )
+| report

@@ -1,0 +1,14 @@
+# rules: twirl-html-var
+# from: scala/play/security/twirl-html-var.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.html"]; [
+      "@Html\\((?P<VAL>\\S+)\\)",
+      "@Html\\([\\s\\S]*?(?P<VAL>\\S+)\\s+\\+\\s+[\\s\\S]*?\\)",
+      "@Html\\([\\s\\S]*?\\s+\\+\\s+(?P<VAL>\\S+)[\\s\\S]*?\\)"
+    ])) as $all
+    | ( $all | of(["@Html\\((?P<VAL>\\S+)\\)","@Html\\([\\s\\S]*?(?P<VAL>\\S+)\\s+\\+\\s+[\\s\\S]*?\\)","@Html\\([\\s\\S]*?\\s+\\+\\s+(?P<VAL>\\S+)[\\s\\S]*?\\)"])
+          | where_capture("VAL"; "^(?:\\w*)")
+        | finding("twirl-html-var";
+            "Raw html content controlled by a variable detected.") ) )
+| report

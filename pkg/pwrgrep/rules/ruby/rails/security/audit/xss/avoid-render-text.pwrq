@@ -1,4 +1,5 @@
 # rules: avoid-render-text
+# languages: ruby
 # from: ruby/rails/security/audit/xss/avoid-render-text.yaml
 
 . as $root

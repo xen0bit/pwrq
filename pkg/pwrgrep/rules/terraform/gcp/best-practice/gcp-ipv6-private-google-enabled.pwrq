@@ -1,0 +1,18 @@
+# rules: gcp-ipv6-private-google-enabled
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-ipv6-private-google-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_compute_subnetwork\" \"$$$_\" {\n  $$$_\n  private_ipv6_google_access = \"ENABLE_BIDIRECTIONAL_ACCESS_TO_GOOGLE\"\n  $$$_\n}",
+      "resource \"google_compute_subnetwork\" \"$$$_\" {\n  $$$_\n  private_ipv6_google_access = \"ENABLE_OUTBOUND_VM_ACCESS_TO_GOOGLE\"\n  $$$_\n}",
+      "resource \"google_compute_subnetwork\" \"$$$_\" {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_compute_subnetwork\" \"$$$_\" {\n  $$$_\n}"]))
+          | outside($all | of(["resource \"google_compute_subnetwork\" \"$$$_\" {\n  $$$_\n  private_ipv6_google_access = \"ENABLE_OUTBOUND_VM_ACCESS_TO_GOOGLE\"\n  $$$_\n}"]))
+          | outside($all | of(["resource \"google_compute_subnetwork\" \"$$$_\" {\n  $$$_\n  private_ipv6_google_access = \"ENABLE_BIDIRECTIONAL_ACCESS_TO_GOOGLE\"\n  $$$_\n}"]))
+        | finding("gcp-ipv6-private-google-enabled";
+            "Ensure that Private google access is enabled for IPV6") ) )
+| report

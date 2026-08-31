@@ -1,4 +1,5 @@
 # rules: use-of-sha1
+# languages: kotlin
 # from: kotlin/lang/security/use-of-sha1.yaml
 
 . as $root
@@ -7,7 +8,7 @@
       "$VAR = $MD.getInstance(\"$ALGO\")"
     ])) as $all
     | ( ($all | of(["$VAR = $MD.getInstance(\"$ALGO\")"])
-          | where_capture("ALGO"; "(SHA1|SHA-1)"))
+          | where_capture("ALGO"; "^(?:(SHA1|SHA-1))"))
           + ($all | of(["$DU.getSha1Digest().digest($$$_)"]))
         | finding("use-of-sha1";
             "Detected SHA1 hash algorithm which is considered insecure.") ) )

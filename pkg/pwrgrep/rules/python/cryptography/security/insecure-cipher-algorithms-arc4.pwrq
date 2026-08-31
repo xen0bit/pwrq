@@ -1,0 +1,16 @@
+# rules: insecure-cipher-algorithm-arc4
+# languages: python
+# from: python/cryptography/security/insecure-cipher-algorithms-arc4.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "cryptography.hazmat.primitives.ciphers.Cipher($$$_)",
+      "cryptography.hazmat.primitives.ciphers.algorithms.$ARC4($KEY)"
+    ])) as $all
+    | ( $all | of(["cryptography.hazmat.primitives.ciphers.algorithms.$ARC4($KEY)"])
+          | within($all | of(["cryptography.hazmat.primitives.ciphers.Cipher($$$_)"]))
+          | where_capture("ARC4"; "^(ARC4)$")
+          | focus("ARC4")
+        | finding("insecure-cipher-algorithm-arc4";
+            "ARC4 (Alleged RC4) is a stream cipher with serious weaknesses in its initial stream output.") ) )
+| report

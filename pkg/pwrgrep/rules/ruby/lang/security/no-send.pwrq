@@ -1,4 +1,5 @@
 # rules: bad-send
+# languages: ruby
 # from: ruby/lang/security/no-send.yaml
 
 . as $root

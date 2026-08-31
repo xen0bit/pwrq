@@ -1,4 +1,5 @@
 # rules: insecure-hash-algorithm-md5
+# languages: python
 # from: python/lang/security/insecure-hash-algorithms-md5.yaml
 
 . as $root

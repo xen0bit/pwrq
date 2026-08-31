@@ -1,0 +1,16 @@
+# rules: azure-eventgrid-domain-network-access
+# languages: hcl
+# from: terraform/azure/security/azure-eventgrid-domain-network-access.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_eventgrid_domain\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}",
+      "resource \"azurerm_eventgrid_domain\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_eventgrid_domain\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_eventgrid_domain\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-eventgrid-domain-network-access";
+            "Ensure that Azure Event Grid Domain public network access is disabled") ) )
+| report

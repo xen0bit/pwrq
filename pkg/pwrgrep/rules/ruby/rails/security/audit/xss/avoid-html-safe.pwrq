@@ -1,4 +1,5 @@
 # rules: avoid-html-safe
+# languages: ruby
 # from: ruby/rails/security/audit/xss/avoid-html-safe.yaml
 
 . as $root

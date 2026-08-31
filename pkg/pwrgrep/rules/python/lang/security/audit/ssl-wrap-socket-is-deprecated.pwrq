@@ -1,4 +1,5 @@
 # rules: ssl-wrap-socket-is-deprecated
+# languages: python
 # from: python/lang/security/audit/ssl-wrap-socket-is-deprecated.yaml
 
 . as $root

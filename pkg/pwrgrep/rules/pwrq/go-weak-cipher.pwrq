@@ -1,4 +1,5 @@
 # rules: go-weak-cipher
+# languages: go
 # fixture: go/weak-cipher.go
 # from: go/lang/security/audit/crypto/use_of_weak_crypto.yaml (use-of-DES, use-of-rc4)
 #

@@ -1,0 +1,18 @@
+# rules: message-whitespace-check
+# from: yaml/semgrep/message-whitespace.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "\\\\s\\{2,\\}",
+      "\\\\w\\.\\*",
+      "message:\\s+>\\-\\s+(?P<VALUE>\\S+)",
+      "rules:\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["message:\\s+>\\-\\s+(?P<VALUE>\\S+)"])
+          | at_same_place(($all | of(["\\\\w\\.\\*"])))
+          | at_same_place(($all | of(["\\\\s\\{2,\\}"])))
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | focus("VALUE")
+        | finding("message-whitespace-check";
+            "It looks like you have an additional space in your rule message, this can look awkward in the finding output, please remove the additional whitespace!") ) )
+| report

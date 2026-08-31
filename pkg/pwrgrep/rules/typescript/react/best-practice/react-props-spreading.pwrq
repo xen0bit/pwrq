@@ -1,0 +1,12 @@
+# rules: react-props-spreading
+# from: typescript/react/best-practice/react-props-spreading.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.js","*.ts"]; [
+      "<(?P<X>\\S+)\\s+\\{[\\s\\S]*?(?P<PROPS>\\S+)\\}\\s+\\/>"
+    ])) as $all
+    | ( $all | of(["<(?P<X>\\S+)\\s+\\{[\\s\\S]*?(?P<PROPS>\\S+)\\}\\s+\\/>"])
+          | focus("PROPS")
+        | finding("react-props-spreading";
+            "It's best practice to explicitly pass props to an HTML component rather than use the spread operator.") ) )
+| report

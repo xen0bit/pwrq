@@ -1,4 +1,5 @@
 # rules: missing-ssl-minversion
+# languages: go
 # from: go/lang/security/audit/crypto/missing-ssl-minversion.yaml
 
 . as $root

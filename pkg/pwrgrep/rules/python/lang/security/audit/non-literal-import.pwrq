@@ -1,4 +1,5 @@
 # rules: non-literal-import
+# languages: python
 # from: python/lang/security/audit/non-literal-import.yaml
 
 . as $root

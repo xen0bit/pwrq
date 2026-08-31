@@ -1,4 +1,5 @@
 # rules: string-concat
+# languages: python
 # from: python/sh/security/string-concat.yaml
 
 . as $root

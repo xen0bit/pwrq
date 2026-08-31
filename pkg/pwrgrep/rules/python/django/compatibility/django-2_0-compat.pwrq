@@ -1,4 +1,5 @@
 # rules: django-compat-2_0-signals-weak, django-compat-2_0-check-aggregate-support, django-compat-2_0-extra-forms, django-compat-2_0-assignment-tag, django-compat-2_0-assert-redirects-helper
+# languages: python
 # from: python/django/compatibility/django-2_0-compat.yaml
 
 . as $root

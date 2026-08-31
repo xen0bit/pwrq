@@ -1,4 +1,5 @@
 # rules: ruby-jwt-hardcoded-secret
+# languages: ruby
 # from: ruby/jwt/security/jwt-hardcode.yaml
 
 . as $root

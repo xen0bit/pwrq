@@ -1,4 +1,5 @@
 # rules: rsa-no-padding
+# languages: java, kotlin
 # from: java/lang/security/audit/crypto/rsa-no-padding.yaml
 
 . as $root

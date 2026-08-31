@@ -1,0 +1,100 @@
+# rules: react-unsanitized-method
+# languages: javascript, typescript
+# from: typescript/react/security/audit/react-unsanitized-method.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$PROP. $$$_ .$HTML('$$$_',$SINK)",
+      "$S = new Remarkable()\n$$$_",
+      "$S = require(\"dompurify\")\n$$$_",
+      "$S = require(\"isomorphic-dompurify\")\n$$$_",
+      "$S = require(\"sanitize-html\")\n$$$_",
+      "$S = require(\"underscore.string\")\n$$$_",
+      "$S = require(\"xss\")\n$$$_",
+      "$S($$$_)",
+      "$S.escapeHTML($$$_)",
+      "$S.render($$$_)",
+      "$S.sanitize($$$_)",
+      "$VALUE = $S($$$_)\n$$$_",
+      "$VALUE = $S.sanitize\n$$$_",
+      "$VALUE.sanitize($$$_)",
+      "$X.$Y",
+      "$X[$$$_]",
+      "document.$HTML($SINK)",
+      "function $$$_($$$_, $X, $$$_) { $$$_ }",
+      "function $$$_({$$$_, $X, $$$_}) { $$$_ }",
+      "import $S from \"dompurify\"\n$$$_",
+      "import $S from \"isomorphic-dompurify\"\n$$$_",
+      "import $S from \"underscore.string\"\n$$$_",
+      "import $S from 'sanitize-html';\n$$$_",
+      "import $S from 'xss';\n$$$_",
+      "import * as $S from \"dompurify\"\n$$$_",
+      "import * as $S from \"isomorphic-dompurify\"\n$$$_",
+      "import * as $S from \"sanitize-html\";\n$$$_",
+      "import * as $S from \"underscore.string\"\n$$$_",
+      "import * as $S from 'xss';\n$$$_",
+      "import { $$$_, $S,$$$_ } from \"dompurify\"\n$$$_",
+      "this.window.document. $$$_ .$HTML('$$$_',$SINK)",
+      "window.document. $$$_ .$HTML('$$$_',$SINK)"
+    ])) as $all
+    | ( (($all | of(["this.window.document. $$$_ .$HTML('$$$_',$SINK)","window.document. $$$_ .$HTML('$$$_',$SINK)","document.$HTML($SINK)"])
+          | where_capture("HTML"; "^(?:(writeln|write))")
+          | focus("SINK"))
+              + ($all | of(["$PROP. $$$_ .$HTML('$$$_',$SINK)"])
+          | where_capture("HTML"; "^(?:(insertAdjacentHTML))")
+          | focus("SINK")))
+          | reaching(((($all
+          | within($all | of(["function $$$_({$$$_, $X, $$$_}) { $$$_ }"])))
+          + ($all
+          | within($all | of(["function $$$_($$$_, $X, $$$_) { $$$_ }"])))
+          | at_same_place(($all | of(["$X.$Y","$X[$$$_]"])))
+          | focus("X")));
+              ((($all
+          | in_files_with($all | of(["import $S from \"underscore.string\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import * as $S from \"underscore.string\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import $S from \"underscore.string\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$S = require(\"underscore.string\")\n$$$_"])))
+          | at_same_place(($all | of(["$S.escapeHTML($$$_)"]))))
+              + (($all
+          | in_files_with($all | of(["import $S from \"dompurify\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import { $$$_, $S,$$$_ } from \"dompurify\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import * as $S from \"dompurify\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$S = require(\"dompurify\")\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import $S from \"isomorphic-dompurify\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import * as $S from \"isomorphic-dompurify\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$S = require(\"isomorphic-dompurify\")\n$$$_"])))
+          | at_same_place((($all | of(["$VALUE.sanitize($$$_)"])
+          | in_files_with($all | of(["$VALUE = $S($$$_)\n$$$_"])))
+          + ($all | of(["$S($$$_)"])
+          | in_files_with($all | of(["$VALUE = $S.sanitize\n$$$_"])))
+          + ($all | of(["$S.sanitize($$$_)"]))
+          + ($all | of(["$S($$$_)"])))))
+              + (($all
+          | in_files_with($all | of(["import $S from 'xss';\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import * as $S from 'xss';\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$S = require(\"xss\")\n$$$_"])))
+          | at_same_place(($all | of(["$S($$$_)"]))))
+              + (($all
+          | in_files_with($all | of(["import $S from 'sanitize-html';\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import * as $S from \"sanitize-html\";\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$S = require(\"sanitize-html\")\n$$$_"])))
+          | at_same_place(($all | of(["$S($$$_)"]))))
+              + (($all
+          | in_files_with($all | of(["$S = new Remarkable()\n$$$_"])))
+          | at_same_place(($all | of(["$S.render($$$_)"]))))))
+        | finding("react-unsanitized-method";
+            "Detection of $HTML from non-constant definition.") ) )
+| report

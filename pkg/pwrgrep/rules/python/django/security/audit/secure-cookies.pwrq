@@ -1,4 +1,5 @@
 # rules: django-secure-set-cookie
+# languages: python
 # from: python/django/security/audit/secure-cookies.yaml
 
 . as $root
@@ -15,8 +16,10 @@
       "response.set_cookie(django.conf.settings.SESSION_COOKIE_NAME, $$$_)",
       "response.set_cookie(rest_framework_jwt.settings.api_settings.JWT_AUTH_COOKIE, $$$_)"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | in_files_with($all | of(["import django.http.HttpResponse\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import django.shortcuts.render\n$$$_"])))
           | at_same_place(($all | of(["response.set_cookie($$$_)"])))
           | outside($all | of(["LANGUAGE_QUERY_PARAMETER = 'language'\n$$$_\ndef set_language(request):\n    $$$_\n# Exclude vendored contrib/messages/storage/cookie.py"]))
           | outside($all | of(["class CookieStorage(django.contrib.messages.storage.base.BaseStorage):\n    $$$_\n# Exclude cookies handled by vendored middleware"]))

@@ -1,0 +1,16 @@
+# rules: azure-appservice-client-certificate
+# languages: hcl
+# from: terraform/azure/security/appservice/azure-appservice-client-certificate.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nclient_cert_enabled = true\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nclient_cert_enabled = true\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-appservice-client-certificate";
+            "Ensure the web app has Client Certificates") ) )
+| report

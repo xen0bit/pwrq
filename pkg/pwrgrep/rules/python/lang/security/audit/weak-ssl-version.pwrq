@@ -1,4 +1,5 @@
 # rules: weak-ssl-version
+# languages: python
 # from: python/lang/security/audit/weak-ssl-version.yaml
 
 . as $root

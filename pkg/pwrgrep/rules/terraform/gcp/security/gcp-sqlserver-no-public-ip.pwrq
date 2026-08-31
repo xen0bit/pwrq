@@ -1,0 +1,14 @@
+# rules: gcp-sqlserver-no-public-ip
+# languages: hcl
+# from: terraform/gcp/security/gcp-sqlserver-no-public-ip.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nip_configuration {\n  $$$_\n  ipv4_enabled = true\n  $$$_\n}\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nip_configuration {\n  $$$_\n  ipv4_enabled = true\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-sqlserver-no-public-ip";
+            "Ensure Cloud SQL database does not have public IP") ) )
+| report

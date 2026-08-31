@@ -1,0 +1,13 @@
+# rules: html-raw-json
+# from: csharp/razor/security/html-raw-json.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.cshtml"]; [
+      "@Html\\.Raw\\(JsonConvert\\.SerializeObject\\([\\s\\S]*?\\)\\)",
+      "@Html\\.Raw\\(Json\\.Encode\\([\\s\\S]*?\\)\\)",
+      "@Html\\.Raw\\([\\s\\S]*?ToJson\\([\\s\\S]*?\\)\\)"
+    ])) as $all
+    | ( $all | of(["@Html\\.Raw\\(Json\\.Encode\\([\\s\\S]*?\\)\\)","@Html\\.Raw\\(JsonConvert\\.SerializeObject\\([\\s\\S]*?\\)\\)","@Html\\.Raw\\([\\s\\S]*?ToJson\\([\\s\\S]*?\\)\\)"])
+        | finding("html-raw-json";
+            "Unencoded JSON in HTML context is vulnerable to cross-site scripting, because `</script>` is not properly encoded.") ) )
+| report

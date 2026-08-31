@@ -1,0 +1,14 @@
+# rules: gcp-bigquery-table-encrypted-with-cmk
+# languages: hcl
+# from: terraform/gcp/security/gcp-bigquery-table-encrypted-with-cmk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_bigquery_table\" $ANYTHING {\n  $$$_\n  encryption_configuration {\n    $$$_\n    kms_key_name = $$$_\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"google_bigquery_table\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_bigquery_table\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_bigquery_table\" $ANYTHING {\n  $$$_\n  encryption_configuration {\n    $$$_\n    kms_key_name = $$$_\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-bigquery-table-encrypted-with-cmk";
+            "Ensure Big Query Tables are encrypted with Customer Supplied Encryption Keys (CSEK)") ) )
+| report

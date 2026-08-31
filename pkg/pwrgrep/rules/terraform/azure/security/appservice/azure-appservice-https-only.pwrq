@@ -1,0 +1,16 @@
+# rules: azure-appservice-https-only
+# languages: hcl
+# from: terraform/azure/security/appservice/azure-appservice-https-only.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nhttps_only = true\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nhttps_only = true\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-appservice-https-only";
+            "Ensure web app redirects all HTTP traffic to HTTPS in Azure App Service Slot") ) )
+| report

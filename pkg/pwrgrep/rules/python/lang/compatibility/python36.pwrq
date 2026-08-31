@@ -1,4 +1,5 @@
 # rules: python36-compatibility-ssl, python36-compatibility-Popen1, python36-compatibility-Popen2
+# languages: python
 # from: python/lang/compatibility/python36.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: detect-openai
+# languages: javascript, typescript
 # from: ai/typescript/detect-openai.yaml
 
 . as $root

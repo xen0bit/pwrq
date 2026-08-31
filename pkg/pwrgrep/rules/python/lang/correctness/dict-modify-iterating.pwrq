@@ -1,4 +1,5 @@
 # rules: dict-del-while-iterate
+# languages: python
 # from: python/lang/correctness/dict-modify-iterating.yaml
 
 . as $root

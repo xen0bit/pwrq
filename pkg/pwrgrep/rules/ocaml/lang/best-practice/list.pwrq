@@ -1,4 +1,5 @@
 # rules: list-find-outside-try
+# languages: ocaml
 # from: ocaml/lang/best-practice/list.yaml
 
 . as $root

@@ -1,0 +1,12 @@
+# rules: alias-path-traversal
+# from: generic/nginx/security/alias-path-traversal.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "location\\s+(?P<LOCATION>[\\s\\S]*?)\\s+\\{\\s+[\\s\\S]*?\\s+alias\\s+[\\s\\S]*?\\/;\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["location\\s+(?P<LOCATION>[\\s\\S]*?)\\s+\\{\\s+[\\s\\S]*?\\s+alias\\s+[\\s\\S]*?\\/;\\s+[\\s\\S]*?\\s+\\}"])
+          | where_capture_ast("LOCATION"; "\\^\\.\\*\\[\\^\\/\\]\\$")
+        | finding("alias-path-traversal";
+            "The alias in this location block is subject to a path traversal because the location path does not end in a path separator (e.g., '/').") ) )
+| report

@@ -1,0 +1,19 @@
+# rules: double-free
+# languages: c
+# from: c/lang/security/double-free.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "free($VAR);\n$$$_\n$FREE($VAR);",
+      "free($VAR);\n$$$_\n$VAR = NULL;\n$$$_\nfree($VAR);",
+      "free($VAR);\n$$$_\n$VAR = malloc($$$_);\n$$$_\nfree($VAR);"
+    ])) as $all
+    | ( $all
+          | not_at($all | of(["free($VAR);\n$$$_\n$VAR = NULL;\n$$$_\nfree($VAR);"]))
+          | not_at($all | of(["free($VAR);\n$$$_\n$VAR = malloc($$$_);\n$$$_\nfree($VAR);"]))
+          | within($all | of(["free($VAR);\n$$$_\n$FREE($VAR);"]))
+          | where_capture_ast("FREE"; "free")
+          | focus("FREE")
+        | finding("double-free";
+            "Variable '$VAR' was freed twice.") ) )
+| report

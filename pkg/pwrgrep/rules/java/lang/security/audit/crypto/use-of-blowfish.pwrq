@@ -1,4 +1,5 @@
 # rules: use-of-blowfish
+# languages: java
 # from: java/lang/security/audit/crypto/use-of-blowfish.yaml
 
 . as $root

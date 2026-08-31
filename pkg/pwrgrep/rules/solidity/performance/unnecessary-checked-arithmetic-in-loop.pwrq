@@ -1,0 +1,26 @@
+# rules: unnecessary-checked-arithmetic-in-loop
+# from: solidity/performance/unnecessary-checked-arithmetic-in-loop.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.sol"]; [
+      "(?P<VAR>\\S+)\\+\\+",
+      "\\+\\+(?P<VAR>\\S+)",
+      "for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+);\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+);\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+)\\s+=\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+)\\s+=\\s+[\\s\\S]*?\\s+;\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "unchecked\\s+\\{\\s+[\\s\\S]*?\\s+<[\\s\\S]*?\\s+(?P<VAR>\\S+)\\s+[\\s\\S]*?>;\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+)\\s+=\\s+[\\s\\S]*?\\s+;\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+)\\s+=\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+);\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["for\\s+\\((?P<TYPE>\\S+)\\s+(?P<VAR>\\S+);\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          | at_same_place(($all | of(["(?P<VAR>\\S+)\\+\\+","\\+\\+(?P<VAR>\\S+)"])))
+          | outside($all | of(["unchecked\\s+\\{\\s+[\\s\\S]*?\\s+<[\\s\\S]*?\\s+(?P<VAR>\\S+)\\s+[\\s\\S]*?>;\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("unnecessary-checked-arithmetic-in-loop";
+            "A lot of times there is no risk that the loop counter can overflow.") ) )
+| report

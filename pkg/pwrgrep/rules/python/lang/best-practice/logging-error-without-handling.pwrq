@@ -1,4 +1,5 @@
 # rules: logging-error-without-handling
+# languages: python
 # from: python/lang/best-practice/logging-error-without-handling.yaml
 
 . as $root
@@ -10,7 +11,7 @@
     ])) as $all
     | ( $all | of(["logger.$FUNC($$$_)\n$$$_\nraise","logger.$FUNC($$$_)\n$$$_\nraise $EX","logger.$FUNC($$$_)\n$$$_\nraise $EX from $EX2"])
           | in_files_with($all | of(["try:\n  $$$_\nexcept $$$_:\n  $$$_\n$$$_"]))
-          | where_capture("FUNC"; "(error|exception)")
+          | where_capture("FUNC"; "^(?:(error|exception))")
         | finding("logging-error-without-handling";
             "Errors should only be logged when handled.") ) )
 | report

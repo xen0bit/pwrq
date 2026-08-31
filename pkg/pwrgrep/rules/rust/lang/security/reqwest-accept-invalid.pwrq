@@ -1,4 +1,5 @@
 # rules: reqwest-accept-invalid
+# languages: rust
 # from: rust/lang/security/reqwest-accept-invalid.yml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: insecure-smtp-connection
+# languages: java
 # from: java/lang/security/audit/insecure-smtp-connection.yaml
 
 . as $root

@@ -1,0 +1,16 @@
+# rules: gcp-dataproc-cluster-public-ip
+# languages: hcl
+# from: terraform/gcp/security/gcp-dataproc-cluster-public-ip.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_dataproc_cluster\" \"$$$_\" {\n  $$$_\n  cluster_config {\n    gce_cluster_config {\n      $$$_\n      internal_ip_only = true\n      $$$_\n    }\n  $$$_\n  }\n}",
+      "resource \"google_dataproc_cluster\" \"$$$_\" {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_dataproc_cluster\" \"$$$_\" {\n  $$$_\n}"]))
+          | outside($all | of(["resource \"google_dataproc_cluster\" \"$$$_\" {\n  $$$_\n  cluster_config {\n    gce_cluster_config {\n      $$$_\n      internal_ip_only = true\n      $$$_\n    }\n  $$$_\n  }\n}"]))
+        | finding("gcp-dataproc-cluster-public-ip";
+            "Ensure Dataproc Clusters do not have public IPs") ) )
+| report

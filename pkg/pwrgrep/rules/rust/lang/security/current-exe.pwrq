@@ -1,4 +1,5 @@
 # rules: current-exe
+# languages: rust
 # from: rust/lang/security/current-exe.yml
 
 . as $root

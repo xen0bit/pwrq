@@ -1,0 +1,20 @@
+# rules: inefficient-state-variable-increment
+# languages: solidity
+# from: solidity/performance/inefficient-state-variable-increment.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "$X += $Y",
+      "$X[$$$_] += $Y",
+      "contract $C {\n  $$$_\n  $TYPE $X = $$$_;\n  $$$_\n}",
+      "contract $C {\n  $$$_\n  $TYPE $X;\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$X += $Y","$X[$$$_] += $Y"])
+          | at_same_place((($all
+          | within($all | of(["contract $C {\n  $$$_\n  $TYPE $X;\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["contract $C {\n  $$$_\n  $TYPE $X = $$$_;\n  $$$_\n}"])))))
+          | where_capture("TYPE"; "^(?:uint)")
+        | finding("inefficient-state-variable-increment";
+            "<x> += <y> costs more gas than <x> = <x> + <y> for state variables.") ) )
+| report

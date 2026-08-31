@@ -1,4 +1,5 @@
 # rules: backticks-use
+# languages: php
 # from: php/lang/security/backticks-use.yaml
 
 . as $root

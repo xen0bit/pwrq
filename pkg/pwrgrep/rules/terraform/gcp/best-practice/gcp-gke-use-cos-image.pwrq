@@ -1,0 +1,16 @@
+# rules: gcp-gke-use-cos-image
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-gke-use-cos-image.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_container_node_pool\" \"$$$_\" {\n$$$_\nnode_config {\n  $$$_\n  image_type = \"COS\"\n}\n$$$_\n}",
+      "resource \"google_container_node_pool\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_container_node_pool\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_node_pool\" \"$$$_\" {\n$$$_\nnode_config {\n  $$$_\n  image_type = \"COS\"\n}\n$$$_\n}"]))
+        | finding("gcp-gke-use-cos-image";
+            "Ensure Container-Optimized OS (cos) is used for Kubernetes Engine Clusters Node image") ) )
+| report

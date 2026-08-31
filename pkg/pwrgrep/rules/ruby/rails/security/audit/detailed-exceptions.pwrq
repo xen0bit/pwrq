@@ -1,0 +1,15 @@
+# rules: detailed-exceptions
+# from: ruby/rails/security/audit/detailed-exceptions.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.rb"]; [
+      "class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ApplicationController\\s+[\\s\\S]*?\\s+end",
+      "config\\.consider_all_requests_local\\s+=\\s+true",
+      "def\\s+show_detailed_exceptions\\?\\s+\\([\\s\\S]*?\\)\\s+[\\s\\S]*?\\s+return\\s+(?P<RETURN>\\S+)\\s+end"
+    ])) as $all
+    | ( ($all | of(["config\\.consider_all_requests_local\\s+=\\s+true"]))
+          + ($all | of(["def\\s+show_detailed_exceptions\\?\\s+\\([\\s\\S]*?\\)\\s+[\\s\\S]*?\\s+return\\s+(?P<RETURN>\\S+)\\s+end"])
+          | within($all | of(["class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ApplicationController\\s+[\\s\\S]*?\\s+end"])))
+        | finding("detailed-exceptions";
+            "Found that the setting for providing detailed exception reports in Rails is set to true.") ) )
+| report

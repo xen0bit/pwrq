@@ -2,12 +2,12 @@
 # from: csharp/lang/security/insecure-deserialization/fs-pickler.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.cs"]; [
-      "FsPickler.CreateJsonSerializer();",
-      "using MBrace.FsPickler.Json;\n$$$_"
+| ( ($root | scan_regex(["*.cs"]; [
+      "FsPickler\\.CreateJsonSerializer\\(\\);",
+      "using\\s+MBrace\\.FsPickler\\.Json;\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["FsPickler.CreateJsonSerializer();"])
-          | in_files_with($all | of(["using MBrace.FsPickler.Json;\n$$$_"]))
+    | ( $all | of(["FsPickler\\.CreateJsonSerializer\\(\\);"])
+          | in_files_with($all | of(["using\\s+MBrace\\.FsPickler\\.Json;\\s+[\\s\\S]*?"]))
         | finding("insecure-fspickler-deserialization";
             "The FsPickler is dangerous and is not recommended for data processing.") ) )
 | report

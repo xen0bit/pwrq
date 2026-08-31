@@ -1,4 +1,5 @@
 # rules: flask-api-method-string-format
+# languages: python
 # from: python/flask/security/flask-api-method-string-format.yaml
 
 . as $root

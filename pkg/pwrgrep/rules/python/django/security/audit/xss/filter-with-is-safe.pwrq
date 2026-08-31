@@ -1,4 +1,5 @@
 # rules: filter-with-is-safe
+# languages: python
 # from: python/django/security/audit/xss/filter-with-is-safe.yaml
 
 . as $root

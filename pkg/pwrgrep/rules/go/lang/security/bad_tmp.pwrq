@@ -1,4 +1,5 @@
 # rules: bad-tmp-file-creation
+# languages: go
 # from: go/lang/security/bad_tmp.yaml
 
 . as $root

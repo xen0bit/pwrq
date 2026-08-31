@@ -1,4 +1,5 @@
 # rules: detect-huggingface
+# languages: python
 # from: ai/python/detect-huggingface.yaml
 
 . as $root

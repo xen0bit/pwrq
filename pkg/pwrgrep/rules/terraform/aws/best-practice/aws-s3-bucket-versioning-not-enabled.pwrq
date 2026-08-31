@@ -1,0 +1,16 @@
+# rules: aws-s3-bucket-versioning-not-enabled
+# languages: hcl
+# from: terraform/aws/best-practice/aws-s3-bucket-versioning-not-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_s3_bucket\" $ANYTHING {\n  $$$_\n  versioning {\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"aws_s3_bucket\" $ANYTHING {\n  $$$_\n  versioning {\n    $$$_\n    enabled = var.$X\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"aws_s3_bucket\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_s3_bucket\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_s3_bucket\" $ANYTHING {\n  $$$_\n  versioning {\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}"]))
+          | outside($all | of(["resource \"aws_s3_bucket\" $ANYTHING {\n  $$$_\n  versioning {\n    $$$_\n    enabled = var.$X\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("aws-s3-bucket-versioning-not-enabled";
+            "Ensure that Amazon S3 bucket versioning is not enabled.") ) )
+| report

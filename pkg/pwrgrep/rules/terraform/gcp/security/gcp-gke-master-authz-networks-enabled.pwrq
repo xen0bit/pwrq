@@ -1,0 +1,16 @@
+# rules: gcp-gke-master-authz-networks-enabled
+# languages: hcl
+# from: terraform/gcp/security/gcp-gke-master-authz-networks-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nmaster_authorized_networks_config {\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nmaster_authorized_networks_config {\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-gke-master-authz-networks-enabled";
+            "Ensure master authorized networks is set to enabled in GKE clusters") ) )
+| report

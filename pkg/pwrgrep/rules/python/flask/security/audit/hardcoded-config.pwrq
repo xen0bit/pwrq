@@ -1,4 +1,5 @@
 # rules: avoid_hardcoded_config_TESTING, avoid_hardcoded_config_SECRET_KEY, avoid_hardcoded_config_ENV, avoid_hardcoded_config_DEBUG
+# languages: python
 # from: python/flask/security/audit/hardcoded-config.yaml
 
 . as $root

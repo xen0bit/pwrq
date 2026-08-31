@@ -1,4 +1,5 @@
 # rules: empty-aes-key
+# languages: python
 # from: python/cryptography/security/empty-aes-key.yaml
 
 . as $root

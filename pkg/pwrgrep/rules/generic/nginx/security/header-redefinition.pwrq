@@ -1,0 +1,15 @@
+# rules: header-redefinition
+# from: generic/nginx/security/header-redefinition.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "add_header\\s+[\\s\\S]*?;",
+      "location\\s+[\\s\\S]*?\\s+\\{\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\}",
+      "server\\s+\\{\\s+[\\s\\S]*?\\s+add_header\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["add_header\\s+[\\s\\S]*?;"])
+          | within($all | of(["server\\s+\\{\\s+[\\s\\S]*?\\s+add_header\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\}"]))
+          | within($all | of(["location\\s+[\\s\\S]*?\\s+\\{\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("header-redefinition";
+            "The 'add_header' directive is called in a 'location' block after headers have been set at the server block.") ) )
+| report

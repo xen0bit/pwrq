@@ -1,0 +1,27 @@
+# rules: js-open-redirect-from-function
+# languages: javascript, typescript
+# from: javascript/browser/security/open-redirect-from-function.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$$$_\" + $VALUE",
+      "`$$$_${$VALUE}`",
+      "function $$$_ ($$$_, $PROP, $$$_) { $$$_ }",
+      "location.href = $SINK",
+      "location.replace($SINK)",
+      "this.location.href = $SINK",
+      "this.location.replace($SINK)",
+      "this.window.location.href = $SINK",
+      "this.window.location.replace($SINK)",
+      "window.location.href = $SINK",
+      "window.location.replace($SINK)"
+    ])) as $all
+    | ( (($all | of(["location.href = $SINK","window.location.href = $SINK","this.window.location.href = $SINK","this.location.href = $SINK","location.replace($SINK)","window.location.replace($SINK)","this.window.location.replace($SINK)","this.location.replace($SINK)"])
+          | focus("SINK")))
+          | reaching((($all
+          | within($all | of(["function $$$_ ($$$_, $PROP, $$$_) { $$$_ }"]))
+          | focus("PROP")));
+              ([]))
+        | finding("js-open-redirect-from-function";
+            "The application accepts potentially user-controlled input `$PROP` which can control the location of the current window context.") ) )
+| report

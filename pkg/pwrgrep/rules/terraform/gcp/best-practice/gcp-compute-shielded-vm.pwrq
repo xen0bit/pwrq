@@ -1,0 +1,20 @@
+# rules: gcp-compute-shielded-vm
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-compute-shielded-vm.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_compute_instance\" \"$$$_\" {\n$$$_\nshielded_instance_config {\n  $$$_\n  enable_integrity_monitoring = false\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_compute_instance\" \"$$$_\" {\n$$$_\nshielded_instance_config {\n  $$$_\n  enable_integrity_monitoring = true\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_compute_instance\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"google_compute_instance\" \"$$$_\" {\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"google_compute_instance\" \"$$$_\" {\n$$$_\nshielded_instance_config {\n  $$$_\n  enable_integrity_monitoring = false\n  $$$_\n}\n$$$_\n}"])))))
+          | outside($all | of(["resource \"google_compute_instance\" \"$$$_\" {\n$$$_\nshielded_instance_config {\n  $$$_\n  enable_integrity_monitoring = true\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-compute-shielded-vm";
+            "Ensure Compute instances are launched with Shielded VM enabled") ) )
+| report

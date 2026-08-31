@@ -1,4 +1,5 @@
 # rules: avoid_send_file_without_path_sanitization
+# languages: python
 # from: python/flask/security/secure-static-file-serve.yaml
 
 . as $root

@@ -1,0 +1,32 @@
+# rules: balancer-readonly-reentrancy-getrate
+# from: solidity/security/balancer-readonly-reentrancy-getrate.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.sol"]; [
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAULT>\\S+)\\.manageUserBalance\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAULT>\\S+)\\.manageUserBalance\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+VaultReentrancyLib\\.ensureNotInVaultContext\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+VaultReentrancyLib\\.ensureNotInVaultContext\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+ComposableStablePoolRates\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+PoolRecoveryHelper\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+WeightedPoolProtocolFees\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+\\}",
+      "function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAULT>\\S+)\\.manageUserBalance\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}",
+      "function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+VaultReentrancyLib\\.ensureNotInVaultContext\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}",
+      "function\\s+_updateTokenRateCache\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+\\}"])
+          | outside($all | of(["function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+VaultReentrancyLib\\.ensureNotInVaultContext\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAULT>\\S+)\\.manageUserBalance\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["function\\s+_updateTokenRateCache\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+PoolRecoveryHelper\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+ComposableStablePoolRates\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+WeightedPoolProtocolFees\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+VaultReentrancyLib\\.ensureNotInVaultContext\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+VaultReentrancyLib\\.ensureNotInVaultContext\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAULT>\\S+)\\.manageUserBalance\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+function\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VAULT>\\S+)\\.manageUserBalance\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+function\\s+(?P<F>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<CHECKFUNC>\\S+)\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\.getRate\\(\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | focus("VAR")
+        | finding("balancer-readonly-reentrancy-getrate";
+            "$VAR.getRate() call on a Balancer pool is not protected from the read-only reentrancy.") ) )
+| report

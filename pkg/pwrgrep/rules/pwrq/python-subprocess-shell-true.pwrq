@@ -1,4 +1,5 @@
 # rules: python-subprocess-shell-true
+# languages: python
 # fixture: python/subprocess-shell-true.py
 # from: python/lang/security/audit/subprocess-shell-true.yaml (subprocess-shell-true)
 #

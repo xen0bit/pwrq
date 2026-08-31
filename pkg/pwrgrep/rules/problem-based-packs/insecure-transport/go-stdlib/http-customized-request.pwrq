@@ -1,4 +1,5 @@
 # rules: http-customized-request
+# languages: go
 # from: problem-based-packs/insecure-transport/go-stdlib/http-customized-request.yaml
 
 . as $root

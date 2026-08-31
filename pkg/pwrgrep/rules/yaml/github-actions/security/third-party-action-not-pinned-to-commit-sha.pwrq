@@ -1,0 +1,13 @@
+# rules: third-party-action-not-pinned-to-commit-sha
+# from: yaml/github-actions/security/third-party-action-not-pinned-to-commit-sha.yml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "\\{steps:\\s+[\\s\\S]*?\\}",
+      "uses:\\s+\"(?P<USES>\\S+)\""
+    ])) as $all
+    | ( $all | of(["uses:\\s+\"(?P<USES>\\S+)\""])
+          | within($all | of(["\\{steps:\\s+[\\s\\S]*?\\}"]))
+        | finding("third-party-action-not-pinned-to-commit-sha";
+            "An action sourced from a third-party repository on GitHub is not pinned to a full length commit SHA.") ) )
+| report

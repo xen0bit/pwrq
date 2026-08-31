@@ -1,0 +1,19 @@
+# rules: aws-network-acl-allows-public-ingress
+# languages: hcl
+# from: terraform/aws/security/aws-network-acl-allows-public-ingress.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "ingress {\n  $$$_\n  action = \"allow\"\n  cidr_block = \"$PUBLIC_IPV4_CIDR\"\n  $$$_\n}",
+      "resource \"$NETWORK_ACL\" $ANYTHING {\n  $$$_\n}",
+      "resource \"aws_network_acl_rule\" $ANYTHING {\n  $$$_\n  egress = true\n  $$$_\n}",
+      "resource \"aws_network_acl_rule\" $ANYTHING {\n  $$$_\n  rule_action = \"allow\"\n  cidr_block = \"$PUBLIC_IPV4_CIDR\"\n  $$$_\n}"
+    ])) as $all
+    | ( ($all | of(["resource \"aws_network_acl_rule\" $ANYTHING {\n  $$$_\n  rule_action = \"allow\"\n  cidr_block = \"$PUBLIC_IPV4_CIDR\"\n  $$$_\n}"])
+          | not_at($all | of(["resource \"aws_network_acl_rule\" $ANYTHING {\n  $$$_\n  egress = true\n  $$$_\n}"])))
+          + ($all | of(["ingress {\n  $$$_\n  action = \"allow\"\n  cidr_block = \"$PUBLIC_IPV4_CIDR\"\n  $$$_\n}"])
+          | within($all | of(["resource \"$NETWORK_ACL\" $ANYTHING {\n  $$$_\n}"]))
+          | where_capture("NETWORK_ACL"; "^(aws_network_acl|aws_default_network_acl)$"))
+        | finding("aws-network-acl-allows-public-ingress";
+            "The network ACL rule allows ingress from public internet.") ) )
+| report

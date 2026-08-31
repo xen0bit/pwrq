@@ -1,4 +1,5 @@
 # rules: deprecated-pervasives
+# languages: ocaml
 # from: ocaml/lang/compatibility/deprecated.yaml
 
 . as $root

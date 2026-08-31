@@ -1,0 +1,19 @@
+# rules: unsatisfiable-rule
+# from: yaml/semgrep/unsatisfiable.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "\\-\\s+pattern:\\s+(?P<A>\\S+)",
+      "\\-\\s+pattern:\\s+(?P<A>\\S+)\\s+[\\s\\S]*?",
+      "\\-\\s+pattern\\-not:\\s+(?P<A>\\S+)",
+      "\\-\\s+pattern\\-not:\\s+(?P<A>\\S+)\\s+[\\s\\S]*?",
+      "patterns:\\s+\\[[\\s\\S]*?\\]"
+    ])) as $all
+    | ( ($all | of(["\\-\\s+pattern\\-not:\\s+(?P<A>\\S+)"])
+          | in_files_with($all | of(["\\-\\s+pattern:\\s+(?P<A>\\S+)\\s+[\\s\\S]*?"])))
+          + ($all | of(["\\-\\s+pattern:\\s+(?P<A>\\S+)"])
+          | in_files_with($all | of(["\\-\\s+pattern\\-not:\\s+(?P<A>\\S+)\\s+[\\s\\S]*?"])))
+          | within($all | of(["patterns:\\s+\\[[\\s\\S]*?\\]"]))
+        | finding("unsatisfiable-rule";
+            "You can not use 'pattern' $A and 'pattern-not' $A together; this will always be empty.") ) )
+| report

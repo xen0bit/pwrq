@@ -1,4 +1,5 @@
 # rules: defaulthttpclient-is-deprecated
+# languages: kotlin
 # from: kotlin/lang/security/defaulthttpclient-is-deprecated.yaml
 
 . as $root

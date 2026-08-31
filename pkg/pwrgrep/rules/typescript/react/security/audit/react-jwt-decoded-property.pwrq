@@ -1,4 +1,5 @@
 # rules: react-jwt-decoded-property
+# languages: javascript, typescript
 # from: typescript/react/security/audit/react-jwt-decoded-property.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: xmlinputfactory-dtd-enabled
+# languages: scala
 # from: scala/lang/security/audit/xmlinputfactory-dtd-enabled.yaml
 
 . as $root

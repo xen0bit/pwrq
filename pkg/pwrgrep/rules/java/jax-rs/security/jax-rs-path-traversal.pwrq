@@ -1,4 +1,5 @@
 # rules: jax-rs-path-traversal
+# languages: java
 # from: java/jax-rs/security/jax-rs-path-traversal.yaml
 
 . as $root

@@ -1,0 +1,16 @@
+# rules: azure-sqlserver-threat-detection-types
+# languages: hcl
+# from: terraform/azure/best-practice/azure-sqlserver-threat-detection-types.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_mssql_server_security_alert_policy\" \"$$$_\" {\n$$$_\nstate = \"Enabled\"\ndisabled_alerts = []\n$$$_\n}",
+      "resource \"azurerm_mssql_server_security_alert_policy\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_mssql_server_security_alert_policy\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_mssql_server_security_alert_policy\" \"$$$_\" {\n$$$_\nstate = \"Enabled\"\ndisabled_alerts = []\n$$$_\n}"]))
+        | finding("azure-sqlserver-threat-detection-types";
+            "Ensure that Threat Detection types is set to All") ) )
+| report

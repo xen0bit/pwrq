@@ -32,6 +32,7 @@ type translated struct {
 	Ported   bool     `json:"ported"`
 	Why      string   `json:"why"`
 	Grammars []string `json:"grammars"`
+	Searches []string `json:"searches"`
 }
 
 // score is one line of VALIDATION.json.
@@ -89,8 +90,11 @@ func TestTheManifestAccountsForEveryRuleItWasGiven(t *testing.T) {
 		switch {
 		case r.ID == "" || r.From == "":
 			t.Errorf("a manifest entry names neither a rule nor a file: %+v", r)
-		case r.Ported && len(r.Grammars) == 0:
-			t.Errorf("%s (%s) is translated but names no language to search", r.ID, r.From)
+		case r.Ported && len(r.Searches) == 0:
+			// A rule searches either a grammar's files or a glob's: an AST
+			// rule names the languages it parses, a text rule the files it
+			// reads. One that names neither would scan nothing.
+			t.Errorf("%s (%s) is translated but names no files to search", r.ID, r.From)
 		case !r.Ported && strings.TrimSpace(r.Why) == "":
 			t.Errorf("%s (%s) was not translated and does not say why", r.ID, r.From)
 		}
@@ -151,6 +155,23 @@ func TestEveryTranslatedRuleWasMeasured(t *testing.T) {
 		if r.Ported && !scored[r.From+"\x00"+r.ID] {
 			t.Errorf("%s (%s) is translated but VALIDATION.json does not mention it", r.ID, r.From)
 		}
+	}
+}
+
+// TestNoRuleFailsWhenItIsRun is the check a compile cannot make.
+//
+// A query that parses can still fail on the first match it is given: a regex
+// RE2 will not take, a comparison the operator cannot read. That is worse than
+// a rule that was never shipped, because it takes the whole run down with it -
+// and it is invisible until someone points pwrq at a file that reaches the
+// step. The validation run reaches every one of them, so this is where it is
+// caught: whatever a rule is refused for, it is never refused for erroring.
+func TestNoRuleFailsWhenItIsRun(t *testing.T) {
+	for _, s := range readJSON[score](t, "VALIDATION.json") {
+		if s.Validated || !strings.Contains(s.Why, "invoke_pwrgrep:") {
+			continue
+		}
+		t.Errorf("%s (%s) fails when it is run: %s", s.ID, s.From, s.Why)
 	}
 }
 

@@ -1,4 +1,5 @@
 # rules: cookie-missing-secure-flag
+# languages: kotlin
 # from: kotlin/lang/security/cookie-missing-secure-flag.yaml
 
 . as $root

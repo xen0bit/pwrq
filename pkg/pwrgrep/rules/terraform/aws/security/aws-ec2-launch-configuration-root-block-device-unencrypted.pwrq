@@ -1,0 +1,14 @@
+# rules: aws-ec2-launch-configuration-root-block-device-unencrypted
+# languages: hcl
+# from: terraform/aws/security/aws-ec2-launch-configuration-root-block-device-unencrypted.yml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_launch_configuration\" $ANYTHING {\n  $$$_\n  root_block_device {\n    $$$_\n    encrypted = true\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"aws_launch_configuration\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_launch_configuration\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_launch_configuration\" $ANYTHING {\n  $$$_\n  root_block_device {\n    $$$_\n    encrypted = true\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("aws-ec2-launch-configuration-root-block-device-unencrypted";
+            "The AWS launch configuration root block device is unencrypted.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: avoid-latest-version
+# from: dockerfile/best-practice/avoid-latest-version.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "FROM\\s+(?P<FROM>\\S+):latest"
+    ])) as $all
+    | ( $all | of(["FROM\\s+(?P<FROM>\\S+):latest"])
+        | finding("avoid-latest-version";
+            "Images should be tagged with an explicit version to produce deterministic container images.") ) )
+| report

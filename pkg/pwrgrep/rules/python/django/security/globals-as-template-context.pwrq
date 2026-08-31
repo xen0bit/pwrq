@@ -1,4 +1,5 @@
 # rules: globals-as-template-context
+# languages: python
 # from: python/django/security/globals-as-template-context.yaml
 
 . as $root

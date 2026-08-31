@@ -1,0 +1,18 @@
+# rules: gcp-compute-firewall-unrestricted-ingress-3389
+# languages: hcl
+# from: terraform/gcp/security/gcp-compute-firewall-unrestricted-ingress-3389.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_compute_firewall\" \"$$$_\" {\n$$$_\nallow {\n  protocol = \"tcp\"\n  ports    = [$$$_, \"3389\", $$$_]\n}\nsource_ranges = [\"0.0.0.0/0\"]\n$$$_\n}",
+      "resource \"google_compute_firewall\" \"$$$_\" {\n$$$_\nallow {\n  protocol = \"tcp\"\n  ports    = [3389]\n}\nsource_ranges = [\"0.0.0.0/0\"]\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"google_compute_firewall\" \"$$$_\" {\n$$$_\nallow {\n  protocol = \"tcp\"\n  ports    = [3389]\n}\nsource_ranges = [\"0.0.0.0/0\"]\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"google_compute_firewall\" \"$$$_\" {\n$$$_\nallow {\n  protocol = \"tcp\"\n  ports    = [$$$_, \"3389\", $$$_]\n}\nsource_ranges = [\"0.0.0.0/0\"]\n$$$_\n}"])))))
+        | finding("gcp-compute-firewall-unrestricted-ingress-3389";
+            "Ensure Google compute firewall ingress does not allow unrestricted RDP access") ) )
+| report

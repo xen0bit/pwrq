@@ -1,4 +1,5 @@
 # rules: wip-xss-using-responsewriter-and-printf
+# languages: go
 # from: go/lang/security/audit/net/wip-xss-using-responsewriter-and-printf.yaml
 
 . as $root

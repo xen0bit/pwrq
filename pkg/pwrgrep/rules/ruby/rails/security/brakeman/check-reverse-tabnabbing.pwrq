@@ -1,0 +1,23 @@
+# rules: check-reverse-tabnabbing
+# from: ruby/rails/security/brakeman/check-reverse-tabnabbing.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.erb"]; [
+      "<%=\\s+(?P<INLINERUBY>[\\s\\S]*?)\\s+%>",
+      "<%=\\s+(?P<INLINERUBYDO>[\\s\\S]*?)\\s+do\\s+\\-%>\\s+[\\s\\S]*?\\s+<%\\s+end\\s+%>",
+      "<%=\\s+[\\s\\S]*?\\s+do\\s+\\-\\s+%>",
+      "<%=\\s+[\\s\\S]*?\\s+rel:\\s+'noopener\\s+noreferrer'\\s+[\\s\\S]*?%>",
+      "_blank",
+      "target:\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["_blank"])
+          | at_same_place((($all
+          | within($all | of(["<%=\\s+(?P<INLINERUBYDO>[\\s\\S]*?)\\s+do\\s+\\-%>\\s+[\\s\\S]*?\\s+<%\\s+end\\s+%>"])))
+          + ($all
+          | outside($all | of(["<%=\\s+[\\s\\S]*?\\s+do\\s+\\-\\s+%>"]))
+          | within($all | of(["<%=\\s+(?P<INLINERUBY>[\\s\\S]*?)\\s+%>"])))))
+          | within($all | of(["target:\\s+[\\s\\S]*?"]))
+          | outside($all | of(["<%=\\s+[\\s\\S]*?\\s+rel:\\s+'noopener\\s+noreferrer'\\s+[\\s\\S]*?%>"]))
+        | finding("check-reverse-tabnabbing";
+            "Setting an anchor target of `_blank` without the `noopener` or `noreferrer` attribute allows reverse tabnabbing on Internet Explorer, Opera, and Android Webview.") ) )
+| report

@@ -1,0 +1,16 @@
+# rules: gcp-compute-disk-encryption
+# languages: hcl
+# from: terraform/gcp/security/gcp-compute-disk-encryption.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_compute_disk\" $ANYTHING {\n  $$$_\n  disk_encryption_key {\n    kms_key_self_link = $$$_\n  }\n  $$$_\n}",
+      "resource \"google_compute_disk\" $ANYTHING {\n  $$$_\n  disk_encryption_key {\n    raw_key = $$$_\n  }\n  $$$_\n}",
+      "resource \"google_compute_disk\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_compute_disk\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_compute_disk\" $ANYTHING {\n  $$$_\n  disk_encryption_key {\n    raw_key = $$$_\n  }\n  $$$_\n}"]))
+          | outside($all | of(["resource \"google_compute_disk\" $ANYTHING {\n  $$$_\n  disk_encryption_key {\n    kms_key_self_link = $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-compute-disk-encryption";
+            "Ensure VM disks for critical VMs are encrypted with Customer Supplied Encryption Keys (CSEK)") ) )
+| report

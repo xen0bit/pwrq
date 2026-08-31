@@ -1,4 +1,5 @@
 # rules: avoid-bind-to-all-interfaces
+# languages: go
 # from: go/lang/security/audit/net/bind_all.yaml
 
 . as $root

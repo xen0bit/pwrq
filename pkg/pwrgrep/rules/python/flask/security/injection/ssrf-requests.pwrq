@@ -1,0 +1,48 @@
+# rules: ssrf-requests
+# languages: python
+# from: python/flask/security/injection/ssrf-requests.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$INTERM = $PWRQDEEP1\n$$$_\nrequests.$FUNC($PWRQDEEP2, $$$_)",
+      "@$APP.$ROUTE_METHOD($ROUTE, $$$_)\ndef $ROUTE_FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  $INTERM = $PWRQDEEP1\n  $$$_\n  requests.$FUNC($$$_, $PWRQDEEP2, $$$_)",
+      "@$APP.$ROUTE_METHOD($ROUTE, $$$_)\ndef $ROUTE_FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  requests.$FUNC($$$_, $PWRQDEEP1, $$$_)",
+      "requests.$FUNC($$$_)",
+      "requests.$FUNC($$$_, $PWRQDEEP1, $$$_)"
+    ])) as $all
+    | ( ($all | of(["requests.$FUNC($$$_)"])
+          | at_same_place((($all
+          | within($all | of(["@$APP.$ROUTE_METHOD($ROUTE, $$$_)\ndef $ROUTE_FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  requests.$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$ROUTEVAR")))
+          + ($all
+          | within($all | of(["@$APP.$ROUTE_METHOD($ROUTE, $$$_)\ndef $ROUTE_FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  $INTERM = $PWRQDEEP1\n  $$$_\n  requests.$FUNC($$$_, $PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$ROUTEVAR")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))))
+          | where_capture("ROUTE_METHOD"; "^(route|get|post|put|delete|patch)$"))
+          + ($all | of(["requests.$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W.get($$$_)"))
+          + ($all | of(["requests.$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W[$$$_]"))
+          + ($all | of(["requests.$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W($$$_)"))
+          + ($all | of(["requests.$FUNC($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W"))
+          + ($all | of(["requests.$FUNC($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nrequests.$FUNC($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W.get($$$_)")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["requests.$FUNC($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nrequests.$FUNC($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W[$$$_]")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["requests.$FUNC($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nrequests.$FUNC($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W($$$_)")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["requests.$FUNC($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nrequests.$FUNC($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+        | finding("ssrf-requests";
+            "Data from request object is passed to a new server-side request.") ) )
+| report

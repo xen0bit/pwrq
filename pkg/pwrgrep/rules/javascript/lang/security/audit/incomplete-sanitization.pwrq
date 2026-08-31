@@ -1,4 +1,5 @@
 # rules: incomplete-sanitization
+# languages: typescript
 # from: javascript/lang/security/audit/incomplete-sanitization.yaml
 
 . as $root

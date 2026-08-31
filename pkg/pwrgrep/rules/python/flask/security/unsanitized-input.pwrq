@@ -1,4 +1,5 @@
 # rules: response-contains-unsanitized-input
+# languages: python
 # from: python/flask/security/unsanitized-input.yaml
 
 . as $root

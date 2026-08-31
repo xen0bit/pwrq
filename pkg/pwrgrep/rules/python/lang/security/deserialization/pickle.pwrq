@@ -1,4 +1,5 @@
 # rules: avoid-pickle, avoid-cPickle, avoid-dill, avoid-shelve
+# languages: python
 # from: python/lang/security/deserialization/pickle.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: mass-assignment-vuln
+# languages: ruby
 # from: ruby/lang/security/unprotected-mass-assign.yaml
 
 . as $root

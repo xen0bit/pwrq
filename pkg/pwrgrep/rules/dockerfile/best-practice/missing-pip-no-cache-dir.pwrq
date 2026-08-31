@@ -1,0 +1,16 @@
+# rules: missing-pip-no-cache-dir
+# from: dockerfile/best-practice/missing-pip-no-cache-dir.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "ENV\\s+[\\s\\S]*?\\s+PIP_NO_CACHE_DIR=(?P<BOOL>\\S+)\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+RUN\\s+[\\s\\S]*?\\s+(?P<PIP>\\S+)\\s+install\\s+[\\s\\S]*?",
+      "ENV\\s+[\\s\\S]*?\\s+PIP_NO_CACHE_DIR\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+RUN\\s+[\\s\\S]*?\\s+(?P<PIP>\\S+)\\s+install\\s+[\\s\\S]*?",
+      "RUN\\s+[\\s\\S]*?\\s+(?P<PIP>\\S+)\\s+install\\s+[\\s\\S]*?",
+      "RUN\\s+[\\s\\S]*?\\s+(?P<PIP>\\S+)\\s+install\\s+[\\s\\S]*?\\s+\\-\\-no\\-cache\\-dir\\s+[\\s\\S]*?",
+      "RUN\\s+[\\s\\S]*?\\s+(?P<PIP>\\S+)\\s+install\\s+\\.\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all
+          | where_capture("PIP"; "^(?:(pip|pip2|pip3|python -m pip|python3 -m pip))")
+        | finding("missing-pip-no-cache-dir";
+            "This '$PIP install' is missing '--no-cache-dir'.") ) )
+| report

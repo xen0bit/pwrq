@@ -1,0 +1,15 @@
+# rules: context-autoescape-off
+# languages: python
+# from: python/django/security/audit/xss/context-autoescape-off.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$D[\"autoescape\"] = $FALSE",
+      "{$$$_, \"autoescape\": $FALSE, $$$_}"
+    ])) as $all
+    | ( $all | of(["{$$$_, \"autoescape\": $FALSE, $$$_}","$D[\"autoescape\"] = $FALSE"])
+          | where_capture_ast("FALSE"; "False")
+          | focus("FALSE")
+        | finding("context-autoescape-off";
+            "Detected a Context with autoescape disabled.") ) )
+| report

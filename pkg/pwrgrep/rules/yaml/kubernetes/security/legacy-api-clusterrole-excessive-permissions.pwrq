@@ -1,0 +1,22 @@
+# rules: legacy-api-clusterrole-excessive-permissions
+# languages: yaml
+# from: yaml/kubernetes/security/legacy-api-clusterrole-excessive-permissions.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "\"*\"",
+      "- apiGroups: [\"\"]\n  $$$_",
+      "apiVersion: rbac.authorization.k8s.io/v1\n$$$_",
+      "kind: ClusterRole\n$$$_",
+      "resources: $A\n$$$_",
+      "verbs: $A\n$$$_"
+    ])) as $all
+    | ( $all | of(["\"*\""])
+          | in_files_with($all | of(["resources: $A\n$$$_"]))
+          | in_files_with($all | of(["verbs: $A\n$$$_"]))
+          | within($all | of(["- apiGroups: [\"\"]\n  $$$_"]))
+          | in_files_with($all | of(["apiVersion: rbac.authorization.k8s.io/v1\n$$$_"]))
+          | in_files_with($all | of(["kind: ClusterRole\n$$$_"]))
+        | finding("legacy-api-clusterrole-excessive-permissions";
+            "Semgrep detected a Kubernetes core API ClusterRole with excessive permissions.") ) )
+| report

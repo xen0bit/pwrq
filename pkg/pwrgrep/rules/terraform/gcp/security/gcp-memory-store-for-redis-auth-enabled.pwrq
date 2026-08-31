@@ -1,0 +1,16 @@
+# rules: gcp-memory-store-for-redis-auth-enabled
+# languages: hcl
+# from: terraform/gcp/security/gcp-memory-store-for-redis-auth-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_redis_instance\" \"$$$_\" {\n$$$_\nauth_enabled = true\n$$$_\n}",
+      "resource \"google_redis_instance\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_redis_instance\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_redis_instance\" \"$$$_\" {\n$$$_\nauth_enabled = true\n$$$_\n}"]))
+        | finding("gcp-memory-store-for-redis-auth-enabled";
+            "Ensure Memorystore for Redis has AUTH enabled") ) )
+| report

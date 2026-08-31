@@ -1,0 +1,57 @@
+# rules: dangerous-system-call-tainted-env-args
+# languages: python
+# from: python/lang/security/audit/dangerous-system-call-tainted-env-args.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A",
+      "$ARGS",
+      "$ARGS = $PARSER.parse_args()",
+      "$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_",
+      "$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_",
+      "$PARSER = argparse.ArgumentParser($$$_)\n$$$_",
+      "$PARSER = optparse.OptionParser($$$_)\n$$$_",
+      "$PWRQDEEP1",
+      "$X = __import__(\"os\")\n$$$_\n$X.system($$$_)",
+      "$X = __import__(\"os\")\n$$$_\n$Y = getattr($X, \"system\")\n$$$_\n$Y($$$_)",
+      "$X = __import__(\"os\")\n$$$_\ngetattr($X, \"system\")($$$_)",
+      "$X = getattr(os, \"system\")\n$$$_\n$X($$$_)",
+      "for $O, $A in $OPTS:\n  $$$_",
+      "os.$W(\"$$$_\", $$$_)",
+      "os.environ",
+      "os.environ.get('$FOO', $$$_)",
+      "os.environb",
+      "os.environb.get('$FOO', $$$_)",
+      "os.getenv('$ANYTHING', $$$_)",
+      "os.getenvb('$ANYTHING', $$$_)",
+      "os.popen($$$_)",
+      "os.popen2($$$_)",
+      "os.popen3($$$_)",
+      "os.popen4($$$_)",
+      "os.system($$$_)",
+      "sys.argv",
+      "sys.orig_argv"
+    ])) as $all
+    | ( (($all | of(["os.system($$$_)","$X = __import__(\"os\")\n$$$_\n$X.system($$$_)","$X = __import__(\"os\")\n$$$_\ngetattr($X, \"system\")($$$_)","$X = getattr(os, \"system\")\n$$$_\n$X($$$_)","$X = __import__(\"os\")\n$$$_\n$Y = getattr($X, \"system\")\n$$$_\n$Y($$$_)","os.popen($$$_)","os.popen2($$$_)","os.popen3($$$_)","os.popen4($$$_)"])
+          | not_at($all | of(["os.$W(\"$$$_\", $$$_)"]))))
+          | reaching(((($all | of(["os.environ","os.environ.get('$FOO', $$$_)","os.environb","os.environb.get('$FOO', $$$_)","os.getenv('$ANYTHING', $$$_)","os.getenvb('$ANYTHING', $$$_)"]))
+          + (($all | of(["sys.argv","sys.orig_argv"]))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = argparse.ArgumentParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = optparse.OptionParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + (($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_"])))
+          | at_same_place((($all | of(["$A"])
+          | within($all | of(["for $O, $A in $OPTS:\n  $$$_"])))
+          + ($all | of(["$ARGS"]))))))));
+              ([]))
+        | finding("dangerous-system-call-tainted-env-args";
+            "Found user-controlled data used in a system call.") ) )
+| report

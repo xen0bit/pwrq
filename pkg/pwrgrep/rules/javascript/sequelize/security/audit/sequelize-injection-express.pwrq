@@ -1,0 +1,53 @@
+# rules: express-sequelize-injection
+# languages: typescript
+# from: javascript/sequelize/security/audit/sequelize-injection-express.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})",
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})",
+      "$DB.sequelize.query($QUERY,$$$_)",
+      "$FUNC. $$$_ .hash($$$_)",
+      "$REQ.body",
+      "$REQ.cookies",
+      "$REQ.files.$ANYTHING.data.toString('utf8')",
+      "$REQ.files.$ANYTHING['data'].toString('utf8')",
+      "$REQ.headers",
+      "$REQ.params",
+      "$REQ.query",
+      "({ $REQ }: Request,$RES: Response) => {$$$_}",
+      "({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}",
+      "body",
+      "cookies",
+      "files.$ANYTHING.data.toString('utf8')",
+      "files.$ANYTHING['data'].toString('utf8')",
+      "function $$$_ ($REQ, $RES) {$$$_}",
+      "function $$$_ ($REQ, $RES, $NEXT) {$$$_}",
+      "headers",
+      "params",
+      "parseInt($$$_)",
+      "query",
+      "sequelize.query($QUERY,$$$_)"
+    ])) as $all
+    | ( ((($all | of(["sequelize.query($QUERY,$$$_)","$DB.sequelize.query($QUERY,$$$_)"])
+          | focus("QUERY"))))
+          | reaching(((($all
+          | within($all | of(["function $$$_ ($REQ, $RES) {$$$_}"])))
+          + ($all
+          | within($all | of(["function $$$_ ($REQ, $RES, $NEXT) {$$$_}"])))
+          + (($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})"])))
+          + ($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})"])))
+          | where_capture("METHOD"; "^(get|post|put|head|delete|options)$"))
+          | at_same_place(($all | of(["$REQ.query","$REQ.body","$REQ.params","$REQ.cookies","$REQ.headers","$REQ.files.$ANYTHING.data.toString('utf8')","$REQ.files.$ANYTHING['data'].toString('utf8')"]))))
+              + (($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}"])))
+          + ($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response) => {$$$_}"])))
+          | at_same_place(($all | of(["params","query","cookies","headers","body","files.$ANYTHING.data.toString('utf8')","files.$ANYTHING['data'].toString('utf8')"])))
+          | focus("REQ")));
+              (($all | of(["parseInt($$$_)","$FUNC. $$$_ .hash($$$_)"]))))
+        | finding("express-sequelize-injection";
+            "Detected a sequelize statement that is tainted by user-input.") ) )
+| report

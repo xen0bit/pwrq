@@ -1,4 +1,5 @@
 # rules: insecure-netdatacontract-deserialization
+# languages: c_sharp
 # from: csharp/lang/security/insecure-deserialization/net-data-contract.yaml
 
 . as $root

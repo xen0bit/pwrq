@@ -1,4 +1,5 @@
 # rules: unserialize-use
+# languages: php
 # from: php/lang/security/unserialize-use.yaml
 
 . as $root

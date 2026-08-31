@@ -1,4 +1,5 @@
 # rules: curl-pipe-bash
+# languages: bash
 # from: bash/curl/security/curl-pipe-bash.yaml
 
 . as $root

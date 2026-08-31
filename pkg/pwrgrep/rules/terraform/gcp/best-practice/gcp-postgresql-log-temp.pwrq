@@ -1,0 +1,16 @@
+# rules: gcp-postgresql-log-temp
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-postgresql-log-temp.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"log_temp_files\"\n    value = \"0\"\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n  }\n  $$$_\n}"]))
+          | outside($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"log_temp_files\"\n    value = \"0\"\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-postgresql-log-temp";
+            "Ensure PostgreSQL database 'log_temp_files' flag is set to '0'") ) )
+| report

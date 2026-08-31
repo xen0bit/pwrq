@@ -1,0 +1,16 @@
+# rules: azure-securitycenter-contact-emails
+# languages: hcl
+# from: terraform/azure/best-practice/azure-securitycenter-contact-emails.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_security_center_contact\" \"$$$_\" {\n$$$_\nemail = \"$$$_\"\n$$$_\n}",
+      "resource \"azurerm_security_center_contact\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_security_center_contact\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_security_center_contact\" \"$$$_\" {\n$$$_\nemail = \"$$$_\"\n$$$_\n}"]))
+        | finding("azure-securitycenter-contact-emails";
+            "Ensure that Security contact emails is set") ) )
+| report

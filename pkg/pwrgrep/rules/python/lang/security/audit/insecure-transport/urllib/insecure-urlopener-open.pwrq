@@ -1,4 +1,5 @@
 # rules: insecure-urlopener-open
+# languages: python
 # from: python/lang/security/audit/insecure-transport/urllib/insecure-urlopener-open.yaml
 
 . as $root

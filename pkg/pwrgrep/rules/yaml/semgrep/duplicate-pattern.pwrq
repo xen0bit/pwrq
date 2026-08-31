@@ -1,0 +1,15 @@
+# rules: duplicate-pattern
+# from: yaml/semgrep/duplicate-pattern.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "\\-\\s+pattern:\\s+(?P<X>\\S+)\\s+[\\s\\S]*?\\s+\\-\\s+pattern:\\s+(?P<X>\\S+)\\s+[\\s\\S]*?",
+      "pattern:\\s+(?P<X>\\S+)",
+      "rules:\\s+\\[[\\s\\S]*?,\\s+(?P<RULE>\\S+),\\s+[\\s\\S]*?\\]"
+    ])) as $all
+    | ( $all | of(["pattern:\\s+(?P<X>\\S+)"])
+          | within($all | of(["rules:\\s+\\[[\\s\\S]*?,\\s+(?P<RULE>\\S+),\\s+[\\s\\S]*?\\]"]))
+          | in_files_with($all | of(["\\-\\s+pattern:\\s+(?P<X>\\S+)\\s+[\\s\\S]*?\\s+\\-\\s+pattern:\\s+(?P<X>\\S+)\\s+[\\s\\S]*?"]))
+        | finding("duplicate-pattern";
+            "Two identical pattern clauses were detected.") ) )
+| report

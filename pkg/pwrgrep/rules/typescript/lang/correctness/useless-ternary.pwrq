@@ -1,4 +1,5 @@
 # rules: useless-ternary
+# languages: javascript, typescript
 # from: typescript/lang/correctness/useless-ternary.yaml
 
 . as $root

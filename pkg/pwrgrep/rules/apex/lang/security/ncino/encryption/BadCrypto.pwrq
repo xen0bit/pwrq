@@ -1,0 +1,14 @@
+# rules: bad-crypto
+# from: apex/lang/security/ncino/encryption/BadCrypto.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.cls"]; [
+      "Blob\\s+(?P<IV>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.decrypt\\((?P<ONE>\\S+),\\s+(?P<TWO>\\S+),\\s+(?P<IV>\\S+),\\s+(?P<FOUR>\\S+)\\);",
+      "Blob\\s+(?P<IV>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.encrypt\\((?P<ONE>\\S+),\\s+(?P<TWO>\\S+),\\s+(?P<IV>\\S+),\\s+(?P<FOUR>\\S+)\\);",
+      "Blob\\s+(?P<KEY>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.decrypt\\((?P<ONE>\\S+),\\s+(?P<KEY>\\S+),\\s+(?P<THREE>\\S+),\\s+(?P<FOUR>\\S+)\\);",
+      "Blob\\s+(?P<KEY>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.encrypt\\((?P<ONE>\\S+),\\s+(?P<KEY>\\S+),\\s+(?P<THREE>\\S+),\\s+(?P<FOUR>\\S+)\\);"
+    ])) as $all
+    | ( $all | of(["Blob\\s+(?P<IV>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.encrypt\\((?P<ONE>\\S+),\\s+(?P<TWO>\\S+),\\s+(?P<IV>\\S+),\\s+(?P<FOUR>\\S+)\\);","Blob\\s+(?P<IV>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.decrypt\\((?P<ONE>\\S+),\\s+(?P<TWO>\\S+),\\s+(?P<IV>\\S+),\\s+(?P<FOUR>\\S+)\\);","Blob\\s+(?P<KEY>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.encrypt\\((?P<ONE>\\S+),\\s+(?P<KEY>\\S+),\\s+(?P<THREE>\\S+),\\s+(?P<FOUR>\\S+)\\);","Blob\\s+(?P<KEY>\\S+)\\s+=\\s+Blob\\.valueOf\\('(?P<STRING>\\S+)'\\);[\\s\\S]*?Crypto\\.decrypt\\((?P<ONE>\\S+),\\s+(?P<KEY>\\S+),\\s+(?P<THREE>\\S+),\\s+(?P<FOUR>\\S+)\\);"])
+        | finding("bad-crypto";
+            "The rule makes sure you are using randomly generated IVs and keys for Crypto calls.") ) )
+| report

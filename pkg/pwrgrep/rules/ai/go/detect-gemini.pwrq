@@ -1,4 +1,5 @@
 # rules: detect-gemini
+# languages: go
 # from: ai/go/detect-gemini.yaml
 
 . as $root

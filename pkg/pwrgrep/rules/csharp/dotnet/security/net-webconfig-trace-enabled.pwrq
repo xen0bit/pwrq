@@ -1,0 +1,13 @@
+# rules: net-webconfig-trace-enabled
+# from: csharp/dotnet/security/net-webconfig-trace-enabled.yaml
+
+. as $root
+| ( ($root | scan_regex(["*web.config*"]; [
+      "<system\\.web>\\s+[\\s\\S]*?\\s+<\\/system\\.web>",
+      "<trace\\s+[\\s\\S]*?\\s+enabled\\s+=\\s+\"true\"\\s+[\\s\\S]*?\\s+\\/>"
+    ])) as $all
+    | ( $all | of(["<trace\\s+[\\s\\S]*?\\s+enabled\\s+=\\s+\"true\"\\s+[\\s\\S]*?\\s+\\/>"])
+          | within($all | of(["<system\\.web>\\s+[\\s\\S]*?\\s+<\\/system\\.web>"]))
+        | finding("net-webconfig-trace-enabled";
+            "OWASP guidance recommends disabling tracing for production applications to prevent accidental leakage of sensitive application information.") ) )
+| report

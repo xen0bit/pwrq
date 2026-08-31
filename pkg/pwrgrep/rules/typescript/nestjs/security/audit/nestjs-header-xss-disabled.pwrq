@@ -1,4 +1,5 @@
 # rules: nestjs-header-xss-disabled
+# languages: typescript
 # from: typescript/nestjs/security/audit/nestjs-header-xss-disabled.yaml
 
 . as $root

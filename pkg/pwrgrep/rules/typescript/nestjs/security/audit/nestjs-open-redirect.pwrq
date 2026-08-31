@@ -1,4 +1,5 @@
 # rules: nestjs-open-redirect
+# languages: typescript
 # from: typescript/nestjs/security/audit/nestjs-open-redirect.yaml
 
 . as $root

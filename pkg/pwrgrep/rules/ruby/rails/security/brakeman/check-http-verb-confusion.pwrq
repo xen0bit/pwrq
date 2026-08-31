@@ -2,12 +2,12 @@
 # from: ruby/rails/security/brakeman/check-http-verb-confusion.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.rb"]; [
-      "if $$$_\nelsif $$$_\n  $$$_\nend",
-      "if request.get?\n  $$$_\nelse\n  $$$_\nend"
+| ( ($root | scan_regex(["*.rb"]; [
+      "if\\s+[\\s\\S]*?\\s+elsif\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+end",
+      "if\\s+request\\.get\\?\\s+[\\s\\S]*?\\s+else\\s+[\\s\\S]*?\\s+end"
     ])) as $all
-    | ( $all | of(["if request.get?\n  $$$_\nelse\n  $$$_\nend"])
-          | outside($all | of(["if $$$_\nelsif $$$_\n  $$$_\nend"]))
+    | ( $all | of(["if\\s+request\\.get\\?\\s+[\\s\\S]*?\\s+else\\s+[\\s\\S]*?\\s+end"])
+          | outside($all | of(["if\\s+[\\s\\S]*?\\s+elsif\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+end"]))
         | finding("check-http-verb-confusion";
             "Found an improperly constructed control flow block with `request.get?`.") ) )
 | report

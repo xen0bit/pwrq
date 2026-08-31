@@ -1,0 +1,18 @@
+# rules: missing-assume-yes-switch
+# from: dockerfile/correctness/missing-assume-yes-switch.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+(?P<MULTIFLAG>\\S+)\\s+[\\s\\S]*?",
+      "RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+\\-\\-assume\\-yes\\s+[\\s\\S]*?",
+      "RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+\\-\\-yes\\s+[\\s\\S]*?",
+      "RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+\\-y\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+(?P<MULTIFLAG>\\S+)\\s+[\\s\\S]*?"])
+          | not_at($all | of(["RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+\\-\\-assume\\-yes\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+\\-\\-yes\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["RUN\\s+[\\s\\S]*?\\s+apt\\-get\\s+install\\s+[\\s\\S]*?\\s+\\-y\\s+[\\s\\S]*?"]))
+          | where_capture("MULTIFLAG"; "^(?:(^([^-])|(-[^y]+)$))")
+        | finding("missing-assume-yes-switch";
+            "This 'apt-get install' is missing the '-y' switch.") ) )
+| report

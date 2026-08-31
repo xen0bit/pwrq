@@ -1,0 +1,13 @@
+# rules: missing-apk-no-cache
+# from: dockerfile/best-practice/missing-apk-no-cache.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "RUN\\s+apk\\s+(?P<COMMAND>\\S+)\\s+[\\s\\S]*?",
+      "RUN\\s+apk\\s+[\\s\\S]*?\\s+\\-\\-no\\-cache\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["RUN\\s+apk\\s+(?P<COMMAND>\\S+)\\s+[\\s\\S]*?"])
+          | outside($all | of(["RUN\\s+apk\\s+[\\s\\S]*?\\s+\\-\\-no\\-cache\\s+[\\s\\S]*?"]))
+        | finding("missing-apk-no-cache";
+            "This apk command is missing '--no-cache'.") ) )
+| report

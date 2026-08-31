@@ -1,0 +1,20 @@
+# rules: appservice-enable-http2
+# languages: hcl
+# from: terraform/azure/security/appservice/appservice-enable-http2.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n  site_config {\n    $$$_\n    http2_enabled = false\n    $$$_\n  }\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n  site_config {\n    $$$_\n    http2_enabled = true\n    $$$_\n  }\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n  site_config {\n    $$$_\n    http2_enabled = false\n    $$$_\n  }\n$$$_\n}"])))))
+          | outside($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n  site_config {\n    $$$_\n    http2_enabled = true\n    $$$_\n  }\n$$$_\n}"]))
+        | finding("appservice-enable-http2";
+            "Use the latest version of HTTP to ensure you are benefiting from security fixes.") ) )
+| report

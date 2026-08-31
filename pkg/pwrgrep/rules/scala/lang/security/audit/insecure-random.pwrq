@@ -1,4 +1,5 @@
 # rules: insecure-random
+# languages: scala
 # from: scala/lang/security/audit/insecure-random.yaml
 
 . as $root

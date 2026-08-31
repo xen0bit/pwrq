@@ -1,0 +1,19 @@
+# rules: aws-elasticache-automatic-backup-not-enabled
+# languages: hcl
+# from: terraform/aws/best-practice/aws-elasticache-automatic-backup-not-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n  engine = \"memcached\"\n  $$$_\n}",
+      "resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n  snapshot_retention_limit = $$$_\n  $$$_\n}",
+      "resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n  snapshot_retention_limit = $LIMIT\n  $$$_\n}",
+      "resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( ($all | of(["resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n  engine = \"memcached\"\n  $$$_\n}"]))
+          | outside($all | of(["resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n  snapshot_retention_limit = $$$_\n  $$$_\n}"])))
+          + ($all | of(["resource \"aws_elasticache_cluster\" $ANYTHING {\n  $$$_\n  snapshot_retention_limit = $LIMIT\n  $$$_\n}"])
+          | where_capture_compare("$LIMIT == 0"))
+        | finding("aws-elasticache-automatic-backup-not-enabled";
+            "Ensure that Amazon ElastiCache clusters have automatic backup turned on.") ) )
+| report

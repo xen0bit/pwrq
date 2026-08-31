@@ -2,12 +2,12 @@
 # from: yaml/kubernetes/security/hostipc-pod.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "hostIPC: true",
-      "spec:\n  $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "hostIPC:\\s+true",
+      "spec:\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["hostIPC: true"])
-          | within($all | of(["spec:\n  $$$_"]))
+    | ( $all | of(["hostIPC:\\s+true"])
+          | within($all | of(["spec:\\s+[\\s\\S]*?"]))
         | finding("hostipc-pod";
             "Pod is sharing the host IPC namespace.") ) )
 | report

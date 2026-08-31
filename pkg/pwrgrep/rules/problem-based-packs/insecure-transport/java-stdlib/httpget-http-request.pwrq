@@ -1,0 +1,14 @@
+# rules: httpget-http-request
+# languages: java
+# from: problem-based-packs/insecure-transport/java-stdlib/httpget-http-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "\"=~/[Hh][Tt][Tt][Pp]://.*/\"",
+      "$R = new HttpGet(\"=~/[Hh][Tt][Tt][Pp]://.*/\");\n$$$_\n$CLIENT. $$$_ .execute($R, $$$_);"
+    ])) as $all
+    | ( $all | of(["\"=~/[Hh][Tt][Tt][Pp]://.*/\""])
+          | within($all | of(["$R = new HttpGet(\"=~/[Hh][Tt][Tt][Pp]://.*/\");\n$$$_\n$CLIENT. $$$_ .execute($R, $$$_);"]))
+        | finding("httpget-http-request";
+            "Detected an HTTP request sent via HttpGet.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: java-jwt-decode-without-verify
+# from: java/java-jwt/security/audit/jwt-decode-without-verify.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.java"]; [
+      "class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<RETURNTYPE>\\S+)\\s+(?P<FUNC>\\S+)\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VERIFIER>\\S+)\\.verify\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+\\}",
+      "com\\.auth0\\.jwt\\.JWT\\.decode\\([\\s\\S]*?\\);"
+    ])) as $all
+    | ( $all | of(["com\\.auth0\\.jwt\\.JWT\\.decode\\([\\s\\S]*?\\);"])
+          | outside($all | of(["class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<RETURNTYPE>\\S+)\\s+(?P<FUNC>\\S+)\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<VERIFIER>\\S+)\\.verify\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+\\}"]))
+        | finding("java-jwt-decode-without-verify";
+            "Detected the decoding of a JWT token without a verify step.") ) )
+| report

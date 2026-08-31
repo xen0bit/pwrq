@@ -1,0 +1,55 @@
+# rules: code-string-concat
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/code-string-concat.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})",
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})",
+      "$IMPORT().query.$VALUE",
+      "$REQ.body",
+      "$REQ.cookies",
+      "$REQ.headers",
+      "$REQ.params",
+      "$REQ.query",
+      "$ROUTER = $IMPORT()\n$$$_",
+      "$ROUTER.query.$VALUE",
+      "const { $$$_,$PROPS,$$$_ } = $ROUTER.query\n$$$_",
+      "eval($$$_)",
+      "function $$$_ ($REQ, $RES) {$$$_}",
+      "function $$$_ ($REQ, $RES, $NEXT) {$$$_}",
+      "import $IMPORT from 'next/router';\n$$$_",
+      "import { $$$_,$IMPORT,$$$_ } from 'next/router'\n$$$_",
+      "let { $$$_,$PROPS,$$$_ } = $ROUTER.query\n$$$_",
+      "var { $$$_,$PROPS,$$$_ } = $ROUTER.query\n$$$_"
+    ])) as $all
+    | ( (($all | of(["eval($$$_)"])))
+          | reaching((((($all
+          | within($all | of(["function $$$_ ($REQ, $RES) {$$$_}"])))
+          + ($all
+          | within($all | of(["function $$$_ ($REQ, $RES, $NEXT) {$$$_}"])))
+          + (($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})"])))
+          + ($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})"])))
+          | where_capture("METHOD"; "^(get|post|put|head|delete|options)$"))
+          | at_same_place(($all | of(["$REQ.query","$REQ.body","$REQ.params","$REQ.cookies","$REQ.headers"]))))
+          + (($all
+          | in_files_with($all | of(["import { $$$_,$IMPORT,$$$_ } from 'next/router'\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import $IMPORT from 'next/router';\n$$$_"])))
+          | at_same_place(((($all
+          | in_files_with($all | of(["const { $$$_,$PROPS,$$$_ } = $ROUTER.query\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["var { $$$_,$PROPS,$$$_ } = $ROUTER.query\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["let { $$$_,$PROPS,$$$_ } = $ROUTER.query\n$$$_"])))
+          | in_files_with($all | of(["$ROUTER = $IMPORT()\n$$$_"]))
+          | focus("PROPS"))
+          + ($all | of(["$ROUTER.query.$VALUE"])
+          | in_files_with($all | of(["$ROUTER = $IMPORT()\n$$$_"])))
+          + ($all | of(["$IMPORT().query.$VALUE"])))))));
+              ([]))
+        | finding("code-string-concat";
+            "Found data from an Express or Next web request flowing to `eval`.") ) )
+| report

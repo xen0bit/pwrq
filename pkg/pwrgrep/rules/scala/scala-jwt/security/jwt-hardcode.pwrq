@@ -1,4 +1,5 @@
 # rules: scala-jwt-hardcoded-secret
+# languages: scala
 # from: scala/scala-jwt/security/jwt-hardcode.yaml
 
 . as $root

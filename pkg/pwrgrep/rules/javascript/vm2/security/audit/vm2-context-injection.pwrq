@@ -1,47 +1,151 @@
 # rules: vm2-context-injection
+# languages: javascript, typescript
 # from: javascript/vm2/security/audit/vm2-context-injection.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.ts"]; [
+| ( ($root | scan_ast(["*.js","*.ts"]; [
       "$VM = require('vm2');\n$$$_",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}",
-      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}",
-      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}"
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new VM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}",
+      "function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new VM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}",
+      "function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}"
     ])) as $all
-    | ( $all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new VM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}","function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: <$$$_ $INPUT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ {$NAME:$INPUT} $$$_>;\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  new NodeVM({sandbox: <$$$_ $CONTEXT $$$_>},$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: <$$$_ $INPUT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = <$$$_ $INPUT $$$_>;\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $INPUT $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}","function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = <$$$_ $INPUT $$$_>;\n  $$$_\n  $CONTEXT = {$NAME: <$$$_ $VAR $$$_>};\n  $$$_\n  $OPTS = {sandbox: <$$$_ $CONTEXT $$$_>};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+    | ( ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "{$NAME:$INPUT}")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new VM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new VM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "{$NAME:$INPUT}")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new VM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new VM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new VM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "{$NAME:$INPUT}")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function ($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP1},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "{$NAME:$INPUT}")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP2},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  new NodeVM({sandbox: $PWRQDEEP3},$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP1};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = $PWRQDEEP1;\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP1};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP2};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$CONTEXT"))
+          + ($all | of(["function $F($$$_,$INPUT,$$$_) {\n  $$$_\n  $VAR = $PWRQDEEP1;\n  $$$_\n  $CONTEXT = {$NAME: $PWRQDEEP2};\n  $$$_\n  $OPTS = {sandbox: $PWRQDEEP3};\n  $$$_\n  new NodeVM($OPTS,$$$_);\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$INPUT")
+          | where_capture_ast("PWRQDEEP2"; "$VAR")
+          | where_capture_ast("PWRQDEEP3"; "$CONTEXT"))
           | in_files_with($all | of(["$VM = require('vm2');\n$$$_"]))
         | finding("vm2-context-injection";
             "Make sure that unverified user data can not reach `vm2`.") ) )

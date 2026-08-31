@@ -1,4 +1,5 @@
 # rules: seam-log-injection
+# languages: java
 # from: java/jboss/security/seam-log-injection.yaml
 
 . as $root
@@ -8,9 +9,11 @@
       "org.jboss.seam.log.Log $LOG = $$$_;\n$$$_"
     ])) as $all
     | ( $all | of(["$LOG.$INFO($X + $Y,$$$_)"])
-          | at_same_place((($all)
-          + ($all)))
-          | where_capture("INFO"; "(debug|error|fatal|info|trace|warn)")
+          | at_same_place((($all
+          | in_files_with($all | of(["import org.jboss.seam.log.Log;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["org.jboss.seam.log.Log $LOG = $$$_;\n$$$_"])))))
+          | where_capture("INFO"; "^(?:(debug|error|fatal|info|trace|warn))")
         | finding("seam-log-injection";
             "Seam Logging API support an expression language to introduce bean property to log messages.") ) )
 | report

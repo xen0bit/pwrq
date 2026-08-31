@@ -1,0 +1,17 @@
+# rules: laravel-cookie-long-timeout
+# languages: php
+# from: php/laravel/security/laravel-cookie-long-timeout.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "'lifetime'",
+      "return [\n  $$$_,\n  'lifetime' => $TIME,\n  $$$_\n];",
+      "return [\n  $$$_,\n  'lifetime' => env(\"$VAR\", $DEFAULT),\n  $$$_\n];"
+    ])) as $all
+    | ( $all | of(["'lifetime'"])
+          | within($all | of(["return [\n  $$$_,\n  'lifetime' => $TIME,\n  $$$_\n];"]))
+          | outside($all | of(["return [\n  $$$_,\n  'lifetime' => env(\"$VAR\", $DEFAULT),\n  $$$_\n];"]))
+          | where_capture_compare("$TIME > 30")
+        | finding("laravel-cookie-long-timeout";
+            "Found a configuration file where the lifetime attribute is over 30 minutes.") ) )
+| report

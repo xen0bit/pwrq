@@ -1,0 +1,16 @@
+# rules: azure-redis-cache-public-network-access-enabled
+# languages: hcl
+# from: terraform/azure/security/azure-redis-cache-public-network-access-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_redis_cache\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}",
+      "resource \"azurerm_redis_cache\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_redis_cache\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_redis_cache\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}"]))
+        | finding("azure-redis-cache-public-network-access-enabled";
+            "Ensure that Azure Cache for Redis disables public network access") ) )
+| report

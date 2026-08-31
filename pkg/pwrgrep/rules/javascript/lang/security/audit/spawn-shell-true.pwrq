@@ -1,4 +1,5 @@
 # rules: spawn-shell-true
+# languages: javascript, typescript
 # from: javascript/lang/security/audit/spawn-shell-true.yaml
 
 . as $root

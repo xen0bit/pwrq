@@ -1,0 +1,16 @@
+# rules: azure-search-publicnetwork-access-disabled
+# languages: hcl
+# from: terraform/azure/security/azure-search-publicnetwork-access-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_search_service\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}",
+      "resource \"azurerm_search_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_search_service\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_search_service\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}"]))
+        | finding("azure-search-publicnetwork-access-disabled";
+            "Ensure that Azure Cognitive Search disables public network access") ) )
+| report

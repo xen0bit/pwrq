@@ -1,0 +1,33 @@
+# rules: X509-subject-name-validation
+# from: csharp/lang/security/cryptography/X509-subject-name-validation.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.cs"]; [
+      "\"[\\s\\S]*?\"\\s+!=\\s+(?P<NAME>\\S+)",
+      "\"[\\s\\S]*?\"\\s+==\\s+(?P<NAME>\\S+)",
+      "(?P<NAME>\\S+)\\.Equals\\(\"[\\s\\S]*?\"\\)",
+      "(?P<NAME>\\S+)\\s+!=\\s+\"[\\s\\S]*?\"",
+      "(?P<NAME>\\S+)\\s+==\\s+\"[\\s\\S]*?\"",
+      "(?P<T>\\S+)\\s+(?P<M>\\S+)\\([\\s\\S]*?,\\s+X509Certificate2\\s+(?P<CERT>\\S+),\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "(?P<T>\\S+)\\s+(?P<M>\\S+)\\([\\s\\S]*?,\\s+X509SecurityToken\\s+(?P<TOK>\\S+),\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "String\\.Equals\\(\"[\\s\\S]*?\",\\s+(?P<NAME>\\S+)\\)",
+      "String\\.Equals\\((?P<NAME>\\S+),\\s+\"[\\s\\S]*?\"\\)",
+      "X509Certificate2\\s+(?P<CERT>\\S+)\\s+=\\s+new\\s+X509Certificate2\\([\\s\\S]*?\\);\\s+[\\s\\S]*?",
+      "X509SecurityToken\\s+(?P<TOK>\\S+)\\s+=\\s+(?P<RHS>\\S+);\\s+[\\s\\S]*?",
+      "foreach\\s+\\(X509Certificate2\\s+(?P<CERT>\\S+)\\s+in\\s+(?P<COLLECTION>\\S+)\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "using\\s+System\\.IdentityModel\\.Tokens;\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( (($all
+          | in_files_with($all | of(["X509SecurityToken\\s+(?P<TOK>\\S+)\\s+=\\s+(?P<RHS>\\S+);\\s+[\\s\\S]*?"])))
+          + ($all
+          | within($all | of(["(?P<T>\\S+)\\s+(?P<M>\\S+)\\([\\s\\S]*?,\\s+X509SecurityToken\\s+(?P<TOK>\\S+),\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))))
+          + (($all
+          | in_files_with($all | of(["X509Certificate2\\s+(?P<CERT>\\S+)\\s+=\\s+new\\s+X509Certificate2\\([\\s\\S]*?\\);\\s+[\\s\\S]*?"])))
+          + ($all
+          | within($all | of(["(?P<T>\\S+)\\s+(?P<M>\\S+)\\([\\s\\S]*?,\\s+X509Certificate2\\s+(?P<CERT>\\S+),\\s+[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["foreach\\s+\\(X509Certificate2\\s+(?P<CERT>\\S+)\\s+in\\s+(?P<COLLECTION>\\S+)\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))))
+          | in_files_with($all | of(["using\\s+System\\.IdentityModel\\.Tokens;\\s+[\\s\\S]*?"]))
+        | finding("X509-subject-name-validation";
+            "Validating certificates based on subject name is bad practice.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: use-sys-exit
+# languages: python
 # from: python/lang/correctness/exit.yaml
 
 . as $root

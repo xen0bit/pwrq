@@ -1,0 +1,22 @@
+# rules: csv-writer-injection
+# languages: python
+# from: python/django/security/injection/csv-writer-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$WRITER = csv.writer($$$_)\n\n$$$_\n\n$WRITER.$WRITE($$$_)",
+      "$WRITER.$WRITE($$$_)",
+      "def $FUNC($$$_, $REQUEST, $$$_):\n  $$$_",
+      "request",
+      "request.build_absolute_uri"
+    ])) as $all
+    | ( (($all | of(["$WRITER.$WRITE($$$_)"])
+          | within($all | of(["$WRITER = csv.writer($$$_)\n\n$$$_\n\n$WRITER.$WRITE($$$_)"]))
+          | where_capture("WRITE"; "^(writerow|writerows|writeheader)$")))
+          | reaching((($all
+          | within($all | of(["def $FUNC($$$_, $REQUEST, $$$_):\n  $$$_"]))
+          | focus("REQUEST")));
+              ([]))
+        | finding("csv-writer-injection";
+            "Detected user input into a generated CSV file using the built-in `csv` module.") ) )
+| report

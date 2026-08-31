@@ -1,4 +1,5 @@
 # rules: hibernate-sqli
+# languages: java
 # from: java/lang/security/audit/sqli/hibernate-sqli.yaml
 
 . as $root
@@ -19,23 +20,31 @@
       "org.hibernate.criterion.Restrictions.sqlRestriction($X + $Y,$$$_)",
       "org.hibernate.criterion.Restrictions.sqlRestriction(String.format($$$_),$$$_)"
     ])) as $all
-    | ( (($all)
-          + ($all)
-          + ($all)
+    | ( (($all
+          | in_files_with($all | of(["String $SQL = $X + $Y;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["String $SQL = String.format($$$_);\n$$$_"])))
+          + ($all
+          | within($all | of(["$VAL $FUNC($$$_,String $SQL,$$$_) {\n$$$_\n}"])))
           | at_same_place(($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction($SQL,$$$_)"])))
           | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
           + ($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction(String.format($$$_),$$$_)"]))
           + ($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction($X + $Y,$$$_)"])
           | not_at($all | of(["org.hibernate.criterion.Restrictions.sqlRestriction(\"$$$_\" + \"$$$_\",$$$_)"])))
-          + ((($all)
-          + ($all)
-          + ($all)
+          + ((($all
+          | in_files_with($all | of(["String $SQL = $X + $Y;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["String $SQL = String.format($$$_);\n$$$_"])))
+          + ($all
+          | within($all | of(["$TYPE $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}"])))
           | at_same_place(($all | of(["$SESSION.$METHOD($SQL,$$$_)"])))
           | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
           + ($all | of(["$SESSION.$METHOD(String.format($$$_),$$$_);"]))
           + ($all | of(["$SESSION.$METHOD($X + $Y,$$$_);"]))
-          | at_same_place((($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["org.hibernate.Session $SESSION = $$$_;\n$$$_"])))
+          + ($all
+          | within($all | of(["$TYPE $FUNC($$$_,org.hibernate.Session $SESSION,$$$_) {\n  $$$_\n}"])))))
           | not_at($all | of(["$SESSION.$METHOD(\"$$$_\" + \"$$$_\",$$$_);"]))
           | where_capture("METHOD"; "^(createQuery|createSQLQuery)$"))
         | finding("hibernate-sqli";

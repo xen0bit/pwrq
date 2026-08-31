@@ -1,4 +1,5 @@
 # rules: apollo-axios-ssrf
+# languages: javascript
 # from: javascript/apollo/security/apollo-axios-ssrf.yaml
 
 . as $root

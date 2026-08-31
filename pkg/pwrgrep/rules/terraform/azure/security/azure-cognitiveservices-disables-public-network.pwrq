@@ -1,0 +1,16 @@
+# rules: azure-cognitiveservices-disables-public-network
+# languages: hcl
+# from: terraform/azure/security/azure-cognitiveservices-disables-public-network.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_cognitive_account\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}",
+      "resource \"azurerm_cognitive_account\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_cognitive_account\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_cognitive_account\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-cognitiveservices-disables-public-network";
+            "Ensure that Cognitive Services accounts disable public network access") ) )
+| report

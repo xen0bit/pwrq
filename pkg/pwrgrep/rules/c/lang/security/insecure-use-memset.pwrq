@@ -1,4 +1,5 @@
 # rules: insecure-use-memset
+# languages: c
 # from: c/lang/security/insecure-use-memset.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: bypass-tls-verification
+# languages: javascript, typescript
 # from: problem-based-packs/insecure-transport/js-node/bypass-tls-verification.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: avoid-apk-upgrade
+# languages: dockerfile
 # from: dockerfile/best-practice/avoid-apk-upgrade.yaml
 
 . as $root

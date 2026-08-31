@@ -1,4 +1,5 @@
 # rules: file-object-redefined-before-close
+# languages: python
 # from: python/lang/correctness/file-object-redefined-before-close.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: telnet-request
+# languages: go
 # from: problem-based-packs/insecure-transport/go-stdlib/telnet-request.yaml
 
 . as $root

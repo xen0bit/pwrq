@@ -1,0 +1,55 @@
+# rules: jquery-insecure-selector
+# languages: javascript, typescript
+# from: javascript/jquery/security/audit/jquery-insecure-selector.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$(\"$$$_\" + ($PWRQDEEP1))",
+      "$($PWRQDEEP1)",
+      "$(($PWRQDEEP1) + \"$$$_\")",
+      "$(document)",
+      "$(this)",
+      "$(window)",
+      "$JQUERY.each(function($INDEX, $Y) {\n  $$$_\n})",
+      "$X = $PWRQDEEP1;\n$$$_\n$($PWRQDEEP2);",
+      "function $FUNC($$$_, $Y, $$$_) {\n  $$$_\n}",
+      "function $FUNC($$$_,$Z,$$$_) {\n  $$$_\n  $Y = $PWRQDEEP1;\n  $$$_\n}",
+      "function ($$$_, $Y, $$$_) {\n  $$$_\n}",
+      "function ($$$_,$Z,$$$_) {\n  $$$_\n  $Y = $PWRQDEEP1;\n  $$$_\n}"
+    ])) as $all
+    | ( ($all | of(["$($PWRQDEEP1)"])
+          | where_capture_ast("PWRQDEEP1"; "window"))
+          + ($all | of(["$($PWRQDEEP1)"])
+          | where_capture_ast("PWRQDEEP1"; "location"))
+          + ($all | of(["$X = $PWRQDEEP1;\n$$$_\n$($PWRQDEEP2);"])
+          | where_capture_ast("PWRQDEEP1"; "window")
+          | where_capture_ast("PWRQDEEP2"; "$X")
+          | focus("X"))
+          + ($all | of(["$X = $PWRQDEEP1;\n$$$_\n$($PWRQDEEP2);"])
+          | where_capture_ast("PWRQDEEP1"; "location")
+          | where_capture_ast("PWRQDEEP2"; "$X")
+          | focus("X"))
+          + (($all
+          | within($all | of(["function $FUNC($$$_, $Y, $$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["function ($$$_, $Y, $$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["function $FUNC($$$_,$Z,$$$_) {\n  $$$_\n  $Y = $PWRQDEEP1;\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$Z")))
+          + ($all
+          | within($all | of(["function ($$$_,$Z,$$$_) {\n  $$$_\n  $Y = $PWRQDEEP1;\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$Z")))
+          | at_same_place((($all | of(["$($PWRQDEEP1)"])
+          | where_capture_ast("PWRQDEEP1"; "$Y"))
+          + ($all | of(["$(\"$$$_\" + ($PWRQDEEP1))"])
+          | where_capture_ast("PWRQDEEP1"; "$Y"))
+          + ($all | of(["$(($PWRQDEEP1) + \"$$$_\")"])
+          | where_capture_ast("PWRQDEEP1"; "$Y"))))
+          | outside($all | of(["$JQUERY.each(function($INDEX, $Y) {\n  $$$_\n})"]))
+          | focus("Y"))
+          | not_at($all | of(["$(window)"]))
+          | not_at($all | of(["$(document)"]))
+          | not_at($all | of(["$(this)"]))
+        | finding("jquery-insecure-selector";
+            "User controlled data in a `$(...)` is an anti-pattern that can lead to XSS vulnerabilities") ) )
+| report

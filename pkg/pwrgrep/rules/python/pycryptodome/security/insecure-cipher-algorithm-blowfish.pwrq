@@ -1,4 +1,5 @@
 # rules: insecure-cipher-algorithm-blowfish
+# languages: python
 # from: python/pycryptodome/security/insecure-cipher-algorithm-blowfish.yaml
 
 . as $root

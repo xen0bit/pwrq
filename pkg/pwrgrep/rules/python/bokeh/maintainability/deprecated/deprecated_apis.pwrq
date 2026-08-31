@@ -1,4 +1,5 @@
 # rules: bokeh-deprecated-apis
+# languages: python
 # from: python/bokeh/maintainability/deprecated/deprecated_apis.yaml
 
 . as $root

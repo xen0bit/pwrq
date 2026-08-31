@@ -1,0 +1,23 @@
+# rules: pull-request-target-code-checkout
+# from: yaml/github-actions/security/pull-request-target-code-checkout.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "[\\s\\S]*?\\s+uses:\\s+\"(?P<ACTION>\\S+)\"\\s+with:\\s+[\\s\\S]*?\\s+ref:\\s+(?P<EXPR>\\S+)",
+      "jobs:\\s+[\\s\\S]*?\\s+(?P<JOBNAME>\\S+):\\s+[\\s\\S]*?\\s+steps:\\s+[\\s\\S]*?",
+      "on:\\s+[\\s\\S]*?\\s+pull_request_target:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "on:\\s+\\[[\\s\\S]*?,\\s+pull_request_target,\\s+[\\s\\S]*?\\]\\s+[\\s\\S]*?",
+      "on:\\s+pull_request_target\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( ($all
+          | in_files_with($all | of(["on:\\s+[\\s\\S]*?\\s+pull_request_target:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["on:\\s+\\[[\\s\\S]*?,\\s+pull_request_target,\\s+[\\s\\S]*?\\]\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["on:\\s+pull_request_target\\s+[\\s\\S]*?"])))
+          | at_same_place(($all | of(["[\\s\\S]*?\\s+uses:\\s+\"(?P<ACTION>\\S+)\"\\s+with:\\s+[\\s\\S]*?\\s+ref:\\s+(?P<EXPR>\\S+)"])))
+          | within($all | of(["jobs:\\s+[\\s\\S]*?\\s+(?P<JOBNAME>\\S+):\\s+[\\s\\S]*?\\s+steps:\\s+[\\s\\S]*?"]))
+          | where_capture("ACTION"; "^(?:actions/checkout@.*)")
+        | finding("pull-request-target-code-checkout";
+            "This GitHub Actions workflow file uses `pull_request_target` and checks out code from the incoming pull request.") ) )
+| report

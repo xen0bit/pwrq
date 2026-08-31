@@ -1,4 +1,5 @@
 # rules: avoid-raw
+# languages: ruby
 # from: ruby/rails/security/audit/xss/avoid-raw.yaml
 
 . as $root

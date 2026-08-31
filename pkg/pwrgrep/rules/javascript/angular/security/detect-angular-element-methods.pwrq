@@ -1,0 +1,33 @@
+# rules: detect-angular-element-methods
+# languages: javascript, typescript
+# from: javascript/angular/security/detect-angular-element-methods.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$ANGULAR = angular.element($$$_)\n$$$_\n$ANGULAR. $$$_ .$SINK($QUERY)",
+      "$injector.get('$rootScope')",
+      "$injector.get('$scope')",
+      "$rootScope",
+      "$sanitize($$$_)",
+      "$sce.getTrustedHtml($$$_)",
+      "DOMPurify.sanitize($$$_)",
+      "angular.element($$$_). $$$_ .$SINK($QUERY)",
+      "function($$$_, $SCOPE, $$$_) { $$$_ }"
+    ])) as $all
+    | ( ((($all
+          | within($all | of(["angular.element($$$_). $$$_ .$SINK($QUERY)"])))
+          + ($all
+          | within($all | of(["$ANGULAR = angular.element($$$_)\n$$$_\n$ANGULAR. $$$_ .$SINK($QUERY)"])))
+          | where_capture("SINK"; "^(after|append|html|prepend|replaceWith|wrap)$")
+          | focus("QUERY")))
+          | reaching(((($all
+          | within($all | of(["function($$$_, $SCOPE, $$$_) { $$$_ }"]))
+          | focus("SCOPE")
+          | where_capture("SCOPE"; "^\\$scope$"))
+          + ($all | of(["$rootScope"]))
+          + ($all | of(["$injector.get('$rootScope')"]))
+          + ($all | of(["$injector.get('$scope')"]))));
+              (($all | of(["$sce.getTrustedHtml($$$_)","$sanitize($$$_)","DOMPurify.sanitize($$$_)"]))))
+        | finding("detect-angular-element-methods";
+            "Use of angular.element can lead to XSS if user-input is treated as part of the HTML element within `$SINK`.") ) )
+| report

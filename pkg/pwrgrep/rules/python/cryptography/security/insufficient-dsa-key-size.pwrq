@@ -1,0 +1,15 @@
+# rules: insufficient-dsa-key-size
+# languages: python
+# from: python/cryptography/security/insufficient-dsa-key-size.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "cryptography.hazmat.primitives.asymmetric.dsa.generate_private_key($$$_, key_size=$SIZE, $$$_)",
+      "cryptography.hazmat.primitives.asymmetric.dsa.generate_private_key($SIZE, $$$_)"
+    ])) as $all
+    | ( $all | of(["cryptography.hazmat.primitives.asymmetric.dsa.generate_private_key($$$_, key_size=$SIZE, $$$_)","cryptography.hazmat.primitives.asymmetric.dsa.generate_private_key($SIZE, $$$_)"])
+          | where_capture_compare("$SIZE < 2048")
+          | focus("SIZE")
+        | finding("insufficient-dsa-key-size";
+            "Detected an insufficient key size for DSA.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: pass-body-fn, pass-body-range
+# languages: python
 # from: python/lang/best-practice/pass-body.yaml
 
 . as $root

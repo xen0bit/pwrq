@@ -1,0 +1,20 @@
+# rules: django-no-csrf-token
+# from: python/django/security/django-no-csrf-token.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.html"]; [
+      "<form[\\s\\S]*?>[\\s\\S]*?<\\/form>",
+      "<form[\\s\\S]*?>[\\s\\S]*?\\{%\\s+csrf_token\\s+%\\}[\\s\\S]*?<\\/form>",
+      "<form[\\s\\S]*?>[\\s\\S]*?\\{\\{\\s+(?P<VAR>\\S+)\\.csrf_token\\s+\\}\\}[\\s\\S]*?<\\/form>",
+      "<form\\s+[\\s\\S]*?\\s+method=\"(?P<METHOD>\\S+)\"\\s+[\\s\\S]*?>[\\s\\S]*?<\\/form>",
+      "<form\\s+[\\s\\S]*?\\s+method='(?P<METHOD>\\S+)'\\s+[\\s\\S]*?>[\\s\\S]*?<\\/form>",
+      "<form\\s+[\\s\\S]*?\\s+method=(?P<METHOD>\\S+)\\s+[\\s\\S]*?>[\\s\\S]*?<\\/form>"
+    ])) as $all
+    | ( $all | of(["<form[\\s\\S]*?>[\\s\\S]*?<\\/form>"])
+          | at_same_place(($all | of(["<form\\s+[\\s\\S]*?\\s+method=\"(?P<METHOD>\\S+)\"\\s+[\\s\\S]*?>[\\s\\S]*?<\\/form>","<form\\s+[\\s\\S]*?\\s+method='(?P<METHOD>\\S+)'\\s+[\\s\\S]*?>[\\s\\S]*?<\\/form>","<form\\s+[\\s\\S]*?\\s+method=(?P<METHOD>\\S+)\\s+[\\s\\S]*?>[\\s\\S]*?<\\/form>"])))
+          | where_capture("METHOD"; "^(?:(?i)(post|put|delete|patch))")
+          | outside($all | of(["<form[\\s\\S]*?>[\\s\\S]*?\\{%\\s+csrf_token\\s+%\\}[\\s\\S]*?<\\/form>"]))
+          | outside($all | of(["<form[\\s\\S]*?>[\\s\\S]*?\\{\\{\\s+(?P<VAR>\\S+)\\.csrf_token\\s+\\}\\}[\\s\\S]*?<\\/form>"]))
+        | finding("django-no-csrf-token";
+            "Manually-created forms in django templates should specify a csrf_token to prevent CSRF attacks.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: dangerous-syscall
+# languages: ruby
 # from: ruby/lang/security/dangerous-syscall.yaml
 
 . as $root

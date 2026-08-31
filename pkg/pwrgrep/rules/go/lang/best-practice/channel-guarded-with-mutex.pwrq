@@ -1,4 +1,5 @@
 # rules: channel-guarded-with-mutex
+# languages: go
 # from: go/lang/best-practice/channel-guarded-with-mutex.yaml
 
 . as $root

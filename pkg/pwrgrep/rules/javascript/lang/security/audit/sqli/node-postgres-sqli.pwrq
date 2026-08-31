@@ -1,0 +1,35 @@
+# rules: node-postgres-sqli
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/sqli/node-postgres-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$DB = new $CLIENT($$$_)\n$$$_",
+      "$DB.query($QUERY,$$$_)",
+      "$F. $$$_ .$SOURCE($$$_)",
+      "$NEWPOOL = new $CLIENT($$$_)\n$$$_\n$NEWPOOL.connect(($$$_, $DB, $$$_) => {\n    $$$_\n})",
+      "const { $CLIENT } = require('pg')\n $$$_",
+      "function $$$_ ($$$_,$FUNC,$$$_) {\n  $$$_\n}",
+      "let { $CLIENT } = require('pg')\n $$$_",
+      "var { $CLIENT } = require('pg')\n $$$_"
+    ])) as $all
+    | ( ((($all
+          | within($all | of(["const { $CLIENT } = require('pg')\n $$$_"])))
+          + ($all
+          | within($all | of(["var { $CLIENT } = require('pg')\n $$$_"])))
+          + ($all
+          | within($all | of(["let { $CLIENT } = require('pg')\n $$$_"])))
+          | at_same_place((($all
+          | in_files_with($all | of(["$DB = new $CLIENT($$$_)\n$$$_"])))
+          + ($all
+          | within($all | of(["$NEWPOOL = new $CLIENT($$$_)\n$$$_\n$NEWPOOL.connect(($$$_, $DB, $$$_) => {\n    $$$_\n})"])))))
+          | at_same_place(($all | of(["$DB.query($QUERY,$$$_)"])))
+          | focus("QUERY")))
+          | reaching((($all
+          | within($all | of(["function $$$_ ($$$_,$FUNC,$$$_) {\n  $$$_\n}"]))
+          | focus("FUNC")
+          | outside($all | of(["$F. $$$_ .$SOURCE($$$_)"]))));
+              ([]))
+        | finding("node-postgres-sqli";
+            "Detected string concatenation with a non-literal variable in a node-postgres JS SQL statement.") ) )
+| report

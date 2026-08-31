@@ -1,4 +1,5 @@
 # rules: use-earliest-or-latest
+# languages: python
 # from: python/django/performance/upsell_earliest_latest.yaml
 
 . as $root

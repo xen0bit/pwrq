@@ -1,4 +1,5 @@
 # rules: info-leak-on-non-formated-string
+# languages: c
 # from: c/lang/security/info-leak-on-non-formatted-string.yaml
 
 . as $root

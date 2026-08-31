@@ -1,0 +1,20 @@
+# rules: mongodb-nosqli
+# from: java/mongodb/security/injection/audit/mongodb-nosqli.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.java"]; [
+      "\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+String\\s+json\\s+=\\s+new\\s+JSONObject\\((?P<MAP>\\S+)\\)\\.toString\\(\\);\\s+[\\s\\S]*?\\s+\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.parse\\(\\(String\\s+(?P<JSON>\\S+)\\)\\);",
+      "\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.putAll\\((?P<MAP>\\S+)\\);",
+      "\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+com\\.mongodb\\.BasicDBObjectBuilder\\.start\\((?P<MAP>\\S+)\\);",
+      "\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+new\\s+com\\.mongodb\\.BasicDBObject\\((?P<MAP>\\S+)\\);",
+      "\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.append\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);",
+      "\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);",
+      "com\\.mongodb\\.BasicDBObjectBuilder\\.start\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);",
+      "com\\.mongodb\\.BasicDBObjectBuilder\\.start\\(\\)\\.add\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);",
+      "com\\.mongodb\\.BasicDBObjectBuilder\\.start\\(\\)\\.append\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);",
+      "new\\s+com\\.mongodb\\.BasicDBObject\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);"
+    ])) as $all
+    | ( $all | of(["\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);","\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.putAll\\((?P<MAP>\\S+)\\);","\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.append\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);","new\\s+com\\.mongodb\\.BasicDBObject\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);","\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+new\\s+com\\.mongodb\\.BasicDBObject\\((?P<MAP>\\S+)\\);","\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+String\\s+json\\s+=\\s+new\\s+JSONObject\\((?P<MAP>\\S+)\\)\\.toString\\(\\);\\s+[\\s\\S]*?\\s+\\(com\\.mongodb\\.BasicDBObject\\s+(?P<QUERY>\\S+)\\)\\.parse\\(\\(String\\s+(?P<JSON>\\S+)\\)\\);","com\\.mongodb\\.BasicDBObjectBuilder\\.start\\(\\)\\.add\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);","com\\.mongodb\\.BasicDBObjectBuilder\\.start\\(\\)\\.append\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);","com\\.mongodb\\.BasicDBObjectBuilder\\.start\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);","\\(HashMap<String,\\s+String>\\s+(?P<MAP>\\S+)\\)\\.put\\(\"\\$where\",\\s+(?P<INPUT>\\S+)\\);\\s+[\\s\\S]*?\\s+com\\.mongodb\\.BasicDBObjectBuilder\\.start\\((?P<MAP>\\S+)\\);"])
+        | finding("mongodb-nosqli";
+            "Detected non-constant data passed into a NoSQL query using the 'where' evaluation operator.") ) )
+| report

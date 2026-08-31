@@ -2,13 +2,13 @@
 # from: python/correctness/suppressed-exception-handling-finally-break.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.py"]; [
-      "try:\n  $$$_\n  return $$$_\nfinally:\n  $$$_\n  return $$$_",
-      "try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  break",
-      "try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  continue",
-      "try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  return $$$_"
+| ( ($root | scan_regex(["*.py"]; [
+      "try:\\s+[\\s\\S]*?\\s+except\\s+(?P<EXCEPTION>\\S+):\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+break",
+      "try:\\s+[\\s\\S]*?\\s+except\\s+(?P<EXCEPTION>\\S+):\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+continue",
+      "try:\\s+[\\s\\S]*?\\s+except\\s+(?P<EXCEPTION>\\S+):\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+return\\s+[\\s\\S]*?",
+      "try:\\s+[\\s\\S]*?\\s+return\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+return\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  break","try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  continue","try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  return $$$_","try:\n  $$$_\n  return $$$_\nfinally:\n  $$$_\n  return $$$_"])
+    | ( $all | of(["try:\\s+[\\s\\S]*?\\s+except\\s+(?P<EXCEPTION>\\S+):\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+break","try:\\s+[\\s\\S]*?\\s+except\\s+(?P<EXCEPTION>\\S+):\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+continue","try:\\s+[\\s\\S]*?\\s+except\\s+(?P<EXCEPTION>\\S+):\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+return\\s+[\\s\\S]*?","try:\\s+[\\s\\S]*?\\s+return\\s+[\\s\\S]*?\\s+finally:\\s+[\\s\\S]*?\\s+return\\s+[\\s\\S]*?"])
         | finding("suppressed-exception-handling-finally-break";
             "Having a `break`, `continue`, or `return` in a `finally` block will cause strange behaviors, like exceptions not being caught.") ) )
 | report

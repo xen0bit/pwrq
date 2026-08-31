@@ -1,0 +1,16 @@
+# rules: azure-monitor-log-profile-categories
+# languages: hcl
+# from: terraform/azure/best-practice/azure-monitor-log-profile-categories.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\ncategories = [\n\"Action\",\n\"Delete\",\n\"Write\",\n]\n$$$_\n}",
+      "resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\ncategories = [\n\"Action\",\n\"Delete\",\n\"Write\",\n]\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-monitor-log-profile-categories";
+            "Ensure audit profile captures all the activities") ) )
+| report

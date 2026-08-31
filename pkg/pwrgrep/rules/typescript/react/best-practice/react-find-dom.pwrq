@@ -1,4 +1,5 @@
 # rules: react-find-dom
+# languages: javascript, typescript
 # from: typescript/react/best-practice/react-find-dom.yaml
 
 . as $root

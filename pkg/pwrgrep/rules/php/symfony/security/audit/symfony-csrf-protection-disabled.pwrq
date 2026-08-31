@@ -1,0 +1,25 @@
+# rules: symfony-csrf-protection-disabled
+# languages: php
+# from: php/symfony/security/audit/symfony-csrf-protection-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$VAL = false;\n$$$_",
+      "$X->createForm($TYPE, $TASK, [$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)",
+      "$X->createForm($TYPE, $TASK, [$$$_, 'csrf_protection' => false, $$$_], $$$_)",
+      "$X->loadFromExtension('framework', [$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)",
+      "$X->loadFromExtension('framework', [$$$_, 'csrf_protection' => false, $$$_], $$$_)",
+      "$X->prependExtensionConfig('framework', [$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)",
+      "$X->prependExtensionConfig('framework', [$$$_, 'csrf_protection' => false, $$$_], $$$_)",
+      "$X->setDefaults([$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)",
+      "$X->setDefaults([$$$_, 'csrf_protection' => false, $$$_], $$$_)"
+    ])) as $all
+    | ( ($all | of(["$X->createForm($TYPE, $TASK, [$$$_, 'csrf_protection' => false, $$$_], $$$_)"]))
+          + ($all | of(["$X->prependExtensionConfig('framework', [$$$_, 'csrf_protection' => false, $$$_], $$$_)"]))
+          + ($all | of(["$X->loadFromExtension('framework', [$$$_, 'csrf_protection' => false, $$$_], $$$_)"]))
+          + ($all | of(["$X->setDefaults([$$$_, 'csrf_protection' => false, $$$_], $$$_)"]))
+          + ($all | of(["$X->createForm($TYPE, $TASK, [$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)","$X->prependExtensionConfig('framework', [$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)","$X->loadFromExtension('framework', [$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)","$X->setDefaults([$$$_, 'csrf_protection' => $VAL, $$$_], $$$_)"])
+          | in_files_with($all | of(["$VAL = false;\n$$$_"])))
+        | finding("symfony-csrf-protection-disabled";
+            "CSRF protection is disabled for this configuration.") ) )
+| report

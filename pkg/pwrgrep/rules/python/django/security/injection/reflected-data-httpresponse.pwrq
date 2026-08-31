@@ -1,4 +1,5 @@
 # rules: reflected-data-httpresponse
+# languages: python
 # from: python/django/security/injection/reflected-data-httpresponse.yaml
 
 . as $root

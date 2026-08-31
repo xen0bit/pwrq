@@ -1,4 +1,5 @@
 # rules: shelljs-exec-injection
+# languages: javascript, typescript
 # from: javascript/shelljs/security/shelljs-exec-injection.yaml
 
 . as $root

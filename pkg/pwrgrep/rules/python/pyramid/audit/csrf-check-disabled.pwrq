@@ -1,0 +1,15 @@
+# rules: pyramid-csrf-check-disabled
+# languages: python
+# from: python/pyramid/audit/csrf-check-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$REQUIRE_CSRF",
+      "from pyramid.view import view_config\n$$$_\n@view_config($$$_, require_csrf=$REQUIRE_CSRF, $$$_)\ndef $VIEW($$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["$REQUIRE_CSRF"])
+          | within($all | of(["from pyramid.view import view_config\n$$$_\n@view_config($$$_, require_csrf=$REQUIRE_CSRF, $$$_)\ndef $VIEW($$$_):\n  $$$_"]))
+          | where_capture("REQUIRE_CSRF"; "^(?i:False)$")
+        | finding("pyramid-csrf-check-disabled";
+            "CSRF protection is disabled for this view.") ) )
+| report

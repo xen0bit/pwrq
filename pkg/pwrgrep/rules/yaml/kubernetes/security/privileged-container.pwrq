@@ -2,18 +2,18 @@
 # from: yaml/kubernetes/security/privileged-container.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "containers:\n  $$$_",
-      "image: $$$_\n$$$_",
-      "image: $$$_\n$$$_\nsecurityContext:\n  $$$_\n  privileged: true",
-      "privileged: true",
-      "spec:\n  $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "containers:\\s+[\\s\\S]*?",
+      "image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+securityContext:\\s+[\\s\\S]*?\\s+privileged:\\s+true",
+      "privileged:\\s+true",
+      "spec:\\s+[\\s\\S]*?"
     ])) as $all
-    | ( ($all | of(["image: $$$_\n$$$_\nsecurityContext:\n  $$$_\n  privileged: true"])
-          | within($all | of(["containers:\n  $$$_"])))
-          + ($all | of(["privileged: true"])
-          | within($all | of(["spec:\n  $$$_"]))
-          | in_files_without($all | of(["image: $$$_\n$$$_"])))
+    | ( ($all | of(["image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+securityContext:\\s+[\\s\\S]*?\\s+privileged:\\s+true"])
+          | within($all | of(["containers:\\s+[\\s\\S]*?"])))
+          + ($all | of(["privileged:\\s+true"])
+          | within($all | of(["spec:\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?"])))
         | finding("privileged-container";
             "Container or pod is running in privileged mode.") ) )
 | report

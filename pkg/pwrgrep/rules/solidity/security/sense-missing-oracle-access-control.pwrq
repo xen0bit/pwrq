@@ -1,0 +1,23 @@
+# rules: sense-missing-oracle-access-control
+# languages: solidity
+# from: solidity/security/sense-missing-oracle-access-control.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "$$$_\nif (_msgSender() == $BALANCER) { $$$_ }\n$$$_",
+      "$$$_\nif (msg.sender == $BALANCER) { $$$_ }\n$$$_",
+      "$$$_\nrequire(_msgSender() == address($BALANCER),$$$_);\n$$$_",
+      "$$$_\nrequire(msg.sender == address($BALANCER),$$$_);\n$$$_",
+      "_updateOracle($LASTBLOCK,$$$_,$$$_)",
+      "function $F($$$_,$D $REQUEST,$$$_) external onlyVault($$$_) {\n    $$$_\n}",
+      "function $F($$$_,$D $REQUEST,$$$_) external {\n    $$$_\n}",
+      "function $F($$$_,$D $REQUEST,$$$_) public {\n    $$$_\n}"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["function $F($$$_,$D $REQUEST,$$$_) external {\n    $$$_\n}"])))
+          + ($all
+          | within($all | of(["function $F($$$_,$D $REQUEST,$$$_) public {\n    $$$_\n}"])))
+          | outside($all | of(["function $F($$$_,$D $REQUEST,$$$_) external onlyVault($$$_) {\n    $$$_\n}"]))
+        | finding("sense-missing-oracle-access-control";
+            "Oracle update is not restricted in $F()") ) )
+| report

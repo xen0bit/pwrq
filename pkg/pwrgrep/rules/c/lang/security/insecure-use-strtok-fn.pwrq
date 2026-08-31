@@ -1,4 +1,5 @@
 # rules: insecure-use-strtok-fn
+# languages: c
 # from: c/lang/security/insecure-use-strtok-fn.yaml
 
 . as $root

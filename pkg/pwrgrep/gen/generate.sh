@@ -61,7 +61,7 @@ for name in sorted(os.listdir(out)):
 PY
 
 find "$SRC" \( -name '*.yaml' -o -name '*.yml' \) -type f \
-  | grep -vE '/(\.git|scripts|stats|libsonnet)/|/template\.yaml$' \
+  | grep -vE '/(\.git|scripts|stats|libsonnet)/|/template\.yaml$|\.test\.ya?ml$' \
   | sort \
   | xargs -P "$JOBS" -I{} bash -c 'port_one "$@"' _ {}
 

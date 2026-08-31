@@ -1,4 +1,5 @@
 # rules: use-defusedcsv
+# languages: python
 # from: python/lang/security/use-defusedcsv.yaml
 
 . as $root

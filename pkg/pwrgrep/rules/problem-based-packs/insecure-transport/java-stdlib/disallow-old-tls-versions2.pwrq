@@ -1,0 +1,12 @@
+# rules: disallow-old-tls-versions2
+# languages: java
+# from: problem-based-packs/insecure-transport/java-stdlib/disallow-old-tls-versions2.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$VALUE. $$$_ .setProperty(\"jdk.tls.client.protocols\", \"$PATTERNS\");"
+    ])) as $all
+    | ( $all | of(["$VALUE. $$$_ .setProperty(\"jdk.tls.client.protocols\", \"$PATTERNS\");"])
+        | finding("disallow-old-tls-versions2";
+            "Detects setting client protocols to insecure versions of TLS and SSL.") ) )
+| report

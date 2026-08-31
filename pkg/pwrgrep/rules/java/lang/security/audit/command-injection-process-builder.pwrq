@@ -1,10 +1,12 @@
 # rules: command-injection-process-builder
+# languages: java
 # from: java/lang/security/audit/command-injection-process-builder.yaml
 
 . as $root
 | ( ($root | scan_ast(["*.java"]; [
       "\"$$$_\"",
       "\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\"",
+      "\"cmd\"",
       "$ARG = \"$$$_\";\n$$$_",
       "$CMD = \"$$$_\";\n$$$_",
       "$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\";\n$$$_",
@@ -66,7 +68,7 @@
           + ($all | of(["new ProcessBuilder(Arrays.asList(\"cmd\",\"/c\",$ARG,$$$_),$$$_)"]))
           + ($all | of(["new ProcessBuilder(new String[]{\"cmd\",\"/c\",$ARG,$$$_},$$$_)"]))
           + ($all | of(["new ProcessBuilder($CMD,\"/c\",$ARG,$$$_)","new ProcessBuilder(Arrays.asList($CMD,\"/c\",$ARG,$$$_),$$$_)","new ProcessBuilder(new String[]{$CMD,\"/c\",$ARG,$$$_},$$$_)"])
-          | in_files_with($all | of(["$CMD = \"cmd\";\n$$$_"])))
+          | in_files_with($all | of(["$CMD = \"cmd\";\n$$$_","\"cmd\""])))
           | in_files_without($all | of(["$ARG = \"$$$_\";\n$$$_","\"$$$_\""]))
           | not_at($all | of(["new ProcessBuilder(\"$$$_\",\"$$$_\",\"$$$_\",$$$_)"]))
           | not_at($all | of(["new ProcessBuilder(new String[]{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_)"]))
@@ -80,7 +82,7 @@
           + ($all | of(["$PB.command($CMD,\"-c\",$ARG,$$$_)","$PB.command(Arrays.asList($CMD,\"-c\",$ARG,$$$_),$$$_)","$PB.command(new String[]{$CMD,\"-c\",$ARG,$$$_},$$$_)"])
           | in_files_with($all | of(["$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\";\n$$$_","\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\""])))
           + ($all | of(["$PB.command($CMD,\"/c\",$ARG,$$$_)","$PB.command(Arrays.asList($CMD,\"/c\",$ARG,$$$_),$$$_)","$PB.command(new String[]{$CMD,\"/c\",$ARG,$$$_},$$$_)"])
-          | in_files_with($all | of(["$CMD = \"cmd\";\n$$$_"])))
+          | in_files_with($all | of(["$CMD = \"cmd\";\n$$$_","\"cmd\""])))
           | in_files_with($all | of(["$TYPE $PB = new ProcessBuilder($$$_);\n$$$_"]))
           | in_files_without($all | of(["$ARG = \"$$$_\";\n$$$_","\"$$$_\""]))
           | not_at($all | of(["$PB.command(\"$$$_\",\"$$$_\",\"$$$_\",$$$_)"]))

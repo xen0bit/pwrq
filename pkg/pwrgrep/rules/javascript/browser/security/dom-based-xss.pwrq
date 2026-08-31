@@ -1,12 +1,15 @@
 # rules: dom-based-xss
+# languages: javascript, typescript
 # from: javascript/browser/security/dom-based-xss.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.ts"]; [
-      "document.write(<$$$_ document.location.$W $$$_>)",
-      "document.write(<$$$_ location.$W $$$_>)"
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "document.write($PWRQDEEP1)"
     ])) as $all
-    | ( $all | of(["document.write(<$$$_ document.location.$W $$$_>)","document.write(<$$$_ location.$W $$$_>)"])
+    | ( ($all | of(["document.write($PWRQDEEP1)"])
+          | where_capture_ast("PWRQDEEP1"; "document.location.$W"))
+          + ($all | of(["document.write($PWRQDEEP1)"])
+          | where_capture_ast("PWRQDEEP1"; "location.$W"))
         | finding("dom-based-xss";
             "Detected possible DOM-based XSS.") ) )
 | report

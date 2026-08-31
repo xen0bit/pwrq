@@ -1,0 +1,11 @@
+# rules: avoid-zypper-update
+# from: dockerfile/best-practice/avoid-zypper-update.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "zypper\\s+update\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["zypper\\s+update\\s+[\\s\\S]*?"])
+        | finding("avoid-zypper-update";
+            "Packages in base images should be up-to-date, removing the need for 'zypper update'.") ) )
+| report

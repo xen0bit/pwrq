@@ -2,6 +2,8 @@ package astsearch
 
 import (
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/odvcencio/gotreesitter"
@@ -91,11 +93,12 @@ func (s *sexpr) isEllipsis() bool {
 // A query it cannot parse is returned unchanged. This file exists to make
 // matching stricter, and failing open is the direction that keeps a pattern
 // working when the engine's output grows a shape this parser has not seen.
-func anchorQuery(sexp string, folded map[string][]int, unit string) string {
+func anchorQuery(sexp string, folded map[string][]int, units map[string]bool, drop map[string]bool) string {
 	forms, err := parseSexp(sexp)
 	if err != nil || len(forms) == 0 {
 		return sexp
 	}
+	forms = dropMarked(forms, drop)
 	for _, form := range forms {
 		if strings.HasPrefix(form.head, "#") {
 			continue
@@ -104,12 +107,25 @@ func anchorQuery(sexp string, folded map[string][]int, unit string) string {
 		anchorChildren(form)
 	}
 	// The first form is the pattern; the rest are (#eq? ...) predicates.
-	if unit != "" && forms[0].head == unit {
-		openUnit(forms[0])
-	} else if forms[0].capture == "" {
-		forms[0].capture = rootCapture
+	root := forms[0]
+	if units[root.head] {
+		// Walk down the scaffolding a reading added. Every node a wrapper
+		// contributed is in units, so the descent stops of its own accord at
+		// the first node the caller wrote - and everything the wrapper carried
+		// on the way down goes with it.
+		for {
+			next := lone(root)
+			if next == nil || !next.isForm() || !units[next.head] {
+				break
+			}
+			root = next
+		}
+		root = openUnit(root)
+	} else if root.capture == "" {
+		root.capture = rootCapture
 	}
-	forms = append(forms, bindRepeats(forms[0])...)
+	forms = append([]*sexpr{root}, live(forms[1:], captureNames(root))...)
+	forms = append(forms, bindRepeats(root)...)
 	parts := make([]string, len(forms))
 	for i, form := range forms {
 		parts[i] = form.render()
@@ -117,27 +133,231 @@ func anchorQuery(sexp string, folded map[string][]int, unit string) string {
 	return strings.Join(parts, "\n")
 }
 
-// unitType is what a grammar calls the node holding a whole file - `module` in
-// Python, `source_file` in Go, `program` in JavaScript - or "" when it will
-// not say.
+// lone is the one child of a form that is not an ellipsis, or nil when the
+// form has none or several. Ellipses are skipped because a scaffold's own
+// parts are pruned into them - a class the reading invented has a name, and
+// the name is not one of the things the pattern is looking for.
+func lone(s *sexpr) *sexpr {
+	var found *sexpr
+	for _, c := range s.children {
+		if c.isEllipsis() {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = c
+	}
+	return found
+}
+
+// captureNames lists every @name bound anywhere in a form.
+func captureNames(s *sexpr) map[string]bool {
+	names := map[string]bool{}
+	var walk func(*sexpr)
+	walk = func(n *sexpr) {
+		if n.capture != "" {
+			names[n.capture] = true
+		}
+		for _, c := range n.children {
+			walk(c)
+		}
+	}
+	walk(s)
+	return names
+}
+
+// live drops the predicates that no longer say anything, which is what
+// descending past a scaffold leaves behind: `(#eq? @_lit_2 "void")` is a claim
+// about a method the reading invented, and the capture it names went with the
+// method. A query naming a capture it does not bind will not compile at all,
+// so this is what makes the descent legal as well as what makes it right.
+func live(preds []*sexpr, bound map[string]bool) []*sexpr {
+	kept := make([]*sexpr, 0, len(preds))
+	for _, pred := range preds {
+		ok := true
+		for _, c := range pred.children {
+			if !c.isForm() && strings.HasPrefix(c.token, "@") && !bound[strings.TrimPrefix(c.token, "@")] {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			kept = append(kept, pred)
+		}
+	}
+	return kept
+}
+
+// litCapture matches a capture name the compiler generated for a piece of the
+// pattern that is text rather than a hole.
+var litCapture = regexp.MustCompile(`_lit_\d+`)
+
+// sameShape is a query with the parts a comparison should not turn on taken out:
+// the numbers in generated capture names, which count the literals the reading
+// happened to produce; the anchors, which an ellipsis is there to loosen; and
+// the order of the predicates, which is the compiler's and not the pattern's.
 //
-// It is asked rather than listed, by parsing nothing and reading what came
-// back, because the answer differs for all 206 grammars in this build and a
-// table of them would be wrong the first time one was added.
-func unitType(lang *gotreesitter.Language) string {
-	tree, err := gotreesitter.NewParser(lang).Parse([]byte("\n"))
+// It is what lets two readings of the same pattern be asked whether they say
+// the same thing. See standsForNothing.
+func sameShape(sexp string) string {
+	seen := map[string]string{}
+	sexp = litCapture.ReplaceAllStringFunc(sexp, func(name string) string {
+		if s, ok := seen[name]; ok {
+			return s
+		}
+		s := fmt.Sprintf("_lit_%d", len(seen)+1)
+		seen[name] = s
+		return s
+	})
+	lines := strings.Split(sexp, "\n")
+	form := strings.ReplaceAll(lines[0], " . ", " ")
+	form = strings.ReplaceAll(form, " .)", ")")
+	preds := append([]string(nil), lines[1:]...)
+	sort.Strings(preds)
+	return strings.Join(append([]string{form}, preds...), "\n")
+}
+
+// markerPrefix names the placeholder a body reading writes where the pattern
+// wrote `$$$_`. See bodyReading: some grammars have no node a bare identifier
+// can be where a list of items goes, so the ellipsis is spelled as something
+// that does parse there and turned back into an ellipsis here.
+const markerPrefix = "__pwrq_any_"
+
+// dropMarked turns a reading's placeholders back into the ellipses they stood
+// for. drop names the literal texts that are placeholders because a prefix
+// reading put them there - `<?php` - as opposed to the ones spelled with
+// markerPrefix.
+//
+// A placeholder compiles to a whole item - in HCL, `__pwrq_any_1__ =
+// __pwrq_any_1__` becomes an (attribute ...) with two literal comparisons
+// under it - and what the caller wrote was "and anything else here". So the
+// item goes, and anchorChildren then reads its absence as the gap it is.
+//
+// Which node to replace is not named, it is found: the outermost form whose
+// every capture is a placeholder is the item the placeholder spelled, because
+// nothing else in the pattern reached inside it. That is why this needs no
+// list of grammars and no knowledge of what HCL calls an attribute.
+func dropMarked(forms []*sexpr, drop map[string]bool) []*sexpr {
+	markers := map[string]bool{}
+	for _, form := range forms {
+		if form.head != "#eq?" || len(form.children) != 2 {
+			continue
+		}
+		text := form.children[1].token
+		if strings.Contains(text, markerPrefix) || drop[strings.Trim(text, `"`)] {
+			markers[strings.TrimPrefix(form.children[0].token, "@")] = true
+		}
+	}
+	if len(markers) == 0 {
+		return forms
+	}
+	for _, form := range forms {
+		prune(form, markers)
+	}
+	kept := forms[:0]
+	for _, form := range forms {
+		if form.head == "#eq?" && len(form.children) == 2 &&
+			markers[strings.TrimPrefix(form.children[0].token, "@")] {
+			continue
+		}
+		kept = append(kept, form)
+	}
+	return kept
+}
+
+// prune replaces every child that is nothing but placeholders with an
+// ellipsis.
+func prune(s *sexpr, markers map[string]bool) {
+	for i, c := range s.children {
+		if n, all := onlyMarked(c, markers); n > 0 && all {
+			s.children[i] = &sexpr{head: "_", capture: ellipsisName}
+			continue
+		}
+		prune(c, markers)
+	}
+}
+
+// onlyMarked counts the captures in a subtree and says whether every one of
+// them is a placeholder.
+func onlyMarked(s *sexpr, markers map[string]bool) (int, bool) {
+	count, all := 0, true
+	if s.capture != "" {
+		count++
+		if !markers[s.capture] {
+			all = false
+		}
+	}
+	for _, c := range s.children {
+		n, a := onlyMarked(c, markers)
+		count += n
+		if !a {
+			all = false
+		}
+	}
+	return count, all
+}
+
+// unitTypes are the nodes a grammar wraps a whole file in - `config_file` and
+// `body` in HCL, `source_file` in Go, `module` in Python - as opposed to the
+// nodes the pattern actually wrote.
+//
+// The two cannot be told apart by shape. `(body (block ...))` and `(list
+// (identifier))` both have one child, and only one of them is scaffolding; the
+// difference is that the caller typed the brackets and did not type the body.
+//
+// So it is measured rather than guessed, by parsing the pattern twice over.
+// Doubling it forces whatever holds a file's items to hold two of them, while
+// everything the caller wrote keeps the shape it had - a list of one element
+// is still a list of one element. The chain of single-child nodes from the
+// root down to the node that now has two is therefore exactly the scaffolding,
+// and it is the same answer for all 206 grammars in this build without a table
+// of any of them.
+func unitTypes(lang *gotreesitter.Language, pattern string) map[string]bool {
+	return scaffoldUnits(lang, "", "", "", pattern)
+}
+
+// scaffoldUnits is unitTypes for a reading that wrapped the pattern in text of
+// its own. The wrapper goes around the doubled pattern rather than around each
+// copy of it, so the node that ends up holding two copies is the one the
+// wrapper was there to provide - a class body, a function body, a file - and
+// every node from there up to the root is scaffolding by construction.
+//
+// before and after are the wrapper; close ends the pattern's own item, and so
+// is written after each copy rather than once.
+func scaffoldUnits(lang *gotreesitter.Language, before, closing, after, pattern string) map[string]bool {
+	source := pattern
+	if pre, _, err := grep.Preprocess(pattern); err == nil {
+		source = strings.ReplaceAll(pre, "__GREP_", probePrefix)
+	}
+	doubled := before + source + closing + "\n" + source + closing + after
+	start, end := len(before), len(doubled)-len(after)
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte(doubled))
 	if err != nil || tree == nil {
-		return ""
+		return nil
 	}
 	bound := gotreesitter.Bind(tree)
 	defer bound.Release()
 	root := bound.RootNode()
 	if root == nil {
-		return ""
+		return nil
 	}
-	// Copied out: the node it was read from belongs to an arena that Release
+	node := root.NamedDescendantForByteRange(uint32(start), uint32(end))
+	// The smallest node holding both copies is the answer; a grammar that
+	// hands back something narrower is walked back up until it holds them.
+	for node != nil && (int(node.StartByte()) > start || int(node.EndByte()) < end) {
+		node = node.Parent()
+	}
+	if node == nil {
+		node = root
+	}
+	// Copied out as they are read: the nodes belong to an arena that Release
 	// hands back.
-	return strings.Clone(root.Type(lang))
+	units := map[string]bool{}
+	for n := node; n != nil; n = n.Parent() {
+		units[strings.Clone(n.Type(lang))] = true
+	}
+	return units
 }
 
 // openUnit turns the whole-file node a sequence pattern compiled to back into
@@ -158,7 +378,35 @@ func unitType(lang *gotreesitter.Language) string {
 //   - Capturing it would report the whole enclosing block as the match. The
 //     statements are captured instead, so the span runs from the first to the
 //     last of them, which is the code the pattern picked out.
-func openUnit(s *sexpr) {
+func openUnit(s *sexpr) *sexpr {
+	// One child left is not a sequence. It is a single construct with the
+	// grammar's wrapper around it, which is what a reading that had to add
+	// something leaves behind once the addition is dropped: `<?php md5($X);`
+	// compiles to a program holding a tag and a statement, and with the tag
+	// gone the pattern is the call and nothing else. Keeping the wrapper would
+	// make the pattern a claim about where in the file the call sits - a
+	// statement of its own - so `$h = md5($n)` would not match it.
+	if len(s.children) == 1 {
+		node := s.children[0]
+		// Descend through wrappers, and stop at the first thing the caller
+		// wrote. A hole is something the caller wrote: `echo $X` is an echo
+		// statement holding one child, and descending into the child would
+		// leave a query for the hole alone, which matches every node in every
+		// file.
+		for len(node.children) == 1 {
+			child := node.children[0]
+			if !child.isForm() || child.capture != "" || child.field != "" || child.head == "_" {
+				break
+			}
+			node = child
+		}
+		node.anchored = false
+		node.anchoredEnd = false
+		if node.capture == "" {
+			node.capture = rootCapture
+		}
+		return node
+	}
 	s.head = "_"
 	if len(s.children) > 0 {
 		s.children[0].anchored = false
@@ -169,6 +417,7 @@ func openUnit(s *sexpr) {
 			c.capture = rootCapture
 		}
 	}
+	return s
 }
 
 // bindRepeats makes a hole the pattern wrote twice mean the same code twice,

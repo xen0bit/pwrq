@@ -1,0 +1,15 @@
+# rules: use-of-weak-rsa-key
+# languages: go
+# from: go/lang/security/audit/crypto/use_of_weak_rsa_key.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "rsa.GenerateKey($$$_, $BITS)",
+      "rsa.GenerateMultiPrimeKey($$$_, $BITS)"
+    ])) as $all
+    | ( $all | of(["rsa.GenerateKey($$$_, $BITS)","rsa.GenerateMultiPrimeKey($$$_, $BITS)"])
+          | where_capture_compare("$BITS < 2048")
+          | focus("BITS")
+        | finding("use-of-weak-rsa-key";
+            "RSA keys should be at least 2048 bits") ) )
+| report

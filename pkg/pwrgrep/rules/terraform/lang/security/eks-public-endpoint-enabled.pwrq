@@ -1,0 +1,16 @@
+# rules: eks-public-endpoint-enabled
+# languages: hcl
+# from: terraform/lang/security/eks-public-endpoint-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"aws_eks_cluster\" \"$$$_\" {$$$_}",
+      "resource \"aws_eks_cluster\" \"$$$_\"{\n  $$$_\n  vpc_config{\n    $$$_\n    endpoint_public_access = false\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"aws_eks_cluster\" \"$$$_\" {$$$_}"]))
+          | outside($all | of(["resource \"aws_eks_cluster\" \"$$$_\"{\n  $$$_\n  vpc_config{\n    $$$_\n    endpoint_public_access = false\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("eks-public-endpoint-enabled";
+            "The vpc_config resource inside the eks cluster has not explicitly disabled public endpoint access") ) )
+| report

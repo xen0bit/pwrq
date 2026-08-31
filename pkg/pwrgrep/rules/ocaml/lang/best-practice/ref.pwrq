@@ -1,4 +1,5 @@
 # rules: ocamllint-ref-incr, ocamllint-ref-decr
+# languages: ocaml
 # from: ocaml/lang/best-practice/ref.yaml
 
 . as $root

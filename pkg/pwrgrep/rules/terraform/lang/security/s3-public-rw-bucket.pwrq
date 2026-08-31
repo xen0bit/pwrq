@@ -1,4 +1,5 @@
 # rules: s3-public-rw-bucket
+# languages: hcl
 # from: terraform/lang/security/s3-public-rw-bucket.yaml
 
 . as $root

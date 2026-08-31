@@ -1,4 +1,5 @@
 # rules: using-http-server
+# languages: javascript
 # from: problem-based-packs/insecure-transport/js-node/using-http-server.yaml
 
 . as $root
