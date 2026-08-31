@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -65,8 +66,42 @@ func (c *compiled) query() *grep.CompiledPattern {
 // valid reports whether the pattern can match code at all.
 func (c *compiled) valid() bool { return c.problem == "" }
 
+// compiledPatterns is every pattern this process has compiled, keyed by the
+// pattern and the language it was compiled for.
+//
+// Compiling is expensive - the grammar is instantiated, the pattern parsed,
+// and up to two readings of it checked against the tree they produce, which is
+// several milliseconds and megabytes for one pattern - and the same handful of
+// patterns is compiled over and over: a search compiles its patterns once per
+// language it meets, a rule compiles the patterns it names on every run, and a
+// corpus of rules shares patterns between them.
+//
+// A compiled pattern is read-only once it is returned, and grep executes a
+// query without writing to it, so one copy answers for every caller. This is
+// the same bargain the readings cache in tree.go already makes.
+var compiledPatterns sync.Map // language + "\x00" + pattern -> compileResult
+
+// compileResult is what one compilation produced, error included: a pattern
+// that names a language this build does not have fails the same way every
+// time, and re-deciding that is the cost the cache exists to avoid.
+type compileResult struct {
+	c   *compiled
+	err error
+}
+
 // compilePattern turns a pattern into a query against a named language.
 func compilePattern(pattern, language string) (*compiled, error) {
+	key := language + "\x00" + pattern
+	if cached, ok := compiledPatterns.Load(key); ok {
+		r := cached.(compileResult)
+		return r.c, r.err
+	}
+	c, err := compilePatternUncached(pattern, language)
+	compiledPatterns.Store(key, compileResult{c: c, err: err})
+	return c, err
+}
+
+func compilePatternUncached(pattern, language string) (*compiled, error) {
 	entry := grammars.DetectLanguageByName(language)
 	if entry == nil {
 		return nil, fmt.Errorf("no grammar for language %q in this build; get_ast_language lists the %d it has",

@@ -341,15 +341,15 @@ func matchWildcard(left, right any, caseSensitive bool) bool {
 	// Convert PowerShell wildcard pattern to regex
 	// * matches any sequence, ? matches single char, [abc] matches character class
 	// First, handle character classes by protecting them
-	result := ""
+	var result strings.Builder
 	i := 0
 	for i < len(rightStr) {
 		ch := rightStr[i]
 		switch ch {
 		case '*':
-			result += ".*"
+			result.WriteString(".*")
 		case '?':
-			result += "."
+			result.WriteString(".")
 		case '[':
 			// Find closing bracket
 			j := i + 1
@@ -358,21 +358,24 @@ func matchWildcard(left, right any, caseSensitive bool) bool {
 			}
 			if j < len(rightStr) {
 				// Include the bracket expression as-is in regex
-				result += rightStr[i : j+1]
+				result.WriteString(rightStr[i : j+1])
 				i = j
 			} else {
 				// No closing bracket, treat as literal
-				result += regexp.QuoteMeta(string(ch))
+				result.WriteString(regexp.QuoteMeta(string(ch)))
 			}
 		default:
-			result += regexp.QuoteMeta(string(ch))
+			result.WriteString(regexp.QuoteMeta(string(ch)))
 		}
 		i++
 	}
-	pattern := "^" + result + "$"
+	pattern := "^" + result.String() + "$"
 
-	matched, _ := regexp.MatchString(pattern, leftStr)
-	return matched
+	re, err := common.Regex(pattern)
+	if err != nil {
+		return false
+	}
+	return re.MatchString(leftStr)
 }
 
 // matchRegex performs regex matching (PowerShell -match operator)
@@ -380,15 +383,13 @@ func matchRegex(left, right any, caseSensitive bool) (bool, error) {
 	leftStr := fmt.Sprintf("%v", left)
 	patternStr := fmt.Sprintf("%v", right)
 
-	var re *regexp.Regexp
-	var err error
-
-	if caseSensitive {
-		re, err = regexp.Compile(patternStr)
-	} else {
-		re, err = regexp.Compile("(?i)" + patternStr)
+	pattern := patternStr
+	if !caseSensitive {
+		pattern = "(?i)" + patternStr
 	}
-
+	// Compiled once for the whole pipeline rather than once per object: the
+	// pattern is the query's, and the pipeline is the data's. See common.Regex.
+	re, err := common.Regex(pattern)
 	if err != nil {
 		return false, fmt.Errorf("invalid regex pattern %q: %w", patternStr, err)
 	}

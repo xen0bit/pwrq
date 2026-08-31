@@ -1,11 +1,11 @@
 package astsearch
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/itchyny/gojq"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -173,6 +173,12 @@ type matchIter struct {
 	// open. See exhausted.
 	skipped map[string]bool
 	matched int
+
+	// mu guards what searchFile records about the search as a whole - the
+	// patterns compiled per language, and the languages skipped - because
+	// SearchTree searches several files at once. Reading a file is where the
+	// time goes, so the lock is never what a search waits on.
+	mu sync.Mutex
 }
 
 func (it *matchIter) Next() (any, bool) {
@@ -282,10 +288,12 @@ func (it *matchIter) searchFile(path string) ([]any, error) {
 		}
 	}
 	if !usable {
+		it.mu.Lock()
 		if it.skipped == nil {
 			it.skipped = map[string]bool{}
 		}
 		it.skipped[entry.Name] = true
+		it.mu.Unlock()
 		return nil, nil
 	}
 
@@ -293,6 +301,15 @@ func (it *matchIter) searchFile(path string) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Parsed once, whatever the patterns: the tree a query runs against does
+	// not depend on which query it is, and reading the file is almost the
+	// whole cost of searching it. See match.go.
+	tree, err := parseOnce(entry, source)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %v", path, err)
+	}
+	defer tree.release()
 
 	var hits []hit
 	for i, c := range compiled {
@@ -304,7 +321,7 @@ func (it *matchIter) searchFile(path string) ([]any, error) {
 		// statementReading.
 		seen := map[[2]uint32]bool{}
 		for _, q := range c.queries {
-			results, err := q.Match(source)
+			results, err := tree.match(q)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %v", path, err)
 			}
@@ -326,37 +343,48 @@ func (it *matchIter) searchFile(path string) ([]any, error) {
 		return hits[a].pattern < hits[b].pattern
 	})
 
+	// The line starts are read once per file rather than once per number
+	// reported. See Lines.
+	lines := Index(source)
 	out := make([]any, 0, len(hits))
 	for _, h := range hits {
-		out = append(out, matchObject(path, entry.Name, it.patterns[h.pattern], source, h.result))
+		out = append(out, matchObject(path, entry.Name, it.patterns[h.pattern], source, lines, h.result))
 	}
 	return out, nil
 }
 
 // patternsFor compiles every pattern for one language, once.
 func (it *matchIter) patternsFor(language string) ([]*compiled, error) {
-	if it.compiled == nil {
-		it.compiled = map[string][]*compiled{}
-	}
-	if c, ok := it.compiled[language]; ok {
+	it.mu.Lock()
+	c, ok := it.compiled[language]
+	it.mu.Unlock()
+	if ok {
 		return c, nil
 	}
-	compiled := make([]*compiled, len(it.patterns))
+	// Compiled outside the lock: compilePattern has a cache of its own and is
+	// safe to enter twice, and holding a lock across it would serialise the
+	// one part of a search that is worth doing in parallel.
+	forLanguage := make([]*compiled, len(it.patterns))
 	for i, pattern := range it.patterns {
 		c, err := compilePattern(pattern, language)
 		if err != nil {
 			return nil, err
 		}
-		compiled[i] = c
+		forLanguage[i] = c
 	}
-	it.compiled[language] = compiled
-	return compiled, nil
+	it.mu.Lock()
+	if it.compiled == nil {
+		it.compiled = map[string][]*compiled{}
+	}
+	it.compiled[language] = forLanguage
+	it.mu.Unlock()
+	return forLanguage, nil
 }
 
 // matchObject renders one match.
-func matchObject(path, language, pattern string, source []byte, r grep.Result) any {
-	line, column := position(source, r.StartByte)
-	endLine, endColumn := position(source, r.EndByte)
+func matchObject(path, language, pattern string, source []byte, lines *Lines, r grep.Result) any {
+	line, column := lines.At(int(r.StartByte))
+	endLine, endColumn := lines.At(int(r.EndByte))
 	end := min(int(r.EndByte), len(source))
 
 	// The rewritten query carries captures of its own: the whole matched
@@ -374,8 +402,8 @@ func matchObject(path, language, pattern string, source []byte, r grep.Result) a
 			continue
 		}
 		captures[name] = string(c.Text)
-		startLine, startColumn := position(source, c.StartByte)
-		endLine, endColumn := position(source, c.EndByte)
+		startLine, startColumn := lines.At(int(c.StartByte))
+		endLine, endColumn := lines.At(int(c.EndByte))
 		spans[name] = map[string]any{
 			"LineNumber":    startLine,
 			"Column":        startColumn,
@@ -401,21 +429,6 @@ func matchObject(path, language, pattern string, source []byte, r grep.Result) a
 		"CaptureSpans":  spans,
 		"PwrqValue":     path,
 	})
-}
-
-// position converts a byte offset into the one-based line and column a caller
-// would use to open the file at it.
-//
-// Column counts bytes rather than runes, which is what an editor's :line:col
-// wants and what every other pwrq path-and-position pair reports.
-func position(source []byte, offset uint32) (int, int) {
-	if int(offset) > len(source) {
-		offset = uint32(len(source))
-	}
-	before := source[:offset]
-	line := bytes.Count(before, []byte{'\n'}) + 1
-	column := offset - uint32(bytes.LastIndexByte(before, '\n')+1) + 1
-	return line, int(column)
 }
 
 // RegisterAstPattern registers ast_pattern: what a pattern compiles to, and

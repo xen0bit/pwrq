@@ -118,6 +118,24 @@ type Shape struct {
 	// than one of it.
 	inArray bool
 	props   []Property
+	// declared indexes props by name, for reconcile.
+	//
+	// It is built with the shape rather than in reconcile, because reconcile
+	// runs on every object a cmdlet emits and a search emits one per match: a
+	// map rebuilt there was the whole cost of Build. A shape's properties are
+	// fixed at construction, and the two methods that return a modified shape
+	// - Each and Named - change neither the properties nor what they are
+	// called, so the index a copy inherits is still its own.
+	declared map[string]Property
+}
+
+// declare builds a shape's name index. Every constructor ends in it.
+func declare(s *Shape) *Shape {
+	s.declared = make(map[string]Property, len(s.props))
+	for _, p := range s.props {
+		s.declared[p.Name] = p
+	}
+	return s
 }
 
 // Note records that the cmdlet sometimes emits something other than this shape,
@@ -172,7 +190,7 @@ func (s *Shape) Named(typeName string) *Shape {
 // it exists to do, which is to let a caller look a type up and learn what is
 // in it.
 func Fixed(typeName string, props ...Property) *Shape {
-	return &Shape{kind: KindFixed, name: typeName, props: props}
+	return declare(&Shape{kind: KindFixed, name: typeName, props: props})
 }
 
 // Plain declares a cmdlet that emits a known set of keys under no type name.
@@ -184,7 +202,7 @@ func Fixed(typeName string, props ...Property) *Shape {
 // caller needs; the type name is only how a named object is looked up, and
 // these are not that.
 func Plain(props ...Property) *Shape {
-	return &Shape{kind: KindFixed, props: props}
+	return declare(&Shape{kind: KindFixed, props: props})
 }
 
 // Derived declares a cmdlet whose output keys come from its input. The rule
@@ -195,14 +213,14 @@ func Plain(props ...Property) *Shape {
 // its input's: a decoded JWT is always {header, payload, signature}, but what
 // is inside payload is the token's business.
 func Derived(rule string, props ...Property) *Shape {
-	return &Shape{kind: KindDerived, rule: rule, props: props}
+	return declare(&Shape{kind: KindDerived, rule: rule, props: props})
 }
 
 // Dynamic declares a cmdlet whose output keys come from somewhere neither the
 // cmdlet nor the input controls — the columns of a SQL query, the headers of a
 // CSV file, an HTTP response's header set.
 func Dynamic(rule string, props ...Property) *Shape {
-	return &Shape{kind: KindDynamic, rule: rule, props: props}
+	return declare(&Shape{kind: KindDynamic, rule: rule, props: props})
 }
 
 // Scalar is the shape of a cmdlet that does not emit an object. It is the same
@@ -279,11 +297,6 @@ func (s *Shape) Build(m map[string]any) map[string]any {
 // declared. Derived and Dynamic shapes are only checked for their declared
 // properties: the rest of their keys are the point.
 func (s *Shape) reconcile(m map[string]any) {
-	declared := make(map[string]Property, len(s.props))
-	for _, p := range s.props {
-		declared[p.Name] = p
-	}
-
 	for _, p := range s.props {
 		if p.Optional {
 			continue
@@ -300,7 +313,7 @@ func (s *Shape) reconcile(m map[string]any) {
 		if k == typed.TypeKey {
 			continue
 		}
-		if _, ok := declared[k]; !ok {
+		if _, ok := s.declared[k]; !ok {
 			record(Discrepancy{Shape: s.label(), Property: k, Reason: ReasonUndeclared})
 		}
 	}

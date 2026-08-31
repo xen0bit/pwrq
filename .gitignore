@@ -4,6 +4,10 @@
 /pwrq
 /pwrq-viz
 
+# Compiled test binaries. `go test -c` and a `-o` build drop these next to the
+# package; pwrgrep.test was committed by accident once already.
+*.test
+
 # GoReleaser output
 /dist/
 
