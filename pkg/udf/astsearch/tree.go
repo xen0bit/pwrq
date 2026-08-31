@@ -2,7 +2,9 @@ package astsearch
 
 import (
 	"fmt"
+	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/odvcencio/gotreesitter"
@@ -103,6 +105,47 @@ func searchWorkers(files int) int {
 // readings caches the queries a pattern compiles to for one language, because
 // a rule asks the same question of every match it has.
 var readings sync.Map // language + "\x00" + pattern -> []*grep.CompiledPattern
+
+// wildcardQuery is what a pattern that is nothing but one hole compiles to:
+// a lone wildcard bound to a capture, with no predicate narrowing it.
+var wildcardQuery = regexp.MustCompile(`^\(_\) @[A-Za-z_][A-Za-z0-9_]*$`)
+
+// MatchesAnything reports whether a pattern constrains nothing - whether every
+// reading of it matches any node at all.
+//
+// `$ARGS` is such a pattern. It is a hole and nothing else, so it compiles to
+// a bare wildcard and holds for whatever it is asked about. The corpus is full
+// of them: a semgrep `metavariable-pattern` whose inner pattern is itself a
+// metavariable ports to `where_capture_ast(HOLE; "$X")`, which is a tautology
+// written out.
+//
+// Knowing that is worth the check because deciding it the long way costs a
+// parse of the caught text, and a rule that pairs one of these with a bare
+// pattern in its search asks the question once per node in the tree - tens of
+// thousands of parses to arrive at true every time.
+//
+// The question is asked of the compiled query rather than of the pattern text,
+// so it is answered by what the grammar actually made of the pattern.
+func MatchesAnything(pattern, language string) bool {
+	if grammars.DetectLanguageByName(language) == nil {
+		return false
+	}
+	c, err := compilePattern(pattern, language)
+	if err != nil || c == nil || c.validate() != nil {
+		return false
+	}
+	// A pattern is read more than one way where the grammar takes it more
+	// than one way, and MatchesText answers yes when any reading matches. So
+	// one bare reading is enough to make the whole question a tautology, even
+	// beside a reading that constrains something: `$ARGS` is read both as a
+	// lone node and, in Python, as the set literal a lone node could spell.
+	for _, q := range c.queries {
+		if q != nil && wildcardQuery.MatchString(strings.TrimSpace(q.SExpr)) {
+			return true
+		}
+	}
+	return false
+}
 
 // MatchesText reports whether a pattern matches a piece of source in a
 // language.

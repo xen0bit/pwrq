@@ -124,3 +124,76 @@ func BenchmarkByFile(b *testing.B) {
 		byFile(benchCalls)
 	}
 }
+
+// What a hole constrained by a pattern costs, with and without the short
+// circuit for a pattern that constrains nothing.
+//
+// The distance between the two is the whole reason MatchesAnything exists. A
+// rule that searches a bare `$X` gets one match per node in the tree - tens of
+// thousands over a small repository - and a `where_capture_ast` against
+// another bare hole then parses the caught text once per distinct one. The
+// answer is true every time, so the parsing buys nothing.
+//
+// Python, because the corpus rules that do this are Python rules and because a
+// caught fragment there is a whole construct on its own, which is the case
+// that reaches the parser.
+func benchPythonCaptures(n int) []any {
+	out := make([]any, 0, n)
+	for i := 0; i < n; i++ {
+		path := "pkg/thing" + strconv.Itoa(i%40) + "/file.py"
+		out = append(out, astsearch.AstMatch.Build(map[string]any{
+			"Path": path, "Language": "python", "Pattern": "$X",
+			"LineNumber": i + 1, "Column": 2, "EndLineNumber": i + 1, "EndColumn": 12,
+			"Offset": i * 120, "EndOffset": i*120 + 40,
+			"Text":         "value" + strconv.Itoa(i),
+			"Captures":     map[string]any{"X": "value" + strconv.Itoa(i)},
+			"CaptureSpans": map[string]any{},
+			"PwrqValue":    path,
+		}))
+	}
+	return out
+}
+
+func BenchmarkWhereCaptureAstUnconstrained(b *testing.B) {
+	list := benchPythonCaptures(2000)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		free := astsearch.MatchesAnything("$ARGS", "python")
+		kept := keepIf(list, func(m map[string]any) bool {
+			if capture(m, "X") == "" {
+				return false
+			}
+			if free {
+				return true
+			}
+			ok, err := astsearch.MatchesText("$ARGS", "python", capture(m, "X"))
+			return err == nil && ok
+		})
+		if len(kept) != len(list) {
+			b.Fatalf("kept %d of %d: an unconstrained pattern keeps everything", len(kept), len(list))
+		}
+	}
+}
+
+func BenchmarkWhereCaptureAstTheLongWay(b *testing.B) {
+	list := benchPythonCaptures(2000)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decided := map[string]bool{}
+		kept := keepIf(list, func(m map[string]any) bool {
+			caught := capture(m, "X")
+			if caught == "" {
+				return false
+			}
+			if answer, asked := decided[caught]; asked {
+				return answer
+			}
+			ok, err := astsearch.MatchesText("$ARGS", "python", caught)
+			decided[caught] = err == nil && ok
+			return decided[caught]
+		})
+		if len(kept) != len(list) {
+			b.Fatalf("kept %d of %d", len(kept), len(list))
+		}
+	}
+}

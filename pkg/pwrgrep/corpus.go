@@ -157,10 +157,10 @@ func load() ([]*Rule, error) {
 // Select narrows the corpus to the rules a caller asked for.
 //
 // A selector is a finding id, or a glob over ids, or a path into the corpus -
-// either a whole rule file or a directory of them. Selecting nothing that
-// exists is an error rather than an empty run: "no rule called that" is a
-// typo, and reporting it as "nothing found" hands back a clean bill of health
-// nobody earned.
+// either a whole rule file or a directory of them - or the name of a language.
+// Selecting nothing that exists is an error rather than an empty run: "no rule
+// called that" is a typo, and reporting it as "nothing found" hands back a
+// clean bill of health nobody earned.
 func Select(selectors []string) ([]*Rule, error) {
 	all, err := Rules()
 	if err != nil {
@@ -199,6 +199,23 @@ func (r *Rule) selectedBy(selector string) bool {
 	}
 	if selector == r.Path {
 		return true
+	}
+	// A language names the rules written for it, wherever in the catalogue
+	// they sit. The directory a rule lives in is where it was ported from
+	// rather than what it is about, and for some languages the two are far
+	// apart: most of the TypeScript rules are under javascript/, because that
+	// is the pack they came from, so asking for "typescript" by directory
+	// alone gets a fraction of them and says nothing about the rest. Reading
+	// what each rule declares is the only answer that does not depend on
+	// somebody's filing.
+	//
+	// Matching is exact rather than glob, so "java" does not quietly bring in
+	// javascript. The directory reading below still applies, so a selector
+	// that is both a language and a directory means the two together.
+	for _, language := range r.Languages {
+		if strings.EqualFold(selector, language) {
+			return true
+		}
 	}
 	// A directory names everything under it, which is how a caller asks for
 	// "the Go rules" without knowing what is in there.

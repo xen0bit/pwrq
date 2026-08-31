@@ -603,7 +603,23 @@ and pwrq ships eighteen hundred of them, in 26 languages:
 ```console
 $ echo src | pwrq -R 'invoke_pwrgrep("go-weak-hash")'
 $ pwrq -n '[invoke_pwrgrep("src"; "go/lang/security")] | group_by(.RuleId)'
-$ pwrq -n '[get_pwrgrep_rule("python-*")] | map(.Id)'
+$ pwrq -n '[get_pwrgrep_rule("python")] | map(.Id)'
+```
+
+A rule is named by its finding id, by a glob over ids, by a path into the
+catalogue — or by a language, which is how you ask for all of them. Name the
+language rather than reaching for a glob: ids are not prefixed with it, so
+`"python-*"` is a glob matching the handful that happen to begin that way
+rather than the Python corpus, and it comes back with six rules and no
+complaint. The catalogue path is where a rule was ported from rather than what
+it is about, and for TypeScript the two are far apart — most of its rules sit
+under `javascript/` because that is the pack they came from. So the language is
+what a rule declares, not where it is filed:
+
+```console
+$ pwrq -n '[get_pwrgrep_rule("typescript")] | length'
+176
+$ pwrq -n '[invoke_pwrgrep("src"; ["typescript", "javascript"])] | length'
 ```
 
 A rule is an ordinary pwrq query in a file, and that is the whole design —
