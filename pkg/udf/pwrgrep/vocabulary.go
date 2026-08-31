@@ -146,7 +146,7 @@ func filterOp(name string, narrow func(list, other []any) []any) gojq.CompilerOp
 func RegisterScanAst() gojq.CompilerOption {
 	const op = "scan_ast"
 	common.DeclareInput(op, common.InputPipeline)
-	return common.WithFunction(op, 2, 3, func(v any, args []any) any {
+	return common.WithFunctionOf(op, 2, 3, astsearch.AstMatch, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 2)
 		root, ok := common.BindPath(in)
 		if !ok {
@@ -221,7 +221,7 @@ func stringsOf(op, what string, arg any) ([]string, error) {
 func RegisterScanRegex() gojq.CompilerOption {
 	const op = "scan_regex"
 	common.DeclareInput(op, common.InputPipeline)
-	return common.WithFunction(op, 2, 3, func(v any, args []any) any {
+	return common.WithFunctionOf(op, 2, 3, astsearch.AstMatch, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 2)
 		root, ok := common.BindPath(in)
 		if !ok {
@@ -860,12 +860,28 @@ func RegisterWhereCaptureAst() gojq.CompilerOption {
 		// place it is used - so a list of a thousand matches usually asks a
 		// few dozen distinct questions.
 		decided := map[string]bool{}
+		// A pattern that is nothing but a hole constrains nothing, and the
+		// corpus writes plenty of them: a semgrep metavariable-pattern whose
+		// inner pattern is itself a metavariable ports to exactly this. Asked
+		// the long way it still costs a parse of the caught text, and a rule
+		// that pairs one with a bare pattern in its search asks it once per
+		// node in the tree. Decided once per language met instead.
+		unconstrained := map[string]bool{}
 		return keepIf(list, func(m map[string]any) bool {
 			caught := capture(m, hole)
 			if caught == "" {
 				return false
 			}
 			language := text(m, "Language")
+			if free, known := unconstrained[language]; !known {
+				free = astsearch.MatchesAnything(pattern, language)
+				unconstrained[language] = free
+				if free {
+					return true
+				}
+			} else if free {
+				return true
+			}
 			key := language + "\x00" + caught
 			if answer, asked := decided[key]; asked {
 				return answer

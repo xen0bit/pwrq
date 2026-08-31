@@ -21,7 +21,7 @@ import (
 // files it is about, so running one is naming it.
 //
 //	"src" | invoke_pwrgrep("go-weak-hash")
-//	[invoke_pwrgrep("src"; ["go-*", "python-*"])] | group_by(.RuleId)
+//	[invoke_pwrgrep("src"; ["go", "python"])] | group_by(.RuleId)
 //	[invoke_pwrgrep("src"; "go/lang/security")] | map(.Path) | unique
 //
 // The rules named may be finding ids, globs over them, or paths into the
@@ -103,7 +103,7 @@ func bindSelectors(arg any) ([]string, error) {
 //
 //	get_pwrgrep_rule("go-weak-hash") | .Query
 //	[get_pwrgrep_rule] | length
-//	[get_pwrgrep_rule("python-*")] | map(.Id)
+//	[get_pwrgrep_rule("python")] | map(.Id)
 func RegisterGetPwrgrepRule() gojq.CompilerOption {
 	common.DeclareInput("get_pwrgrep_rule", common.InputPipeline)
 	return common.WithIterFunctionOf("get_pwrgrep_rule", 0, 1, Rule, func(v any, args []any) gojq.Iter {

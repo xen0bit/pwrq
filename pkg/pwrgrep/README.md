@@ -9,7 +9,7 @@ half; the combining is where a rule lives.
 
     $ echo src | pwrq -R 'invoke_pwrgrep("go-weak-hash")'
     $ pwrq -n '[invoke_pwrgrep("src"; "go/lang/security")] | group_by(.RuleId)'
-    $ pwrq -n '[get_pwrgrep_rule("python-*")] | map(.Id)'
+    $ pwrq -n '[get_pwrgrep_rule("python")] | map(.Id)'
 
 ## Where rules come from
 
