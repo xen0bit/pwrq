@@ -1,4 +1,5 @@
 # rules: jwt-none-alg
+# languages: javascript, typescript
 # from: javascript/jose/security/jwt-none-alg.yaml
 
 . as $root

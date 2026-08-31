@@ -1,4 +1,5 @@
 # rules: jquery-insecure-method
+# languages: javascript, typescript
 # from: javascript/jquery/security/audit/jquery-insecure-method.yaml
 
 . as $root

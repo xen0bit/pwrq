@@ -1,4 +1,5 @@
 # rules: missing-hash-with-eq
+# languages: python
 # from: python/lang/best-practice/missing-hash-with-eq.yaml
 
 . as $root

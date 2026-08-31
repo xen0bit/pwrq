@@ -1,0 +1,14 @@
+# rules: gcp-pubsub-encrypted-with-cmk
+# languages: hcl
+# from: terraform/gcp/security/gcp-pubsub-encrypted-with-cmk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_pubsub_topic\" $ANYTHING {\n  $$$_\n  kms_key_name = $$$_\n  $$$_\n}",
+      "resource \"google_pubsub_topic\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_pubsub_topic\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_pubsub_topic\" $ANYTHING {\n  $$$_\n  kms_key_name = $$$_\n  $$$_\n}"]))
+        | finding("gcp-pubsub-encrypted-with-cmk";
+            "Ensure PubSub Topics are encrypted with Customer Supplied Encryption Keys (CSEK)") ) )
+| report

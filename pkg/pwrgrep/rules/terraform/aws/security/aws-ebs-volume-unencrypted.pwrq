@@ -1,0 +1,14 @@
+# rules: aws-ebs-volume-unencrypted
+# languages: hcl
+# from: terraform/aws/security/aws-ebs-volume-unencrypted.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_ebs_volume\" $ANYTHING {\n  $$$_\n  encrypted = true\n  $$$_\n}",
+      "resource \"aws_ebs_volume\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_ebs_volume\" $ANYTHING {\n  $$$_\n}"])
+          | not_at($all | of(["resource \"aws_ebs_volume\" $ANYTHING {\n  $$$_\n  encrypted = true\n  $$$_\n}"]))
+        | finding("aws-ebs-volume-unencrypted";
+            "The AWS EBS volume is unencrypted.") ) )
+| report

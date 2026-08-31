@@ -1,0 +1,14 @@
+# rules: gcp-postgresql-log-disconnection
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-postgresql-log-disconnection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"log_disconnections\"\n    value = \"off\"\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"log_disconnections\"\n    value = \"off\"\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-postgresql-log-disconnection";
+            "Ensure PostgreSQL database 'log_disconnections' flag is set to 'on'") ) )
+| report

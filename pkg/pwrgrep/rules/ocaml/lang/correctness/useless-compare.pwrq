@@ -1,4 +1,5 @@
 # rules: useless-compare
+# languages: ocaml
 # from: ocaml/lang/correctness/useless-compare.yaml
 
 . as $root

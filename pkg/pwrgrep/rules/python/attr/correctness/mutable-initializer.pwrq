@@ -1,4 +1,5 @@
 # rules: attr-mutable-initializer
+# languages: python
 # from: python/attr/correctness/mutable-initializer.yaml
 
 . as $root
@@ -13,8 +14,10 @@
       "def $Y($$$_) -> $TYPE:\n  $$$_",
       "def $Y($$$_):\n  $$$_"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["@attr.s($$$_,auto_attribs=True, $$$_)\nclass $X($$$_):\n  $$$_"])))
+          + ($all
+          | within($all | of(["@attrs.define\nclass $X($$$_):\n  $$$_"])))
           | at_same_place(($all | of(["$M = {$$$_}","$M = [$$$_]","$M = list($$$_)","$M = set($$$_)","$M = dict($$$_)"])))
           | outside($all | of(["def $Y($$$_):\n  $$$_"]))
           | outside($all | of(["def $Y($$$_) -> $TYPE:\n  $$$_"]))

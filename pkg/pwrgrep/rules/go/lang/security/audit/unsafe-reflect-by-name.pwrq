@@ -2,18 +2,17 @@
 # from: go/lang/security/audit/unsafe-reflect-by-name.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "\"reflect\"",
-      "$SMTH.FieldByName(\"$$$_\",$$$_)",
-      "$SMTH.FieldByName($NAME,$$$_)",
-      "$SMTH.MethodByName(\"$$$_\",$$$_)",
-      "$SMTH.MethodByName($NAME,$$$_)",
-      "import \"reflect\"\n$$$_"
+| ( ($root | scan_regex(["*.go"]; [
+      "(?P<SMTH>\\S+)\\.FieldByName\\(\"[\\s\\S]*?\",[\\s\\S]*?\\)",
+      "(?P<SMTH>\\S+)\\.FieldByName\\((?P<NAME>\\S+),[\\s\\S]*?\\)",
+      "(?P<SMTH>\\S+)\\.MethodByName\\(\"[\\s\\S]*?\",[\\s\\S]*?\\)",
+      "(?P<SMTH>\\S+)\\.MethodByName\\((?P<NAME>\\S+),[\\s\\S]*?\\)",
+      "import\\s+\"reflect\"\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["$SMTH.MethodByName($NAME,$$$_)","$SMTH.FieldByName($NAME,$$$_)"])
-          | not_at($all | of(["$SMTH.MethodByName(\"$$$_\",$$$_)"]))
-          | not_at($all | of(["$SMTH.FieldByName(\"$$$_\",$$$_)"]))
-          | in_files_with($all | of(["import \"reflect\"\n$$$_","\"reflect\""]))
+    | ( $all | of(["(?P<SMTH>\\S+)\\.MethodByName\\((?P<NAME>\\S+),[\\s\\S]*?\\)","(?P<SMTH>\\S+)\\.FieldByName\\((?P<NAME>\\S+),[\\s\\S]*?\\)"])
+          | not_at($all | of(["(?P<SMTH>\\S+)\\.MethodByName\\(\"[\\s\\S]*?\",[\\s\\S]*?\\)"]))
+          | not_at($all | of(["(?P<SMTH>\\S+)\\.FieldByName\\(\"[\\s\\S]*?\",[\\s\\S]*?\\)"]))
+          | in_files_with($all | of(["import\\s+\"reflect\"\\s+[\\s\\S]*?"]))
         | finding("unsafe-reflect-by-name";
             "If an attacker can supply values that the application then uses to determine which method or field to invoke, the potential exists for the attacker to create control flow paths through the application that were not intended by the application developers.") ) )
 | report

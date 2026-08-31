@@ -1,0 +1,59 @@
+# rules: hardcoded-passport-secret
+# languages: javascript, typescript
+# from: javascript/passport-jwt/security/passport-hardcode.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$F = require(\"$I\")\n$$$_",
+      "$F = require(\"$I\").Strategy\n$$$_",
+      "$OBJ",
+      "$OBJ = {}\n$$$_",
+      "$OBJ.clientSecret = \"$$$_\"",
+      "$OBJ.consumerSecret = \"$$$_\"",
+      "$OBJ.secretOrKey = \"$$$_\"",
+      "$SECRET = '$$$_'\n$$$_",
+      "$VALUE",
+      "$VALUE = {$$$_, clientSecret: $SECRET, $$$_}\n$$$_",
+      "$VALUE = {$$$_, consumerSecret: $SECRET, $$$_}\n$$$_",
+      "$VALUE = {$$$_, secretOrKey: $SECRET, $$$_}\n$$$_",
+      "import $F from '$I'\n$$$_",
+      "import { $STRAT as $F } from '$I'\n$$$_",
+      "new $F($VALUE,$$$_)",
+      "{$$$_, clientSecret: \"$$$_\", $$$_}",
+      "{$$$_, clientSecret: $SECRET, $$$_}",
+      "{$$$_, consumerSecret: \"$$$_\", $$$_}",
+      "{$$$_, consumerSecret: $SECRET, $$$_}",
+      "{$$$_, secretOrKey: \"$$$_\", $$$_}",
+      "{$$$_, secretOrKey: $SECRET, $$$_}"
+    ])) as $all
+    | ( ((($all
+          | in_files_with($all | of(["$F = require(\"$I\").Strategy\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$F = require(\"$I\")\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import { $STRAT as $F } from '$I'\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import $F from '$I'\n$$$_"])))
+          | where_capture("I"; "^(?:(passport-.*))")
+          | within($all | of(["new $F($VALUE,$$$_)"]))
+          | focus("VALUE")))
+          | reaching(((($all | of(["{$$$_, clientSecret: \"$$$_\", $$$_}"]))
+          + ($all | of(["{$$$_, secretOrKey: \"$$$_\", $$$_}"]))
+          + ($all | of(["{$$$_, consumerSecret: \"$$$_\", $$$_}"]))
+          + ($all | of(["$OBJ.clientSecret = \"$$$_\"","$OBJ.secretOrKey = \"$$$_\"","$OBJ.consumerSecret = \"$$$_\""])
+          | at_same_place(($all | of(["$OBJ"])))
+          | in_files_with($all | of(["$OBJ = {}\n$$$_"])))
+          + ($all | of(["{$$$_, clientSecret: $SECRET, $$$_}","{$$$_, secretOrKey: $SECRET, $$$_}","{$$$_, consumerSecret: $SECRET, $$$_}"])
+          | in_files_with($all | of(["$SECRET = '$$$_'\n$$$_"])))
+          + (($all
+          | in_files_with($all | of(["$VALUE = {$$$_, clientSecret: $SECRET, $$$_}\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$VALUE = {$$$_, secretOrKey: $SECRET, $$$_}\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$VALUE = {$$$_, consumerSecret: $SECRET, $$$_}\n$$$_"])))
+          | at_same_place(($all | of(["$VALUE"])))
+          | in_files_with($all | of(["$SECRET = '$$$_'\n$$$_"])))));
+              ([]))
+        | finding("hardcoded-passport-secret";
+            "A hard-coded credential was detected.") ) )
+| report

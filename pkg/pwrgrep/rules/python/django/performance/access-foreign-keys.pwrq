@@ -1,4 +1,5 @@
 # rules: access-foreign-keys
+# languages: python
 # from: python/django/performance/access-foreign-keys.yaml
 
 . as $root
@@ -9,8 +10,10 @@
       "request.user.id",
       "self.request.user.id"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | in_files_with($all | of(["from django.$Y import $Z\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import django\n$$$_"])))
           | at_same_place(($all | of(["$X.user.id"])))
           | not_at($all | of(["request.user.id"]))
           | not_at($all | of(["self.request.user.id"]))

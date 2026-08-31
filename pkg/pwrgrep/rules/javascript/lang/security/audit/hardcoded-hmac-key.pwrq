@@ -1,4 +1,5 @@
 # rules: hardcoded-hmac-key
+# languages: javascript, typescript
 # from: javascript/lang/security/audit/hardcoded-hmac-key.yaml
 
 . as $root

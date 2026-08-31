@@ -1,4 +1,5 @@
 # rules: unencrypted-socket
+# languages: kotlin
 # from: kotlin/lang/security/unencrypted-socket.yaml
 
 . as $root

@@ -1,0 +1,63 @@
+# rules: dangerous-asyncio-shell-tainted-env-args
+# languages: python
+# from: python/lang/security/audit/dangerous-asyncio-shell-tainted-env-args.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A",
+      "$ARGS",
+      "$ARGS = $PARSER.parse_args()",
+      "$CMD = \"$$$_\"\n$$$_",
+      "$LOOP.subprocess_shell($PROTOCOL, \"$$$_\")",
+      "$LOOP.subprocess_shell($PROTOCOL, $CMD)",
+      "$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_",
+      "$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_",
+      "$PARSER = argparse.ArgumentParser($$$_)\n$$$_",
+      "$PARSER = optparse.OptionParser($$$_)\n$$$_",
+      "$PWRQDEEP1",
+      "asyncio.create_subprocess_shell(\"$$$_\", $$$_)",
+      "asyncio.create_subprocess_shell($CMD, $$$_)",
+      "asyncio.subprocess.create_subprocess_shell(\"$$$_\", $$$_)",
+      "asyncio.subprocess.create_subprocess_shell($CMD, $$$_)",
+      "for $O, $A in $OPTS:\n  $$$_",
+      "os.environ",
+      "os.environ.get('$FOO', $$$_)",
+      "os.environb",
+      "os.environb.get('$FOO', $$$_)",
+      "os.getenv('$ANYTHING', $$$_)",
+      "os.getenvb('$ANYTHING', $$$_)",
+      "sys.argv",
+      "sys.orig_argv"
+    ])) as $all
+    | ( ((($all
+          | within($all | of(["$LOOP.subprocess_shell($PROTOCOL, $CMD)"])))
+          + ($all
+          | within($all | of(["asyncio.subprocess.create_subprocess_shell($CMD, $$$_)"])))
+          + ($all
+          | within($all | of(["asyncio.create_subprocess_shell($CMD, $$$_)"])))
+          | focus("CMD")
+          | in_files_without($all | of(["$CMD = \"$$$_\"\n$$$_"]))
+          | not_at($all | of(["$LOOP.subprocess_shell($PROTOCOL, \"$$$_\")"]))
+          | not_at($all | of(["asyncio.subprocess.create_subprocess_shell(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["asyncio.create_subprocess_shell(\"$$$_\", $$$_)"]))))
+          | reaching(((($all | of(["os.environ","os.environ.get('$FOO', $$$_)","os.environb","os.environb.get('$FOO', $$$_)","os.getenv('$ANYTHING', $$$_)","os.getenvb('$ANYTHING', $$$_)"]))
+          + (($all | of(["sys.argv","sys.orig_argv"]))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = argparse.ArgumentParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = optparse.OptionParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + (($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_"])))
+          | at_same_place((($all | of(["$A"])
+          | within($all | of(["for $O, $A in $OPTS:\n  $$$_"])))
+          + ($all | of(["$ARGS"]))))))));
+              ([]))
+        | finding("dangerous-asyncio-shell-tainted-env-args";
+            "Detected asyncio subprocess function with user controlled data.") ) )
+| report

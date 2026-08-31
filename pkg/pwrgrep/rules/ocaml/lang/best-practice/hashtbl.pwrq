@@ -1,4 +1,5 @@
 # rules: hashtbl-find-outside-try
+# languages: ocaml
 # from: ocaml/lang/best-practice/hashtbl.yaml
 
 . as $root

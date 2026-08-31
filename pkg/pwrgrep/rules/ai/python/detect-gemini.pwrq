@@ -1,4 +1,5 @@
 # rules: detect-gemini
+# languages: python
 # from: ai/python/detect-gemini.yaml
 
 . as $root

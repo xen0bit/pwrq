@@ -1,14 +1,18 @@
 # rules: react-jwt-in-localstorage
+# languages: javascript, typescript
 # from: typescript/react/security/audit/react-jwt-in-localstorage.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.ts"]; [
+| ( ($root | scan_ast(["*.js","*.ts"]; [
       "\"jwt-decode\"",
-      "$DECODED = jwt_decode($$$_);\n$$$_\nlocalStorage.setItem($NAME, <$$$_ $DECODED $$$_>);",
-      "$DECODED = jwt_decode($TOKEN,$$$_);\n$$$_\nlocalStorage.setItem($NAME, <$$$_ $TOKEN $$$_>);",
+      "$DECODED = jwt_decode($$$_);\n$$$_\nlocalStorage.setItem($NAME, $PWRQDEEP1);",
+      "$DECODED = jwt_decode($TOKEN,$$$_);\n$$$_\nlocalStorage.setItem($NAME, $PWRQDEEP1);",
       "import jwt_decode from \"jwt-decode\";\n$$$_"
     ])) as $all
-    | ( $all | of(["$DECODED = jwt_decode($TOKEN,$$$_);\n$$$_\nlocalStorage.setItem($NAME, <$$$_ $TOKEN $$$_>);","$DECODED = jwt_decode($$$_);\n$$$_\nlocalStorage.setItem($NAME, <$$$_ $DECODED $$$_>);"])
+    | ( ($all | of(["$DECODED = jwt_decode($TOKEN,$$$_);\n$$$_\nlocalStorage.setItem($NAME, $PWRQDEEP1);"])
+          | where_capture_ast("PWRQDEEP1"; "$TOKEN"))
+          + ($all | of(["$DECODED = jwt_decode($$$_);\n$$$_\nlocalStorage.setItem($NAME, $PWRQDEEP1);"])
+          | where_capture_ast("PWRQDEEP1"; "$DECODED"))
           | in_files_with($all | of(["import jwt_decode from \"jwt-decode\";\n$$$_","\"jwt-decode\""]))
         | finding("react-jwt-in-localstorage";
             "Storing JWT tokens in localStorage known to be a bad practice, consider moving your tokens from localStorage to a HTTP cookie.") ) )

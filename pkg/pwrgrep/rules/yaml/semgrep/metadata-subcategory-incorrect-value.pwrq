@@ -2,20 +2,20 @@
 # from: yaml/semgrep/metadata-subcategory-incorrect-value.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "metadata: \n  $$$_\n  category: security\n  $$$_",
-      "rules: \n  $$$_",
-      "subcategory: \n  - $VALUE",
-      "subcategory: \n  - audit",
-      "subcategory: \n  - secure default",
-      "subcategory: \n  - vuln"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?",
+      "rules:\\s+[\\s\\S]*?",
+      "subcategory:\\s+\\-\\s+(?P<VALUE>\\S+)",
+      "subcategory:\\s+\\-\\s+audit",
+      "subcategory:\\s+\\-\\s+secure\\s+default",
+      "subcategory:\\s+\\-\\s+vuln"
     ])) as $all
-    | ( $all | of(["subcategory: \n  - $VALUE"])
-          | within($all | of(["rules: \n  $$$_"]))
-          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
-          | not_at($all | of(["subcategory: \n  - vuln"]))
-          | not_at($all | of(["subcategory: \n  - audit"]))
-          | not_at($all | of(["subcategory: \n  - secure default"]))
+    | ( $all | of(["subcategory:\\s+\\-\\s+(?P<VALUE>\\S+)"])
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | within($all | of(["metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["subcategory:\\s+\\-\\s+vuln"]))
+          | not_at($all | of(["subcategory:\\s+\\-\\s+audit"]))
+          | not_at($all | of(["subcategory:\\s+\\-\\s+secure\\s+default"]))
         | finding("metadata-subcategory-incorrect-value";
             "Semgrep rule likelihood: $VALUE detected, but the value must be vuln, audit, or secure default.") ) )
 | report

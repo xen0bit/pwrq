@@ -1,0 +1,20 @@
+# rules: grpc-server-insecure-connection
+# languages: go
+# from: go/grpc/security/grpc-server-insecure-connection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "grpc.Creds($$$_)",
+      "grpc.NewServer($OPT, $$$_)",
+      "grpc.NewServer()",
+      "grpc.ServerOption{ $$$_ }"
+    ])) as $all
+    | ( (($all | of(["grpc.NewServer($OPT, $$$_)"]))
+              + ($all | of(["grpc.NewServer()"])))
+          | reaching((($all | of(["grpc.ServerOption{ $$$_ }"]))
+              + ($all | of(["grpc.Creds($$$_)"]))
+              + ($all | of(["grpc.NewServer()"])));
+              ([]))
+        | finding("grpc-server-insecure-connection";
+            "Found an insecure gRPC server without 'grpc.Creds()' or options with credentials.") ) )
+| report

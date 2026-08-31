@@ -1,0 +1,68 @@
+# rules: path-traversal-open
+# languages: python
+# from: python/flask/security/injection/path-traversal-open.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$INTERM = $PWRQDEEP1\n$$$_\nopen($PWRQDEEP2, $$$_)",
+      "$INTERM = $PWRQDEEP1\n$$$_\nwith open($PWRQDEEP2, $$$_) as $F:\n  $$$_",
+      "@$APP.route($ROUTE, $$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  $INTERM = $PWRQDEEP1\n  $$$_\n  open($$$_, $PWRQDEEP2, $$$_)",
+      "@$APP.route($ROUTE, $$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  open($$$_, $PWRQDEEP1, $$$_)",
+      "@$APP.route($ROUTE, $$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  with open($$$_, $PWRQDEEP1, $$$_) as $FD:\n    $$$_",
+      "open($$$_)",
+      "open($$$_, $PWRQDEEP1, $$$_)"
+    ])) as $all
+    | ( ($all | of(["open($$$_)"])
+          | at_same_place((($all
+          | within($all | of(["@$APP.route($ROUTE, $$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  open($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$ROUTEVAR")))
+          + ($all
+          | within($all | of(["@$APP.route($ROUTE, $$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  with open($$$_, $PWRQDEEP1, $$$_) as $FD:\n    $$$_"])
+          | where_capture_ast("PWRQDEEP1"; "$ROUTEVAR")))
+          + ($all
+          | within($all | of(["@$APP.route($ROUTE, $$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_\n  $INTERM = $PWRQDEEP1\n  $$$_\n  open($$$_, $PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "$ROUTEVAR")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM"))))))
+          + ($all | of(["open($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W.get($$$_)"))
+          + ($all | of(["open($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W[$$$_]"))
+          + ($all | of(["open($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W($$$_)"))
+          + ($all | of(["open($$$_, $PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W"))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nopen($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W.get($$$_)")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nopen($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W[$$$_]")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nopen($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W($$$_)")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nopen($PWRQDEEP2, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nwith open($PWRQDEEP2, $$$_) as $F:\n  $$$_"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W.get($$$_)")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nwith open($PWRQDEEP2, $$$_) as $F:\n  $$$_"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W[$$$_]")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nwith open($PWRQDEEP2, $$$_) as $F:\n  $$$_"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W($$$_)")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+          + ($all | of(["open($$$_)"])
+          | within($all | of(["$INTERM = $PWRQDEEP1\n$$$_\nwith open($PWRQDEEP2, $$$_) as $F:\n  $$$_"])
+          | where_capture_ast("PWRQDEEP1"; "flask.request.$W")
+          | where_capture_ast("PWRQDEEP2"; "$INTERM")))
+        | finding("path-traversal-open";
+            "Found request data in a call to 'open'.") ) )
+| report

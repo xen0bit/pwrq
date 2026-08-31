@@ -1,0 +1,14 @@
+# rules: raw-html-join
+# languages: javascript, typescript
+# from: javascript/browser/security/raw-html-join.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "[$$$_, \"$HARDCODED\", $$$_].join(\"$$$_\")",
+      "[$$$_, $STRING, $$$_].join($$$_)"
+    ])) as $all
+    | ( ($all | of(["[$$$_, $STRING, $$$_].join($$$_)"])
+          | not_at($all | of(["[$$$_, \"$HARDCODED\", $$$_].join(\"$$$_\")"])))
+        | finding("raw-html-join";
+            "User controlled data in a HTML string may result in XSS") ) )
+| report

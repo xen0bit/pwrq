@@ -1,4 +1,5 @@
 # rules: detect-pytorch
+# languages: python
 # from: ai/python/detect-pytorch.yaml
 
 . as $root

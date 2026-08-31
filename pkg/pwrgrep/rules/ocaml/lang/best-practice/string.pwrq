@@ -1,4 +1,5 @@
 # rules: ocamllint-str-first-chars, ocamllint-str-string-after, ocamllint-str-last-chars, ocamllint-useless-sprintf
+# languages: ocaml
 # from: ocaml/lang/best-practice/string.yaml
 
 . as $root

@@ -1,0 +1,17 @@
+# rules: formathtml-fstring-parameter
+# languages: python
+# from: python/django/security/audit/xss/formathtml-fstring-parameter.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "format_html(\"$$$_\" % $$$_, $$$_)",
+      "format_html(\"$$$_\".format($$$_), $$$_)",
+      "format_html($PWRQDEEP1, $$$_)"
+    ])) as $all
+    | ( ($all | of(["format_html($PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "f\"$$$_\""))
+          + ($all | of(["format_html(\"$$$_\" % $$$_, $$$_)"]))
+          + ($all | of(["format_html(\"$$$_\".format($$$_), $$$_)"]))
+        | finding("formathtml-fstring-parameter";
+            "Passing a formatted string as first parameter to `format_html` disables the proper encoding of variables.") ) )
+| report

@@ -1,0 +1,21 @@
+# rules: aws-lambda-environment-unencrypted
+# from: terraform/aws/security/aws-lambda-environment-unencrypted.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "environment\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "kms_key_arn\\s+=\\s+\"\"",
+      "kms_key_arn\\s+=\\s+[\\s\\S]*?",
+      "resource\\s+\"aws_lambda_function\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+(?P<A>\\S+)\\s+(?P<B>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+environment\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+(?P<A>\\S+)\\s+(?P<B>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+kms_key_arn\\s+=\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( ($all | of(["environment\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])
+          | outside($all | of(["resource\\s+(?P<A>\\S+)\\s+(?P<B>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+kms_key_arn\\s+=\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all | of(["kms_key_arn\\s+=\\s+[\\s\\S]*?"])
+          | outside($all | of(["resource\\s+(?P<A>\\S+)\\s+(?P<B>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+environment\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all | of(["kms_key_arn\\s+=\\s+\"\""]))
+          | within($all | of(["resource\\s+\"aws_lambda_function\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("aws-lambda-environment-unencrypted";
+            "By default, the AWS Lambda Environment is encrypted using AWS-managed keys.") ) )
+| report

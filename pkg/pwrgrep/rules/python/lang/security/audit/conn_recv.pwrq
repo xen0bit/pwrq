@@ -1,4 +1,5 @@
 # rules: multiprocessing-recv
+# languages: python
 # from: python/lang/security/audit/conn_recv.yaml
 
 . as $root

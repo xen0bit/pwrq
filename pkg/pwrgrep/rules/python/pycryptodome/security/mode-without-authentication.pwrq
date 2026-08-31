@@ -1,0 +1,14 @@
+# rules: crypto-mode-without-authentication
+# languages: python
+# from: python/pycryptodome/security/mode-without-authentication.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "AES.new($$$_, $PYCRYPTODOME_MODE)",
+      "AES.new($$$_, $PYCRYPTODOME_MODE)\n$$$_\nHMAC.new"
+    ])) as $all
+    | ( ($all | of(["AES.new($$$_, $PYCRYPTODOME_MODE)"])
+          | outside($all | of(["AES.new($$$_, $PYCRYPTODOME_MODE)\n$$$_\nHMAC.new"])))
+        | finding("crypto-mode-without-authentication";
+            "An encryption mode of operation is being used without proper message authentication.") ) )
+| report

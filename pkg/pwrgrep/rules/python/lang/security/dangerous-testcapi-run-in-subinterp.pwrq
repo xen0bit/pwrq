@@ -1,0 +1,112 @@
+# rules: dangerous-testcapi-run-in-subinterp
+# languages: python
+# from: python/lang/security/dangerous-testcapi-run-in-subinterp.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$REQ.$ANYTHING",
+      "$REQ.DATA.get($$$_)",
+      "$REQ.DATA[$$$_]",
+      "$REQ.FILES.get($$$_)",
+      "$REQ.FILES[$$$_]",
+      "$REQ.POST.get($$$_)",
+      "$REQ.POST[$$$_]",
+      "$REQ.QUERY_PARAMS.get($$$_)",
+      "$REQ.QUERY_PARAMS[$$$_]",
+      "$REQ.content_type",
+      "$REQ.data.get($$$_)",
+      "$REQ.data[$$$_]",
+      "$REQ.dbsession",
+      "$REQ.query_params.get($$$_)",
+      "$REQ.query_params[$$$_]",
+      "$REQ.stream",
+      "@$APP.route($$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_",
+      "@pyramid.view.view_config( $$$_ )\ndef $VIEW($REQ):\n  $$$_",
+      "@rest_framework.decorators.api_view($$$_)\ndef $FUNC($REQ, $$$_):\n  $$$_",
+      "_testcapi.run_in_subinterp(\"$$$_\", $$$_)",
+      "_testcapi.run_in_subinterp($PAYLOAD, $$$_)",
+      "class $SERVER($$$_, http.server.BaseHTTPRequestHandler, $$$_):\n  $$$_",
+      "class $SERVER($$$_, http.server.DatagramRequestHandler, $$$_):\n  $$$_",
+      "class $SERVER($$$_, http.server.StreamRequestHandler, $$$_):\n  $$$_",
+      "class $VIEW($$$_, rest_framework.generics.GenericAPIView, $$$_):\n  $$$_",
+      "class $VIEW($$$_, rest_framework.views.APIView, $$$_):\n  $$$_",
+      "def $FUNC(request, $$$_):\n  $$$_",
+      "def $METHOD(self, $REQ, $$$_):\n  $$$_",
+      "flask.request.args.get($$$_)",
+      "flask.request.args[$$$_]",
+      "flask.request.cookies.get($$$_)",
+      "flask.request.cookies[$$$_]",
+      "flask.request.data",
+      "flask.request.form.get($$$_)",
+      "flask.request.form[$$$_]",
+      "flask.request.full_path",
+      "flask.request.get_json()",
+      "flask.request.headers.get($$$_)",
+      "flask.request.headers[$$$_]",
+      "flask.request.json",
+      "flask.request.stream",
+      "flask.request.url",
+      "flask.request.values.get($$$_)",
+      "flask.request.values[$$$_]",
+      "flask.request.view_args.get($$$_)",
+      "flask.request.view_args[$$$_]",
+      "request.$PROPERTY.get($$$_)",
+      "request.$PROPERTY[$$$_]",
+      "self.headers.get($$$_)",
+      "self.headers[$$$_]",
+      "self.path",
+      "self.requestline",
+      "self.rfile",
+      "test.support.run_in_subinterp(\"$$$_\", $$$_)",
+      "test.support.run_in_subinterp($PAYLOAD, $$$_)"
+    ])) as $all
+    | ( (($all | of(["_testcapi.run_in_subinterp($PAYLOAD, $$$_)","test.support.run_in_subinterp($PAYLOAD, $$$_)"])
+          | focus("PAYLOAD")
+          | not_at($all | of(["_testcapi.run_in_subinterp(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["test.support.run_in_subinterp(\"$$$_\", $$$_)"]))))
+          | reaching((((($all | of(["flask.request.form.get($$$_)"]))
+          + ($all | of(["flask.request.form[$$$_]"]))
+          + ($all | of(["flask.request.args.get($$$_)"]))
+          + ($all | of(["flask.request.args[$$$_]"]))
+          + ($all | of(["flask.request.values.get($$$_)"]))
+          + ($all | of(["flask.request.values[$$$_]"]))
+          + ($all | of(["flask.request.cookies.get($$$_)"]))
+          + ($all | of(["flask.request.cookies[$$$_]"]))
+          + ($all | of(["flask.request.stream"]))
+          + ($all | of(["flask.request.headers.get($$$_)"]))
+          + ($all | of(["flask.request.headers[$$$_]"]))
+          + ($all | of(["flask.request.data"]))
+          + ($all | of(["flask.request.full_path"]))
+          + ($all | of(["flask.request.url"]))
+          + ($all | of(["flask.request.json"]))
+          + ($all | of(["flask.request.get_json()"]))
+          + ($all | of(["flask.request.view_args.get($$$_)"]))
+          + ($all | of(["flask.request.view_args[$$$_]"]))
+          + ($all
+          | within($all | of(["@$APP.route($$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_"]))
+          | focus("ROUTEVAR")))
+          + ($all | of(["request.$PROPERTY.get($$$_)","request.$PROPERTY[$$$_]"])
+          | within($all | of(["def $FUNC(request, $$$_):\n  $$$_"])))
+          + (($all
+          | within($all | of(["@rest_framework.decorators.api_view($$$_)\ndef $FUNC($REQ, $$$_):\n  $$$_"])))
+          + (($all
+          | within($all | of(["class $VIEW($$$_, rest_framework.views.APIView, $$$_):\n  $$$_"])))
+          + ($all
+          | within($all | of(["class $VIEW($$$_, rest_framework.generics.GenericAPIView, $$$_):\n  $$$_"])))
+          | within($all | of(["def $METHOD(self, $REQ, $$$_):\n  $$$_"]))
+          | where_capture("METHOD"; "^(?:(get|post|put|patch|delete|head))"))
+          | at_same_place(($all | of(["$REQ.POST.get($$$_)","$REQ.POST[$$$_]","$REQ.FILES.get($$$_)","$REQ.FILES[$$$_]","$REQ.DATA.get($$$_)","$REQ.DATA[$$$_]","$REQ.QUERY_PARAMS.get($$$_)","$REQ.QUERY_PARAMS[$$$_]","$REQ.data.get($$$_)","$REQ.data[$$$_]","$REQ.query_params.get($$$_)","$REQ.query_params[$$$_]","$REQ.content_type","$REQ.content_type","$REQ.stream","$REQ.stream"]))))
+          + (($all
+          | within($all | of(["class $SERVER($$$_, http.server.BaseHTTPRequestHandler, $$$_):\n  $$$_"])))
+          + ($all
+          | within($all | of(["class $SERVER($$$_, http.server.StreamRequestHandler, $$$_):\n  $$$_"])))
+          + ($all
+          | within($all | of(["class $SERVER($$$_, http.server.DatagramRequestHandler, $$$_):\n  $$$_"])))
+          | at_same_place(($all | of(["self.requestline","self.path","self.headers[$$$_]","self.headers.get($$$_)","self.rfile"]))))
+          + ($all | of(["$REQ.$ANYTHING"])
+          | within($all | of(["@pyramid.view.view_config( $$$_ )\ndef $VIEW($REQ):\n  $$$_"]))
+          | not_at($all | of(["$REQ.dbsession"])))));
+              ([]))
+        | finding("dangerous-testcapi-run-in-subinterp";
+            "Found user controlled content in `run_in_subinterp`.") ) )
+| report

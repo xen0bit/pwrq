@@ -1,0 +1,11 @@
+# rules: var-in-href
+# from: javascript/express/security/audit/xss/pug/var-in-href.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.pug"]; [
+      "a\\(.*href=[^'\"].*\\)"
+    ])) as $all
+    | ( $all | of(["a\\(.*href=[^'\"].*\\)"])
+        | finding("var-in-href";
+            "Detected a template variable used in an anchor tag with the 'href' attribute.") ) )
+| report

@@ -1,0 +1,23 @@
+# rules: insecure-file-permissions
+# languages: python
+# from: python/lang/security/audit/insecure-file-permissions.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "os.$METHOD($$$_)",
+      "os.$METHOD($FILE, $BITS)",
+      "os.$METHOD($FILE, $BITS, $$$_)",
+      "os.$METHOD($FILE, $EXPR | $MOD, $$$_)"
+    ])) as $all
+    | ( ($all | of(["os.$METHOD($FILE, $BITS, $$$_)"])
+          | where_capture_compare("$BITS >= 0o650")
+          | where_capture_compare("$BITS < 0o100000"))
+          + ($all | of(["os.$METHOD($FILE, $BITS)"])
+          | where_capture_compare("$BITS >= 0o100650"))
+          + ($all | of(["os.$METHOD($FILE, $BITS, $$$_)"]))
+          + ($all | of(["os.$METHOD($FILE, $EXPR | $MOD, $$$_)"])
+          | where_capture_compare("$MOD == 0o111"))
+          | within($all | of(["os.$METHOD($$$_)"]))
+        | finding("insecure-file-permissions";
+            "These permissions `$BITS` are widely permissive and grant access to more people than may be necessary.") ) )
+| report

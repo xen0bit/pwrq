@@ -1,0 +1,12 @@
+# rules: request-host-used
+# from: generic/nginx/security/request-host-used.yaml
+
+. as $root
+| ( ($root | scan_regex(["*conf*","*nginx*","*vhost*","sites-available/*","sites-enabled/*"]; [
+      "\\$host",
+      "\\$http_host"
+    ])) as $all
+    | ( $all | of(["\\$http_host","\\$host"])
+        | finding("request-host-used";
+            "'$http_host' and '$host' variables may contain a malicious value from attacker controlled 'Host' request header.") ) )
+| report

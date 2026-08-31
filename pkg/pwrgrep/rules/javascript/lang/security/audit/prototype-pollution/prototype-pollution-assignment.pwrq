@@ -1,0 +1,25 @@
+# rules: prototype-pollution-assignment
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/prototype-pollution/prototype-pollution-assignment.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$X = $SMTH[$A]\n$$$_",
+      "$X.forEach(function $NAME($OBJ, $B,$$$_) {$$$_})",
+      "$X[$B] = $$$_",
+      "$X[$B] = '$$$_'",
+      "for($B = $S; $$$_; $$$_) {$$$_}",
+      "for(var $B = $S; $$$_; $$$_) {$$$_}",
+      "if ($PWRQDEEP1) {\n  $$$_\n}\n$$$_"
+    ])) as $all
+    | ( $all | of(["$X[$B] = $$$_"])
+          | not_at($all | of(["$X[$B] = '$$$_'"]))
+          | in_files_with($all | of(["$X = $SMTH[$A]\n$$$_"]))
+          | in_files_without($all | of(["if ($PWRQDEEP1) {\n  $$$_\n}\n$$$_"]))
+          | in_files_without($all | of(["if ($PWRQDEEP1) {\n  $$$_\n}\n$$$_"]))
+          | outside($all | of(["for(var $B = $S; $$$_; $$$_) {$$$_}"]))
+          | outside($all | of(["for($B = $S; $$$_; $$$_) {$$$_}"]))
+          | outside($all | of(["$X.forEach(function $NAME($OBJ, $B,$$$_) {$$$_})"]))
+        | finding("prototype-pollution-assignment";
+            "Possibility of prototype polluting assignment detected.") ) )
+| report

@@ -1,0 +1,16 @@
+# rules: storage-default-action-deny
+# languages: hcl
+# from: terraform/azure/security/storage/storage-default-action-deny.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_storage_account_network_rules\" \"$$$_\" {\n$$$_\n  default_action = \"Allow\"\n$$$_\n}",
+      "resource \"azurerm_storage_account_network_rules\" \"$$$_\" {\n$$$_\n  default_action = \"Deny\"\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_storage_account_network_rules\" \"$$$_\" {\n$$$_\n  default_action = \"Deny\"\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_storage_account_network_rules\" \"$$$_\" {\n$$$_\n  default_action = \"Allow\"\n$$$_\n}"]))
+        | finding("storage-default-action-deny";
+            "Detected a Storage that was not configured to deny action by default.") ) )
+| report

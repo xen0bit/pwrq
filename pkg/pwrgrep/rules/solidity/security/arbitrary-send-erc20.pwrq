@@ -1,0 +1,14 @@
+# rules: arbitrary-send-erc20
+# languages: solidity
+# from: solidity/security/arbitrary-send-erc20.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "$FUNC.transferFrom($$$_)",
+      "$FUNC.transferFrom($$$_, msg.sender, $$$_)"
+    ])) as $all
+    | ( $all | of(["$FUNC.transferFrom($$$_)"])
+          | not_at($all | of(["$FUNC.transferFrom($$$_, msg.sender, $$$_)"]))
+        | finding("arbitrary-send-erc20";
+            "msg.sender is not being used when calling erc20.transferFrom.") ) )
+| report

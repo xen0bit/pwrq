@@ -1,4 +1,5 @@
 # rules: ftp-request
+# languages: go
 # from: problem-based-packs/insecure-transport/go-stdlib/ftp-request.yaml
 
 . as $root

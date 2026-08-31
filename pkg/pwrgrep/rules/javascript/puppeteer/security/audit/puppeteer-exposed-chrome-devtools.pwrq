@@ -1,0 +1,20 @@
+# rules: puppeteer-exposed-chrome-devtools
+# languages: javascript, typescript
+# from: javascript/puppeteer/security/audit/puppeteer-exposed-chrome-devtools.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "require('puppeteer');\n$$$_"
+    ])) as $all
+    | ( ($all
+          | where_text("--remote-debugging-address"))
+          + ($all
+          | where_text("--remote-debugging-port"))
+          + ($all
+          | where_text("--remote-debugging-socket-name"))
+          + ($all
+          | where_text("--remote-debugging-targets"))
+          | in_files_with($all | of(["require('puppeteer');\n$$$_"]))
+        | finding("puppeteer-exposed-chrome-devtools";
+            "Remote debugging protocol does not perform any authentication, so exposing it too widely can be a security risk.") ) )
+| report

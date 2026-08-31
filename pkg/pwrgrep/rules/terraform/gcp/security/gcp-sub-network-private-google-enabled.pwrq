@@ -1,0 +1,16 @@
+# rules: gcp-sub-network-private-google-enabled
+# languages: hcl
+# from: terraform/gcp/security/gcp-sub-network-private-google-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_compute_subnetwork\" \"$$$_\" {\n$$$_\nprivate_ip_google_access = true\n$$$_\n}",
+      "resource \"google_compute_subnetwork\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_compute_subnetwork\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_compute_subnetwork\" \"$$$_\" {\n$$$_\nprivate_ip_google_access = true\n$$$_\n}"]))
+        | finding("gcp-sub-network-private-google-enabled";
+            "Ensure that private_ip_google_access is enabled for Subnet") ) )
+| report

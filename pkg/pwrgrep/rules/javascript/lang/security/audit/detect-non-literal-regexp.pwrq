@@ -1,0 +1,26 @@
+# rules: detect-non-literal-regexp
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/detect-non-literal-regexp.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "RegExp(\"$$$_\", $$$_)",
+      "RegExp($ARG, $$$_)",
+      "RegExp(/$$$_/, $$$_)",
+      "function $$$_ ($$$_,$ARG,$$$_) {$$$_}",
+      "new RegExp(\"$$$_\", $$$_)",
+      "new RegExp($ARG, $$$_)",
+      "new RegExp(/$$$_/, $$$_)"
+    ])) as $all
+    | ( (($all | of(["new RegExp($ARG, $$$_)","RegExp($ARG, $$$_)"])
+          | not_at($all | of(["RegExp(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["new RegExp(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["RegExp(/$$$_/, $$$_)"]))
+          | not_at($all | of(["new RegExp(/$$$_/, $$$_)"]))))
+          | reaching((($all
+          | within($all | of(["function $$$_ ($$$_,$ARG,$$$_) {$$$_}"]))
+          | focus("ARG")));
+              ([]))
+        | finding("detect-non-literal-regexp";
+            "RegExp() called with a `$ARG` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread.") ) )
+| report

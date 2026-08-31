@@ -1,0 +1,15 @@
+# rules: pyramid-csrf-origin-check-disabled-globally
+# languages: python
+# from: python/pyramid/audit/csrf-origin-check-disabled-globally.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CHECK_ORIGIN",
+      "$CONFIG.set_default_csrf_options($$$_, check_origin=$CHECK_ORIGIN, $$$_)"
+    ])) as $all
+    | ( $all | of(["$CHECK_ORIGIN"])
+          | within($all | of(["$CONFIG.set_default_csrf_options($$$_, check_origin=$CHECK_ORIGIN, $$$_)"]))
+          | where_capture("CHECK_ORIGIN"; "^(?i:False)$")
+        | finding("pyramid-csrf-origin-check-disabled-globally";
+            "Automatic check of the referrer for cross-site request forgery tokens has been explicitly disabled globally, which might leave views unprotected when an unsafe CSRF storage policy is used.") ) )
+| report

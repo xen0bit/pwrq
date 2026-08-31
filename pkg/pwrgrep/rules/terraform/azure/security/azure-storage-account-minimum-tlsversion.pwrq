@@ -1,0 +1,18 @@
+# rules: azure-storage-account-minimum-tlsversion
+# languages: hcl
+# from: terraform/azure/security/azure-storage-account-minimum-tlsversion.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\nmin_tls_version = \"TLS1_2\"\n$$$_\n}",
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\nmin_tls_version = \"TLS1_3\"\n$$$_\n}",
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\nmin_tls_version = \"TLS1_2\"\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\nmin_tls_version = \"TLS1_3\"\n$$$_\n}"]))
+        | finding("azure-storage-account-minimum-tlsversion";
+            "Ensure Storage Account is using the latest version of TLS encryption") ) )
+| report

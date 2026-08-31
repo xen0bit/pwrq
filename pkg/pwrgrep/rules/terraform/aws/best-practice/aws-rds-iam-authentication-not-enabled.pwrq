@@ -1,0 +1,14 @@
+# rules: aws-rds-iam-authentication-not-enabled
+# languages: hcl
+# from: terraform/aws/best-practice/aws-rds-iam-authentication-not-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n  iam_database_authentication_enabled = true\n  $$$_\n}",
+      "resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n  iam_database_authentication_enabled = true\n  $$$_\n}"]))
+        | finding("aws-rds-iam-authentication-not-enabled";
+            "The AWS RDS is not configured to use IAM authentication.") ) )
+| report

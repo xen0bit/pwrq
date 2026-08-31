@@ -1,0 +1,18 @@
+# rules: azure-monitor-log-profile-retention-days
+# languages: hcl
+# from: terraform/azure/best-practice/azure-monitor-log-profile-retention-days.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\nretention_policy {\n  $$$_\n  enabled = false\n  days = 0\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\nretention_policy {\n  $$$_\n  enabled = true\n  days = 365\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\nretention_policy {\n  $$$_\n  enabled = true\n  days = 365\n  $$$_\n}\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\nretention_policy {\n  $$$_\n  enabled = false\n  days = 0\n  $$$_\n}\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_monitor_log_profile\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-monitor-log-profile-retention-days";
+            "Ensure that Activity Log Retention is set 365 days or greater") ) )
+| report

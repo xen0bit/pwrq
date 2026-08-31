@@ -1,4 +1,5 @@
 # rules: delete-where-no-execute
+# languages: python
 # from: python/sqlalchemy/correctness/delete-where.yaml
 
 . as $root

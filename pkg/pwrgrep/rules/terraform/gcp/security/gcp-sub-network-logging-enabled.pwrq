@@ -1,0 +1,14 @@
+# rules: gcp-sub-network-logging-enabled
+# languages: hcl
+# from: terraform/gcp/security/gcp-sub-network-logging-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_compute_subnetwork\" $ANYTHING {\n  $$$_\n  log_config {\n    $$$_\n  }        \n  $$$_\n}",
+      "resource \"google_compute_subnetwork\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_compute_subnetwork\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_compute_subnetwork\" $ANYTHING {\n  $$$_\n  log_config {\n    $$$_\n  }        \n  $$$_\n}"]))
+        | finding("gcp-sub-network-logging-enabled";
+            "Ensure that VPC Flow Logs is enabled for every subnet in a VPC Network") ) )
+| report

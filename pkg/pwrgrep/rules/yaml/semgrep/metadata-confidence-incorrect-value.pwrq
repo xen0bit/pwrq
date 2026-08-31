@@ -2,20 +2,20 @@
 # from: yaml/semgrep/metadata-confidence-incorrect-value.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "confidence: $VALUE",
-      "confidence: HIGH",
-      "confidence: LOW",
-      "confidence: MEDIUM",
-      "metadata: \n  $$$_\n  category: security\n  $$$_",
-      "rules: \n  $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "confidence:\\s+(?P<VALUE>\\S+)",
+      "confidence:\\s+HIGH",
+      "confidence:\\s+LOW",
+      "confidence:\\s+MEDIUM",
+      "metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?",
+      "rules:\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["confidence: $VALUE"])
-          | within($all | of(["rules: \n  $$$_"]))
-          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
-          | not_at($all | of(["confidence: LOW"]))
-          | not_at($all | of(["confidence: MEDIUM"]))
-          | not_at($all | of(["confidence: HIGH"]))
+    | ( $all | of(["confidence:\\s+(?P<VALUE>\\S+)"])
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | within($all | of(["metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["confidence:\\s+LOW"]))
+          | not_at($all | of(["confidence:\\s+MEDIUM"]))
+          | not_at($all | of(["confidence:\\s+HIGH"]))
         | finding("metadata-confidence-incorrect-value";
             "Semgrep rule confidence: $VALUE detected, but the value must be LOW, MEDIUM, or HIGH.") ) )
 | report

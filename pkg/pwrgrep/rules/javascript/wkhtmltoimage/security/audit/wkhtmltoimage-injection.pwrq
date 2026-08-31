@@ -1,4 +1,5 @@
 # rules: wkhtmltoimage-injection
+# languages: javascript, typescript
 # from: javascript/wkhtmltoimage/security/audit/wkhtmltoimage-injection.yaml
 
 . as $root

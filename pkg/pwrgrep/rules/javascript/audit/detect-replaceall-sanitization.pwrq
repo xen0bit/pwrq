@@ -1,4 +1,5 @@
 # rules: detect-replaceall-sanitization
+# languages: javascript, typescript
 # from: javascript/audit/detect-replaceall-sanitization.yaml
 
 . as $root
@@ -10,7 +11,7 @@
       "$STR.$FUNC('>', '&gt;')"
     ])) as $all
     | ( $all | of(["$STR.$FUNC('<', '&lt;')","$STR.$FUNC('>', '&gt;')","$STR.$FUNC('\"', '&quot;')","$STR.$FUNC(\"'\", '&apos;')","$STR.$FUNC('&', '&amp;')"])
-          | where_capture("FUNC"; "(replace|replaceAll)")
+          | where_capture("FUNC"; "^(?:(replace|replaceAll))")
         | finding("detect-replaceall-sanitization";
             "Detected a call to `$FUNC()` in an attempt to HTML escape the string `$STR`.") ) )
 | report

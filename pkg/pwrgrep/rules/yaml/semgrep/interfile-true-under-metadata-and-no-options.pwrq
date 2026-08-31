@@ -1,0 +1,16 @@
+# rules: interfile-true-under-metadata-and-no-options
+# from: yaml/semgrep/interfile-true-under-metadata-and-no-options.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "rules:\\s+\\-\\s+id:\\s+(?P<ID>\\S+)\\s+[\\s\\S]*?\\s+(?P<METADATA>\\S+):\\s+[\\s\\S]*?\\s+(?P<INTERFILE>\\S+):\\s+true\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "rules:\\s+\\-\\s+id:\\s+(?P<ID>\\S+)\\s+[\\s\\S]*?\\s+options:\\s+[\\s\\S]*?\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["rules:\\s+\\-\\s+id:\\s+(?P<ID>\\S+)\\s+[\\s\\S]*?\\s+(?P<METADATA>\\S+):\\s+[\\s\\S]*?\\s+(?P<INTERFILE>\\S+):\\s+true\\s+[\\s\\S]*?\\s+[\\s\\S]*?"])
+          | outside($all | of(["rules:\\s+\\-\\s+id:\\s+(?P<ID>\\S+)\\s+[\\s\\S]*?\\s+options:\\s+[\\s\\S]*?\\s+[\\s\\S]*?"]))
+          | where_capture("INTERFILE"; "^(?:interfile)")
+          | where_capture("METADATA"; "^(?:metadata)")
+          | focus("METADATA")
+        | finding("interfile-true-under-metadata-and-no-options";
+            "`interfile: true` should be under the `options` field, not the `metadata` field.") ) )
+| report

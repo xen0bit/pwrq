@@ -1,0 +1,21 @@
+# rules: express-libxml-vm-noent
+# languages: javascript, typescript
+# from: javascript/express/security/audit/express-libxml-vm-noent.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$LIBXML.parseXml( $DATA, $OPTS )",
+      "$LIBXML.parseXml($DATA, {$$$_, noent: true, $$$_}, $$$_)",
+      "$OPTS = {$$$_, noent: true, $$$_}\n$$$_",
+      "$VM.compileFunction(\"$CMD\", $$$_)",
+      "$VM.runInContext(\"$CMD\", $$$_)",
+      "$VM.runInNewContext(\"$CMD\", $$$_)",
+      "$VM.runInThisContext(\"$CMD\", $$$_)"
+    ])) as $all
+    | ( ($all | of(["$VM.runInContext(\"$CMD\", $$$_)","$VM.runInNewContext(\"$CMD\", $$$_)","$VM.runInThisContext(\"$CMD\", $$$_)","$VM.compileFunction(\"$CMD\", $$$_)"]))
+          + ($all | of(["$LIBXML.parseXml($DATA, {$$$_, noent: true, $$$_}, $$$_)"]))
+          + ($all | of(["$LIBXML.parseXml( $DATA, $OPTS )"])
+          | in_files_with($all | of(["$OPTS = {$$$_, noent: true, $$$_}\n$$$_"])))
+        | finding("express-libxml-vm-noent";
+            "Detected use of parseXml() function with the `noent` field set to `true`.") ) )
+| report

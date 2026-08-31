@@ -1,4 +1,5 @@
 # rules: nestjs-header-cors-any
+# languages: typescript
 # from: typescript/nestjs/security/audit/nestjs-header-cors-any.yaml
 
 . as $root

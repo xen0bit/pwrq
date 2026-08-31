@@ -1,4 +1,5 @@
 # rules: command-injection-os-system
+# languages: python
 # from: python/django/security/injection/command/command-injection-os-system.yaml
 
 . as $root

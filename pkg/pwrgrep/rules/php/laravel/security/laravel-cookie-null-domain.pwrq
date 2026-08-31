@@ -1,0 +1,18 @@
+# rules: laravel-cookie-null-domain
+# languages: php
+# from: php/laravel/security/laravel-cookie-null-domain.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "'cookie'",
+      "return [\n  $$$_,\n  'cookie' => env($$$_),\n  $$$_\n];",
+      "return [\n  $$$_,\n  'domain' => env('$NAME', $DEFAULT),\n  $$$_\n];",
+      "return [\n  $$$_,\n  'domain' => null,\n  $$$_\n];"
+    ])) as $all
+    | ( $all | of(["'cookie'"])
+          | within($all | of(["return [\n  $$$_,\n  'cookie' => env($$$_),\n  $$$_\n];"]))
+          | outside($all | of(["return [\n  $$$_,\n  'domain' => null,\n  $$$_\n];"]))
+          | outside($all | of(["return [\n  $$$_,\n  'domain' => env('$NAME', $DEFAULT),\n  $$$_\n];"]))
+        | finding("laravel-cookie-null-domain";
+            "Found a configuration file where the domain attribute is not set to null.") ) )
+| report

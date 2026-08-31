@@ -1,4 +1,5 @@
 # rules: avoid-apt-get-upgrade
+# languages: dockerfile
 # from: dockerfile/best-practice/avoid-apt-get-upgrade.yaml
 
 . as $root

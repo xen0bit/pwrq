@@ -1,4 +1,5 @@
 # rules: sequelize-enforce-tls
+# languages: javascript, typescript
 # from: javascript/sequelize/security/audit/sequelize-enforce-tls.yaml
 
 . as $root
@@ -10,7 +11,7 @@
     | ( $all | of(["{\n  host: $HOST,\n  database: $DATABASE,\n  dialect: $DIALECT\n }"])
           | not_at($all | of(["{\n  host: $HOST,\n  database: $DATABASE,\n  dialect: \"postgres\",\n  dialectOptions: {\n      ssl: true\n  }\n}"]))
           | not_at($all | of(["{\n  host: $HOST,\n  database: $DATABASE,\n  dialect: $DIALECT,\n  dialectOptions: {\n    ssl: { $$$_ }\n  }\n}"]))
-          | where_capture("DIALECT"; "['\"](mariadb|mysql|postgres)['\"]")
+          | where_capture("DIALECT"; "^(?:['\"](mariadb|mysql|postgres)['\"])")
         | finding("sequelize-enforce-tls";
             "If TLS is disabled on server side (Postgresql server), Sequelize establishes connection without TLS and no error will be thrown.") ) )
 | report

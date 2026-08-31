@@ -1,4 +1,5 @@
 # rules: ajv-allerrors-true
+# languages: javascript, typescript
 # from: javascript/ajv/security/audit/ajv-allerrors-true.yaml
 
 . as $root

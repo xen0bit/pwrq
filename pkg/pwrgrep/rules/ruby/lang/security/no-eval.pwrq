@@ -1,0 +1,34 @@
+# rules: ruby-eval
+# languages: ruby
+# from: ruby/lang/security/no-eval.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$M(\"$$$_\",$$$_)",
+      "$X.class_eval",
+      "$X.class_eval($$$_)",
+      "$X.eval",
+      "$X.eval($$$_)",
+      "$X.instance_eval",
+      "$X.instance_eval($$$_)",
+      "$X.module_eval",
+      "$X.module_eval($$$_)",
+      "RubyVM::InstructionSequence.compile(\"$$$_\")",
+      "RubyVM::InstructionSequence.compile($$$_)",
+      "class_eval($$$_)",
+      "cookies",
+      "eval($$$_)",
+      "instance_eval($$$_)",
+      "module_eval($$$_)",
+      "params"
+    ])) as $all
+    | ( (($all | of(["$X.eval","$X.class_eval","$X.instance_eval","$X.module_eval","$X.eval($$$_)","$X.class_eval($$$_)","$X.instance_eval($$$_)","$X.module_eval($$$_)","eval($$$_)","class_eval($$$_)","module_eval($$$_)","instance_eval($$$_)"])
+          | not_at($all | of(["$M(\"$$$_\",$$$_)"]))))
+          | reaching(((($all | of(["params"]))
+          + ($all | of(["cookies"]))
+          + ($all | of(["RubyVM::InstructionSequence.compile($$$_)"])
+          | not_at($all | of(["RubyVM::InstructionSequence.compile(\"$$$_\")"])))));
+              ([]))
+        | finding("ruby-eval";
+            "Use of eval with user-controllable input detected.") ) )
+| report

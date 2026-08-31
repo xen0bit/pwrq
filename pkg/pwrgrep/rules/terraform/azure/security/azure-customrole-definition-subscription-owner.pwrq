@@ -1,0 +1,15 @@
+# rules: azure-customrole-definition-subscription-owner
+# from: terraform/azure/security/azure-customrole-definition-subscription-owner.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "\\[\"\\*\"\\]",
+      "actions\\s+=\\s+[\\s\\S]*?",
+      "resource\\s+\"azurerm_role_definition\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+permissions\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+\\}"
+    ])) as $all
+    | ( $all | of(["\\[\"\\*\"\\]"])
+          | within($all | of(["resource\\s+\"azurerm_role_definition\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+permissions\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+\\}"]))
+          | within($all | of(["actions\\s+=\\s+[\\s\\S]*?"]))
+        | finding("azure-customrole-definition-subscription-owner";
+            "Ensure that no custom subscription owner roles are created") ) )
+| report

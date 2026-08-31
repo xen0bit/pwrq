@@ -1,4 +1,5 @@
 # rules: python37-compatibility-importlib, python37-compatibility-importlib2, python37-compatibility-httpconn, python37-compatibility-httpsconn, python37-compatibility-importlib3, python37-compatibility-textiowrapper, python37-compatibility-ipv6network1, python37-compatibility-ipv6network2, python37-compatibility-ipv4network1, python37-compatibility-ipv4network2, python37-compatibility-locale1, python37-compatibility-math1, python37-compatibility-multiprocess1, python37-compatibility-multiprocess2, python37-compatibility-os1, python37-compatibility-os2-ok2, python37-compatibility-pdb
+# languages: python
 # from: python/lang/compatibility/python37.yaml
 
 . as $root

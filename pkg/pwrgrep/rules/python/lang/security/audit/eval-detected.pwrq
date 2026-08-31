@@ -1,4 +1,5 @@
 # rules: eval-detected
+# languages: python
 # from: python/lang/security/audit/eval-detected.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: sync-sleep-in-async-code
+# languages: python
 # from: python/lang/correctness/sync-sleep-in-async-code.yaml
 
 . as $root

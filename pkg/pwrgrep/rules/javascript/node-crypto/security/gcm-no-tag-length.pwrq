@@ -1,4 +1,5 @@
 # rules: gcm-no-tag-length
+# languages: javascript, typescript
 # from: javascript/node-crypto/security/gcm-no-tag-length.yaml
 
 . as $root
@@ -6,7 +7,7 @@
       "$CRYPTO.createDecipheriv('$ALGO', $KEY, $IV)"
     ])) as $all
     | ( $all | of(["$CRYPTO.createDecipheriv('$ALGO', $KEY, $IV)"])
-          | where_capture("ALGO"; ".*(-gcm)$")
+          | where_capture("ALGO"; "^(?:.*(-gcm)$)")
         | finding("gcm-no-tag-length";
             "The call to 'createDecipheriv' with the Galois Counter Mode (GCM) mode of operation is missing an expected authentication tag length.") ) )
 | report

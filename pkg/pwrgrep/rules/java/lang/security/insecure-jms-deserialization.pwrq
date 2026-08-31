@@ -1,4 +1,5 @@
 # rules: insecure-jms-deserialization
+# languages: java
 # from: java/lang/security/insecure-jms-deserialization.yaml
 
 . as $root
@@ -7,8 +8,10 @@
       "$X = ($Z) $Y.getObject($$$_);",
       "public class $JMS_LISTENER implements MessageListener {\n  $$$_\n  public void onMessage(Message $JMS_MSG) {\n      $$$_\n  }\n}"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["$X = $Y.getObject($$$_);"])))
+          + ($all
+          | within($all | of(["$X = ($Z) $Y.getObject($$$_);"])))
           | within($all | of(["public class $JMS_LISTENER implements MessageListener {\n  $$$_\n  public void onMessage(Message $JMS_MSG) {\n      $$$_\n  }\n}"]))
         | finding("insecure-jms-deserialization";
             "JMS Object messages depend on Java Serialization for marshalling/unmarshalling of the message payload when ObjectMessage.getObject() is called.") ) )

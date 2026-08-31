@@ -1,0 +1,12 @@
+# rules: use-either-wget-or-curl
+# from: dockerfile/best-practice/use-either-wget-or-curl.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "RUN\\s+curl\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+RUN\\s+wget\\s+[\\s\\S]*?",
+      "RUN\\s+wget\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+RUN\\s+curl\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["RUN\\s+wget\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+RUN\\s+curl\\s+[\\s\\S]*?","RUN\\s+curl\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+RUN\\s+wget\\s+[\\s\\S]*?"])
+        | finding("use-either-wget-or-curl";
+            "'wget' and 'curl' are similar tools.") ) )
+| report

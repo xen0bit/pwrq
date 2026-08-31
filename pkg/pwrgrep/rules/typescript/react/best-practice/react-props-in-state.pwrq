@@ -1,0 +1,27 @@
+# rules: react-props-in-state
+# from: typescript/react/best-practice/react-props-in-state.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.js","*.ts"]; [
+      "class\\s+(?P<CN>\\S+)\\s+extends\\s+React\\.Component\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "function\\s+(?P<FN>\\S+)\\((?P<PROP>\\S+),[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "function\\s+(?P<FN>\\S+)\\(\\{(?P<PROP>\\S+)\\},[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "state\\s+=\\s+\\{(?P<NAME>\\S+):\\s+<[\\s\\S]*?\\s+this\\.props\\.(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\}",
+      "this\\.state\\s+=\\s+\\{(?P<NAME>\\S+):\\s+<[\\s\\S]*?\\s+this\\.props\\.(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\}",
+      "useState\\(<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\.(?P<KEY>\\S+)\\s+[\\s\\S]*?>\\)",
+      "useState\\(<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\)",
+      "useState\\(function\\s+(?P<X>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\.(?P<KEY>\\S+)\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+\\}\\)",
+      "useState\\(function\\s+(?P<X>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+\\}\\)"
+    ])) as $all
+    | ( ($all | of(["state\\s+=\\s+\\{(?P<NAME>\\S+):\\s+<[\\s\\S]*?\\s+this\\.props\\.(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\}","this\\.state\\s+=\\s+\\{(?P<NAME>\\S+):\\s+<[\\s\\S]*?\\s+this\\.props\\.(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\}"])
+          | within($all | of(["class\\s+(?P<CN>\\S+)\\s+extends\\s+React\\.Component\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+          | where_capture_not("NAME"; "^(?:default|initial)"))
+          + (($all
+          | within($all | of(["function\\s+(?P<FN>\\S+)\\(\\{(?P<PROP>\\S+)\\},[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["function\\s+(?P<FN>\\S+)\\((?P<PROP>\\S+),[\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          | at_same_place(($all | of(["useState\\(<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\)","useState\\(<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\.(?P<KEY>\\S+)\\s+[\\s\\S]*?>\\)","useState\\(function\\s+(?P<X>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+\\}\\)","useState\\(function\\s+(?P<X>\\S+)\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+<[\\s\\S]*?\\s+(?P<PROP>\\S+)\\.(?P<KEY>\\S+)\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+\\}\\)"])))
+          | where_capture_not("PROP"; "^(?:default|initial)"))
+        | finding("react-props-in-state";
+            "Copying a prop into state in React -- this is bad practice as all updates to it are ignored.") ) )
+| report

@@ -1,0 +1,16 @@
+# rules: azure-storage-blob-service-container-private-access
+# languages: hcl
+# from: terraform/azure/security/azure-storage-blob-service-container-private-access.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_storage_container\" \"$$$_\" {\n$$$_\ncontainer_access_type = \"private\"\n$$$_\n}",
+      "resource \"azurerm_storage_container\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_storage_container\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_storage_container\" \"$$$_\" {\n$$$_\ncontainer_access_type = \"private\"\n$$$_\n}"]))
+        | finding("azure-storage-blob-service-container-private-access";
+            "Ensure that Public access level is set to Private for blob containers") ) )
+| report

@@ -44,6 +44,11 @@ type Rule struct {
 	// Ids are the finding ids this file reports under, from its `# rules:`
 	// header. A caller names one of these.
 	Ids []string
+	// Languages are the grammars the rule's patterns are code in, from its
+	// `# languages:` header. A rule for a grammar the binary was not built
+	// with is a rule that ships and can never fire, which is what
+	// TestEveryRuleLanguageIsInTheBuild exists to catch.
+	Languages []string
 	// From is what the query was translated from, if it was, from its
 	// `# from:` header.
 	From string
@@ -74,9 +79,10 @@ var (
 	// idsHeader and the two beside it are the whole of a rule's metadata. They
 	// are comments in the query rather than a file alongside it, so that
 	// moving a rule moves everything about it.
-	idsHeader     = regexp.MustCompile(`(?m)^#\s*rules:\s*(.+?)\s*$`)
-	fromHeader    = regexp.MustCompile(`(?m)^#\s*from:\s*(.+?)\s*$`)
-	fixtureHeader = regexp.MustCompile(`(?m)^#\s*fixture:\s*(\S+)`)
+	idsHeader       = regexp.MustCompile(`(?m)^#[^\S\n]*rules:[^\S\n]*(.+?)[^\S\n]*$`)
+	languagesHeader = regexp.MustCompile(`(?m)^#[^\S\n]*languages:[^\S\n]*(.+?)[^\S\n]*$`)
+	fromHeader      = regexp.MustCompile(`(?m)^#[^\S\n]*from:[^\S\n]*(.+?)[^\S\n]*$`)
+	fixtureHeader   = regexp.MustCompile(`(?m)^#[^\S\n]*fixture:[^\S\n]*(\S+)`)
 )
 
 // parse reads a rule out of a query file.
@@ -101,6 +107,13 @@ func parse(path, origin, source string) (*Rule, error) {
 	}
 	rule := &Rule{Path: path, Ids: ids, Query: source, Origin: origin,
 		Description: description(source)}
+	if m := languagesHeader.FindStringSubmatch(source); m != nil {
+		for _, language := range strings.Split(m[1], ",") {
+			if language = strings.TrimSpace(language); language != "" {
+				rule.Languages = append(rule.Languages, language)
+			}
+		}
+	}
 	if m := fromHeader.FindStringSubmatch(source); m != nil {
 		rule.From = m[1]
 	}
@@ -126,7 +139,8 @@ func description(source string) string {
 			}
 			continue
 		}
-		if idsHeader.MatchString(line) || fromHeader.MatchString(line) || fixtureHeader.MatchString(line) {
+		if idsHeader.MatchString(line) || fromHeader.MatchString(line) ||
+			fixtureHeader.MatchString(line) || languagesHeader.MatchString(line) {
 			continue
 		}
 		lines = append(lines, strings.TrimPrefix(strings.TrimPrefix(line, "#"), " "))

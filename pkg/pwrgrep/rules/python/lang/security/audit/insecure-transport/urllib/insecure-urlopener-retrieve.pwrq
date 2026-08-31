@@ -1,4 +1,5 @@
 # rules: insecure-urlopener-retrieve
+# languages: python
 # from: python/lang/security/audit/insecure-transport/urllib/insecure-urlopener-retrieve.yaml
 
 . as $root

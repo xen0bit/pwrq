@@ -1,0 +1,20 @@
+# rules: avoid-soql-in-loops
+# from: apex/lang/performance/ncino/operationsInLoops/AvoidSoqlInLoops.yaml
+
+. as $root
+| ( ($root | scan_regex(["*"]; [
+      "(?P<OBJECTS>\\S+)\\s+=\\s+\\[[\\s\\S]*?SELECT[\\s\\S]*?FROM[\\s\\S]*?\\];",
+      "do\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+while\\s+\\([\\s\\S]*?\\);",
+      "for\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "while\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["for\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["while\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["do\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+while\\s+\\([\\s\\S]*?\\);"])))
+          | at_same_place(($all | of(["(?P<OBJECTS>\\S+)\\s+=\\s+\\[[\\s\\S]*?SELECT[\\s\\S]*?FROM[\\s\\S]*?\\];"])))
+        | finding("avoid-soql-in-loops";
+            "Database class methods, DML operations, SOQL queries, SOSL queries, Approval class methods, Email sending, async scheduling or queueing within loops can cause governor limit exceptions.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: template-var-unescaped-with-safeseq
+# from: python/django/security/audit/xss/template-var-unescaped-with-safeseq.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.html"]; [
+      "{{.*?\\|\\s+safeseq(\\s+}})?"
+    ])) as $all
+    | ( $all | of(["{{.*?\\|\\s+safeseq(\\s+}})?"])
+        | finding("template-var-unescaped-with-safeseq";
+            "Detected a template variable where autoescaping is explicitly disabled with '| safeseq' filter.") ) )
+| report

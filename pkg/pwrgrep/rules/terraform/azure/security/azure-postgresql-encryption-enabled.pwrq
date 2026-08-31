@@ -1,0 +1,16 @@
+# rules: azure-postgresql-encryption-enabled
+# languages: hcl
+# from: terraform/azure/security/azure-postgresql-encryption-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_postgresql_server\" \"$$$_\" {\n$$$_\ninfrastructure_encryption_enabled = true\n$$$_\n}",
+      "resource \"azurerm_postgresql_server\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_postgresql_server\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_postgresql_server\" \"$$$_\" {\n$$$_\ninfrastructure_encryption_enabled = true\n$$$_\n}"]))
+        | finding("azure-postgresql-encryption-enabled";
+            "Ensure that PostgreSQL server enables infrastructure encryption") ) )
+| report

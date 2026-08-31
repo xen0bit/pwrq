@@ -2,20 +2,20 @@
 # from: yaml/semgrep/metadata-impact-incorrect-value.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "impact: $VALUE",
-      "impact: HIGH",
-      "impact: LOW",
-      "impact: MEDIUM",
-      "metadata: \n  $$$_\n  category: security\n  $$$_",
-      "rules: \n  $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "impact:\\s+(?P<VALUE>\\S+)",
+      "impact:\\s+HIGH",
+      "impact:\\s+LOW",
+      "impact:\\s+MEDIUM",
+      "metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?",
+      "rules:\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["impact: $VALUE"])
-          | within($all | of(["rules: \n  $$$_"]))
-          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
-          | not_at($all | of(["impact: LOW"]))
-          | not_at($all | of(["impact: MEDIUM"]))
-          | not_at($all | of(["impact: HIGH"]))
+    | ( $all | of(["impact:\\s+(?P<VALUE>\\S+)"])
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | within($all | of(["metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["impact:\\s+LOW"]))
+          | not_at($all | of(["impact:\\s+MEDIUM"]))
+          | not_at($all | of(["impact:\\s+HIGH"]))
         | finding("metadata-impact-incorrect-value";
             "Semgrep rule impact: $VALUE detected, but the value must be LOW, MEDIUM, or HIGH.") ) )
 | report

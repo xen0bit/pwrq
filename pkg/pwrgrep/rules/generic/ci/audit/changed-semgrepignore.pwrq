@@ -1,0 +1,15 @@
+# rules: changed-semgrepignore
+# from: generic/ci/audit/changed-semgrepignore.yaml
+
+. as $root
+| ( ($root | scan_regex([".semgrepignore"]; [
+      "\\^#\\.\\*\\$",
+      "\\^\\(\\.\\*\\)\\$",
+      "\\^\\\\n\\.\\*\\$"
+    ])) as $all
+    | ( $all | of(["\\^\\(\\.\\*\\)\\$"])
+          | not_at($all | of(["\\^\\\\n\\.\\*\\$"]))
+          | not_at($all | of(["\\^#\\.\\*\\$"]))
+        | finding("changed-semgrepignore";
+            "`$1` has been added to the .semgrepignore list of ignored paths.") ) )
+| report

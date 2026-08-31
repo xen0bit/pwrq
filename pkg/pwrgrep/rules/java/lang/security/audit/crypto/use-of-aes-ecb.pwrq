@@ -1,4 +1,5 @@
 # rules: use-of-aes-ecb
+# languages: java
 # from: java/lang/security/audit/crypto/use-of-aes-ecb.yaml
 
 . as $root

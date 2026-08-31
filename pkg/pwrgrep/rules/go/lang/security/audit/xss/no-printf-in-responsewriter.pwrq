@@ -1,0 +1,19 @@
+# rules: no-printf-in-responsewriter
+# languages: go
+# from: go/lang/security/audit/xss/no-printf-in-responsewriter.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$WRITER.Write($PWRQDEEP1, $$$_)",
+      "func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}",
+      "func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
+          | at_same_place(($all | of(["$WRITER.Write($PWRQDEEP1, $$$_)"])
+          | where_capture_ast("PWRQDEEP1"; "fmt.$PRINTF($$$_)")))
+        | finding("no-printf-in-responsewriter";
+            "Detected 'printf' or similar in 'http.ResponseWriter.write()'.") ) )
+| report

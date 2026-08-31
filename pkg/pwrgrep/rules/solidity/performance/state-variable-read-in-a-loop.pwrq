@@ -1,0 +1,29 @@
+# rules: state-variable-read-in-a-loop
+# from: solidity/performance/state-variable-read-in-a-loop.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.sol"]; [
+      "(?P<X>\\S+)",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+(?P<X>\\S+);\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+(?P<X>\\S+)\\s+=\\s+[\\s\\S]*?\\s+;\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+constant\\s+(?P<X>\\S+)\\s+=\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+immutable\\s+(?P<X>\\S+);\\s+[\\s\\S]*?\\s+\\}",
+      "contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+immutable\\s+(?P<X>\\S+)\\s+=\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+\\}",
+      "for\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "while\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+(?P<X>\\S+)\\s+=\\s+[\\s\\S]*?\\s+;\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+(?P<X>\\S+);\\s+[\\s\\S]*?\\s+\\}"])))
+          | at_same_place(($all | of(["(?P<X>\\S+)"])))
+          | at_same_place((($all
+          | within($all | of(["for\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["while\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))))
+          | outside($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+immutable\\s+(?P<X>\\S+);\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+immutable\\s+(?P<X>\\S+)\\s+=\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["contract\\s+(?P<C>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+constant\\s+(?P<X>\\S+)\\s+=\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("state-variable-read-in-a-loop";
+            "Replace state variable reads and writes within loops with local variable reads and writes.") ) )
+| report

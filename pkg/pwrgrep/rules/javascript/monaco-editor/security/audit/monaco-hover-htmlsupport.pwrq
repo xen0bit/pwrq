@@ -1,0 +1,24 @@
+# rules: monaco-hover-htmlsupport
+# languages: javascript, typescript
+# from: javascript/monaco-editor/security/audit/monaco-hover-htmlsupport.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"monaco-editor\"",
+      "import \"monaco-editor\"\n$$$_",
+      "require(\"monaco-editor\")\n$$$_",
+      "{$$$_, value: \"$$$_\", $$$_}",
+      "{range: $R, contents: [$$$_]}",
+      "{value: $VAL, isTrusted: true}",
+      "{value: $VAL, supportHtml: true}"
+    ])) as $all
+    | ( ($all
+          | in_files_with($all | of(["import \"monaco-editor\"\n$$$_","\"monaco-editor\""])))
+          + ($all
+          | in_files_with($all | of(["require(\"monaco-editor\")\n$$$_","\"monaco-editor\""])))
+          | at_same_place(($all | of(["{value: $VAL, supportHtml: true}","{value: $VAL, isTrusted: true}"])))
+          | within($all | of(["{range: $R, contents: [$$$_]}"]))
+          | not_at($all | of(["{$$$_, value: \"$$$_\", $$$_}"]))
+        | finding("monaco-hover-htmlsupport";
+            "If user input reaches `HoverProvider` while `supportHml` is set to `true` it may introduce an XSS vulnerability.") ) )
+| report

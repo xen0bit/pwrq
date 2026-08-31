@@ -1,4 +1,5 @@
 # rules: ruby-rails-performance-indexes-are-beneficial
+# languages: ruby
 # from: ruby/rails/performance/ruby-rails-performance-indexes-are-really-beneficial.yaml
 
 . as $root
@@ -8,8 +9,8 @@
     ])) as $all
     | ( $all | of(["add_column $TABLE, $COLUMN, $TYPE, $$$_"])
           | outside($all | of(["add_column $TABLE, $COLUMN, $TYPE, $$$_\n$$$_\nadd_index $TABLE, $COLUMN, $$$_"]))
-          | where_capture("COLUMN"; "(.*_id$)")
-          | where_capture("TYPE"; ":integer|:bigint")
+          | where_capture("COLUMN"; "^(?:(.*_id$))")
+          | where_capture("TYPE"; "^(?::integer|:bigint)")
         | finding("ruby-rails-performance-indexes-are-beneficial";
             "The $COLUMN column appears to be a foreign key.") ) )
 | report

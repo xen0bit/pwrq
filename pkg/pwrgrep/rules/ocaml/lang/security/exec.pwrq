@@ -1,4 +1,5 @@
 # rules: ocamllint-exec
+# languages: ocaml
 # from: ocaml/lang/security/exec.yaml
 
 . as $root

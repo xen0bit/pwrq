@@ -1,4 +1,5 @@
 # rules: turbine-sqli
+# languages: java
 # from: java/lang/security/audit/sqli/turbine-sqli.yaml
 
 . as $root
@@ -20,26 +21,36 @@
       "String $SQL = $X + $Y;\n$$$_",
       "String $SQL = String.format($$$_);\n$$$_"
     ])) as $all
-    | ( ((($all)
-          + ($all)
-          + ($all)
+    | ( ((($all
+          | in_files_with($all | of(["String $SQL = $X + $Y;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["String $SQL = String.format($$$_);\n$$$_"])))
+          + ($all
+          | within($all | of(["$VAL $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}"])))
           | at_same_place(($all | of(["$PEER.executeQuery($SQL,$$$_)"])))
           | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
           + ($all | of(["$PEER.executeQuery(String.format($$$_),$$$_)"]))
           + ($all | of(["$PEER.executeQuery($X + $Y,$$$_)"]))
           | not_at($all | of(["$PEER.executeQuery(\"$$$_\" + \"$$$_\",$$$_)"]))
-          | where_capture("PEER"; "(BasePeer|GroupPeer)"))
-          + ((($all)
-          + ($all)
-          + ($all)
+          | where_capture("PEER"; "^(?:(BasePeer|GroupPeer))"))
+          + ((($all
+          | in_files_with($all | of(["String $SQL = $X + $Y;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["String $SQL = String.format($$$_);\n$$$_"])))
+          + ($all
+          | within($all | of(["$VAL $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}"])))
           | at_same_place(($all | of(["$P.executeQuery($SQL,$$$_)"])))
           | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
           + ($all | of(["$P.executeQuery(String.format($$$_),$$$_)"]))
           + ($all | of(["$P.executeQuery($X + $Y,$$$_)"]))
-          | at_same_place((($all)
-          + ($all)
-          + ($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["BasePeer $P = $$$_;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["GroupPeer $P = $$$_;\n$$$_"])))
+          + ($all
+          | within($all | of(["$VAL $FUNC($$$_,GroupPeer $P,$$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["$VAL $FUNC($$$_,BasePeer $P,$$$_) {\n  $$$_\n}"])))))
           | not_at($all | of(["$P.executeQuery(\"$$$_\" + \"$$$_\",$$$_)"])))
         | finding("turbine-sqli";
             "Detected a formatted string in a SQL statement.") ) )

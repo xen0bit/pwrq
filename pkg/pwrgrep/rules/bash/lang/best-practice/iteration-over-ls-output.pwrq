@@ -1,4 +1,5 @@
 # rules: iteration-over-ls-output
+# languages: bash
 # from: bash/lang/best-practice/iteration-over-ls-output.yaml
 
 . as $root

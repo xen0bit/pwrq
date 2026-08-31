@@ -1,0 +1,21 @@
+# rules: avoid-sosl-in-loops
+# from: apex/lang/performance/ncino/operationsInLoops/AvoidSoslInLoops.yaml
+
+. as $root
+| ( ($root | scan_regex(["*"]; [
+      "(?P<OBJECTS>\\S+)\\s+=\\s+[\\s\\S]*?\\s+Search\\.query\\([\\s\\S]*?\\)",
+      "(?P<OBJECTS>\\S+)\\s+=\\s+[\\s\\S]*?\\s+\\[FIND[\\s\\S]*?IN\\s+ALL\\s+FIELDS\\s+RETURNING[\\s\\S]*?\\]",
+      "do\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+while\\s+\\([\\s\\S]*?\\);",
+      "for\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "while\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["for\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["while\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all
+          | within($all | of(["do\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+while\\s+\\([\\s\\S]*?\\);"])))
+          | at_same_place(($all | of(["(?P<OBJECTS>\\S+)\\s+=\\s+[\\s\\S]*?\\s+Search\\.query\\([\\s\\S]*?\\)","(?P<OBJECTS>\\S+)\\s+=\\s+[\\s\\S]*?\\s+\\[FIND[\\s\\S]*?IN\\s+ALL\\s+FIELDS\\s+RETURNING[\\s\\S]*?\\]"])))
+        | finding("avoid-sosl-in-loops";
+            "Database class methods, DML operations, SOQL queries, SOSL queries, Approval class methods, Email sending, async scheduling or queueing within loops can cause governor limit exceptions.") ) )
+| report

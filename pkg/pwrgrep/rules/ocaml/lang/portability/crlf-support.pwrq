@@ -1,4 +1,5 @@
 # rules: broken-input-line, prefer-read-in-binary-mode, prefer-write-in-binary-mode
+# languages: ocaml
 # from: ocaml/lang/portability/crlf-support.yaml
 
 . as $root

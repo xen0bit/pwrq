@@ -1,4 +1,5 @@
 # rules: openai-consequential-action-false
+# languages: yaml
 # from: yaml/openapi/security/openai-consequential-action-false.yaml
 
 . as $root
@@ -8,10 +9,14 @@
       "post:\n  $$$_\n  x-openai-isConsequential: false",
       "put:\n  $$$_\n  x-openai-isConsequential: false"
     ])) as $all
-    | ( ($all)
-          + ($all)
-          + ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["post:\n  $$$_\n  x-openai-isConsequential: false"])))
+          + ($all
+          | within($all | of(["put:\n  $$$_\n  x-openai-isConsequential: false"])))
+          + ($all
+          | within($all | of(["patch:\n  $$$_\n  x-openai-isConsequential: false"])))
+          + ($all
+          | within($all | of(["delete:\n  $$$_\n  x-openai-isConsequential: false"])))
         | finding("openai-consequential-action-false";
             "Found 'x-openai-isConsequential: false' in a state-changing HTTP method: $METHOD $PATH.") ) )
 | report

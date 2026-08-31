@@ -1,4 +1,5 @@
 # rules: missing-dnf-clean-all
+# languages: dockerfile
 # from: dockerfile/best-practice/missing-dnf-clean-all.yaml
 
 . as $root

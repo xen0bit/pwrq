@@ -1,4 +1,5 @@
 # rules: awscdk-bucket-encryption
+# languages: typescript
 # from: typescript/aws-cdk/security/audit/awscdk-bucket-encryption.yml
 
 . as $root

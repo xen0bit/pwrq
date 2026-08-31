@@ -1,4 +1,5 @@
 # rules: httpurlconnection-http-request
+# languages: java
 # from: problem-based-packs/insecure-transport/java-stdlib/httpurlconnection-http-request.yaml
 
 . as $root
@@ -8,8 +9,10 @@
       "URL $URL = new URL (\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_);\n$$$_\n$CON = (HttpURLConnection) $URL.openConnection($$$_);\n$$$_\n$CON.$FUNC($$$_);"
     ])) as $all
     | ( $all | of(["\"=~/[Hh][Tt][Tt][Pp]://.*/\""])
-          | at_same_place((($all)
-          + ($all)))
+          | at_same_place((($all
+          | within($all | of(["URL $URL = new URL (\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_);\n$$$_\n$CON = (HttpURLConnection) $URL.openConnection($$$_);\n$$$_\n$CON.$FUNC($$$_);"])))
+          + ($all
+          | within($all | of(["URL $URL = new URL (\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_);\n$$$_\n$CON = $URL.openConnection($$$_);\n$$$_\n$CON.$FUNC($$$_);"])))))
         | finding("httpurlconnection-http-request";
             "Detected an HTTP request sent via HttpURLConnection.") ) )
 | report

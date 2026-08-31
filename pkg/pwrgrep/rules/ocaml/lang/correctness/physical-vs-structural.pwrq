@@ -1,4 +1,5 @@
 # rules: physical-equal, physical-not-equal
+# languages: ocaml
 # from: ocaml/lang/correctness/physical-vs-structural.yaml
 
 . as $root

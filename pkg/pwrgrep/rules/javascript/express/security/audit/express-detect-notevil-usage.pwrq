@@ -1,0 +1,28 @@
+# rules: express-detect-notevil-usage
+# languages: javascript, typescript
+# from: javascript/express/security/audit/express-detect-notevil-usage.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$EVAL = require('notevil')\n$$$_",
+      "$EVAL($$$_)",
+      "$EVAL('$$$_')",
+      "$VM.compileFunction(\"$CMD\", $$$_)",
+      "$VM.runInContext(\"$CMD\", $$$_)",
+      "$VM.runInNewContext(\"$CMD\", $$$_)",
+      "$VM.runInThisContext(\"$CMD\", $$$_)",
+      "import $EVAL from 'notevil'\n$$$_",
+      "import {$EVAL} from 'notevil'\n$$$_"
+    ])) as $all
+    | ( ($all
+          | in_files_with($all | of(["import $EVAL from 'notevil'\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import {$EVAL} from 'notevil'\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$EVAL = require('notevil')\n$$$_"])))
+          | at_same_place((($all | of(["$EVAL($$$_)"])
+          | not_at($all | of(["$EVAL('$$$_')"])))
+          + ($all | of(["$VM.runInContext(\"$CMD\", $$$_)","$VM.runInNewContext(\"$CMD\", $$$_)","$VM.runInThisContext(\"$CMD\", $$$_)","$VM.compileFunction(\"$CMD\", $$$_)"]))))
+        | finding("express-detect-notevil-usage";
+            "Detected usage of the `notevil` package, which is unmaintained and has vulnerabilities.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: missing-cloudwatch-log-group-kms-key
+# languages: hcl
+# from: terraform/aws/best-practice/missing-cloudwatch-log-group-kms-key.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_cloudwatch_log_group\" $ANYTHING {\n  $$$_\n  kms_key_id = $$$_\n  $$$_\n}",
+      "resource \"aws_cloudwatch_log_group\" $ANYTHING {$$$_}"
+    ])) as $all
+    | ( $all
+        | finding("missing-cloudwatch-log-group-kms-key";
+            "The AWS CloudWatch Log group is missing a KMS key.") ) )
+| report

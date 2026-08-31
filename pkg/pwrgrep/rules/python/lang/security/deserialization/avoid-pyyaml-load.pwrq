@@ -1,4 +1,5 @@
 # rules: avoid-pyyaml-load
+# languages: python
 # from: python/lang/security/deserialization/avoid-pyyaml-load.yaml
 
 . as $root

@@ -1,0 +1,13 @@
+# rules: missing-user-entrypoint
+# from: dockerfile/security/missing-user-entrypoint.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "ENTRYPOINT\\s+(?P<VARS>[\\s\\S]*?)",
+      "USER\\s+(?P<USER>\\S+)\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["ENTRYPOINT\\s+(?P<VARS>[\\s\\S]*?)"])
+          | in_files_without($all | of(["USER\\s+(?P<USER>\\S+)\\s+[\\s\\S]*?"]))
+        | finding("missing-user-entrypoint";
+            "By not specifying a USER, a program in the container may run as 'root'.") ) )
+| report

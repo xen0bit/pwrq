@@ -2,48 +2,49 @@
 # from: go/lang/security/audit/dangerous-syscall-exec.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "\"$$$_\"",
-      "\"syscall\"",
-      "$ARGS := []string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_};\n$$$_",
-      "$ARGS := []string{\"$$$_\",$$$_};\n$$$_",
-      "$ARGS := []string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_};\n$$$_",
-      "$BIN = \"$$$_\";\n$$$_",
-      "$BIN,$ERR := exec.LookPath(\"$$$_\");\n$$$_",
-      "$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_",
-      "$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_",
-      "$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\";\n$$$_\n$ARGS = []string{$CMD,\"-c\",$EXE,$$$_};\n$$$_",
-      "$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_",
-      "$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_",
-      "$CMD,$ERR := exec.LookPath(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\");\n$$$_\n$ARGS = []string{$CMD,\"-c\",$EXE,$$$_};\n$$$_",
-      "import \"syscall\"\n$$$_",
-      "syscall.$METHOD(\"$$$_\",$$$_)",
-      "syscall.$METHOD($BIN,$$$_)",
-      "syscall.$METHOD($BIN,$ARGS,$$$_)",
-      "syscall.$METHOD($BIN,[]string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_)",
-      "syscall.$METHOD($BIN,[]string{\"$$$_\",$$$_},$$$_)",
-      "syscall.$METHOD($BIN,[]string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_},$$$_)"
+| ( ($root | scan_regex(["*.go"]; [
+      "(?P<ARGS>\\S+)\\s+:=\\s+\\[\\]string\\{\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\",\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<ARGS>\\S+)\\s+:=\\s+\\[\\]string\\{\"[\\s\\S]*?\",\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<ARGS>\\S+)\\s+:=\\s+\\[\\]string\\{\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<BIN>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"[\\s\\S]*?\"\\);\\s+[\\s\\S]*?",
+      "(?P<BIN>\\S+)\\s+=\\s+\"[\\s\\S]*?\";\\s+[\\s\\S]*?",
+      "(?P<CMD>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\"\\);\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<CMD>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"[\\s\\S]*?\"\\);\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<CMD>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"[\\s\\S]*?\"\\);\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<CMD>\\S+)\\s+=\\s+\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\";\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<CMD>\\S+)\\s+=\\s+\"[\\s\\S]*?\";\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "(?P<CMD>\\S+)\\s+=\\s+\"[\\s\\S]*?\";\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?",
+      "import\\s+\"syscall\"\\s+[\\s\\S]*?",
+      "syscall\\.(?P<METHOD>\\S+)\\(\"[\\s\\S]*?\",[\\s\\S]*?\\)",
+      "syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),(?P<ARGS>\\S+),[\\s\\S]*?\\)",
+      "syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),[\\s\\S]*?\\)",
+      "syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),\\[\\]string\\{\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\",\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\},[\\s\\S]*?\\)",
+      "syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),\\[\\]string\\{\"[\\s\\S]*?\",\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\},[\\s\\S]*?\\)",
+      "syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),\\[\\]string\\{\"[\\s\\S]*?\",[\\s\\S]*?\\},[\\s\\S]*?\\)"
     ])) as $all
-    | ( ($all | of(["syscall.$METHOD($BIN,$$$_)"])
-          | not_at($all | of(["syscall.$METHOD(\"$$$_\",$$$_)"]))
-          | in_files_without($all | of(["$BIN,$ERR := exec.LookPath(\"$$$_\");\n$$$_","\"$$$_\""]))
-          | in_files_without($all | of(["$BIN = \"$$$_\";\n$$$_","\"$$$_\""])))
-          + ($all | of(["syscall.$METHOD($BIN,$ARGS,$$$_)"])
-          | not_at($all | of(["syscall.$METHOD($BIN,[]string{\"$$$_\",$$$_},$$$_)"]))
-          | in_files_without($all | of(["$ARGS := []string{\"$$$_\",$$$_};\n$$$_","\"$$$_\""]))
-          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_","\"$$$_\""]))
-          | in_files_without($all | of(["$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_","\"$$$_\""])))
-          + ($all | of(["syscall.$METHOD($BIN,[]string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_},$$$_)"])
-          | not_at($all | of(["syscall.$METHOD($BIN,[]string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_)"])))
-          + ($all | of(["syscall.$METHOD($BIN,$ARGS,$$$_)"])
-          | at_same_place((($all)
-          + ($all)
-          + ($all)))
-          | in_files_without($all | of(["$ARGS := []string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_};\n$$$_"]))
-          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_"]))
-          | in_files_without($all | of(["$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_"])))
-          | in_files_with($all | of(["import \"syscall\"\n$$$_","\"syscall\""]))
-          | where_capture("METHOD"; "(Exec|ForkExec)")
+    | ( ($all | of(["syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),[\\s\\S]*?\\)"])
+          | not_at($all | of(["syscall\\.(?P<METHOD>\\S+)\\(\"[\\s\\S]*?\",[\\s\\S]*?\\)"]))
+          | in_files_without($all | of(["(?P<BIN>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"[\\s\\S]*?\"\\);\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["(?P<BIN>\\S+)\\s+=\\s+\"[\\s\\S]*?\";\\s+[\\s\\S]*?"])))
+          + ($all | of(["syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),(?P<ARGS>\\S+),[\\s\\S]*?\\)"])
+          | not_at($all | of(["syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),\\[\\]string\\{\"[\\s\\S]*?\",[\\s\\S]*?\\},[\\s\\S]*?\\)"]))
+          | in_files_without($all | of(["(?P<ARGS>\\S+)\\s+:=\\s+\\[\\]string\\{\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["(?P<CMD>\\S+)\\s+=\\s+\"[\\s\\S]*?\";\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["(?P<CMD>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"[\\s\\S]*?\"\\);\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?"])))
+          + ($all | of(["syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),\\[\\]string\\{\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\",\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\},[\\s\\S]*?\\)"])
+          | not_at($all | of(["syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),\\[\\]string\\{\"[\\s\\S]*?\",\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\},[\\s\\S]*?\\)"])))
+          + ($all | of(["syscall\\.(?P<METHOD>\\S+)\\((?P<BIN>\\S+),(?P<ARGS>\\S+),[\\s\\S]*?\\)"])
+          | at_same_place((($all
+          | in_files_with($all | of(["(?P<ARGS>\\S+)\\s+:=\\s+\\[\\]string\\{\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\",\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["(?P<CMD>\\S+)\\s+=\\s+\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\";\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["(?P<CMD>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"=~\\/\\(sh\\|bash\\|ksh\\|csh\\|tcsh\\|zsh\\)\\/\"\\);\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"\\-c\",(?P<EXE>\\S+),[\\s\\S]*?\\};\\s+[\\s\\S]*?"])))))
+          | in_files_without($all | of(["(?P<ARGS>\\S+)\\s+:=\\s+\\[\\]string\\{\"[\\s\\S]*?\",\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["(?P<CMD>\\S+)\\s+=\\s+\"[\\s\\S]*?\";\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["(?P<CMD>\\S+),(?P<ERR>\\S+)\\s+:=\\s+exec\\.LookPath\\(\"[\\s\\S]*?\"\\);\\s+[\\s\\S]*?\\s+(?P<ARGS>\\S+)\\s+=\\s+\\[\\]string\\{(?P<CMD>\\S+),\"[\\s\\S]*?\",\"[\\s\\S]*?\",[\\s\\S]*?\\};\\s+[\\s\\S]*?"])))
+          | in_files_with($all | of(["import\\s+\"syscall\"\\s+[\\s\\S]*?"]))
+          | where_capture("METHOD"; "^(?:(Exec|ForkExec))")
         | finding("dangerous-syscall-exec";
             "Detected non-static command inside Exec.") ) )
 | report

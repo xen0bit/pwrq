@@ -1,0 +1,11 @@
+# rules: use-assert-class
+# from: apex/lang/best-practice/ncino/tests/UseAssertClass.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.cls","UseAssertClass.cls"]; [
+      "System\\\\\\.assert"
+    ])) as $all
+    | ( $all | of(["System\\\\\\.assert"])
+        | finding("use-assert-class";
+            "Assert methods in the System class have been replaced with the Assert class: https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Assert.htm") ) )
+| report

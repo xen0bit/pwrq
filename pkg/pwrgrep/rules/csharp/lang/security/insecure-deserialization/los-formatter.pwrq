@@ -1,4 +1,5 @@
 # rules: insecure-losformatter-deserialization
+# languages: c_sharp
 # from: csharp/lang/security/insecure-deserialization/los-formatter.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: net-http-request
+# languages: ruby
 # from: problem-based-packs/insecure-transport/ruby-stdlib/net-http-request.yaml
 
 . as $root
@@ -8,7 +9,7 @@
       "Net::HTTP.$FUNC(URI('=~/[hH][tT][tT][pP]://.*/'), $$$_)"
     ])) as $all
     | ( $all | of(["$URI = URI('=~/[hH][tT][tT][pP]://.*/')\n$$$_\nNet::HTTP::$FUNC.new $URI","$URI = URI('=~/[hH][tT][tT][pP]://.*/')\n$$$_\nNet::HTTP.$FUNC($URI, $$$_)","Net::HTTP.$FUNC(URI('=~/[hH][tT][tT][pP]://.*/'), $$$_)"])
-          | where_capture("FUNC"; "([gG]et|post_form|[pP]ost|get_response|get_print|Head|Patch|Put|Proppatch|Lock|Unlock|Options|Propfind|Delete|Move|Copy|Trace|Mkcol)")
+          | where_capture("FUNC"; "^(?:([gG]et|post_form|[pP]ost|get_response|get_print|Head|Patch|Put|Proppatch|Lock|Unlock|Options|Propfind|Delete|Move|Copy|Trace|Mkcol))")
         | finding("net-http-request";
             "Checks for requests sent to http:// URLs.") ) )
 | report

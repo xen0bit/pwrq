@@ -1,0 +1,16 @@
+# rules: gcp-gke-sql-backup-configuration-enabled
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-gke-sql-backup-configuration-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nsettings {\n  $$$_\n  backup_configuration {\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n$$$_\nsettings {\n  $$$_\n  backup_configuration {\n    $$$_\n    enabled = true\n    $$$_\n  }\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-gke-sql-backup-configuration-enabled";
+            "Ensure all Cloud SQL database instance have backup configuration enabled") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: weak-random
+# languages: java
 # from: java/lang/security/audit/crypto/weak-random.yaml
 
 . as $root

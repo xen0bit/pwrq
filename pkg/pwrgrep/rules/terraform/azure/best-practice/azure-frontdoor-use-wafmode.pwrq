@@ -1,0 +1,14 @@
+# rules: azure-frontdoor-use-wafmode
+# languages: hcl
+# from: terraform/azure/best-practice/azure-frontdoor-use-wafmode.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_frontdoor_firewall_policy\" \"$$$_\" {\n$$$_\npolicy_settings {\n  $$$_\n  enabled = false\n  $$$_\n}\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_frontdoor_firewall_policy\" \"$$$_\" {\n$$$_\npolicy_settings {\n  $$$_\n  enabled = false\n  $$$_\n}\n$$$_\n}"]))
+        | finding("azure-frontdoor-use-wafmode";
+            "Ensure that Azure Front Door uses WAF and configured in “Detection” or “Prevention” modes") ) )
+| report

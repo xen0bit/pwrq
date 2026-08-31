@@ -1,0 +1,14 @@
+# rules: gcp-folder-impersonation-roles-iam-member
+# languages: hcl
+# from: terraform/gcp/security/gcp-folder-impersonation-roles-iam-member.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_folder_iam_member\" \"$$$_\" {\n$$$_\nrole = \"roles/editor\"\nmember = $$$_\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_folder_iam_member\" \"$$$_\" {\n$$$_\nrole = \"roles/editor\"\nmember = $$$_\n$$$_\n}"]))
+        | finding("gcp-folder-impersonation-roles-iam-member";
+            "Ensure no roles that enable to impersonate and manage all service accounts are used at a folder level") ) )
+| report

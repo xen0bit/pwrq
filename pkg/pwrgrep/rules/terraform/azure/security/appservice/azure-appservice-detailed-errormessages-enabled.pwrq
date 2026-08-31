@@ -1,0 +1,16 @@
+# rules: azure-appservice-detailed-errormessages-enabled
+# languages: hcl
+# from: terraform/azure/security/appservice/azure-appservice-detailed-errormessages-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nlogs {\n  $$$_\n  detailed_error_messages_enabled = true\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nlogs {\n  $$$_\n  detailed_error_messages_enabled = true\n  $$$_\n}\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-appservice-detailed-errormessages-enabled";
+            "Ensure that App service enables detailed error messages") ) )
+| report

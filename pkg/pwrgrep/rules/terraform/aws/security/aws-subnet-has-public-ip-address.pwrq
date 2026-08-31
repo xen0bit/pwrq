@@ -1,0 +1,15 @@
+# rules: aws-subnet-has-public-ip-address
+# languages: hcl
+# from: terraform/aws/security/aws-subnet-has-public-ip-address.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_default_subnet\" $ANYTHING {\n  $$$_\n  map_public_ip_on_launch = false\n  $$$_\n}",
+      "resource \"aws_default_subnet\" $ANYTHING {\n  $$$_\n}",
+      "resource \"aws_subnet\" $ANYTHING {\n  $$$_\n  map_public_ip_on_launch = true\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_subnet\" $ANYTHING {\n  $$$_\n  map_public_ip_on_launch = true\n  $$$_\n}","resource \"aws_default_subnet\" $ANYTHING {\n  $$$_\n}"])
+          | not_at($all | of(["resource \"aws_default_subnet\" $ANYTHING {\n  $$$_\n  map_public_ip_on_launch = false\n  $$$_\n}"]))
+        | finding("aws-subnet-has-public-ip-address";
+            "Resources in the AWS subnet are assigned a public IP address.") ) )
+| report

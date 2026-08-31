@@ -1,4 +1,5 @@
 # rules: no-io-writestring-to-responsewriter
+# languages: go
 # from: go/lang/security/audit/xss/no-io-writestring-to-responsewriter.yaml
 
 . as $root
@@ -8,8 +9,10 @@
       "io.WriteString($WRITER, \"$$$_\")",
       "io.WriteString($WRITER, $STRING)"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"])))
           | at_same_place(($all | of(["io.WriteString($WRITER, $STRING)"])))
           | not_at($all | of(["io.WriteString($WRITER, \"$$$_\")"]))
         | finding("no-io-writestring-to-responsewriter";

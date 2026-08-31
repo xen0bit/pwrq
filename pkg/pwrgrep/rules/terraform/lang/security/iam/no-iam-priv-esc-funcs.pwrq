@@ -1,0 +1,21 @@
+# rules: no-iam-priv-esc-funcs
+# from: terraform/lang/security/iam/no-iam-priv-esc-funcs.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "Action\\s+=\\s+(?P<ACTION>\\S+)",
+      "actions\\s+=\\s+\\[[\\s\\S]*?,\\s+(?P<ACTION>\\S+),\\s+[\\s\\S]*?\\]",
+      "data\\s+aws_iam_policy_document\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+statement\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "data\\s+aws_iam_policy_document\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+statement\\s+\\{\\s+[\\s\\S]*?\\s+effect\\s+=\\s+\"Deny\"\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+(?P<TYPE>\\S+)\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+policy\\s+=\\s+jsonencode\\(\\{\\s+[\\s\\S]*?\\s+Statement\\s+=\\s+\\[\\s+[\\s\\S]*?,\\s+\\{[\\s\\S]*?\\s+Effect\\s+=\\s+\"Deny\"\\s+[\\s\\S]*?\\},\\s+[\\s\\S]*?\\s+\\]\\s+[\\s\\S]*?\\s+\\}\\)\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+(?P<TYPE>\\S+)\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+policy\\s+=\\s+jsonencode\\(\\{\\s+[\\s\\S]*?\\s+Statement\\s+=\\s+\\[\\s+[\\s\\S]*?\\s+\\]\\s+[\\s\\S]*?\\s+\\}\\)\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( ($all | of(["Action\\s+=\\s+(?P<ACTION>\\S+)"])
+          | within($all | of(["resource\\s+(?P<TYPE>\\S+)\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+policy\\s+=\\s+jsonencode\\(\\{\\s+[\\s\\S]*?\\s+Statement\\s+=\\s+\\[\\s+[\\s\\S]*?\\s+\\]\\s+[\\s\\S]*?\\s+\\}\\)\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["resource\\s+(?P<TYPE>\\S+)\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+policy\\s+=\\s+jsonencode\\(\\{\\s+[\\s\\S]*?\\s+Statement\\s+=\\s+\\[\\s+[\\s\\S]*?,\\s+\\{[\\s\\S]*?\\s+Effect\\s+=\\s+\"Deny\"\\s+[\\s\\S]*?\\},\\s+[\\s\\S]*?\\s+\\]\\s+[\\s\\S]*?\\s+\\}\\)\\s+[\\s\\S]*?\\s+\\}"])))
+          + ($all | of(["actions\\s+=\\s+\\[[\\s\\S]*?,\\s+(?P<ACTION>\\S+),\\s+[\\s\\S]*?\\]"])
+          | within($all | of(["data\\s+aws_iam_policy_document\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+statement\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | outside($all | of(["data\\s+aws_iam_policy_document\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+statement\\s+\\{\\s+[\\s\\S]*?\\s+effect\\s+=\\s+\"Deny\"\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"])))
+        | finding("no-iam-priv-esc-funcs";
+            "Ensure that actions that can result in privilege escalation are not used.") ) )
+| report

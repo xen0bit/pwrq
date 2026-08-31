@@ -1,4 +1,5 @@
 # rules: string-formatted-query
+# languages: go
 # from: go/lang/security/audit/database/string-formatted-query.yaml
 
 . as $root
@@ -52,14 +53,21 @@
           + ($all | of(["$OBJ.QueryRow($CTX, fmt.$U(\"$$$_\", $$$_))"]))
           + ($all | of(["$OBJ.QueryRowContext($CTX, fmt.$P(\"$$$_\", $$$_))"]))
           + ($all | of(["$QUERY = fmt.Fprintf($F, \"$SQLSTR\", $$$_)","$QUERY = fmt.Sprintf(\"$SQLSTR\", $$$_)","$QUERY = fmt.Printf(\"$SQLSTR\", $$$_)","$QUERY = $X + $$$_"])
-          | at_same_place((($all)
-          + ($all)
-          + ($all)
-          + ($all)
-          + ($all)
-          + ($all)
-          + ($all))))
-          | where_capture("OBJ"; "(?i).*(db|database)")
+          | at_same_place((($all
+          | within($all | of(["func $FUNC($$$_) {\n    $$$_\n    $OBJ.Query($QUERY, $$$_)\n    $$$_\n}"])))
+          + ($all
+          | within($all | of(["func $FUNC($$$_) {\n    $$$_\n    $OBJ.ExecContext($CTX, $QUERY, $$$_)\n    $$$_\n}"])))
+          + ($all
+          | within($all | of(["func $FUNC($$$_) {\n    $$$_\n    $OBJ.Exec($QUERY, $$$_)\n    $$$_\n}"])))
+          + ($all
+          | within($all | of(["func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryRow($CTX, $QUERY)\n    $$$_\n}"])))
+          + ($all
+          | within($all | of(["func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryRow($QUERY)\n    $$$_\n}"])))
+          + ($all
+          | within($all | of(["func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryContext($CTX, $QUERY)\n    $$$_\n}"])))
+          + ($all
+          | within($all | of(["func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryRowContext($CTX, $QUERY, $$$_)\n    $$$_\n}"]))))))
+          | where_capture("OBJ"; "^(?:(?i).*(db|database))")
           | outside($all | of(["$VAR = \"$$$_\" + \"$$$_\"\n$$$_\n$OBJ.$SINK($$$_, $VAR, $$$_)"]))
           | not_at($all | of(["$OBJ.Exec(\"$$$_\")"]))
           | not_at($all | of(["$OBJ.ExecContext($CTX, \"$$$_\")"]))

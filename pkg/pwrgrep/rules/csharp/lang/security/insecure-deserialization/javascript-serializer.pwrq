@@ -1,0 +1,14 @@
+# rules: insecure-javascriptserializer-deserialization
+# languages: c_sharp
+# from: csharp/lang/security/insecure-deserialization/javascript-serializer.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "new JavaScriptSerializer((SimpleTypeResolver $RESOLVER))",
+      "using System.Web.Script.Serialization;\n$$$_"
+    ])) as $all
+    | ( $all | of(["new JavaScriptSerializer((SimpleTypeResolver $RESOLVER))"])
+          | in_files_with($all | of(["using System.Web.Script.Serialization;\n$$$_"]))
+        | finding("insecure-javascriptserializer-deserialization";
+            "The SimpleTypeResolver class is insecure and should not be used.") ) )
+| report

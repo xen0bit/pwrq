@@ -1,0 +1,23 @@
+# rules: slow-pattern-general-property
+# languages: yaml
+# from: yaml/semgrep/slow-pattern-general-property.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "pattern-inside: $X",
+      "pattern-not-inside: $X",
+      "pattern-not: $X",
+      "pattern: $X"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["pattern-inside: $X"])))
+          + ($all
+          | within($all | of(["pattern-not-inside: $X"])))
+          + ($all
+          | within($all | of(["pattern: $X"])))
+          + ($all
+          | within($all | of(["pattern-not: $X"])))
+          | where_text("\\$[A-Z]*\\.\\$[A-Z]*")
+        | finding("slow-pattern-general-property";
+            "Using patterns like `$X.$Y` may be too general and may slow down the rule performance.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: enum_map_join
+# languages: elixir
 # from: elixir/lang/best-practice/enum-map-join.yaml
 
 . as $root

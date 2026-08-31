@@ -1,0 +1,12 @@
+# rules: use-snakeyaml-constructor
+# languages: java
+# from: java/lang/security/use-snakeyaml-constructor.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$Y = new org.yaml.snakeyaml.Yaml();\n$$$_\n$Y.load($$$_);"
+    ])) as $all
+    | ( $all | of(["$Y = new org.yaml.snakeyaml.Yaml();\n$$$_\n$Y.load($$$_);"])
+        | finding("use-snakeyaml-constructor";
+            "Used SnakeYAML org.yaml.snakeyaml.Yaml() constructor with no arguments, which is vulnerable to deserialization attacks.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: ocamllint-marshal
+# languages: ocaml
 # from: ocaml/lang/security/marshal.yaml
 
 . as $root

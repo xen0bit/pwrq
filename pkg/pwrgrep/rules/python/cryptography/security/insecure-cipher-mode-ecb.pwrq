@@ -1,4 +1,5 @@
 # rules: insecure-cipher-mode-ecb
+# languages: python
 # from: python/cryptography/security/insecure-cipher-mode-ecb.yaml
 
 . as $root

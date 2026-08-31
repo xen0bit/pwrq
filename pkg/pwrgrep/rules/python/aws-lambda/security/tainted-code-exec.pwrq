@@ -1,0 +1,18 @@
+# rules: tainted-code-exec
+# languages: python
+# from: python/aws-lambda/security/tainted-code-exec.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "def $HANDLER(event, context):\n  $$$_",
+      "eval($CODE, $$$_)",
+      "event",
+      "exec($CODE, $$$_)"
+    ])) as $all
+    | ( (($all | of(["eval($CODE, $$$_)","exec($CODE, $$$_)"])))
+          | reaching((($all | of(["event"])
+          | within($all | of(["def $HANDLER(event, context):\n  $$$_"]))));
+              ([]))
+        | finding("tainted-code-exec";
+            "Detected the use of `exec/eval`.This can be dangerous if used to evaluate dynamic content.") ) )
+| report

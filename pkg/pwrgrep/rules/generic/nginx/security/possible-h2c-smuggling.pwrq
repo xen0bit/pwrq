@@ -1,0 +1,15 @@
+# rules: possible-nginx-h2c-smuggling
+# from: generic/nginx/security/possible-h2c-smuggling.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "location\\s+[\\s\\S]*?\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "proxy_http_version\\s+1\\.1\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Upgrade\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Connection\\s+[\\s\\S]*?;",
+      "proxy_set_header\\s+Upgrade\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_http_version\\s+1\\.1\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Connection\\s+[\\s\\S]*?;",
+      "proxy_set_header\\s+Upgrade\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Connection\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_http_version\\s+1\\.1\\s+[\\s\\S]*?;"
+    ])) as $all
+    | ( $all | of(["proxy_http_version\\s+1\\.1\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Upgrade\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Connection\\s+[\\s\\S]*?;","proxy_set_header\\s+Upgrade\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Connection\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_http_version\\s+1\\.1\\s+[\\s\\S]*?;","proxy_set_header\\s+Upgrade\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_http_version\\s+1\\.1\\s+[\\s\\S]*?;\\s+[\\s\\S]*?\\s+proxy_set_header\\s+Connection\\s+[\\s\\S]*?;"])
+          | within($all | of(["location\\s+[\\s\\S]*?\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("possible-nginx-h2c-smuggling";
+            "Conditions for Nginx H2C smuggling identified.") ) )
+| report

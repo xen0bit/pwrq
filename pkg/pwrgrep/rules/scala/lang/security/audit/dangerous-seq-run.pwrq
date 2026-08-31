@@ -1,4 +1,5 @@
 # rules: dangerous-seq-run
+# languages: scala
 # from: scala/lang/security/audit/dangerous-seq-run.yaml
 
 . as $root
@@ -13,9 +14,12 @@
       "import sys.process\n$$$_"
     ])) as $all
     | ( $all | of(["Seq($CMD, $$$_)"])
-          | at_same_place((($all)
-          + ($all)
-          + ($all)))
+          | at_same_place((($all
+          | within($all | of(["Seq($$$_).!"])))
+          + ($all
+          | within($all | of(["Seq($$$_).!!"])))
+          + ($all
+          | within($all | of(["Seq($$$_).lazyLines"])))))
           | not_at($all | of(["Seq(\"$$$_\", $$$_)"]))
           | in_files_with($all | of(["import sys.process\n$$$_"]))
           | in_files_without($all | of(["$CMD = \"$$$_\"\n$$$_","\"$$$_\""]))

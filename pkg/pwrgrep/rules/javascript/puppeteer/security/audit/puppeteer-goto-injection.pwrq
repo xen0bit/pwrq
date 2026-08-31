@@ -1,4 +1,5 @@
 # rules: puppeteer-goto-injection
+# languages: javascript, typescript
 # from: javascript/puppeteer/security/audit/puppeteer-goto-injection.yaml
 
 . as $root

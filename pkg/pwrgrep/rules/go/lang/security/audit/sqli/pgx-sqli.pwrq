@@ -1,4 +1,5 @@
 # rules: pgx-sqli
+# languages: go
 # from: go/lang/security/audit/sqli/pgx-sqli.yaml
 
 . as $root
@@ -19,17 +20,24 @@
       "func $FUNCNAME($$$_, $DB *pgx.Conn, $$$_) {\n  $$$_\n}"
     ])) as $all
     | ( ($all | of(["$DB.$METHOD($$$_,$QUERY,$$$_)"])
-          | at_same_place((($all)
-          + ($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["$QUERY = $X + $Y\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY += $X\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$QUERY = fmt.Sprintf(\"$$$_\", $PARAM1, $$$_)\n$$$_","\"$$$_\""])))))
           | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
           | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"])))
           + ($all | of(["$DB.$METHOD($$$_, $X + $Y, $$$_)"]))
           + ($all | of(["$DB.$METHOD($$$_, fmt.Sprintf(\"$$$_\", $PARAM1, $$$_), $$$_)"]))
-          | at_same_place((($all)
-          + ($all)
-          + ($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["$DB, $$$_ = pgx.Connect($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$DB, $$$_ = pgx.NewConnPool($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$DB, $$$_ = pgx.ConnectConfig($$$_)\n$$$_"])))
+          + ($all
+          | within($all | of(["func $FUNCNAME($$$_, $DB *pgx.Conn, $$$_) {\n  $$$_\n}"])))))
           | not_at($all | of(["$DB.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)"]))
           | where_capture("METHOD"; "^(Exec|ExecEx|Query|QueryEx|QueryRow|QueryRowEx)$")
         | finding("pgx-sqli";

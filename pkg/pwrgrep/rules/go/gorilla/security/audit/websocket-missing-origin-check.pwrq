@@ -1,4 +1,5 @@
 # rules: websocket-missing-origin-check
+# languages: go
 # from: go/gorilla/security/audit/websocket-missing-origin-check.yaml
 
 . as $root

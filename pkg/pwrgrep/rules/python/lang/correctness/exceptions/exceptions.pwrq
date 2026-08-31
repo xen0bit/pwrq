@@ -1,4 +1,5 @@
 # rules: raise-not-base-exception
+# languages: python
 # from: python/lang/correctness/exceptions/exceptions.yaml
 
 . as $root
@@ -10,7 +11,7 @@
     | ( ($all | of(["raise \"$$$_\""]))
           + ($all | of(["$X: BaseException\nraise $X($$$_)"]))
           + ($all | of(["raise $EXCEPTION"])
-          | where_capture("EXCEPTION"; "[0-9]*\\.?[0-9]+"))
+          | where_capture("EXCEPTION"; "^(?:[0-9]*\\.?[0-9]+)"))
         | finding("raise-not-base-exception";
             "In Python3, a runtime `TypeError` will be thrown if you attempt to raise an object or class which does not inherit from `BaseException`") ) )
 | report

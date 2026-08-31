@@ -1,4 +1,5 @@
 # rules: insecure-use-string-copy-fn
+# languages: c
 # from: c/lang/security/insecure-use-string-copy-fn.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: go-tmpfile-predictable
+# languages: go
 # fixture: go/tmpfile-predictable.go
 # from: go/lang/security/bad_tmp.yaml (bad-tmp-file-creation)
 #

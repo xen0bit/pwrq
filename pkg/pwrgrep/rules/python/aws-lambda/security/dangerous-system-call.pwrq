@@ -1,0 +1,22 @@
+# rules: dangerous-system-call
+# languages: python
+# from: python/aws-lambda/security/dangerous-system-call.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "def $HANDLER(event, context):\n  $$$_",
+      "event",
+      "os.popen($CMD,$$$_)",
+      "os.popen2($CMD,$$$_)",
+      "os.popen3($CMD,$$$_)",
+      "os.popen4($CMD,$$$_)",
+      "os.system($CMD,$$$_)"
+    ])) as $all
+    | ( (($all | of(["os.system($CMD,$$$_)","os.popen($CMD,$$$_)","os.popen2($CMD,$$$_)","os.popen3($CMD,$$$_)","os.popen4($CMD,$$$_)"])
+          | focus("CMD")))
+          | reaching((($all | of(["event"])
+          | within($all | of(["def $HANDLER(event, context):\n  $$$_"]))));
+              ([]))
+        | finding("dangerous-system-call";
+            "Detected `os` function with argument tainted by `event` object.") ) )
+| report

@@ -1,0 +1,12 @@
+# rules: detect-generic-ai-api
+# from: ai/generic/detect-generic-ai-api.yaml
+
+. as $root
+| ( ($root | scan_regex(["*"]; [
+      "\\/chat\\/completions",
+      "api\\.openai\\.com"
+    ])) as $all
+    | ( $all | of(["\\/chat\\/completions","api\\.openai\\.com"])
+        | finding("detect-generic-ai-api";
+            "Possibly found usage of AI: HTTP Request") ) )
+| report

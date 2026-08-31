@@ -1,0 +1,15 @@
+# rules: lambda-redundant-field-with-image
+# languages: hcl
+# from: terraform/aws/correctness/lambda-redundant-field-with-image.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "handler = $$$_",
+      "resource \"aws_lambda_function\" $NAME { \n  $$$_\n  package_type = \"Image\"\n}",
+      "runtime = $$$_"
+    ])) as $all
+    | ( $all | of(["handler = $$$_","runtime = $$$_"])
+          | within($all | of(["resource \"aws_lambda_function\" $NAME { \n  $$$_\n  package_type = \"Image\"\n}"]))
+        | finding("lambda-redundant-field-with-image";
+            "When using the AWS Lambda \"Image\" package_type, `runtime` and `handler` are not necessary for Lambda to understand how to run the code.") ) )
+| report

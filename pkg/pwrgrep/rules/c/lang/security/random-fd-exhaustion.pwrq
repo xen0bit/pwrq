@@ -1,4 +1,5 @@
 # rules: random-fd-exhaustion
+# languages: c
 # from: c/lang/security/random-fd-exhaustion.yaml
 
 . as $root

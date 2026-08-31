@@ -1,0 +1,15 @@
+# rules: exec-use
+# languages: php
+# from: php/lang/security/exec-use.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$FUNC($$$_);",
+      "$FUNC('$$$_', $$$_);"
+    ])) as $all
+    | ( $all | of(["$FUNC($$$_);"])
+          | not_at($all | of(["$FUNC('$$$_', $$$_);"]))
+          | where_capture("FUNC"; "^(?:exec|passthru|proc_open|popen|shell_exec|system|pcntl_exec)")
+        | finding("exec-use";
+            "Executing non-constant commands.") ) )
+| report

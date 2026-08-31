@@ -1,0 +1,16 @@
+# rules: gcp-build-workers-private
+# languages: hcl
+# from: terraform/gcp/security/gcp-build-workers-private.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_cloudbuild_worker_pool\" \"$$$_\" {\n$$$_\nworker_config {\n  $$$_\n  no_external_ip = true\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_cloudbuild_worker_pool\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_cloudbuild_worker_pool\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_cloudbuild_worker_pool\" \"$$$_\" {\n$$$_\nworker_config {\n  $$$_\n  no_external_ip = true\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-build-workers-private";
+            "Ensure Cloud build workers are private") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: manual-defaultdict-dict-create, manual-defaultdict-set-create, manual-defaultdict-list-create, manual-counter-create
+# languages: python
 # from: python/lang/best-practice/manual-collections-create.yaml
 
 . as $root

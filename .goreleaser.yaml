@@ -69,6 +69,19 @@ builds:
       - grammar_subset_css
       - grammar_subset_markdown
       - grammar_subset_dockerfile
+      # The languages the rule corpus needs. A rule for a grammar this build
+      # has not is a rule that ships and can never fire; see
+      # TestEveryRuleLanguageIsInTheBuild.
+      - grammar_subset_apex
+      - grammar_subset_clojure
+      - grammar_subset_dart
+      - grammar_subset_elixir
+      - grammar_subset_kotlin
+      - grammar_subset_lua
+      - grammar_subset_ocaml
+      - grammar_subset_scala
+      - grammar_subset_solidity
+      - grammar_subset_swift
     env:
       - CGO_ENABLED=0
     goos: [linux]
@@ -122,6 +135,19 @@ builds:
       - grammar_subset_css
       - grammar_subset_markdown
       - grammar_subset_dockerfile
+      # The languages the rule corpus needs. A rule for a grammar this build
+      # has not is a rule that ships and can never fire; see
+      # TestEveryRuleLanguageIsInTheBuild.
+      - grammar_subset_apex
+      - grammar_subset_clojure
+      - grammar_subset_dart
+      - grammar_subset_elixir
+      - grammar_subset_kotlin
+      - grammar_subset_lua
+      - grammar_subset_ocaml
+      - grammar_subset_scala
+      - grammar_subset_solidity
+      - grammar_subset_swift
     env:
       - CGO_ENABLED=0
     goos: [linux]

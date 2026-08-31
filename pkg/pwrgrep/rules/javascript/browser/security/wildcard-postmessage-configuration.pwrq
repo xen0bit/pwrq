@@ -1,4 +1,5 @@
 # rules: wildcard-postmessage-configuration
+# languages: javascript, typescript
 # from: javascript/browser/security/wildcard-postmessage-configuration.yaml
 
 . as $root

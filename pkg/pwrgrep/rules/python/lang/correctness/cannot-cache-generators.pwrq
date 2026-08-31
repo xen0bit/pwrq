@@ -2,12 +2,12 @@
 # from: python/lang/correctness/cannot-cache-generators.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.py"]; [
-      "@functools.lru_cache($$$_)\ndef $FUNC($$$_):\n    $$$_\n    yield $$$_",
-      "functools.lru_cache($$$_)"
+| ( ($root | scan_regex(["*.py"]; [
+      "@functools\\.lru_cache\\([\\s\\S]*?\\)\\s+def\\s+(?P<FUNC>\\S+)\\([\\s\\S]*?\\):\\s+[\\s\\S]*?\\s+yield\\s+[\\s\\S]*?",
+      "functools\\.lru_cache\\([\\s\\S]*?\\)"
     ])) as $all
-    | ( $all | of(["functools.lru_cache($$$_)"])
-          | within($all | of(["@functools.lru_cache($$$_)\ndef $FUNC($$$_):\n    $$$_\n    yield $$$_"]))
+    | ( $all | of(["functools\\.lru_cache\\([\\s\\S]*?\\)"])
+          | within($all | of(["@functools\\.lru_cache\\([\\s\\S]*?\\)\\s+def\\s+(?P<FUNC>\\S+)\\([\\s\\S]*?\\):\\s+[\\s\\S]*?\\s+yield\\s+[\\s\\S]*?"]))
         | finding("cannot-cache-generators";
             "Generators can only be consumed once, so in most cases, caching them will cause an error when the already-consumed generator is retrieved from cache.") ) )
 | report

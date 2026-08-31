@@ -126,9 +126,14 @@ func RegisterGetPwrgrepRule() gojq.CompilerOption {
 			for j, id := range rule.Ids {
 				ids[j] = id
 			}
+			languages := make([]any, len(rule.Languages))
+			for j, language := range rule.Languages {
+				languages[j] = language
+			}
 			out[i] = Rule.Build(map[string]any{
 				"Id":          rule.Id(),
 				"Ids":         ids,
+				"Languages":   languages,
 				"Path":        rule.Path,
 				"From":        rule.From,
 				"Fixture":     rule.Fixture,

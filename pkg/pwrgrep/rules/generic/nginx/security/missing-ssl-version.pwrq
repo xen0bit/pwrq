@@ -1,0 +1,13 @@
+# rules: missing-ssl-version
+# from: generic/nginx/security/missing-ssl-version.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "server\\s+\\{\\s+[\\s\\S]*?\\s+listen\\s+(?P<PORT>\\S+)\\s+ssl;\\s+[\\s\\S]*?\\s+\\}",
+      "server\\s+\\{\\s+[\\s\\S]*?\\s+ssl_protocols\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["server\\s+\\{\\s+[\\s\\S]*?\\s+listen\\s+(?P<PORT>\\S+)\\s+ssl;\\s+[\\s\\S]*?\\s+\\}"])
+          | outside($all | of(["server\\s+\\{\\s+[\\s\\S]*?\\s+ssl_protocols\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("missing-ssl-version";
+            "This server configuration is missing the 'ssl_protocols' directive.") ) )
+| report

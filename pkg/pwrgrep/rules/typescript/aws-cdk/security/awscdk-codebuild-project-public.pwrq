@@ -1,4 +1,5 @@
 # rules: awscdk-codebuild-project-public
+# languages: typescript
 # from: typescript/aws-cdk/security/awscdk-codebuild-project-public.yml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: bad-operator-in-filter
+# languages: python
 # from: python/sqlalchemy/correctness/bad-operator-in-filter.yaml
 
 . as $root

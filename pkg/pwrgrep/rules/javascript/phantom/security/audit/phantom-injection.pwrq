@@ -1,4 +1,5 @@
 # rules: phantom-injection
+# languages: javascript, typescript
 # from: javascript/phantom/security/audit/phantom-injection.yaml
 
 . as $root

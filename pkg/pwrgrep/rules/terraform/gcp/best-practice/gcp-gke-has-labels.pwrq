@@ -1,0 +1,16 @@
+# rules: gcp-gke-has-labels
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-gke-has-labels.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nresource_labels = {\n    \"$$$_\" = \"$$$_\"\n}\n$$$_\n}",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nresource_labels = {\n    \"$$$_\" = \"$$$_\"\n}\n$$$_\n}"]))
+        | finding("gcp-gke-has-labels";
+            "Ensure Kubernetes Clusters are configured with Labels") ) )
+| report

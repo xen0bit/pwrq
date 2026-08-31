@@ -1,0 +1,13 @@
+# rules: avoid-raw
+# from: ruby/rails/security/audit/xss/templates/avoid-raw.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.erb"]; [
+      "<%=\\s+[\\s\\S]*?\\s+%>",
+      "raw"
+    ])) as $all
+    | ( $all | of(["raw"])
+          | within($all | of(["<%=\\s+[\\s\\S]*?\\s+%>"]))
+        | finding("avoid-raw";
+            "'raw' renders raw HTML, as the name implies.") ) )
+| report

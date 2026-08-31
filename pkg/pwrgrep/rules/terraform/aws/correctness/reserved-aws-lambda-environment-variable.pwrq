@@ -1,0 +1,18 @@
+# rules: reserved-aws-lambda-environment-variable
+# languages: hcl
+# from: terraform/aws/correctness/reserved-aws-lambda-environment-variable.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "$VARIABLE = $$$_",
+      "environment { $$$_ }",
+      "resource \"aws_lambda_function\" $FUNCTION { $$$_ }",
+      "variables = { $$$_ }"
+    ])) as $all
+    | ( $all | of(["$VARIABLE = $$$_"])
+          | within($all | of(["resource \"aws_lambda_function\" $FUNCTION { $$$_ }"]))
+          | within($all | of(["environment { $$$_ }"]))
+          | within($all | of(["variables = { $$$_ }"]))
+        | finding("reserved-aws-lambda-environment-variable";
+            "`terraform apply` will fail because the environment variable \"$VARIABLE\" is a reserved by AWS.") ) )
+| report

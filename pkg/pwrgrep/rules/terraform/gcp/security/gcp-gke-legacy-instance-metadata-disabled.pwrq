@@ -1,0 +1,18 @@
+# rules: gcp-gke-legacy-instance-metadata-disabled
+# languages: hcl
+# from: terraform/gcp/security/gcp-gke-legacy-instance-metadata-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nmin_master_version = 1.12\n$$$_\n}",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nmin_master_version = 1.13\n$$$_\n}",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nmin_master_version = 1.12\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nmin_master_version = 1.13\n$$$_\n}"]))
+        | finding("gcp-gke-legacy-instance-metadata-disabled";
+            "Ensure legacy Compute Engine instance metadata APIs are Disabled") ) )
+| report

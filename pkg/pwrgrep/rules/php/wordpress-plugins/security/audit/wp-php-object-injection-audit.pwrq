@@ -1,4 +1,5 @@
 # rules: wp-php-object-injection-audit
+# languages: php
 # from: php/wordpress-plugins/security/audit/wp-php-object-injection-audit.yaml
 
 . as $root

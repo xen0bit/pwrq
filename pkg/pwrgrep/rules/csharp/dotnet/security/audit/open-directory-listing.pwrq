@@ -1,4 +1,5 @@
 # rules: open-directory-listing
+# languages: c_sharp
 # from: csharp/dotnet/security/audit/open-directory-listing.yaml
 
 . as $root

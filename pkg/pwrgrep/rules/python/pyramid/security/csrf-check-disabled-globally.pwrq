@@ -1,0 +1,15 @@
+# rules: pyramid-csrf-check-disabled-globally
+# languages: python
+# from: python/pyramid/security/csrf-check-disabled-globally.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CONFIG.set_default_csrf_options($$$_, require_csrf=$REQUIRE_CSRF, $$$_)",
+      "$REQUIRE_CSRF"
+    ])) as $all
+    | ( $all | of(["$REQUIRE_CSRF"])
+          | within($all | of(["$CONFIG.set_default_csrf_options($$$_, require_csrf=$REQUIRE_CSRF, $$$_)"]))
+          | where_capture("REQUIRE_CSRF"; "^(?i:False)$")
+        | finding("pyramid-csrf-check-disabled-globally";
+            "Automatic check of cross-site request forgery tokens has been explicitly disabled globally, which might leave views unprotected.") ) )
+| report

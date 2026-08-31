@@ -1,0 +1,12 @@
+# rules: detect-generic-ai-oai
+# from: ai/generic/detect-generic-ai-oai.yaml
+
+. as $root
+| ( ($root | scan_regex(["*"]; [
+      "OpenAI",
+      "openai"
+    ])) as $all
+    | ( $all | of(["openai","OpenAI"])
+        | finding("detect-generic-ai-oai";
+            "Possibly found usage of AI: OpenAI") ) )
+| report

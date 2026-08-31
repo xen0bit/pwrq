@@ -1,0 +1,19 @@
+# rules: insecure-ssl-version
+# from: generic/nginx/security/insecure-ssl-version.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "ssl_protocols\\s+TLSv1\\.2;",
+      "ssl_protocols\\s+TLSv1\\.2\\s+TLSv1\\.3;",
+      "ssl_protocols\\s+TLSv1\\.3;",
+      "ssl_protocols\\s+TLSv1\\.3\\s+TLSv1\\.2;",
+      "ssl_protocols\\s+[\\s\\S]*?;"
+    ])) as $all
+    | ( $all | of(["ssl_protocols\\s+[\\s\\S]*?;"])
+          | not_at($all | of(["ssl_protocols\\s+TLSv1\\.2\\s+TLSv1\\.3;"]))
+          | not_at($all | of(["ssl_protocols\\s+TLSv1\\.3\\s+TLSv1\\.2;"]))
+          | not_at($all | of(["ssl_protocols\\s+TLSv1\\.2;"]))
+          | not_at($all | of(["ssl_protocols\\s+TLSv1\\.3;"]))
+        | finding("insecure-ssl-version";
+            "Detected use of an insecure SSL version.") ) )
+| report

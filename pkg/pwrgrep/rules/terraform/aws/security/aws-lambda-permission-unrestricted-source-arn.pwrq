@@ -1,0 +1,15 @@
+# rules: aws-lambda-permission-unrestricted-source-arn
+# languages: hcl
+# from: terraform/aws/security/aws-lambda-permission-unrestricted-source-arn.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_lambda_permission\" $ANYTHING {\n  $$$_\n  principal = \"$PRINCIPAL\"\n  $$$_\n}",
+      "resource \"aws_lambda_permission\" $ANYTHING {\n  $$$_\n  source_arn = $$$_\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_lambda_permission\" $ANYTHING {\n  $$$_\n  principal = \"$PRINCIPAL\"\n  $$$_\n}"])
+          | not_at($all | of(["resource \"aws_lambda_permission\" $ANYTHING {\n  $$$_\n  source_arn = $$$_\n  $$$_\n}"]))
+          | where_capture("PRINCIPAL"; "^(?:.*[.]amazonaws[.]com$)")
+        | finding("aws-lambda-permission-unrestricted-source-arn";
+            "The AWS Lambda permission has an AWS service principal but does not specify a source ARN.") ) )
+| report

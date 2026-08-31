@@ -1,4 +1,5 @@
 # rules: insecure-random
+# languages: swift
 # from: swift/lang/crypto/insecure-random.yaml
 
 . as $root

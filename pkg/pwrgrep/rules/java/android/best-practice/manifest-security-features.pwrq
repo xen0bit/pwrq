@@ -1,0 +1,19 @@
+# rules: manifest-usesCleartextTraffic-true, manifest-usesCleartextTraffic-ignored-by-nsc
+# from: java/android/best-practice/manifest-security-features.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.xml"]; [
+      "<!\\-\\-\\s+[\\s\\S]*?\\s+\\-\\->",
+      "android:networkSecurityConfig\\s+[\\s\\S]*?\\s+android:usesCleartextTraffic",
+      "android:usesCleartextTraffic=\"true\"",
+      "android:usesCleartextTraffic\\s+[\\s\\S]*?\\s+android:networkSecurityConfig"
+    ])) as $all
+    | ( $all | of(["android:usesCleartextTraffic=\"true\""])
+          | outside($all | of(["<!\\-\\-\\s+[\\s\\S]*?\\s+\\-\\->"]))
+        | finding("manifest-usesCleartextTraffic-true";
+            "The Android manifest is configured to allow non-encrypted connections.") )
+      + ( $all | of(["android:usesCleartextTraffic\\s+[\\s\\S]*?\\s+android:networkSecurityConfig","android:networkSecurityConfig\\s+[\\s\\S]*?\\s+android:usesCleartextTraffic"])
+          | outside($all | of(["<!\\-\\-\\s+[\\s\\S]*?\\s+\\-\\->"]))
+        | finding("manifest-usesCleartextTraffic-ignored-by-nsc";
+            "Manifest uses both `android:usesCleartextTraffic` and Network Security Config.") ) )
+| report

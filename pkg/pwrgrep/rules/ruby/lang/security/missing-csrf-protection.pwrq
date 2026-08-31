@@ -1,0 +1,15 @@
+# rules: missing-csrf-protection
+# from: ruby/lang/security/missing-csrf-protection.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.rb"]; [
+      "class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ActionController::Base\\s+[\\s\\S]*?\\s+end",
+      "class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ActionController::Base\\s+[\\s\\S]*?\\s+protect_from_forgery\\s+:with\\s+=>\\s+:exception\\s+end",
+      "class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ActionController::Base\\s+[\\s\\S]*?\\s+protect_from_forgery\\s+prepend:\\s+true,\\s+with:\\s+:exception\\s+end"
+    ])) as $all
+    | ( $all | of(["class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ActionController::Base\\s+[\\s\\S]*?\\s+end"])
+          | not_at($all | of(["class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ActionController::Base\\s+[\\s\\S]*?\\s+protect_from_forgery\\s+:with\\s+=>\\s+:exception\\s+end"]))
+          | not_at($all | of(["class\\s+(?P<CONTROLLER>\\S+)\\s+<\\s+ActionController::Base\\s+[\\s\\S]*?\\s+protect_from_forgery\\s+prepend:\\s+true,\\s+with:\\s+:exception\\s+end"]))
+        | finding("missing-csrf-protection";
+            "Detected controller which does not enable cross-site request forgery protections using 'protect_from_forgery'.") ) )
+| report

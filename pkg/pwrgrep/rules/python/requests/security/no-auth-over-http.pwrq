@@ -1,4 +1,5 @@
 # rules: no-auth-over-http
+# languages: python
 # from: python/requests/security/no-auth-over-http.yaml
 
 . as $root

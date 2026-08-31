@@ -1,0 +1,16 @@
+# rules: gcp-gke-network-policy-enabled
+# languages: hcl
+# from: terraform/gcp/security/gcp-gke-network-policy-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\ndatapath_provider = \"ADVANCED_DATAPATH\"\nnetwork_policy {\n  $$$_\n  enabled = false\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nnetwork_policy {\n  $$$_\n  enabled = false\n  $$$_\n}\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nnetwork_policy {\n  $$$_\n  enabled = false\n  $$$_\n}\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\ndatapath_provider = \"ADVANCED_DATAPATH\"\nnetwork_policy {\n  $$$_\n  enabled = false\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-gke-network-policy-enabled";
+            "Ensure Network Policy is enabled on Kubernetes Engine Clusters") ) )
+| report

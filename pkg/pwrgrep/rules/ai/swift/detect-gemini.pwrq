@@ -1,4 +1,5 @@
 # rules: detect-gemini
+# languages: swift
 # from: ai/swift/detect-gemini.yaml
 
 . as $root

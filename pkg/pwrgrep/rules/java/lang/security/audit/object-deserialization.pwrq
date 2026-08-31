@@ -1,4 +1,5 @@
 # rules: object-deserialization
+# languages: java
 # from: java/lang/security/audit/object-deserialization.yaml
 
 . as $root

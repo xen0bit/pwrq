@@ -1,4 +1,5 @@
 # rules: avoid-bind-to-all-interfaces
+# languages: python
 # from: python/lang/security/audit/network/bind.yaml
 
 . as $root

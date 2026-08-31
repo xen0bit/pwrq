@@ -1,4 +1,5 @@
 # rules: anonymous-ldap-bind
+# languages: java
 # from: java/lang/security/audit/anonymous-ldap-bind.yaml
 
 . as $root

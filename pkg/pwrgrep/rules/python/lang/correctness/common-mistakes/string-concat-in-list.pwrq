@@ -1,4 +1,5 @@
 # rules: string-concat-in-list
+# languages: python
 # from: python/lang/correctness/common-mistakes/string-concat-in-list.yaml
 
 . as $root
@@ -9,8 +10,10 @@
       "{$$$_, $KEY: $VALUE, $$$_}",
       "{$$$_}"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | within($all | of(["[$$$_]"])))
+          + ($all
+          | within($all | of(["{$$$_}"])))
           | at_same_place(($all | of(["\"$$$_\" \"$$$_\""])))
           | outside($all | of(["f\"$$$_\""]))
           | outside($all | of(["{$$$_, $KEY: $VALUE, $$$_}"]))

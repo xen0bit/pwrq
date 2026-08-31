@@ -1,0 +1,16 @@
+# rules: insufficient-dsa-key-size
+# languages: python
+# from: python/pycryptodome/security/insufficient-dsa-key-size.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "Crypto.PublicKey.DSA.generate($$$_, bits=$SIZE, $$$_)",
+      "Crypto.PublicKey.DSA.generate($SIZE, $$$_)",
+      "Cryptodome.PublicKey.DSA.generate($$$_, bits=$SIZE, $$$_)",
+      "Cryptodome.PublicKey.DSA.generate($SIZE, $$$_)"
+    ])) as $all
+    | ( $all | of(["Crypto.PublicKey.DSA.generate($$$_, bits=$SIZE, $$$_)","Crypto.PublicKey.DSA.generate($SIZE, $$$_)","Cryptodome.PublicKey.DSA.generate($$$_, bits=$SIZE, $$$_)","Cryptodome.PublicKey.DSA.generate($SIZE, $$$_)"])
+          | where_capture_compare("$SIZE < 2048")
+        | finding("insufficient-dsa-key-size";
+            "Detected an insufficient key size for DSA.") ) )
+| report

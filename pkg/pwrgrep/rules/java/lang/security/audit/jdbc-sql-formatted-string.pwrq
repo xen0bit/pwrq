@@ -1,0 +1,38 @@
+# rules: jdbc-sql-formatted-string
+# languages: java
+# from: java/lang/security/audit/jdbc-sql-formatted-string.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$JDBC = new JdbcTemplate($$$_);\n$$$_",
+      "$JDBC.execute($STR + $VAR);",
+      "$JDBC.execute(String.format($$$_));",
+      "$JDBC.insert($STR + $VAR);",
+      "$JDBC.insert(String.format($$$_));",
+      "$JDBC.queryForList($STR + $VAR);",
+      "$JDBC.queryForList(String.format($$$_));",
+      "$JDBC.queryForObject($STR + $VAR, $$$_);",
+      "$JDBC.queryForObject(String.format($$$_), $$$_);",
+      "$JDBC.update($STR + $VAR);",
+      "$JDBC.update(String.format($$$_));",
+      "String $Q = $STR + $VAR;\n$$$_\n$JDBC.execute($Q);",
+      "String $Q = $STR + $VAR;\n$$$_\n$JDBC.insert($Q);",
+      "String $Q = $STR + $VAR;\n$$$_\n$JDBC.queryForList($Q);",
+      "String $Q = $STR + $VAR;\n$$$_\n$JDBC.queryForObject($Q, $$$_);",
+      "String $Q = $STR + $VAR;\n$$$_\n$JDBC.update($Q);",
+      "String $Q = String.format($$$_);\n$$$_\n$JDBC.execute($Q);",
+      "String $Q = String.format($$$_);\n$$$_\n$JDBC.insert($Q);",
+      "String $Q = String.format($$$_);\n$$$_\n$JDBC.queryForList($Q);",
+      "String $Q = String.format($$$_);\n$$$_\n$JDBC.queryForObject($Q, $$$_);",
+      "String $Q = String.format($$$_);\n$$$_\n$JDBC.update($Q);",
+      "StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.execute($Q, $$$_);",
+      "StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.insert($Q, $$$_);",
+      "StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.queryForList($Q, $$$_);",
+      "StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.queryForObject($Q, $$$_);",
+      "StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.update($Q, $$$_);"
+    ])) as $all
+    | ( $all | of(["$JDBC.queryForObject($STR + $VAR, $$$_);","$JDBC.queryForObject(String.format($$$_), $$$_);","String $Q = $STR + $VAR;\n$$$_\n$JDBC.queryForObject($Q, $$$_);","String $Q = String.format($$$_);\n$$$_\n$JDBC.queryForObject($Q, $$$_);","StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.queryForObject($Q, $$$_);","$JDBC.queryForList($STR + $VAR);","$JDBC.queryForList(String.format($$$_));","String $Q = $STR + $VAR;\n$$$_\n$JDBC.queryForList($Q);","String $Q = String.format($$$_);\n$$$_\n$JDBC.queryForList($Q);","StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.queryForList($Q, $$$_);","$JDBC.update($STR + $VAR);","$JDBC.update(String.format($$$_));","String $Q = $STR + $VAR;\n$$$_\n$JDBC.update($Q);","String $Q = String.format($$$_);\n$$$_\n$JDBC.update($Q);","StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.update($Q, $$$_);","$JDBC.execute($STR + $VAR);","$JDBC.execute(String.format($$$_));","String $Q = $STR + $VAR;\n$$$_\n$JDBC.execute($Q);","String $Q = String.format($$$_);\n$$$_\n$JDBC.execute($Q);","StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.execute($Q, $$$_);","$JDBC.insert($STR + $VAR);","$JDBC.insert(String.format($$$_));","String $Q = $STR + $VAR;\n$$$_\n$JDBC.insert($Q);","String $Q = String.format($$$_);\n$$$_\n$JDBC.insert($Q);","StringBuilder $Q = new StringBuilder($$$_);\n$$$_\n$Q.append($STR + $VAR);\n$$$_\n$JDBC.insert($Q, $$$_);"])
+          | in_files_with($all | of(["$JDBC = new JdbcTemplate($$$_);\n$$$_"]))
+        | finding("jdbc-sql-formatted-string";
+            "Possible JDBC injection detected.") ) )
+| report

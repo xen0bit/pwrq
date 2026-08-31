@@ -1,0 +1,16 @@
+# rules: aws-insecure-redshift-ssl-configuration
+# languages: hcl
+# from: terraform/aws/security/aws-insecure-redshift-ssl-configuration.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_redshift_parameter_group\" $ANYTHING {\n  $$$_\n  parameter {\n    name  = \"require_ssl\"\n    value = \"true\"\n  }\n  $$$_\n}",
+      "resource \"aws_redshift_parameter_group\" $ANYTHING {\n  $$$_\n  parameter {\n    name  = \"require_ssl\"\n    value = true\n  }\n  $$$_\n}",
+      "resource \"aws_redshift_parameter_group\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_redshift_parameter_group\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_redshift_parameter_group\" $ANYTHING {\n  $$$_\n  parameter {\n    name  = \"require_ssl\"\n    value = \"true\"\n  }\n  $$$_\n}"]))
+          | outside($all | of(["resource \"aws_redshift_parameter_group\" $ANYTHING {\n  $$$_\n  parameter {\n    name  = \"require_ssl\"\n    value = true\n  }\n  $$$_\n}"]))
+        | finding("aws-insecure-redshift-ssl-configuration";
+            "Detected an AWS Redshift configuration with a SSL disabled.") ) )
+| report

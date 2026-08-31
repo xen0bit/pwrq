@@ -1,4 +1,5 @@
 # rules: check-permit-attributes-high
+# languages: ruby
 # from: ruby/rails/security/brakeman/check-permit-attributes-high.yaml
 
 . as $root
@@ -6,7 +7,7 @@
       "$P.permit($ATTRIBUTE)"
     ])) as $all
     | ( $all | of(["$P.permit($ATTRIBUTE)"])
-          | where_capture("ATTRIBUTE"; ".*(admin|account_id).*")
+          | where_capture("ATTRIBUTE"; "^(?:.*(admin|account_id).*)")
         | finding("check-permit-attributes-high";
             "Calling `permit` on security-critical properties like `$ATTRIBUTE` may leave your application vulnerable to mass assignment.") ) )
 | report

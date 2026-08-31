@@ -2,37 +2,33 @@
 # from: go/lang/security/audit/crypto/use_of_weak_crypto.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "\"crypto/des\"",
-      "\"crypto/md5\"",
-      "\"crypto/rc4\"",
-      "\"crypto/sha1\"",
-      "des.NewCipher($$$_)",
-      "des.NewTripleDESCipher($$$_)",
-      "import \"crypto/des\"\n$$$_",
-      "import \"crypto/md5\"\n$$$_",
-      "import \"crypto/rc4\"\n$$$_",
-      "import \"crypto/sha1\"\n$$$_",
-      "md5.New()",
-      "md5.Sum($$$_)",
-      "rc4.NewCipher($$$_)",
-      "sha1.New()",
-      "sha1.Sum($$$_)"
+| ( ($root | scan_regex(["*.go"]; [
+      "des\\.NewCipher\\([\\s\\S]*?\\)",
+      "des\\.NewTripleDESCipher\\([\\s\\S]*?\\)",
+      "import\\s+\"crypto\\/des\"\\s+[\\s\\S]*?",
+      "import\\s+\"crypto\\/md5\"\\s+[\\s\\S]*?",
+      "import\\s+\"crypto\\/rc4\"\\s+[\\s\\S]*?",
+      "import\\s+\"crypto\\/sha1\"\\s+[\\s\\S]*?",
+      "md5\\.New\\(\\)",
+      "md5\\.Sum\\([\\s\\S]*?\\)",
+      "rc4\\.NewCipher\\([\\s\\S]*?\\)",
+      "sha1\\.New\\(\\)",
+      "sha1\\.Sum\\([\\s\\S]*?\\)"
     ])) as $all
-    | ( $all | of(["md5.New()","md5.Sum($$$_)"])
-          | in_files_with($all | of(["import \"crypto/md5\"\n$$$_","\"crypto/md5\""]))
+    | ( $all | of(["md5\\.New\\(\\)","md5\\.Sum\\([\\s\\S]*?\\)"])
+          | in_files_with($all | of(["import\\s+\"crypto\\/md5\"\\s+[\\s\\S]*?"]))
         | finding("use-of-md5";
             "Detected MD5 hash algorithm which is considered insecure.") )
-      + ( $all | of(["sha1.New()","sha1.Sum($$$_)"])
-          | in_files_with($all | of(["import \"crypto/sha1\"\n$$$_","\"crypto/sha1\""]))
+      + ( $all | of(["sha1\\.New\\(\\)","sha1\\.Sum\\([\\s\\S]*?\\)"])
+          | in_files_with($all | of(["import\\s+\"crypto\\/sha1\"\\s+[\\s\\S]*?"]))
         | finding("use-of-sha1";
             "Detected SHA1 hash algorithm which is considered insecure.") )
-      + ( $all | of(["des.NewTripleDESCipher($$$_)","des.NewCipher($$$_)"])
-          | in_files_with($all | of(["import \"crypto/des\"\n$$$_","\"crypto/des\""]))
+      + ( $all | of(["des\\.NewTripleDESCipher\\([\\s\\S]*?\\)","des\\.NewCipher\\([\\s\\S]*?\\)"])
+          | in_files_with($all | of(["import\\s+\"crypto\\/des\"\\s+[\\s\\S]*?"]))
         | finding("use-of-DES";
             "Detected DES cipher algorithm which is insecure.") )
-      + ( $all | of(["rc4.NewCipher($$$_)"])
-          | in_files_with($all | of(["import \"crypto/rc4\"\n$$$_","\"crypto/rc4\""]))
+      + ( $all | of(["rc4\\.NewCipher\\([\\s\\S]*?\\)"])
+          | in_files_with($all | of(["import\\s+\"crypto\\/rc4\"\\s+[\\s\\S]*?"]))
         | finding("use-of-rc4";
             "Detected RC4 cipher algorithm which is insecure.") ) )
 | report

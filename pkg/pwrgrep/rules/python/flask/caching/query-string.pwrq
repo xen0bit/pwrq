@@ -1,4 +1,5 @@
 # rules: flask-cache-query-string
+# languages: python
 # from: python/flask/caching/query-string.yaml
 
 . as $root

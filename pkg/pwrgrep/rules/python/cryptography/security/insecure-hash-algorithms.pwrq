@@ -1,0 +1,14 @@
+# rules: insecure-hash-algorithm-sha1
+# languages: python
+# from: python/cryptography/security/insecure-hash-algorithms.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "cryptography.hazmat.primitives.hashes.$SHA($$$_)"
+    ])) as $all
+    | ( $all | of(["cryptography.hazmat.primitives.hashes.$SHA($$$_)"])
+          | where_capture_ast("SHA"; "SHA1")
+          | focus("SHA")
+        | finding("insecure-hash-algorithm-sha1";
+            "Detected SHA1 hash algorithm which is considered insecure.") ) )
+| report

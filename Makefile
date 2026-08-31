@@ -6,11 +6,17 @@ BUILD_LDFLAGS := -s -w -X github.com/xen0bit/pwrq/cli.revision=$(CURRENT_REVISIO
 
 # Grammars for structural search (select_ast). gotreesitter embeds all 206 of
 # its grammars unless told otherwise, which costs 23MB of binary; naming the
-# languages costs 3MB and covers what anyone actually greps. Add a language by
-# adding it here - the cmdlets read the registry, so get_ast_language reports
-# whatever this list says without anything else changing.
+# languages costs a few MB and covers what anyone actually greps. Add a
+# language by adding it here - the cmdlets read the registry, so
+# get_ast_language reports whatever this list says without anything else
+# changing.
+#
+# Every language a shipped rule is written for has to be in here, or that rule
+# is in the binary and can never fire. TestEveryRuleLanguageIsInTheBuild reads
+# the corpus and says so.
 GRAMMARS := go python javascript typescript tsx rust java c cpp c_sharp ruby php \
-            bash powershell sql json yaml toml hcl xml html css markdown dockerfile
+            bash powershell sql json yaml toml hcl xml html css markdown dockerfile \
+            apex clojure dart elixir kotlin lua ocaml scala solidity swift
 GRAMMAR_TAGS := grammar_subset $(addprefix grammar_subset_,$(GRAMMARS))
 BUILD_TAGS := $(GRAMMAR_TAGS)
 # The page reports the revision it was built from, so a shared link's behaviour

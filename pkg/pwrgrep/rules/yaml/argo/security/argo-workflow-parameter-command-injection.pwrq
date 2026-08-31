@@ -1,0 +1,26 @@
+# rules: argo-workflow-parameter-command-injection
+# from: yaml/argo/security/argo-workflow-parameter-command-injection.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "apiVersion:\\s+(?P<VERSION>\\S+)\\s+[\\s\\S]*?",
+      "command:\\s+[\\s\\S]*?\\s+\\-\\s+(?P<LANG>\\S+)\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+source:\\s+(?P<SCRIPT>\\S+)",
+      "command:\\s+[\\s\\S]*?\\s+\\-\\s+python\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+source:\\s+(?P<SCRIPT>\\S+)",
+      "container:\\s+[\\s\\S]*?\\s+command:\\s+(?P<LANG>\\S+)\\s+[\\s\\S]*?\\s+args:\\s+(?P<PARAM>\\S+)"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["command:\\s+[\\s\\S]*?\\s+\\-\\s+python\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+source:\\s+(?P<SCRIPT>\\S+)"]))
+          | focus("SCRIPT"))
+          + ($all
+          | within($all | of(["command:\\s+[\\s\\S]*?\\s+\\-\\s+(?P<LANG>\\S+)\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+source:\\s+(?P<SCRIPT>\\S+)"]))
+          | where_capture("LANG"; "^(?:(bash|sh))")
+          | focus("SCRIPT"))
+          + ($all
+          | within($all | of(["container:\\s+[\\s\\S]*?\\s+command:\\s+(?P<LANG>\\S+)\\s+[\\s\\S]*?\\s+args:\\s+(?P<PARAM>\\S+)"]))
+          | where_capture("LANG"; "^(?:.*(sh|bash|ksh|csh|tcsh|zsh).*)")
+          | focus("PARAM"))
+          | in_files_with($all | of(["apiVersion:\\s+(?P<VERSION>\\S+)\\s+[\\s\\S]*?"]))
+          | where_capture("VERSION"; "^(?:(argoproj.io.*))")
+        | finding("argo-workflow-parameter-command-injection";
+            "Using input or workflow parameters in here-scripts can lead to command injection or code injection.") ) )
+| report

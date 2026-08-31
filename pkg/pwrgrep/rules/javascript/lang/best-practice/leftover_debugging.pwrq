@@ -1,4 +1,5 @@
-# rules: javascript-alert, javascript-confirm, javascript-prompt
+# rules: javascript-alert, javascript-debugger, javascript-confirm, javascript-prompt
+# languages: javascript, typescript
 # from: javascript/lang/best-practice/leftover_debugging.yaml
 
 . as $root
@@ -6,6 +7,7 @@
       "alert($X)",
       "alert()",
       "confirm($$$_)",
+      "debugger;",
       "prompt($X)",
       "prompt($X, $Y)",
       "prompt()"
@@ -13,6 +15,9 @@
     | ( $all | of(["alert()","alert($X)"])
         | finding("javascript-alert";
             "found alert() call; should this be in production code?") )
+      + ( $all | of(["debugger;"])
+        | finding("javascript-debugger";
+            "found debugger call; should this be in production code?") )
       + ( $all | of(["confirm($$$_)"])
         | finding("javascript-confirm";
             "found confirm() call; should this be in production code?") )

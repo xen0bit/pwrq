@@ -1,4 +1,5 @@
 # rules: detect-no-csrf-before-method-override
+# languages: javascript, typescript
 # from: javascript/lang/security/detect-no-csrf-before-method-override.yaml
 
 . as $root

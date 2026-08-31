@@ -1,0 +1,22 @@
+# rules: handler-assignment-from-multiple-sources
+# languages: go
+# from: go/gorilla/security/audit/handler-assignment-from-multiple-sources.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$R.query",
+      "$Y, err := store.Get($$$_)\n$$$_\n$VAR := $Y.Values[$$$_]\n$$$_\n$VAR = $R",
+      "$Y, err := store.Get($$$_)\n$$$_\nvar $VAR $INT = $Y.Values[\"$$$_\"].($INT)\n$$$_\n$VAR = $R",
+      "func $HANDLER($$$_, $R *http.Request, $$$_) {\n  $$$_\n}"
+    ])) as $all
+    | ( (($all | of(["$Y, err := store.Get($$$_)\n$$$_\n$VAR := $Y.Values[$$$_]\n$$$_\n$VAR = $R"])
+          | focus("R"))
+              + ($all | of(["$Y, err := store.Get($$$_)\n$$$_\nvar $VAR $INT = $Y.Values[\"$$$_\"].($INT)\n$$$_\n$VAR = $R"])
+          | focus("R")))
+          | reaching((($all | of(["$R.query"])
+          | within($all | of(["func $HANDLER($$$_, $R *http.Request, $$$_) {\n  $$$_\n}"]))
+          | focus("R")));
+              ([]))
+        | finding("handler-assignment-from-multiple-sources";
+            "Variable $VAR is assigned from two different sources: '$Y' and '$R'.") ) )
+| report

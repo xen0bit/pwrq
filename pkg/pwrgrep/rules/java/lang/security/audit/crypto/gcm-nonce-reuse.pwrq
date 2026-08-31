@@ -1,4 +1,5 @@
 # rules: gcm-nonce-reuse
+# languages: java
 # from: java/lang/security/audit/crypto/gcm-nonce-reuse.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: parsing-external-entities-enabled
+# languages: go
 # from: go/lang/security/audit/xxe/parsing-external-entities-enabled.yaml
 
 . as $root

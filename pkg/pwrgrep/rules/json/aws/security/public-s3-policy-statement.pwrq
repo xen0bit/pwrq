@@ -1,4 +1,5 @@
 # rules: public-s3-policy-statement
+# languages: json
 # from: json/aws/security/public-s3-policy-statement.yaml
 
 . as $root

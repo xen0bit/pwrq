@@ -1,4 +1,5 @@
 # rules: go-useless-comparison
+# languages: go
 # fixture: go/useless-comparison.go
 # from: go/lang/correctness/useless-eqeq.yaml (eqeq-is-bad)
 #

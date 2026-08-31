@@ -1,0 +1,14 @@
+# rules: hardcoded-http-auth-in-controller
+# languages: ruby
+# from: ruby/lang/security/hardcoded-http-auth-in-controller.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "class $CONTROLLER < ApplicationController\n  $$$_\n  http_basic_authenticate_with $$$_, :password => \"$SECRET\", $$$_\nend"
+    ])) as $all
+    | ( $all
+          | within($all | of(["class $CONTROLLER < ApplicationController\n  $$$_\n  http_basic_authenticate_with $$$_, :password => \"$SECRET\", $$$_\nend"]))
+          | focus("SECRET")
+        | finding("hardcoded-http-auth-in-controller";
+            "Detected hardcoded password used in basic authentication in a controller class.") ) )
+| report

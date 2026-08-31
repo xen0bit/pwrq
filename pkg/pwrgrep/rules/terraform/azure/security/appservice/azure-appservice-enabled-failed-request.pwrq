@@ -1,0 +1,16 @@
+# rules: azure-appservice-enabled-failed-request
+# languages: hcl
+# from: terraform/azure/security/appservice/azure-appservice-enabled-failed-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nlogs {\n  $$$_\n  failed_request_tracing_enabled = true\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nlogs {\n  $$$_\n  failed_request_tracing_enabled = true\n  $$$_\n}\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-appservice-enabled-failed-request";
+            "Ensure that App service enables failed request tracing") ) )
+| report

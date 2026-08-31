@@ -1,0 +1,33 @@
+# rules: tainted-sql-string
+# languages: ruby
+# from: ruby/rails/security/injection/tainted-sql-string.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "\"$SQLSTR\" % $EXPR",
+      "\"$SQLSTR\" + $EXPR",
+      "\"$SQLVERB#{$EXPR}$$$_\"",
+      "$FUNC(\"$$$_\",  \"$$$_#{$EXPR}$$$_\",$$$_)",
+      "$PARAMS.slice($$$_)",
+      "$RECORD.find($$$_, :conditions => $X,$$$_)",
+      "$RECORD.where($X,$$$_)",
+      "Kernel::sprintf(\"$SQLSTR\", $EXPR)",
+      "params",
+      "request"
+    ])) as $all
+    | ( (((($all | of(["$RECORD.where($X,$$$_)"]))
+          + ($all | of(["$RECORD.find($$$_, :conditions => $X,$$$_)"]))
+          | focus("X"))
+          + ($all | of(["\"$SQLVERB#{$EXPR}$$$_\""])
+          | outside($all | of(["$FUNC(\"$$$_\",  \"$$$_#{$EXPR}$$$_\",$$$_)"]))
+          | focus("SQLVERB")
+          | where_text("(?i)(select|delete|insert|create|update|alter|drop)\\b"))
+          + ($all | of(["Kernel::sprintf(\"$SQLSTR\", $EXPR)","\"$SQLSTR\" + $EXPR","\"$SQLSTR\" % $EXPR"])
+          | outside($all | of(["$FUNC(\"$$$_\",  \"$$$_#{$EXPR}$$$_\",$$$_)"]))
+          | focus("EXPR")
+          | where_capture("SQLSTR"; "^(?:(?i)(select|delete|insert|create|update|alter|drop)\\b)"))))
+          | reaching((($all | of(["params","request"])));
+              (($all | of(["$PARAMS.slice($$$_)"]))))
+        | finding("tainted-sql-string";
+            "Detected user input used to manually construct a SQL string.") ) )
+| report

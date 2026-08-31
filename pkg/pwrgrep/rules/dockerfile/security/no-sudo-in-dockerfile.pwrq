@@ -1,4 +1,5 @@
 # rules: no-sudo-in-dockerfile
+# languages: dockerfile
 # from: dockerfile/security/no-sudo-in-dockerfile.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: playwright-goto-injection
+# languages: javascript, typescript
 # from: javascript/playwright/security/audit/playwright-goto-injection.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: django-db-model-save-super
+# languages: python
 # from: python/django/correctness/model-save.yaml
 
 . as $root

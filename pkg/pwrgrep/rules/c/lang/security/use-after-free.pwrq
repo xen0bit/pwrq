@@ -2,18 +2,18 @@
 # from: c/lang/security/use-after-free.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.c"]; [
-      "$VAR = NULL; $$$_",
-      "$VAR->$ACCESSOR",
-      "$VAR[$NUM]",
-      "(*$VAR).$ACCESSOR",
-      "free($VAR); $$$_",
-      "free($VAR); $$$_ $VAR = malloc($$$_); $$$_"
+| ( ($root | scan_regex(["*.c"]; [
+      "(?P<VAR>\\S+)\\->(?P<ACCESSOR>\\S+)",
+      "(?P<VAR>\\S+)\\[(?P<NUM>\\S+)\\]",
+      "(?P<VAR>\\S+)\\s+=\\s+NULL;\\s+[\\s\\S]*?",
+      "\\(\\*(?P<VAR>\\S+)\\)\\.(?P<ACCESSOR>\\S+)",
+      "free\\((?P<VAR>\\S+)\\);\\s+[\\s\\S]*?",
+      "free\\((?P<VAR>\\S+)\\);\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\s+=\\s+malloc\\([\\s\\S]*?\\);\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["$VAR->$ACCESSOR","(*$VAR).$ACCESSOR","$VAR[$NUM]"])
-          | within($all | of(["free($VAR); $$$_"]))
-          | outside($all | of(["$VAR = NULL; $$$_"]))
-          | outside($all | of(["free($VAR); $$$_ $VAR = malloc($$$_); $$$_"]))
+    | ( $all | of(["(?P<VAR>\\S+)\\->(?P<ACCESSOR>\\S+)","\\(\\*(?P<VAR>\\S+)\\)\\.(?P<ACCESSOR>\\S+)","(?P<VAR>\\S+)\\[(?P<NUM>\\S+)\\]"])
+          | within($all | of(["free\\((?P<VAR>\\S+)\\);\\s+[\\s\\S]*?"]))
+          | outside($all | of(["(?P<VAR>\\S+)\\s+=\\s+NULL;\\s+[\\s\\S]*?"]))
+          | outside($all | of(["free\\((?P<VAR>\\S+)\\);\\s+[\\s\\S]*?\\s+(?P<VAR>\\S+)\\s+=\\s+malloc\\([\\s\\S]*?\\);\\s+[\\s\\S]*?"]))
         | finding("use-after-free";
             "Variable '$VAR' was used after being freed.") ) )
 | report

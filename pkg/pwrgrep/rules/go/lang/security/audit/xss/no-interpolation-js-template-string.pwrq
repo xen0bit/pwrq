@@ -1,0 +1,13 @@
+# rules: no-interpolation-js-template-string
+# from: go/lang/security/audit/xss/no-interpolation-js-template-string.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.html","*.thtml","*.gohtml","*.tmpl","*.tpl"]; [
+      "<script\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+<\\/script>",
+      "`\\s+[\\s\\S]*?\\s+\\{\\{\\s+[\\s\\S]*?\\s+\\}\\}\\s+[\\s\\S]*?`"
+    ])) as $all
+    | ( $all | of(["`\\s+[\\s\\S]*?\\s+\\{\\{\\s+[\\s\\S]*?\\s+\\}\\}\\s+[\\s\\S]*?`"])
+          | within($all | of(["<script\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+<\\/script>"]))
+        | finding("no-interpolation-js-template-string";
+            "Detected template variable interpolation in a JavaScript template string.") ) )
+| report

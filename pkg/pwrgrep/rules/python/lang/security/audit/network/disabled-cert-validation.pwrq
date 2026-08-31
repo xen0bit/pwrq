@@ -1,4 +1,5 @@
 # rules: disabled-cert-validation
+# languages: python
 # from: python/lang/security/audit/network/disabled-cert-validation.yaml
 
 . as $root
@@ -13,7 +14,7 @@
       "urllib3.proxy_from_url($$$_, cert_reqs=$REQS, $$$_)"
     ])) as $all
     | ( $all | of(["urllib3.PoolManager($$$_, cert_reqs=$REQS, $$$_)","urllib3.ProxyManager($$$_, cert_reqs=$REQS, $$$_)","urllib3.HTTPSConnectionPool($$$_, cert_reqs=$REQS, $$$_)","urllib3.connectionpool.HTTPSConnectionPool($$$_, cert_reqs=$REQS, $$$_)","urllib3.connection_from_url($$$_, cert_reqs=$REQS, $$$_)","urllib3.proxy_from_url($$$_, cert_reqs=$REQS, $$$_)","$CONTEXT.wrap_socket($$$_, cert_reqs=$REQS, $$$_)","ssl.wrap_socket($$$_, cert_reqs=$REQS, $$$_)"])
-          | where_capture("REQS"; "(NONE|CERT_NONE|CERT_OPTIONAL|ssl\\.CERT_NONE|ssl\\.CERT_OPTIONAL|\\'NONE\\'|\\\"NONE\\\"|\\'OPTIONAL\\'|\\\"OPTIONAL\\\")")
+          | where_capture("REQS"; "^(?:(NONE|CERT_NONE|CERT_OPTIONAL|ssl\\.CERT_NONE|ssl\\.CERT_OPTIONAL|\\'NONE\\'|\\\"NONE\\\"|\\'OPTIONAL\\'|\\\"OPTIONAL\\\"))")
         | finding("disabled-cert-validation";
             "certificate verification explicitly disabled, insecure connections possible") ) )
 | report

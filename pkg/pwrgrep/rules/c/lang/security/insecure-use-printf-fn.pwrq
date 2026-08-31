@@ -1,0 +1,18 @@
+# rules: insecure-use-printf-fn
+# languages: c
+# from: c/lang/security/insecure-use-printf-fn.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "$FUNC($BUFFER, argv[$NUM], $$$_);\n$$$_\nprintf($$$_, $BUFFER, $$$_);",
+      "$FUNC($BUFFER, argv[$NUM], $$$_);\n$$$_\nsprintf($$$_, $BUFFER, $$$_);",
+      "$FUNC($BUFFER, argv[$NUM], $$$_);\n$$$_\nvsprintf($$$_, $BUFFER, $$$_);",
+      "printf($$$_,argv[$NUM],$$$_)",
+      "sprintf($$$_,argv[$NUM],$$$_)",
+      "vsprintf($$$_, argv[$NUM], $$$_)"
+    ])) as $all
+    | ( $all | of(["$FUNC($BUFFER, argv[$NUM], $$$_);\n$$$_\nvsprintf($$$_, $BUFFER, $$$_);","vsprintf($$$_, argv[$NUM], $$$_)","$FUNC($BUFFER, argv[$NUM], $$$_);\n$$$_\nsprintf($$$_, $BUFFER, $$$_);","sprintf($$$_,argv[$NUM],$$$_)","$FUNC($BUFFER, argv[$NUM], $$$_);\n$$$_\nprintf($$$_, $BUFFER, $$$_);","printf($$$_,argv[$NUM],$$$_)"])
+          | where_capture_compare("$NUM > 0")
+        | finding("insecure-use-printf-fn";
+            "Avoid using user-controlled format strings passed into 'sprintf', 'printf' and 'vsprintf'.") ) )
+| report

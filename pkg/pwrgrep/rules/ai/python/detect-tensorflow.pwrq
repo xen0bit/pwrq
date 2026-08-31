@@ -1,4 +1,5 @@
 # rules: detect-tensorflow
+# languages: python
 # from: ai/python/detect-tensorflow.yaml
 
 . as $root

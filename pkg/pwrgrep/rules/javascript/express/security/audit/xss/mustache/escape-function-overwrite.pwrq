@@ -1,4 +1,5 @@
 # rules: escape-function-overwrite
+# languages: javascript, typescript
 # from: javascript/express/security/audit/xss/mustache/escape-function-overwrite.yaml
 
 . as $root

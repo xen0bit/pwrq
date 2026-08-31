@@ -1,4 +1,5 @@
 # rules: http-request
+# languages: javascript
 # from: problem-based-packs/insecure-transport/js-node/http-request.yaml
 
 . as $root

@@ -1,0 +1,17 @@
+# rules: var-in-script-tag
+# from: javascript/express/security/audit/xss/ejs/var-in-script-tag.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.ejs","*.html"]; [
+      "<%\\s+[\\s\\S]*?\\s+>",
+      "<script\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+<\\/script>",
+      "<script\\s+[\\s\\S]*?\\s+(?P<ATTR>\\S+)\\s+=\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?>",
+      "<script\\s+[\\s\\S]*?\\s+(?P<ATTR>\\S+)\\s+=\\s+'[\\s\\S]*?'\\s+[\\s\\S]*?>"
+    ])) as $all
+    | ( $all | of(["<%\\s+[\\s\\S]*?\\s+>"])
+          | within($all | of(["<script\\s+[\\s\\S]*?>\\s+[\\s\\S]*?\\s+<\\/script>"]))
+          | outside($all | of(["<script\\s+[\\s\\S]*?\\s+(?P<ATTR>\\S+)\\s+=\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?>"]))
+          | outside($all | of(["<script\\s+[\\s\\S]*?\\s+(?P<ATTR>\\S+)\\s+=\\s+'[\\s\\S]*?'\\s+[\\s\\S]*?>"]))
+        | finding("var-in-script-tag";
+            "Detected a template variable used in a script tag.") ) )
+| report

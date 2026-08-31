@@ -1,4 +1,5 @@
 # rules: use-django-environ
+# languages: python
 # from: python/django/best-practice/upsell_django_environ.yaml
 
 . as $root

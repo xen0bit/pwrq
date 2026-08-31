@@ -1,0 +1,52 @@
+# rules: avoid-tainted-shell-call
+# languages: ruby
+# from: ruby/rails/security/audit/avoid-tainted-shell-call.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$SHELL = Shell.$ANY($$$_)\n$$$_\n$SHELL.$X($$$_)",
+      "$SHELL.$X($$$_)",
+      "Kernel.$X($$$_)",
+      "Shell.$X($$$_)",
+      "cat",
+      "chdir",
+      "chroot",
+      "cookies",
+      "delete",
+      "entries",
+      "exec",
+      "foreach",
+      "glob",
+      "install",
+      "lchmod",
+      "lchown",
+      "link",
+      "load",
+      "load_file",
+      "makedirs",
+      "move",
+      "new",
+      "open",
+      "params[$$$_]",
+      "read",
+      "readlines",
+      "rename",
+      "request.env",
+      "rmdir",
+      "safe_unlink",
+      "symlink",
+      "syscopy",
+      "sysopen",
+      "system",
+      "truncate",
+      "unlink"
+    ])) as $all
+    | ( ((($all | of(["Kernel.$X($$$_)"]))
+          + (($all | of(["Shell.$X($$$_)"]))
+          + ($all | of(["$SHELL.$X($$$_)"])
+          | within($all | of(["$SHELL = Shell.$ANY($$$_)\n$$$_\n$SHELL.$X($$$_)"]))))))
+          | reaching((($all | of(["params[$$$_]","cookies","request.env"])));
+              ([]))
+        | finding("avoid-tainted-shell-call";
+            "Using user input when accessing files is potentially dangerous.") ) )
+| report

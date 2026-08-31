@@ -1,0 +1,17 @@
+# rules: use-workdir
+# from: dockerfile/best-practice/use-workdir.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "RUN\\s+(?P<CMD>\\S+)\\s+[\\s\\S]*?\\s+&&\\s+[\\s\\S]*?",
+      "RUN\\s+\\$\\s+CMD\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["RUN\\s+\\$\\s+CMD\\s+[\\s\\S]*?"])))
+          + ($all
+          | within($all | of(["RUN\\s+(?P<CMD>\\S+)\\s+[\\s\\S]*?\\s+&&\\s+[\\s\\S]*?"])))
+          | where_capture_ast("CMD"; "cd")
+          | focus("CMD")
+        | finding("use-workdir";
+            "As recommended by Docker's documentation, it is best to use 'WORKDIR' instead of 'RUN cd ...' for improved clarity and reliability.") ) )
+| report

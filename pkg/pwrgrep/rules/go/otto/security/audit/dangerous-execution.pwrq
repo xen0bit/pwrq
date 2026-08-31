@@ -1,4 +1,5 @@
 # rules: dangerous-execution
+# languages: go
 # from: go/otto/security/audit/dangerous-execution.yaml
 
 . as $root

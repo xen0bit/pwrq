@@ -1,0 +1,52 @@
+# rules: directly-returned-format-string
+# languages: python
+# from: python/flask/security/audit/directly-returned-format-string.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$PARAM",
+      "$X = \"$$$_\"\n$$$_",
+      "$X = \"$$$_\" % $$$_\n$$$_",
+      "$X = \"$$$_\" + $$$_\n$$$_",
+      "$X = \"$$$_\".format($$$_)\n$$$_",
+      "$X = $$$_ + \"$$$_\"\n$$$_",
+      "$X = f\"$$$_{$$$_}$$$_\"\n$$$_",
+      "@$APP.route($$$_)\ndef $FUNC($$$_, $PARAM, $$$_):\n  $$$_",
+      "request.$FUNC($$$_)",
+      "request.$FUNC.get($$$_)",
+      "request.$FUNC[$$$_]",
+      "return \"$$$_\"",
+      "return \"$$$_\" % $$$_",
+      "return \"$$$_\" + $$$_",
+      "return \"$$$_\".format($$$_)",
+      "return $$$_ + \"$$$_\"",
+      "return $X",
+      "return f\"$$$_{$$$_}$$$_\""
+    ])) as $all
+    | ( ((($all | of(["return \"$$$_\".format($$$_)"]))
+          + ($all | of(["return \"$$$_\" % $$$_"]))
+          + ($all | of(["return \"$$$_\" + $$$_"]))
+          + ($all | of(["return $$$_ + \"$$$_\""]))
+          + ($all | of(["return f\"$$$_{$$$_}$$$_\""]))
+          + ($all | of(["return $X"])
+          | at_same_place((($all
+          | in_files_with($all | of(["$X = \"$$$_\".format($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$X = \"$$$_\" % $$$_\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$X = \"$$$_\" + $$$_\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$X = $$$_ + \"$$$_\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$X = f\"$$$_{$$$_}$$$_\"\n$$$_"])))))
+          | in_files_without($all | of(["$X = \"$$$_\"\n$$$_"])))
+          | outside($all | of(["return \"$$$_\""]))))
+          | reaching(((($all | of(["$PARAM"])
+          | within($all | of(["@$APP.route($$$_)\ndef $FUNC($$$_, $PARAM, $$$_):\n  $$$_"])))
+          + ($all | of(["request.$FUNC.get($$$_)"]))
+          + ($all | of(["request.$FUNC($$$_)"]))
+          + ($all | of(["request.$FUNC[$$$_]"]))));
+              ([]))
+        | finding("directly-returned-format-string";
+            "Detected Flask route directly returning a formatted string.") ) )
+| report

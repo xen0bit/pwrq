@@ -1,0 +1,11 @@
+# rules: template-unescaped-with-safe
+# from: python/flask/security/xss/audit/template-unescaped-with-safe.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.html"]; [
+      "{{.*?\\|\\s*safe(\\s*}})?"
+    ])) as $all
+    | ( $all | of(["{{.*?\\|\\s*safe(\\s*}})?"])
+        | finding("template-unescaped-with-safe";
+            "Detected a segment of a Flask template where autoescaping is explicitly disabled with '| safe' filter.") ) )
+| report

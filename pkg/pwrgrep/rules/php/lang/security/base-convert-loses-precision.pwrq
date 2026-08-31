@@ -1,0 +1,32 @@
+# rules: base-convert-loses-precision
+# languages: php
+# from: php/lang/security/base-convert-loses-precision.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$OBJ->get_random_bytes($N)",
+      "base_convert($$$_)",
+      "hash($$$_)",
+      "hash_hmac($$$_)",
+      "md5($$$_)",
+      "openssl_random_pseudo_bytes($N)",
+      "random_bytes($N)",
+      "sha1($$$_)",
+      "substr($$$_, $LENGTH)"
+    ])) as $all
+    | ( (($all | of(["base_convert($$$_)"])))
+          | reaching((($all | of(["hash($$$_)"]))
+              + ($all | of(["hash_hmac($$$_)"]))
+              + ($all | of(["sha1($$$_)"]))
+              + ($all | of(["md5($$$_)"]))
+              + ($all | of(["random_bytes($N)"])
+          | where_capture_compare("$N > 7"))
+              + ($all | of(["openssl_random_pseudo_bytes($N)"])
+          | where_capture_compare("$N > 7"))
+              + ($all | of(["$OBJ->get_random_bytes($N)"])
+          | where_capture_compare("$N > 7")));
+              (($all | of(["substr($$$_, $LENGTH)"])
+          | where_capture_compare("$LENGTH <= 7"))))
+        | finding("base-convert-loses-precision";
+            "The function base_convert uses 64-bit numbers internally, and does not correctly convert large numbers.") ) )
+| report

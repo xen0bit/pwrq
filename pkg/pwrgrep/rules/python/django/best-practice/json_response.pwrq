@@ -1,4 +1,5 @@
 # rules: use-json-response
+# languages: python
 # from: python/django/best-practice/json_response.yaml
 
 . as $root

@@ -1,0 +1,18 @@
+# rules: aws-kms-no-rotation
+# languages: hcl
+# from: terraform/aws/security/aws-kms-no-rotation.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  customer_master_key_spec = \"RSA_2096\"\n  $$$_\n}",
+      "resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  customer_master_key_spec = \"SYMMETRIC_DEFAULT\"\n  enable_key_rotation = false\n  $$$_\n}",
+      "resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  enable_key_rotation = false\n  $$$_\n}",
+      "resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  enable_key_rotation = true\n  $$$_\n}",
+      "resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  enable_key_rotation = false\n  $$$_\n}","resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  customer_master_key_spec = \"SYMMETRIC_DEFAULT\"\n  enable_key_rotation = false\n  $$$_\n}","resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  enable_key_rotation = true\n  $$$_\n}"]))
+          | outside($all | of(["resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n  customer_master_key_spec = \"RSA_2096\"\n  $$$_\n}"]))
+        | finding("aws-kms-no-rotation";
+            "The AWS KMS has no rotation.") ) )
+| report

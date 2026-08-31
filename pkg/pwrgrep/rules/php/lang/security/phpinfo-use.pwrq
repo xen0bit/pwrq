@@ -1,4 +1,5 @@
 # rules: phpinfo-use
+# languages: php
 # from: php/lang/security/phpinfo-use.yaml
 
 . as $root

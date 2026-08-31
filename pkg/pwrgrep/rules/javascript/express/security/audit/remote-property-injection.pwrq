@@ -1,0 +1,58 @@
+# rules: remote-property-injection
+# languages: typescript
+# from: javascript/express/security/audit/remote-property-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "\"$$$_\" + $INDEX",
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})",
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})",
+      "$INDEX",
+      "$INDEX + \"$$$_\"",
+      "$OBJ[\"$$$_\"] = $$$_",
+      "$OBJ[$$$_] = \"$$$_\"",
+      "$OBJ[$$$_] = $$$_",
+      "$REQ.body",
+      "$REQ.cookies",
+      "$REQ.headers",
+      "$REQ.params",
+      "$REQ.query",
+      "({ $REQ }: Request,$RES: Response) => {$$$_}",
+      "({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}",
+      "body",
+      "cookies",
+      "function $$$_ ($REQ, $RES) {$$$_}",
+      "function $$$_ ($REQ, $RES, $NEXT) {$$$_}",
+      "headers",
+      "params",
+      "query",
+      "var $X = $$$_",
+      "var $X = $REQ.$ANY"
+    ])) as $all
+    | ( (($all | of(["$INDEX"])
+          | within($all | of(["$OBJ[$$$_] = $$$_"]))
+          | outside($all | of(["$OBJ[\"$$$_\"] = $$$_"]))
+          | outside($all | of(["$OBJ[$$$_] = \"$$$_\""]))
+          | not_at($all | of(["\"$$$_\" + $INDEX"]))
+          | not_at($all | of(["$INDEX + \"$$$_\""]))))
+          | reaching(((($all
+          | within($all | of(["function $$$_ ($REQ, $RES) {$$$_}"])))
+          + ($all
+          | within($all | of(["function $$$_ ($REQ, $RES, $NEXT) {$$$_}"])))
+          + (($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})"])))
+          + ($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})"])))
+          | where_capture("METHOD"; "^(get|post|put|head|delete|options)$"))
+          | at_same_place(($all | of(["$REQ.query","$REQ.body","$REQ.params","$REQ.cookies","$REQ.headers"]))))
+              + (($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}"])))
+          + ($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response) => {$$$_}"])))
+          | at_same_place(($all | of(["params","query","cookies","headers","body"])))
+          | focus("REQ")));
+              (($all | of(["var $X = $$$_"])
+          | not_at($all | of(["var $X = $REQ.$ANY"])))))
+        | finding("remote-property-injection";
+            "Bracket object notation with user input is present, this might allow an attacker to access all properties of the object and even it's prototype.") ) )
+| report

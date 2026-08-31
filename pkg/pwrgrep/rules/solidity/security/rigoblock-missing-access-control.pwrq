@@ -1,4 +1,5 @@
 # rules: rigoblock-missing-access-control
+# languages: solidity
 # from: solidity/security/rigoblock-missing-access-control.yaml
 
 . as $root

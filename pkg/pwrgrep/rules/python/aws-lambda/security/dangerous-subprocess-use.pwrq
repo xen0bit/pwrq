@@ -1,0 +1,22 @@
+# rules: dangerous-subprocess-use
+# languages: python
+# from: python/aws-lambda/security/dangerous-subprocess-use.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "def $HANDLER(event, context):\n  $$$_",
+      "event",
+      "pipes.quote($$$_)",
+      "shlex.quote($$$_)",
+      "shlex.split($$$_)",
+      "subprocess.$FUNC($$$_, shell=True, $$$_)"
+    ])) as $all
+    | ( (($all | of(["subprocess.$FUNC($$$_, shell=True, $$$_)"])))
+          | reaching((($all | of(["event"])
+          | within($all | of(["def $HANDLER(event, context):\n  $$$_"]))));
+              (($all | of(["shlex.split($$$_)"]))
+              + ($all | of(["pipes.quote($$$_)"]))
+              + ($all | of(["shlex.quote($$$_)"]))))
+        | finding("dangerous-subprocess-use";
+            "Detected subprocess function with argument tainted by an `event` object.") ) )
+| report

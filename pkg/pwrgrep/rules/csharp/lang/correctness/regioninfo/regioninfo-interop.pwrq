@@ -1,4 +1,5 @@
 # rules: correctness-regioninfo-interop
+# languages: c_sharp
 # from: csharp/lang/correctness/regioninfo/regioninfo-interop.yaml
 
 . as $root
@@ -12,7 +13,7 @@
     | ( $all | of(["$WRITER.Write($RI);","$WRITER.WriteAsync($RI);","$WRITER.WriteLine($RI);","$WRITER.WriteLineAsync($RI);"])
           | within($all | of(["RegionInfo $RI = new RegionInfo($REGION);\n$$$_\nusing($PIPESTREAM $P = $$$_){\n  $$$_\n}"]))
           | where_capture("REGION"; "^\"\\w{2}\"$")
-          | where_capture("PIPESTREAM"; "(Anonymous|Named)Pipe(Server|Client)Stream")
+          | where_capture("PIPESTREAM"; "^(?:(Anonymous|Named)Pipe(Server|Client)Stream)")
         | finding("correctness-regioninfo-interop";
             "Potential inter-process write of RegionInfo $RI via $PIPESTREAM $P that was instantiated with a two-character culture code $REGION.") ) )
 | report

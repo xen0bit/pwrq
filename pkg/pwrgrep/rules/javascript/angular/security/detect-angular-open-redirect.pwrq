@@ -1,4 +1,5 @@
 # rules: detect-angular-open-redirect
+# languages: javascript, typescript
 # from: javascript/angular/security/detect-angular-open-redirect.yaml
 
 . as $root

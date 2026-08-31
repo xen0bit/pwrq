@@ -1,4 +1,5 @@
 # rules: semgrep-github-action-push-without-branches
+# languages: yaml
 # from: yaml/github-actions/semgrep-configuration/semgrep-github-action-push-without-branches.yml
 
 . as $root

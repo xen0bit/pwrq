@@ -1,0 +1,15 @@
+# rules: storage-enforce-https
+# languages: hcl
+# from: terraform/azure/security/storage/storage-enforce-https.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\n  enable_https_traffic_only = false\n$$$_\n}",
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\n  enable_https_traffic_only = true\n$$$_\n}"
+    ])) as $all
+    | ( $all
+          | outside($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\n  enable_https_traffic_only = true\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n$$$_\n  enable_https_traffic_only = false\n$$$_\n}"]))
+        | finding("storage-enforce-https";
+            "Detected a Storage that was not configured to deny action by default.") ) )
+| report

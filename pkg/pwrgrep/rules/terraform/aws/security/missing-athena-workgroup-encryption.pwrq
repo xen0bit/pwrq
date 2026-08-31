@@ -1,0 +1,13 @@
+# rules: missing-athena-workgroup-encryption
+# from: terraform/aws/security/missing-athena-workgroup-encryption.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "resource\\s+\"aws_athena_workgroup\"\\s+(?P<ANYTHING>\\S+)\\s+\\{[\\s\\S]*?\\}",
+      "resource\\s+\"aws_athena_workgroup\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+encryption_configuration\\s+\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["resource\\s+\"aws_athena_workgroup\"\\s+(?P<ANYTHING>\\S+)\\s+\\{[\\s\\S]*?\\}"])
+          | outside($all | of(["resource\\s+\"aws_athena_workgroup\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+encryption_configuration\\s+\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("missing-athena-workgroup-encryption";
+            "The AWS Athena Workgroup is unencrypted.") ) )
+| report

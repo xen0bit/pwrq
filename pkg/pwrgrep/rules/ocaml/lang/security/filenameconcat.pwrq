@@ -1,4 +1,5 @@
 # rules: ocamllint-filenameconcat
+# languages: ocaml
 # from: ocaml/lang/security/filenameconcat.yaml
 
 . as $root

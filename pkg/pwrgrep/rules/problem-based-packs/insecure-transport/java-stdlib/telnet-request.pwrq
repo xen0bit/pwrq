@@ -1,0 +1,12 @@
+# rules: telnet-request
+# languages: java
+# from: problem-based-packs/insecure-transport/java-stdlib/telnet-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$TELNETCLIENT = new TelnetClient($$$_);\n$$$_\n$TELNETCLIENT.connect($$$_);"
+    ])) as $all
+    | ( $all | of(["$TELNETCLIENT = new TelnetClient($$$_);\n$$$_\n$TELNETCLIENT.connect($$$_);"])
+        | finding("telnet-request";
+            "Checks for attempts to connect through telnet.") ) )
+| report

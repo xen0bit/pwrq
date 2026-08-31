@@ -1,0 +1,15 @@
+# rules: remove-package-lists
+# from: dockerfile/best-practice/remove-package-lists.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "RUN\\s+[\\s\\S]*?\\s+rm\\s+\\-rf\\s+\\/var\\/lib\\/apt\\/lists\\/\\*",
+      "RUN\\s+apt\\-get\\s+update\\s+[\\s\\S]*?",
+      "apt\\-get\\s+update"
+    ])) as $all
+    | ( $all | of(["RUN\\s+apt\\-get\\s+update\\s+[\\s\\S]*?"])
+          | at_same_place(($all | of(["apt\\-get\\s+update"])))
+          | outside($all | of(["RUN\\s+[\\s\\S]*?\\s+rm\\s+\\-rf\\s+\\/var\\/lib\\/apt\\/lists\\/\\*"]))
+        | finding("remove-package-lists";
+            "The package lists were not deleted after running 'apt-get update', which increases the size of the image.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: c-unbounded-string-fn
+# languages: c
 # fixture: c/unbounded-string-fn.c
 # from: c/lang/security/insecure-use-gets-fn.yaml (insecure-use-gets-fn), insecure-use-string-copy-fn.yaml (insecure-use-string-copy-fn), insecure-use-strcat-fn.yaml (insecure-use-strcat-fn), insecure-use-printf-fn.yaml (insecure-use-printf-fn)
 #

@@ -1,0 +1,13 @@
+# rules: exported_loop_pointer
+# from: go/lang/correctness/looppointer.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.go"]; [
+      "for\\s+_,\\s+(?P<VALUE>\\S+)\\s+:=\\s+range\\s+(?P<SOURCE>\\S+)\\s+\\{\\s+<[\\s\\S]*?\\s+&\\((?P<VALUE>\\S+)\\)\\s+[\\s\\S]*?>\\s+\\}",
+      "for\\s+_,\\s+(?P<VALUE>\\S+)\\s+:=\\s+range\\s+(?P<SOURCE>\\S+)\\s+\\{\\s+<[\\s\\S]*?\\s+(?P<ANYTHING>\\S+)\\([\\s\\S]*?,\\s+<[\\s\\S]*?\\s+&(?P<VALUE>\\S+)\\s+[\\s\\S]*?>,\\s+[\\s\\S]*?\\)\\s+[\\s\\S]*?>\\s+\\}",
+      "for\\s+_,\\s+(?P<VALUE>\\S+)\\s+:=\\s+range\\s+(?P<SOURCE>\\S+)\\s+\\{\\s+<[\\s\\S]*?\\s+func\\(\\)\\s+\\{\\s+<[\\s\\S]*?\\s+&(?P<VALUE>\\S+)\\s+[\\s\\S]*?>\\s+\\}\\s+[\\s\\S]*?>\\s+\\}"
+    ])) as $all
+    | ( $all | of(["for\\s+_,\\s+(?P<VALUE>\\S+)\\s+:=\\s+range\\s+(?P<SOURCE>\\S+)\\s+\\{\\s+<[\\s\\S]*?\\s+&\\((?P<VALUE>\\S+)\\)\\s+[\\s\\S]*?>\\s+\\}","for\\s+_,\\s+(?P<VALUE>\\S+)\\s+:=\\s+range\\s+(?P<SOURCE>\\S+)\\s+\\{\\s+<[\\s\\S]*?\\s+func\\(\\)\\s+\\{\\s+<[\\s\\S]*?\\s+&(?P<VALUE>\\S+)\\s+[\\s\\S]*?>\\s+\\}\\s+[\\s\\S]*?>\\s+\\}","for\\s+_,\\s+(?P<VALUE>\\S+)\\s+:=\\s+range\\s+(?P<SOURCE>\\S+)\\s+\\{\\s+<[\\s\\S]*?\\s+(?P<ANYTHING>\\S+)\\([\\s\\S]*?,\\s+<[\\s\\S]*?\\s+&(?P<VALUE>\\S+)\\s+[\\s\\S]*?>,\\s+[\\s\\S]*?\\)\\s+[\\s\\S]*?>\\s+\\}"])
+        | finding("exported_loop_pointer";
+            "`$VALUE` is a loop pointer that may be exported from the loop.") ) )
+| report

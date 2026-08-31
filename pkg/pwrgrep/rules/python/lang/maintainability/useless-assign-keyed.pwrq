@@ -1,4 +1,5 @@
 # rules: useless-assignment-keyed
+# languages: python
 # from: python/lang/maintainability/useless-assign-keyed.yaml
 
 . as $root

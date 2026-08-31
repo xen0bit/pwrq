@@ -1,4 +1,5 @@
 # rules: unescaped-data-in-js
+# languages: go
 # from: go/lang/security/audit/net/unescaped-data-in-js.yaml
 
 . as $root

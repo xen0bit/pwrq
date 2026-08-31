@@ -1,0 +1,11 @@
+# rules: template-and-attributes
+# from: javascript/express/security/audit/xss/pug/and-attributes.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.pug"]; [
+      ".*&attributes.*"
+    ])) as $all
+    | ( $all | of([".*&attributes.*"])
+        | finding("template-and-attributes";
+            "Detected a unescaped variables using '&attributes'.") ) )
+| report

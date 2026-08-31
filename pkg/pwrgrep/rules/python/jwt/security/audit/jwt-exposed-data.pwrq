@@ -1,4 +1,5 @@
 # rules: jwt-python-exposed-data
+# languages: python
 # from: python/jwt/security/audit/jwt-exposed-data.yaml
 
 . as $root

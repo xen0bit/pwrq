@@ -1,0 +1,13 @@
+# rules: java-jwt-none-alg
+# from: java/java-jwt/security/jwt-none-alg.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.java"]; [
+      "(?P<JWT>\\S+)\\.sign\\(com\\.auth0\\.jwt\\.algorithms\\.Algorithm\\.none\\(\\)\\);",
+      "(?P<NONE>\\S+)\\s+=\\s+com\\.auth0\\.jwt\\.algorithms\\.Algorithm\\.none\\(\\);\\s+[\\s\\S]*?\\s+(?P<JWT>\\S+)\\.sign\\((?P<NONE>\\S+)\\);",
+      "class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+(?P<NONE>\\S+)\\s+=\\s+com\\.auth0\\.jwt\\.algorithms\\.Algorithm\\.none\\(\\);\\s+[\\s\\S]*?\\s+(?P<RETURNTYPE>\\S+)\\s+(?P<FUNC>\\S+)\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<JWT>\\S+)\\.sign\\((?P<NONE>\\S+)\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["(?P<JWT>\\S+)\\.sign\\(com\\.auth0\\.jwt\\.algorithms\\.Algorithm\\.none\\(\\)\\);","(?P<NONE>\\S+)\\s+=\\s+com\\.auth0\\.jwt\\.algorithms\\.Algorithm\\.none\\(\\);\\s+[\\s\\S]*?\\s+(?P<JWT>\\S+)\\.sign\\((?P<NONE>\\S+)\\);","class\\s+(?P<CLASS>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<TYPE>\\S+)\\s+(?P<NONE>\\S+)\\s+=\\s+com\\.auth0\\.jwt\\.algorithms\\.Algorithm\\.none\\(\\);\\s+[\\s\\S]*?\\s+(?P<RETURNTYPE>\\S+)\\s+(?P<FUNC>\\S+)\\s+\\([\\s\\S]*?\\)\\s+\\{\\s+[\\s\\S]*?\\s+(?P<JWT>\\S+)\\.sign\\((?P<NONE>\\S+)\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"])
+        | finding("java-jwt-none-alg";
+            "Detected use of the 'none' algorithm in a JWT token.") ) )
+| report

@@ -1,0 +1,20 @@
+# rules: azure-cosmosdb-accounts-restricted-access
+# languages: hcl
+# from: terraform/azure/security/azure-cosmosdb-accounts-restricted-access.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\nis_virtual_network_filter_enabled = true\nip_range_filter = [$$$_]\n$$$_\n}",
+      "resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\nis_virtual_network_filter_enabled = true\nvirtual_network_rule = $$$_\n$$$_\n}",
+      "resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}",
+      "resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\npublic_network_access_enabled = false\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\nis_virtual_network_filter_enabled = true\nvirtual_network_rule = $$$_\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\nis_virtual_network_filter_enabled = true\nip_range_filter = [$$$_]\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_cosmosdb_account\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-cosmosdb-accounts-restricted-access";
+            "Ensure Cosmos DB accounts have restricted access") ) )
+| report

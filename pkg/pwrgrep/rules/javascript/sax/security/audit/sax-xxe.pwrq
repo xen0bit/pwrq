@@ -1,4 +1,5 @@
 # rules: sax-xxe
+# languages: javascript, typescript
 # from: javascript/sax/security/audit/sax-xxe.yaml
 
 . as $root

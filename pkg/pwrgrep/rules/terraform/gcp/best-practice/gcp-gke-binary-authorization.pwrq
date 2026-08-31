@@ -1,0 +1,16 @@
+# rules: gcp-gke-binary-authorization
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-gke-binary-authorization.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nenable_binary_authorization = true\n$$$_\n}",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nenable_binary_authorization = true\n$$$_\n}"]))
+        | finding("gcp-gke-binary-authorization";
+            "Ensure use of Binary Authorization") ) )
+| report

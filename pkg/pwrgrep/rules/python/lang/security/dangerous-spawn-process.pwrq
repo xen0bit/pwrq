@@ -1,0 +1,159 @@
+# rules: dangerous-spawn-process
+# languages: python
+# from: python/lang/security/dangerous-spawn-process.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A",
+      "$ARGS",
+      "$ARGS = $PARSER.parse_args()",
+      "$CMD",
+      "$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_",
+      "$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_",
+      "$PARSER = argparse.ArgumentParser($$$_)\n$$$_",
+      "$PARSER = optparse.OptionParser($$$_)\n$$$_",
+      "$PWRQDEEP1",
+      "$REQ.$ANYTHING",
+      "$REQ.DATA.get($$$_)",
+      "$REQ.DATA[$$$_]",
+      "$REQ.FILES.get($$$_)",
+      "$REQ.FILES[$$$_]",
+      "$REQ.POST.get($$$_)",
+      "$REQ.POST[$$$_]",
+      "$REQ.QUERY_PARAMS.get($$$_)",
+      "$REQ.QUERY_PARAMS[$$$_]",
+      "$REQ.content_type",
+      "$REQ.data.get($$$_)",
+      "$REQ.data[$$$_]",
+      "$REQ.dbsession",
+      "$REQ.query_params.get($$$_)",
+      "$REQ.query_params[$$$_]",
+      "$REQ.stream",
+      "$ROUTEVAR",
+      "@$APP.route($$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_",
+      "@pyramid.view.view_config( $$$_ )\ndef $VIEW($REQ):\n  $$$_",
+      "@rest_framework.decorators.api_view($$$_)\ndef $FUNC($REQ, $$$_):\n  $$$_",
+      "class $SERVER($$$_, http.server.BaseHTTPRequestHandler, $$$_):\n  $$$_",
+      "class $SERVER($$$_, http.server.DatagramRequestHandler, $$$_):\n  $$$_",
+      "class $SERVER($$$_, http.server.StreamRequestHandler, $$$_):\n  $$$_",
+      "class $VIEW($$$_, rest_framework.generics.GenericAPIView, $$$_):\n  $$$_",
+      "class $VIEW($$$_, rest_framework.views.APIView, $$$_):\n  $$$_",
+      "def $FUNC(request, $$$_):\n  $$$_",
+      "def $METHOD(self, $REQ, $$$_):\n  $$$_",
+      "flask.request.args.get($$$_)",
+      "flask.request.args[$$$_]",
+      "flask.request.cookies.get($$$_)",
+      "flask.request.cookies[$$$_]",
+      "flask.request.data",
+      "flask.request.form.get($$$_)",
+      "flask.request.form[$$$_]",
+      "flask.request.full_path",
+      "flask.request.get_json()",
+      "flask.request.headers.get($$$_)",
+      "flask.request.headers[$$$_]",
+      "flask.request.json",
+      "flask.request.stream",
+      "flask.request.url",
+      "flask.request.values.get($$$_)",
+      "flask.request.values[$$$_]",
+      "flask.request.view_args.get($$$_)",
+      "flask.request.view_args[$$$_]",
+      "for $O, $A in $OPTS:\n  $$$_",
+      "os.$METHOD($MODE, \"$$$_\", \"$$$_\", \"$$$_\", $$$_)",
+      "os.$METHOD($MODE, \"$$$_\", $$$_)",
+      "os.$METHOD($MODE, \"$$$_\", [\"$$$_\",\"$$$_\",$$$_], $$$_)",
+      "os.$METHOD($MODE, $BASH, \"-c\", $CMD,$$$_)",
+      "os.$METHOD($MODE, $BASH, [\"-c\",$CMD,$$$_],$$$_)",
+      "os.$METHOD($MODE, $CMD, $$$_)",
+      "os.environ.get('$FOO', $$$_)",
+      "os.environ['$ANYTHING']",
+      "os.environb.get('$FOO', $$$_)",
+      "os.environb['$ANYTHING']",
+      "os.getenv('$ANYTHING', $$$_)",
+      "os.getenvb('$ANYTHING', $$$_)",
+      "request.$PROPERTY.get($$$_)",
+      "request.$PROPERTY[$$$_]",
+      "self.headers.get($$$_)",
+      "self.headers[$$$_]",
+      "self.path",
+      "self.requestline",
+      "self.rfile",
+      "sys.argv[$$$_]",
+      "sys.orig_argv[$$$_]"
+    ])) as $all
+    | ( ((($all | of(["$CMD"])
+          | not_at($all | of(["os.$METHOD($MODE, \"$$$_\", $$$_)"]))
+          | within($all | of(["os.$METHOD($MODE, $CMD, $$$_)"]))
+          | where_capture("METHOD"; "^(?:(spawnl|spawnle|spawnlp|spawnlpe|spawnv|spawnve|spawnvp|spawnvp|spawnvpe|posix_spawn|posix_spawnp|startfile))"))
+          + ($all | of(["$CMD"])
+          | not_at($all | of(["os.$METHOD($MODE, \"$$$_\", [\"$$$_\",\"$$$_\",$$$_], $$$_)"]))
+          | within($all | of(["os.$METHOD($MODE, $BASH, [\"-c\",$CMD,$$$_],$$$_)"]))
+          | where_capture("METHOD"; "^(?:(spawnv|spawnve|spawnvp|spawnvp|spawnvpe|posix_spawn|posix_spawnp))")
+          | where_capture("BASH"; "^(?:(.*)(sh|bash|ksh|csh|tcsh|zsh))"))
+          + ($all | of(["$CMD"])
+          | not_at($all | of(["os.$METHOD($MODE, \"$$$_\", \"$$$_\", \"$$$_\", $$$_)"]))
+          | within($all | of(["os.$METHOD($MODE, $BASH, \"-c\", $CMD,$$$_)"]))
+          | where_capture("METHOD"; "^(?:(spawnl|spawnle|spawnlp|spawnlpe))")
+          | where_capture("BASH"; "^(?:(.*)(sh|bash|ksh|csh|tcsh|zsh))"))))
+          | reaching((((($all | of(["flask.request.form.get($$$_)"]))
+          + ($all | of(["flask.request.form[$$$_]"]))
+          + ($all | of(["flask.request.args.get($$$_)"]))
+          + ($all | of(["flask.request.args[$$$_]"]))
+          + ($all | of(["flask.request.values.get($$$_)"]))
+          + ($all | of(["flask.request.values[$$$_]"]))
+          + ($all | of(["flask.request.cookies.get($$$_)"]))
+          + ($all | of(["flask.request.cookies[$$$_]"]))
+          + ($all | of(["flask.request.stream"]))
+          + ($all | of(["flask.request.headers.get($$$_)"]))
+          + ($all | of(["flask.request.headers[$$$_]"]))
+          + ($all | of(["flask.request.data"]))
+          + ($all | of(["flask.request.full_path"]))
+          + ($all | of(["flask.request.url"]))
+          + ($all | of(["flask.request.json"]))
+          + ($all | of(["flask.request.get_json()"]))
+          + ($all | of(["flask.request.view_args.get($$$_)"]))
+          + ($all | of(["flask.request.view_args[$$$_]"]))
+          + ($all | of(["$ROUTEVAR"])
+          | within($all | of(["@$APP.route($$$_)\ndef $FUNC($$$_, $ROUTEVAR, $$$_):\n  $$$_"]))))
+          + ($all | of(["request.$PROPERTY.get($$$_)","request.$PROPERTY[$$$_]"])
+          | within($all | of(["def $FUNC(request, $$$_):\n  $$$_"])))
+          + (($all
+          | within($all | of(["@rest_framework.decorators.api_view($$$_)\ndef $FUNC($REQ, $$$_):\n  $$$_"])))
+          + (($all
+          | within($all | of(["class $VIEW($$$_, rest_framework.views.APIView, $$$_):\n  $$$_"])))
+          + ($all
+          | within($all | of(["class $VIEW($$$_, rest_framework.generics.GenericAPIView, $$$_):\n  $$$_"])))
+          | within($all | of(["def $METHOD(self, $REQ, $$$_):\n  $$$_"]))
+          | where_capture("METHOD"; "^(?:(get|post|put|patch|delete|head))"))
+          | at_same_place(($all | of(["$REQ.POST.get($$$_)","$REQ.POST[$$$_]","$REQ.FILES.get($$$_)","$REQ.FILES[$$$_]","$REQ.DATA.get($$$_)","$REQ.DATA[$$$_]","$REQ.QUERY_PARAMS.get($$$_)","$REQ.QUERY_PARAMS[$$$_]","$REQ.data.get($$$_)","$REQ.data[$$$_]","$REQ.query_params.get($$$_)","$REQ.query_params[$$$_]","$REQ.content_type","$REQ.content_type","$REQ.stream","$REQ.stream"]))))
+          + (($all
+          | within($all | of(["class $SERVER($$$_, http.server.BaseHTTPRequestHandler, $$$_):\n  $$$_"])))
+          + ($all
+          | within($all | of(["class $SERVER($$$_, http.server.StreamRequestHandler, $$$_):\n  $$$_"])))
+          + ($all
+          | within($all | of(["class $SERVER($$$_, http.server.DatagramRequestHandler, $$$_):\n  $$$_"])))
+          | at_same_place(($all | of(["self.requestline","self.path","self.headers[$$$_]","self.headers.get($$$_)","self.rfile"]))))
+          + ($all | of(["$REQ.$ANYTHING"])
+          | within($all | of(["@pyramid.view.view_config( $$$_ )\ndef $VIEW($REQ):\n  $$$_"]))
+          | not_at($all | of(["$REQ.dbsession"])))
+          + ($all | of(["os.environ['$ANYTHING']","os.environ.get('$FOO', $$$_)","os.environb['$ANYTHING']","os.environb.get('$FOO', $$$_)","os.getenv('$ANYTHING', $$$_)","os.getenvb('$ANYTHING', $$$_)"]))
+          + (($all | of(["sys.argv[$$$_]","sys.orig_argv[$$$_]"]))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = argparse.ArgumentParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + ($all | of(["$PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$ARGS")
+          | in_files_with($all | of(["$PARSER = optparse.OptionParser($$$_)\n$$$_"]))
+          | within($all | of(["$ARGS = $PARSER.parse_args()"])))
+          + (($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.getopt($$$_)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$OPTS, $ARGS = getopt.gnu_getopt($$$_)\n$$$_"])))
+          | at_same_place((($all | of(["$A"])
+          | within($all | of(["for $O, $A in $OPTS:\n  $$$_"])))
+          + ($all | of(["$ARGS"]))))))));
+              ([]))
+        | finding("dangerous-spawn-process";
+            "Found user controlled content when spawning a process.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: cbc-padding-oracle
+# languages: java
 # from: java/lang/security/audit/cbc-padding-oracle.yaml
 
 . as $root

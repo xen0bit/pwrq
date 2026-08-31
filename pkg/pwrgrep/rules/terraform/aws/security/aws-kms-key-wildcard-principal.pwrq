@@ -1,0 +1,14 @@
+# rules: aws-kms-key-wildcard-principal
+# languages: hcl
+# from: terraform/aws/security/aws-kms-key-wildcard-principal.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "policy = \"$STATEMENT\"",
+      "resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["policy = \"$STATEMENT\""])
+          | within($all | of(["resource \"aws_kms_key\" $ANYTHING {\n  $$$_\n}"]))
+        | finding("aws-kms-key-wildcard-principal";
+            "Detected wildcard access granted in your KMS key.") ) )
+| report

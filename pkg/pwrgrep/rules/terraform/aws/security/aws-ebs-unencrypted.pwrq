@@ -1,0 +1,12 @@
+# rules: aws-ebs-unencrypted
+# languages: hcl
+# from: terraform/aws/security/aws-ebs-unencrypted.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_ebs_encryption_by_default\" $ANYTHING {\n  $$$_\n  enabled = false\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_ebs_encryption_by_default\" $ANYTHING {\n  $$$_\n  enabled = false\n  $$$_\n}"])
+        | finding("aws-ebs-unencrypted";
+            "The AWS EBS is unencrypted.") ) )
+| report

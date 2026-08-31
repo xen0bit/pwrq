@@ -1,0 +1,12 @@
+# rules: use_deprecated_cipher_algorithm
+# languages: c_sharp
+# from: csharp/dotnet/security/use_deprecated_cipher_algorithm.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$KEYTYPE.Create($$$_);"
+    ])) as $all
+    | ( $all | of(["$KEYTYPE.Create($$$_);"])
+        | finding("use_deprecated_cipher_algorithm";
+            "Usage of deprecated cipher algorithm detected.") ) )
+| report

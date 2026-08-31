@@ -1,4 +1,5 @@
 # rules: incorrect-use-ato-fn
+# languages: c
 # from: c/lang/correctness/incorrect-use-ato-fn.yaml
 
 . as $root

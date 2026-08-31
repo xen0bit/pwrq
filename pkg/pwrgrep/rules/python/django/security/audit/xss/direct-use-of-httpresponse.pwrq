@@ -1,4 +1,5 @@
 # rules: direct-use-of-httpresponse
+# languages: python
 # from: python/django/security/audit/xss/direct-use-of-httpresponse.yaml
 
 . as $root
@@ -27,7 +28,7 @@
     | ( ($all | of(["django.http.HttpResponse($$$_)","django.http.HttpResponseBadRequest($$$_)","django.http.HttpResponseNotFound($$$_)","django.http.HttpResponseForbidden($$$_)","django.http.HttpResponseNotAllowed($$$_)","django.http.HttpResponseGone($$$_)","django.http.HttpResponseServerError($$$_)"])
           | not_at($all | of(["django.http.$ANY($$$_,content_type=$TYPE,$$$_)"])))
           + ($all | of(["django.http.HttpResponse($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseBadRequest($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseNotFound($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseForbidden($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseNotAllowed($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseGone($$$_,content_type=$TYPE,$$$_)","django.http.HttpResponseServerError($$$_,content_type=$TYPE,$$$_)"])
-          | where_capture("TYPE"; ".*[tT][eE][xX][tT]/[hH][tT][mM][lL].*"))
+          | where_capture("TYPE"; "^(?:.*[tT][eE][xX][tT]/[hH][tT][mM][lL].*)"))
           | not_at($all | of(["django.http.$ANY(\"$$$_\", $$$_)"]))
           | not_at($all | of(["django.http.$ANY()"]))
           | not_at($all | of(["django.http.$ANY($$$_, content=None, $$$_)"]))

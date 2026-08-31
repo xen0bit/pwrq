@@ -1,0 +1,17 @@
+# rules: insecure-newtonsoft-deserialization
+# languages: c_sharp
+# from: csharp/lang/security/insecure-deserialization/newtonsoft.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$SETTINGS.TypeNameHandling = TypeNameHandling.$TYPEHANDLER;\n$$$_\nJsonConvert.DeserializeObject($$$_,$SETTINGS);",
+      "$SETTINGS.TypeNameHandling = TypeNameHandling.$TYPEHANDLER;\n$$$_\nJsonConvert.DeserializeObject<$TYPE>($$$_,$SETTINGS);",
+      "TypeNameHandling = TypeNameHandling.$TYPEHANDLER",
+      "using Newtonsoft.Json;\n$$$_"
+    ])) as $all
+    | ( $all | of(["TypeNameHandling = TypeNameHandling.$TYPEHANDLER","$SETTINGS.TypeNameHandling = TypeNameHandling.$TYPEHANDLER;\n$$$_\nJsonConvert.DeserializeObject<$TYPE>($$$_,$SETTINGS);","$SETTINGS.TypeNameHandling = TypeNameHandling.$TYPEHANDLER;\n$$$_\nJsonConvert.DeserializeObject($$$_,$SETTINGS);"])
+          | in_files_with($all | of(["using Newtonsoft.Json;\n$$$_"]))
+          | where_capture("TYPEHANDLER"; "^(?:(All|Auto|Objects|Arrays))")
+        | finding("insecure-newtonsoft-deserialization";
+            "TypeNameHandling $TYPEHANDLER is unsafe and can lead to arbitrary code execution in the context of the process.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: insecure-cipher-algorithm-des
+# languages: python
 # from: python/pycryptodome/security/insecure-cipher-algorithm-des.yaml
 
 . as $root

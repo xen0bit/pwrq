@@ -1,0 +1,47 @@
+# rules: react-href-var
+# languages: javascript
+# from: typescript/react/security/audit/react-href-var.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js"]; [
+      "$A($SOURCE)",
+      "$A. $$$_ .$SANITIZE($SOURCE)",
+      "$F. $$$_ .$SANITIZEUNC($$$_)",
+      "$PARAMS = {href: $X};\n$$$_\nReact.createElement($EL, $PARAMS);",
+      "$SANITIZE + $PWRQDEEP1",
+      "$SANITIZE. $$$_ .$A($SOURCE)",
+      "$X + $$$_",
+      "$X.$Y",
+      "$X[$$$_]",
+      "<$EL href={$X} />",
+      "React.createElement($EL, {href: $X})",
+      "`$$$_${$X}$$$_`",
+      "`${$X}$$$_`",
+      "function $$$_($$$_, $X, $$$_) { $$$_ }",
+      "function $$$_({$$$_, $X, $$$_}) { $$$_ }"
+    ])) as $all
+    | ( ((($all | of(["<$EL href={$X} />"]))
+          + ($all | of(["React.createElement($EL, {href: $X})"]))
+          + ($all
+          | within($all | of(["$PARAMS = {href: $X};\n$$$_\nReact.createElement($EL, $PARAMS);"])))
+          | focus("X")))
+          | reaching(((($all
+          | within($all | of(["function $$$_({$$$_, $X, $$$_}) { $$$_ }"])))
+          + ($all
+          | within($all | of(["function $$$_($$$_, $X, $$$_) { $$$_ }"])))
+          | at_same_place(($all | of(["$X.$Y","$X[$$$_]"])))
+          | focus("X")
+          | outside($all | of(["$F. $$$_ .$SANITIZEUNC($$$_)"])))
+              + (($all | of(["`$$$_${$X}$$$_`"]))
+          + ($all | of(["$SANITIZE + $PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$X"))
+          | not_at($all | of(["`${$X}$$$_`"]))
+          | not_at($all | of(["$X + $$$_"]))
+          | focus("X"))
+              + ($all | of(["$A($SOURCE)","$SANITIZE. $$$_ .$A($SOURCE)","$A. $$$_ .$SANITIZE($SOURCE)"])
+          | focus("SOURCE")
+          | where_capture("A"; "^(?:(?i)(.*valid|.*sanitiz))")));
+              ([]))
+        | finding("react-href-var";
+            "Detected a variable used in an anchor tag with the 'href' attribute.") ) )
+| report

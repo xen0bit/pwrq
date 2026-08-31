@@ -1,0 +1,16 @@
+# rules: symfony-non-literal-redirect
+# languages: php
+# from: php/symfony/security/audit/symfony-non-literal-redirect.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$this->redirect(\"$$$_\")",
+      "$this->redirect($$$_)",
+      "$this->redirect()"
+    ])) as $all
+    | ( $all | of(["$this->redirect($$$_)"])
+          | not_at($all | of(["$this->redirect(\"$$$_\")"]))
+          | not_at($all | of(["$this->redirect()"]))
+        | finding("symfony-non-literal-redirect";
+            "The `redirect()` method does not check its destination in any way.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: yaml-key-indentation-check
+# from: yaml/semgrep/key-indentation.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "(?P<KEY>\\S+):\\s+>\\-\\s+(?P<VALUE>\\S+)",
+      "rules:\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( ($all | of(["(?P<KEY>\\S+):\\s+>\\-\\s+(?P<VALUE>\\S+)"])
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | focus("KEY")
+          | where_capture("KEY"; "^-(\\w*)$"))
+        | finding("yaml-key-indentation-check";
+            "It looks like you have an YAML indentation issue -- instead of writing `$KEY`, put a space between the hyphen and what comes after!") ) )
+| report

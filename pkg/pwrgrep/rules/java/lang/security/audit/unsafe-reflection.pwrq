@@ -1,4 +1,5 @@
 # rules: unsafe-reflection
+# languages: java
 # from: java/lang/security/audit/unsafe-reflection.yaml
 
 . as $root

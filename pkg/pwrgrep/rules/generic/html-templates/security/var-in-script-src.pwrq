@@ -1,0 +1,21 @@
+# rules: var-in-script-src
+# from: generic/html-templates/security/var-in-script-src.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.mustache","*.hbs","*.html"]; [
+      "<script\\s+[\\s\\S]*?>",
+      "\\{\\{\\s+[\\s\\S]*?\\s+\\}\\}",
+      "nonce\\s+=\\s+\"[\\s\\S]*?\"",
+      "nonce\\s+=\\s+'[\\s\\S]*?'",
+      "src\\s+=\\s+\"[\\s\\S]*?\"",
+      "src\\s+=\\s+'[\\s\\S]*?'"
+    ])) as $all
+    | ( $all | of(["\\{\\{\\s+[\\s\\S]*?\\s+\\}\\}"])
+          | within($all | of(["<script\\s+[\\s\\S]*?>"]))
+          | outside($all | of(["src\\s+=\\s+'[\\s\\S]*?'"]))
+          | outside($all | of(["src\\s+=\\s+\"[\\s\\S]*?\""]))
+          | outside($all | of(["nonce\\s+=\\s+'[\\s\\S]*?'"]))
+          | outside($all | of(["nonce\\s+=\\s+\"[\\s\\S]*?\""]))
+        | finding("var-in-script-src";
+            "Detected a template variable used as the 'src' in a script tag.") ) )
+| report

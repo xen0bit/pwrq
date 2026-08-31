@@ -1,0 +1,16 @@
+# rules: azure-defenderon-sqlservers-vms
+# languages: hcl
+# from: terraform/azure/best-practice/azure-defenderon-sqlservers-vms.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Free\"\nresource_type = \"SqlServerVirtualMachines\"\n$$$_\n}",
+      "resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Standard\"\nresource_type = \"SqlServerVirtualMachines\"\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Standard\"\nresource_type = \"SqlServerVirtualMachines\"\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Free\"\nresource_type = \"SqlServerVirtualMachines\"\n$$$_\n}"]))
+        | finding("azure-defenderon-sqlservers-vms";
+            "Ensure that Azure Defender is set to On for SQL servers on machines") ) )
+| report

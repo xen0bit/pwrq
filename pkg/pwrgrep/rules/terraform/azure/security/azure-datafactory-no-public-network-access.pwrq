@@ -1,0 +1,16 @@
+# rules: azure-datafactory-no-public-network-access
+# languages: hcl
+# from: terraform/azure/security/azure-datafactory-no-public-network-access.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_data_factory\" \"$$$_\" {\n$$$_\npublic_network_enabled = false\n$$$_\n}",
+      "resource \"azurerm_data_factory\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_data_factory\" \"$$$_\" {\n$$$_\npublic_network_enabled = false\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_data_factory\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-datafactory-no-public-network-access";
+            "Ensure that Azure Data factory public network access is disabled") ) )
+| report

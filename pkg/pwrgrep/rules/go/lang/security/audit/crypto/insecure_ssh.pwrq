@@ -1,4 +1,5 @@
 # rules: avoid-ssh-insecure-ignore-host-key
+# languages: go
 # from: go/lang/security/audit/crypto/insecure_ssh.yaml
 
 . as $root

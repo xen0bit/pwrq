@@ -1,4 +1,5 @@
 # rules: missing-zypper-no-confirm-switch
+# languages: dockerfile
 # from: generic/dockerfile/missing-zypper-no-confirm-switch.yaml
 
 . as $root

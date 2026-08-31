@@ -1,0 +1,14 @@
+# rules: curl-ssl-verifypeer-off
+# languages: php
+# from: php/lang/security/curl-ssl-verifypeer-off.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$ARG = $IS_VERIFIED;\n$$$_\ncurl_setopt($$$_, CURLOPT_SSL_VERIFYPEER, $ARG);",
+      "curl_setopt($$$_, CURLOPT_SSL_VERIFYPEER, $IS_VERIFIED)"
+    ])) as $all
+    | ( $all | of(["$ARG = $IS_VERIFIED;\n$$$_\ncurl_setopt($$$_, CURLOPT_SSL_VERIFYPEER, $ARG);","curl_setopt($$$_, CURLOPT_SSL_VERIFYPEER, $IS_VERIFIED)"])
+          | where_capture("IS_VERIFIED"; "^(?:0|false|null)")
+        | finding("curl-ssl-verifypeer-off";
+            "SSL verification is disabled but should not be (currently CURLOPT_SSL_VERIFYPEER= $IS_VERIFIED)") ) )
+| report

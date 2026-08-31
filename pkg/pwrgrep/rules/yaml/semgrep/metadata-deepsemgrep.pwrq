@@ -1,0 +1,16 @@
+# rules: metadata-deepsemgrep
+# from: yaml/semgrep/metadata-deepsemgrep.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "metadata:\\s+[\\s\\S]*?\\s+(?P<DEEPSEMGREP>\\S+):\\s+true\\s+[\\s\\S]*?",
+      "rules:\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | within($all | of(["metadata:\\s+[\\s\\S]*?\\s+(?P<DEEPSEMGREP>\\S+):\\s+true\\s+[\\s\\S]*?"]))
+          | focus("DEEPSEMGREP")
+          | where_capture("DEEPSEMGREP"; "^(deepsemgrep)$")
+        | finding("metadata-deepsemgrep";
+            "We no longer support `deepsemgrep: true`, please use `interfile:true`") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: incorrect-use-sscanf-fn
+# languages: c
 # from: c/lang/correctness/incorrect-use-sscanf-fn.yaml
 
 . as $root
@@ -6,7 +7,7 @@
       "sscanf($STR, $FMT, $PTR);"
     ])) as $all
     | ( $all | of(["sscanf($STR, $FMT, $PTR);"])
-          | where_capture("FMT"; "\"%(l{0,2}|L)([fegEa]|[dDiouxX])\"")
+          | where_capture("FMT"; "^(?:\"%(l{0,2}|L)([fegEa]|[dDiouxX])\")")
         | finding("incorrect-use-sscanf-fn";
             "Avoid 'sscanf()' for number conversions.") ) )
 | report

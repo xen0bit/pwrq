@@ -1,0 +1,15 @@
+# rules: azure-functionapp-disallow-cors
+# from: terraform/azure/security/azure-functionapp-disallow-cors.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "(?P<RESOURCE>\\S+)\\s+\"azurerm_function_app\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+\\}",
+      "\\[\"\\*\"\\]",
+      "allowed_origins\\s+=\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["\\[\"\\*\"\\]"])
+          | within($all | of(["allowed_origins\\s+=\\s+[\\s\\S]*?"]))
+          | within($all | of(["(?P<RESOURCE>\\S+)\\s+\"azurerm_function_app\"\\s+\"[\\s\\S]*?\"\\s+\\{\\s+[\\s\\S]*?\\s+\\}"]))
+        | finding("azure-functionapp-disallow-cors";
+            "ensure that CORS disallows all resources to access Function app") ) )
+| report

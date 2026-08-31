@@ -1,4 +1,5 @@
 # rules: unescaped-data-in-url
+# languages: go
 # from: go/lang/security/audit/net/unescaped-data-in-url.yaml
 
 . as $root

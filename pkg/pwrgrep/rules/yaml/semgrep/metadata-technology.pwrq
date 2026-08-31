@@ -1,0 +1,24 @@
+# rules: metadata-technology
+# from: yaml/semgrep/metadata-technology.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "(?P<RULE>\\S+)",
+      "\\-\\s+[\\s\\S]*?\\s+mode:\\s+join",
+      "id:\\s+(?P<OUTER_RULEID>\\S+)\\s+[\\s\\S]*?\\s+metadata:\\s+[\\s\\S]*?\\s+technology:\\s+\\-\\s+[\\s\\S]*?",
+      "id:\\s+(?P<OUTER_RULEID>\\S+)\\s+mode:\\s+join\\s+join:\\s+rules:\\s+\\[\\s+[\\s\\S]*?,\\s+(?P<INNER_RULE>\\S+),\\s+[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "id:\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "id:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+metadata:\\s+[\\s\\S]*?\\s+technology:\\s+\\-\\s+[\\s\\S]*?",
+      "rules:\\s+\\[[\\s\\S]*?,\\s+(?P<RULE>\\S+),\\s+[\\s\\S]*?\\]"
+    ])) as $all
+    | ( ($all | of(["(?P<RULE>\\S+)"])
+          | at_same_place(($all | of(["id:\\s+[\\s\\S]*?\\s+[\\s\\S]*?"])))
+          | outside($all | of(["\\-\\s+[\\s\\S]*?\\s+mode:\\s+join"]))
+          | within($all | of(["rules:\\s+\\[[\\s\\S]*?,\\s+(?P<RULE>\\S+),\\s+[\\s\\S]*?\\]"]))
+          | not_at($all | of(["id:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+metadata:\\s+[\\s\\S]*?\\s+technology:\\s+\\-\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["id:\\s+(?P<OUTER_RULEID>\\S+)\\s+mode:\\s+join\\s+join:\\s+rules:\\s+\\[\\s+[\\s\\S]*?,\\s+(?P<INNER_RULE>\\S+),\\s+[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["id:\\s+(?P<OUTER_RULEID>\\S+)\\s+[\\s\\S]*?\\s+metadata:\\s+[\\s\\S]*?\\s+technology:\\s+\\-\\s+[\\s\\S]*?"])))
+        | finding("metadata-technology";
+            "This Semgrep rule is missing a 'technology' field in the 'metadata'.") ) )
+| report

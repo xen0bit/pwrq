@@ -1,4 +1,5 @@
 # rules: desede-is-deprecated
+# languages: java, kotlin
 # from: java/lang/security/audit/crypto/desede-is-deprecated.yaml
 
 . as $root

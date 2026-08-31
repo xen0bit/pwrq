@@ -1,0 +1,15 @@
+# rules: use-of-md5-digest-utils
+# languages: java
+# from: java/lang/security/audit/crypto/use-of-md5-digest-utils.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$DU.$GET_ALGO().digest($$$_)"
+    ])) as $all
+    | ( $all | of(["$DU.$GET_ALGO().digest($$$_)"])
+          | where_capture_ast("GET_ALGO"; "getMd5Digest")
+          | where_capture_ast("DU"; "DigestUtils")
+          | focus("GET_ALGO")
+        | finding("use-of-md5-digest-utils";
+            "Detected MD5 hash algorithm which is considered insecure.") ) )
+| report

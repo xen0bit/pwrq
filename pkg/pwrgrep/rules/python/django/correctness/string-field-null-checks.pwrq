@@ -1,4 +1,5 @@
 # rules: no-null-string-field, string-field-must-set-null-true
+# languages: python
 # from: python/django/correctness/string-field-null-checks.yaml
 
 . as $root

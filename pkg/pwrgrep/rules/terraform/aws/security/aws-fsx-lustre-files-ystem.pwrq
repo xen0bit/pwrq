@@ -1,0 +1,15 @@
+# rules: aws-fsx-lustre-filesystem-encrypted-with-cmk
+# languages: hcl
+# from: terraform/aws/security/aws-fsx-lustre-files-ystem.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_fsx_lustre_file_system\" $ANYTHING {\n  $$$_\n  kms_key_id = $$$_\n  $$$_\n}",
+      "resource \"aws_fsx_lustre_file_system\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_fsx_lustre_file_system\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_fsx_lustre_file_system\" $ANYTHING {\n  $$$_\n  kms_key_id = $$$_\n  $$$_\n}"]))
+          | where_text("(^aws_kms_key\\.(.*))")
+        | finding("aws-fsx-lustre-filesystem-encrypted-with-cmk";
+            "Ensure FSX Lustre file system is encrypted at rest using KMS CMKs.") ) )
+| report

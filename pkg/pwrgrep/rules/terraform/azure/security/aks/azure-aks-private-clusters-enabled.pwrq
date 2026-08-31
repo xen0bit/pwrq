@@ -1,0 +1,16 @@
+# rules: azure-aks-private-clusters-enabled
+# languages: hcl
+# from: terraform/azure/security/aks/azure-aks-private-clusters-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\nprivate_cluster_enabled = true\n$$$_\n}",
+      "resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\nprivate_cluster_enabled = true\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-aks-private-clusters-enabled";
+            "Ensure that AKS enables private clusters") ) )
+| report

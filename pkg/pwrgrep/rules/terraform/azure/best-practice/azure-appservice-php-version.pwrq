@@ -1,0 +1,16 @@
+# rules: azure-appservice-php-version
+# languages: hcl
+# from: terraform/azure/best-practice/azure-appservice-php-version.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nsite_config {\n  $$$_\n  php_version = \"7.4\"\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nsite_config {\n  $$$_\n  php_version = \"7.4\"\n  $$$_\n}\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-appservice-php-version";
+            "Ensure that PHP version is the latest, if used to run the web app") ) )
+| report

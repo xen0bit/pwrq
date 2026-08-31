@@ -1,0 +1,16 @@
+# rules: azure-aks-uses-disk-encryptionset
+# languages: hcl
+# from: terraform/azure/security/aks/azure-aks-uses-disk-encryptionset.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\ndisk_encryption_set_id = \"$$$_\"\n$$$_\n}",
+      "resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\ndisk_encryption_set_id = \"$$$_\"\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_kubernetes_cluster\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-aks-uses-disk-encryptionset";
+            "Ensure that AKS uses disk encryption set") ) )
+| report

@@ -1,0 +1,51 @@
+# rules: command-injection-formatted-runtime-call
+# languages: java
+# from: java/lang/security/audit/command-injection-formatted-runtime-call.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "\"$$$_\"",
+      "\"=~/(-c)/\"",
+      "\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\"",
+      "$ARG = \"$$$_\";\n$$$_",
+      "$BASH = new String[]{\"=~/(-c)/\", $$$_};\n$$$_",
+      "$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\";\n$$$_",
+      "$CMD = new String[]{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", $$$_};\n$$$_",
+      "$RUNTIME.exec(\"$$$_\",\"$$$_\",\"$$$_\",$$$_)",
+      "$RUNTIME.exec(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $ARG,$$$_)",
+      "$RUNTIME.exec(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", $BASH, $ARG,$$$_)",
+      "$RUNTIME.exec($CMD, $EXECUTE, $ARG, $$$_)",
+      "$RUNTIME.exec($CMD,\"-c\",$ARG,$$$_)",
+      "$RUNTIME.exec($X + $Y);",
+      "$RUNTIME.exec(Arrays.asList(\"$$$_\",\"$$$_\",\"$$$_\",$$$_),$$$_)",
+      "$RUNTIME.exec(Arrays.asList(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$ARG,$$$_),$$$_)",
+      "$RUNTIME.exec(Arrays.asList(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",$BASH,$ARG,$$$_),$$$_)",
+      "$RUNTIME.exec(Arrays.asList($CMD,\"-c\",$ARG,$$$_),$$$_)",
+      "$RUNTIME.exec(String.format($$$_));",
+      "$RUNTIME.exec(new String[]{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_)",
+      "$RUNTIME.exec(new String[]{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$ARG,$$$_},$$$_)",
+      "$RUNTIME.exec(new String[]{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",$BASH,$ARG,$$$_},$$$_)",
+      "$RUNTIME.exec(new String[]{$CMD,\"-c\",$ARG,$$$_},$$$_)",
+      "$RUNTIME.loadLibrary($X + $Y);",
+      "$RUNTIME.loadLibrary(String.format($$$_));"
+    ])) as $all
+    | ( ($all | of(["$RUNTIME.exec($X + $Y);"]))
+          + ($all | of(["$RUNTIME.exec(String.format($$$_));"]))
+          + ($all | of(["$RUNTIME.loadLibrary($X + $Y);"]))
+          + ($all | of(["$RUNTIME.loadLibrary(String.format($$$_));"]))
+          + (($all | of(["$RUNTIME.exec(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $ARG,$$$_)"]))
+          + ($all | of(["$RUNTIME.exec(Arrays.asList(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$ARG,$$$_),$$$_)"]))
+          + ($all | of(["$RUNTIME.exec(new String[]{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$ARG,$$$_},$$$_)"]))
+          + ($all | of(["$RUNTIME.exec($CMD,\"-c\",$ARG,$$$_)","$RUNTIME.exec(Arrays.asList($CMD,\"-c\",$ARG,$$$_),$$$_)","$RUNTIME.exec(new String[]{$CMD,\"-c\",$ARG,$$$_},$$$_)"])
+          | in_files_with($all | of(["$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\";\n$$$_","\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\""])))
+          + ($all | of(["$RUNTIME.exec($CMD, $EXECUTE, $ARG, $$$_)"])
+          | in_files_with($all | of(["$CMD = new String[]{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", $$$_};\n$$$_","\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\""])))
+          + ($all | of(["$RUNTIME.exec(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", $BASH, $ARG,$$$_)","$RUNTIME.exec(Arrays.asList(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",$BASH,$ARG,$$$_),$$$_)","$RUNTIME.exec(new String[]{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",$BASH,$ARG,$$$_},$$$_)"])
+          | in_files_with($all | of(["$BASH = new String[]{\"=~/(-c)/\", $$$_};\n$$$_","\"=~/(-c)/\""])))
+          | in_files_without($all | of(["$ARG = \"$$$_\";\n$$$_","\"$$$_\""]))
+          | not_at($all | of(["$RUNTIME.exec(\"$$$_\",\"$$$_\",\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$RUNTIME.exec(new String[]{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_)"]))
+          | not_at($all | of(["$RUNTIME.exec(Arrays.asList(\"$$$_\",\"$$$_\",\"$$$_\",$$$_),$$$_)"])))
+        | finding("command-injection-formatted-runtime-call";
+            "A formatted or concatenated string was detected as input to a java.lang.Runtime call.") ) )
+| report

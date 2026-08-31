@@ -1,4 +1,5 @@
 # rules: missing-or-broken-authorization
+# languages: c_sharp
 # from: csharp/dotnet/security/audit/missing-or-broken-authorization.yaml
 
 . as $root

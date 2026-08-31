@@ -1,0 +1,17 @@
+# rules: metadata-cwe
+# languages: yaml
+# from: yaml/semgrep/metadata-cwe.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "cwe: $$$_",
+      "metadata: $$$_",
+      "rules: $$$_"
+    ])) as $all
+    | ( $all | of(["cwe: $$$_"])
+          | within($all | of(["rules: $$$_"]))
+          | within($all | of(["metadata: $$$_"]))
+          | where_text_not("CWE-[\\d]+:\\s+\\w")
+        | finding("metadata-cwe";
+            "$...CWE The cwe tag in rule metadata should always be in the format \"CWE-000: Title\".") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: user-exec-format-string
+# languages: python
 # from: python/django/security/injection/code/user-exec-format-string.yaml
 
 . as $root

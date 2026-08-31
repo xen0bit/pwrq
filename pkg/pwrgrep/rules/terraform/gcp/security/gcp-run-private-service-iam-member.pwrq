@@ -1,0 +1,18 @@
+# rules: gcp-run-private-service-iam-member
+# languages: hcl
+# from: terraform/gcp/security/gcp-run-private-service-iam-member.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_cloud_run_service_iam_member\" \"$$$_\" {\n$$$_\nmember = \"allAuthenticatedUsers\"\n$$$_\n}",
+      "resource \"google_cloud_run_service_iam_member\" \"$$$_\" {\n$$$_\nmember = \"allUsers\"\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"google_cloud_run_service_iam_member\" \"$$$_\" {\n$$$_\nmember = \"allAuthenticatedUsers\"\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"google_cloud_run_service_iam_member\" \"$$$_\" {\n$$$_\nmember = \"allUsers\"\n$$$_\n}"])))))
+        | finding("gcp-run-private-service-iam-member";
+            "Ensure that GCP Cloud Run services are not anonymously or publicly accessible") ) )
+| report

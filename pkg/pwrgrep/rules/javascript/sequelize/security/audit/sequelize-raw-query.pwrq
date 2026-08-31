@@ -2,17 +2,17 @@
 # from: javascript/sequelize/security/audit/sequelize-raw-query.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.js","*.ts"]; [
-      "$DATABASE.sequelize.query($SQL + $VALUE, $$$_)",
-      "$DATABASE.sequelize.query(`$$$_${$$$_}$$$_`, $$$_)",
-      "$QUERY = $SQL + $VALUE\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)",
-      "$QUERY = $SQL + $VALUE\n$$$_\nSequelize.literal($QUERY)",
-      "$QUERY = `$$$_${$$$_}$$$_`\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)",
-      "$QUERY = `$$$_${$$$_}$$$_`\n$$$_\nSequelize.literal($QUERY)",
-      "Sequelize.literal($SQL + $VALUE)",
-      "Sequelize.literal(`$$$_${$$$_}$$$_`)"
+| ( ($root | scan_regex(["*.js","*.ts"]; [
+      "(?P<DATABASE>\\S+)\\.sequelize\\.query\\((?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+),\\s+[\\s\\S]*?\\)",
+      "(?P<DATABASE>\\S+)\\.sequelize\\.query\\(`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`,\\s+[\\s\\S]*?\\)",
+      "(?P<QUERY>\\S+)\\s+=\\s+(?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+)\\s+[\\s\\S]*?\\s+(?P<DATABASE>\\S+)\\.sequelize\\.query\\((?P<QUERY>\\S+),\\s+[\\s\\S]*?\\)",
+      "(?P<QUERY>\\S+)\\s+=\\s+(?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+)\\s+[\\s\\S]*?\\s+Sequelize\\.literal\\((?P<QUERY>\\S+)\\)",
+      "(?P<QUERY>\\S+)\\s+=\\s+`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`\\s+[\\s\\S]*?\\s+(?P<DATABASE>\\S+)\\.sequelize\\.query\\((?P<QUERY>\\S+),\\s+[\\s\\S]*?\\)",
+      "(?P<QUERY>\\S+)\\s+=\\s+`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`\\s+[\\s\\S]*?\\s+Sequelize\\.literal\\((?P<QUERY>\\S+)\\)",
+      "Sequelize\\.literal\\((?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+)\\)",
+      "Sequelize\\.literal\\(`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`\\)"
     ])) as $all
-    | ( $all | of(["$DATABASE.sequelize.query(`$$$_${$$$_}$$$_`, $$$_)","$QUERY = `$$$_${$$$_}$$$_`\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)","$DATABASE.sequelize.query($SQL + $VALUE, $$$_)","$QUERY = $SQL + $VALUE\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)","Sequelize.literal(`$$$_${$$$_}$$$_`)","$QUERY = `$$$_${$$$_}$$$_`\n$$$_\nSequelize.literal($QUERY)","Sequelize.literal($SQL + $VALUE)","$QUERY = $SQL + $VALUE\n$$$_\nSequelize.literal($QUERY)"])
+    | ( $all | of(["(?P<DATABASE>\\S+)\\.sequelize\\.query\\(`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`,\\s+[\\s\\S]*?\\)","(?P<QUERY>\\S+)\\s+=\\s+`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`\\s+[\\s\\S]*?\\s+(?P<DATABASE>\\S+)\\.sequelize\\.query\\((?P<QUERY>\\S+),\\s+[\\s\\S]*?\\)","(?P<DATABASE>\\S+)\\.sequelize\\.query\\((?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+),\\s+[\\s\\S]*?\\)","(?P<QUERY>\\S+)\\s+=\\s+(?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+)\\s+[\\s\\S]*?\\s+(?P<DATABASE>\\S+)\\.sequelize\\.query\\((?P<QUERY>\\S+),\\s+[\\s\\S]*?\\)","Sequelize\\.literal\\(`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`\\)","(?P<QUERY>\\S+)\\s+=\\s+`[\\s\\S]*?\\$\\{[\\s\\S]*?\\}[\\s\\S]*?`\\s+[\\s\\S]*?\\s+Sequelize\\.literal\\((?P<QUERY>\\S+)\\)","Sequelize\\.literal\\((?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+)\\)","(?P<QUERY>\\S+)\\s+=\\s+(?P<SQL>\\S+)\\s+\\+\\s+(?P<VALUE>\\S+)\\s+[\\s\\S]*?\\s+Sequelize\\.literal\\((?P<QUERY>\\S+)\\)"])
         | finding("sequelize-raw-query";
             "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection.") ) )
 | report

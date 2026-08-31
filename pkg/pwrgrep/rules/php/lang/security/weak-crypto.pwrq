@@ -1,0 +1,13 @@
+# rules: weak-crypto
+# languages: php
+# from: php/lang/security/weak-crypto.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$FUNC($$$_);"
+    ])) as $all
+    | ( $all | of(["$FUNC($$$_);"])
+          | where_capture("FUNC"; "^(?:crypt|md5|md5_file|sha1|sha1_file|str_rot13)")
+        | finding("weak-crypto";
+            "Detected usage of weak crypto function.") ) )
+| report

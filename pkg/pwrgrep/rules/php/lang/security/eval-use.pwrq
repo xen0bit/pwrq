@@ -1,4 +1,5 @@
 # rules: eval-use
+# languages: php
 # from: php/lang/security/eval-use.yaml
 
 . as $root

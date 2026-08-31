@@ -1,0 +1,13 @@
+# rules: detect-generic-ai-anthprop
+# from: ai/generic/detect-generic-ai-anthprop.yaml
+
+. as $root
+| ( ($root | scan_regex(["*"]; [
+      "Anthropic",
+      "anthropic",
+      "claude"
+    ])) as $all
+    | ( $all | of(["anthropic","Anthropic","claude"])
+        | finding("detect-generic-ai-anthprop";
+            "Possibly found usage of AI: Anthropic") ) )
+| report

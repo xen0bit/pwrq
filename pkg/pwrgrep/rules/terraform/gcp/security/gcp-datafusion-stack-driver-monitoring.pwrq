@@ -1,0 +1,15 @@
+# rules: gcp-datafusion-stack-driver-monitoring
+# languages: hcl
+# from: terraform/gcp/security/gcp-datafusion-stack-driver-monitoring.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_data_fusion_instance\" $ANYTHING {\n  $$$_\n  enable_stackdriver_monitoring = true        \n  $$$_\n}",
+      "resource \"google_data_fusion_instance\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all
+          | within($all | of(["resource \"google_data_fusion_instance\" $ANYTHING {\n  $$$_\n}"]))
+          | outside($all | of(["resource \"google_data_fusion_instance\" $ANYTHING {\n  $$$_\n  enable_stackdriver_monitoring = true        \n  $$$_\n}"]))
+        | finding("gcp-datafusion-stack-driver-monitoring";
+            "Ensure Datafusion has stack driver monitoring enabled.") ) )
+| report

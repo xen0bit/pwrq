@@ -1,0 +1,19 @@
+# rules: basic-arithmetic-underflow
+# languages: solidity
+# from: solidity/security/basic-arithmetic-underflow.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "$Y - $X",
+      "function $F($$$_, $X, $$$_) external { $$$_ }",
+      "function $F($$$_, $X, $$$_) public { $$$_ }"
+    ])) as $all
+    | ( (($all | of(["$Y - $X"])))
+          | reaching(((($all
+          | within($all | of(["function $F($$$_, $X, $$$_) external { $$$_ }"])))
+          + ($all
+          | within($all | of(["function $F($$$_, $X, $$$_) public { $$$_ }"])))));
+              ([]))
+        | finding("basic-arithmetic-underflow";
+            "Possible arithmetic underflow") ) )
+| report

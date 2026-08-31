@@ -1,4 +1,5 @@
 # rules: unescaped-template-extension
+# languages: python
 # from: python/flask/security/unescaped-template-extension.yaml
 
 . as $root

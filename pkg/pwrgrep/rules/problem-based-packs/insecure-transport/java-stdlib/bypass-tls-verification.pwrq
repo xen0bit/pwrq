@@ -2,14 +2,14 @@
 # from: problem-based-packs/insecure-transport/java-stdlib/bypass-tls-verification.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.java"]; [
-      "new X509TrustManager() {\n  $$$_\n  public void checkClientTrusted(X509Certificate[] certs, String authType) {$$$_}\n  $$$_\n}",
-      "new X509TrustManager() {\n  $$$_\n  public void checkServerTrusted(X509Certificate[] certs, String authType) {\n    $$$_\n    throw new CertificateException($$$_);\n    $$$_\n  }\n  $$$_\n}",
-      "new X509TrustManager() {\n  $$$_\n  public void checkServerTrusted(X509Certificate[] certs, String authType) {\n    $$$_\n    throw new IllegalArgumentException($$$_);\n    $$$_\n  }\n  $$$_\n}"
+| ( ($root | scan_regex(["*.java"]; [
+      "new\\s+X509TrustManager\\(\\)\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+void\\s+checkClientTrusted\\(X509Certificate\\[\\]\\s+certs,\\s+String\\s+authType\\)\\s+\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?\\s+\\}",
+      "new\\s+X509TrustManager\\(\\)\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+void\\s+checkServerTrusted\\(X509Certificate\\[\\]\\s+certs,\\s+String\\s+authType\\)\\s+\\{\\s+[\\s\\S]*?\\s+throw\\s+new\\s+CertificateException\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}",
+      "new\\s+X509TrustManager\\(\\)\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+void\\s+checkServerTrusted\\(X509Certificate\\[\\]\\s+certs,\\s+String\\s+authType\\)\\s+\\{\\s+[\\s\\S]*?\\s+throw\\s+new\\s+IllegalArgumentException\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"
     ])) as $all
-    | ( $all | of(["new X509TrustManager() {\n  $$$_\n  public void checkClientTrusted(X509Certificate[] certs, String authType) {$$$_}\n  $$$_\n}"])
-          | not_at($all | of(["new X509TrustManager() {\n  $$$_\n  public void checkServerTrusted(X509Certificate[] certs, String authType) {\n    $$$_\n    throw new CertificateException($$$_);\n    $$$_\n  }\n  $$$_\n}"]))
-          | not_at($all | of(["new X509TrustManager() {\n  $$$_\n  public void checkServerTrusted(X509Certificate[] certs, String authType) {\n    $$$_\n    throw new IllegalArgumentException($$$_);\n    $$$_\n  }\n  $$$_\n}"]))
+    | ( $all | of(["new\\s+X509TrustManager\\(\\)\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+void\\s+checkClientTrusted\\(X509Certificate\\[\\]\\s+certs,\\s+String\\s+authType\\)\\s+\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?\\s+\\}"])
+          | not_at($all | of(["new\\s+X509TrustManager\\(\\)\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+void\\s+checkServerTrusted\\(X509Certificate\\[\\]\\s+certs,\\s+String\\s+authType\\)\\s+\\{\\s+[\\s\\S]*?\\s+throw\\s+new\\s+CertificateException\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
+          | not_at($all | of(["new\\s+X509TrustManager\\(\\)\\s+\\{\\s+[\\s\\S]*?\\s+public\\s+void\\s+checkServerTrusted\\(X509Certificate\\[\\]\\s+certs,\\s+String\\s+authType\\)\\s+\\{\\s+[\\s\\S]*?\\s+throw\\s+new\\s+IllegalArgumentException\\([\\s\\S]*?\\);\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?\\s+\\}"]))
         | finding("bypass-tls-verification";
             "Checks for redefinitions of the checkServerTrusted function in the X509TrustManager class that disables TLS/SSL certificate verification.") ) )
 | report

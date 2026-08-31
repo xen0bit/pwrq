@@ -1,0 +1,20 @@
+# rules: keyvault-specify-network-acl
+# languages: hcl
+# from: terraform/azure/security/keyvault/keyvault-specify-network-acl.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_key_vault\" \"$$$_\" {\n$$$_\nnetwork_acls {\n    $$$_\n    default_action = \"Allow\"\n    $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_key_vault\" \"$$$_\" {\n$$$_\nnetwork_acls {\n    $$$_\n    default_action = \"Deny\"\n    $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_key_vault\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"azurerm_key_vault\" \"$$$_\" {\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"azurerm_key_vault\" \"$$$_\" {\n$$$_\nnetwork_acls {\n    $$$_\n    default_action = \"Allow\"\n    $$$_\n}\n$$$_\n}"])))))
+          | outside($all | of(["resource \"azurerm_key_vault\" \"$$$_\" {\n$$$_\nnetwork_acls {\n    $$$_\n    default_action = \"Deny\"\n    $$$_\n}\n$$$_\n}"]))
+        | finding("keyvault-specify-network-acl";
+            "Network ACLs allow you to reduce your exposure to risk by limiting what can access your key vault.") ) )
+| report

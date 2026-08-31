@@ -1,0 +1,16 @@
+# rules: azure-functionapp-http-version-latest
+# languages: hcl
+# from: terraform/azure/best-practice/azure-functionapp-http-version-latest.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\nsite_config {\n  $$$_\n  http2_enabled = true\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\nsite_config {\n  $$$_\n  http2_enabled = true\n  $$$_\n}\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_function_app\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-functionapp-http-version-latest";
+            "Ensure that HTTP Version is the latest if used to run the Function app") ) )
+| report

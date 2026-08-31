@@ -1,0 +1,15 @@
+# rules: cookie-setSecure
+# languages: java
+# from: java/servlets/security/cookie-setSecure.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$COOKIE = new Cookie($$$_);\n$$$_",
+      "$COOKIE = new Cookie($$$_);\n$$$_\n$COOKIE.setSecure(true);",
+      "$COOKIE.setSecure(false);"
+    ])) as $all
+    | ( $all
+          | outside($all | of(["$COOKIE = new Cookie($$$_);\n$$$_\n$COOKIE.setSecure(true);"]))
+        | finding("cookie-setSecure";
+            "Default session middleware settings: `setSecure` not set to true.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: uncaught-executor-exceptions
+# languages: python
 # from: python/lang/correctness/concurrent.yaml
 
 . as $root

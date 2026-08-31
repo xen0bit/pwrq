@@ -1,0 +1,16 @@
+# rules: public-s3-bucket
+# from: json/aws/security/public-s3-bucket.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.json"]; [
+      "\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"BlockPublicAcls\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},",
+      "\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"BlockPublicPolicy\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},",
+      "\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"IgnorePublicAcls\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},",
+      "\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"RestrictPublicBuckets\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},",
+      "(?P<BUCKETNAME>\\S+):\\s+\\{\\s+\"Type\":\\s+\"AWS::S3::Bucket\",\\s+\"Properties\":\\s+\\{\\s+[\\s\\S]*?,\\s+\\},\\s+[\\s\\S]*?,\\s+\\}"
+    ])) as $all
+    | ( $all | of(["\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"RestrictPublicBuckets\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},","\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"IgnorePublicAcls\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},","\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"BlockPublicAcls\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},","\"PublicAccessBlockConfiguration\":\\s+\\{\\s+[\\s\\S]*?,\\s+\"BlockPublicPolicy\":\\s+false,\\s+[\\s\\S]*?,\\s+\\},"])
+          | within($all | of(["(?P<BUCKETNAME>\\S+):\\s+\\{\\s+\"Type\":\\s+\"AWS::S3::Bucket\",\\s+\"Properties\":\\s+\\{\\s+[\\s\\S]*?,\\s+\\},\\s+[\\s\\S]*?,\\s+\\}"]))
+        | finding("public-s3-bucket";
+            "Detected public S3 bucket.") ) )
+| report

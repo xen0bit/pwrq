@@ -1,4 +1,5 @@
 # rules: puppeteer-setcontent-injection
+# languages: javascript, typescript
 # from: javascript/puppeteer/security/audit/puppeteer-setcontent-injection.yaml
 
 . as $root

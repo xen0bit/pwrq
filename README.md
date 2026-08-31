@@ -598,7 +598,7 @@ $ pwrq -c '[select_ast("."; "$D = request.args\n$$$_\nrender($D)")]'
 
 A search is not a finding. "MD5" is a search; "MD5, in a file that imports
 crypto/md5, and not the one call that says it is not a signature" is a rule,
-and pwrq ships 700-odd of them:
+and pwrq ships eighteen hundred of them, in 26 languages:
 
 ```console
 $ echo src | pwrq -R 'invoke_pwrgrep("go-weak-hash")'
@@ -607,9 +607,10 @@ $ pwrq -n '[get_pwrgrep_rule("python-*")] | map(.Id)'
 ```
 
 A rule is an ordinary pwrq query in a file, and that is the whole design —
-`scan_ast`, `of`, `within`, `not_at`, `in_files_with`, `where_capture`,
-`finding` and `report` are cmdlets like any other, so writing a rule is writing
-a query and extending the corpus is dropping a file in:
+`scan_ast`, `scan_regex`, `of`, `within`, `not_at`, `in_files_with`,
+`where_capture`, `focus`, `reaching`, `finding` and `report` are cmdlets like
+any other, so writing a rule is writing a query and extending the corpus is
+dropping a file in:
 
 ```
 # rules: go-weak-hash
@@ -628,7 +629,15 @@ then its own copy — so a rule you drop in is found beside the ones that
 shipped, and one you copy in under a shipped rule's path replaces it.
 [pkg/pwrgrep](pkg/pwrgrep) has the corpus, the translator that produced most of
 it, a manifest accounting for every rule it was given, and a validation run
-against the fixtures those rules are tested with.
+against the fixtures those rules are tested with — which is the number that
+matters, because a rule that runs and finds nothing is worth knowing about.
+
+Three kinds of rule share the vocabulary. Most search syntax. Those whose
+patterns are lines rather than constructs — Dockerfile, the `regex` and
+`generic` ones — search text with `scan_regex`, which reports the same kind of
+match, so every operator works on them unchanged. The rest follow a value:
+`reaching` takes a set of sources, a set of sinks and a set of sanitizers, and
+keeps the sinks a source arrives at, through assignments in its own scope.
 
 
 Parsing is [gotreesitter](https://github.com/odvcencio/gotreesitter), a pure-Go

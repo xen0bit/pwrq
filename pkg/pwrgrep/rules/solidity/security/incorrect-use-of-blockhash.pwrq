@@ -1,0 +1,17 @@
+# rules: incorrect-use-of-blockhash
+# languages: solidity
+# from: solidity/security/incorrect-use-of-blockhash.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "block.blockhash(block.number * $N)",
+      "block.blockhash(block.number + $N)",
+      "block.blockhash(block.number)",
+      "blockhash(block.number * $N)",
+      "blockhash(block.number + $N)",
+      "blockhash(block.number)"
+    ])) as $all
+    | ( $all | of(["blockhash(block.number)","blockhash(block.number + $N)","blockhash(block.number * $N)","block.blockhash(block.number)","block.blockhash(block.number + $N)","block.blockhash(block.number * $N)"])
+        | finding("incorrect-use-of-blockhash";
+            "blockhash(block.number) and blockhash(block.number + N) always returns 0.") ) )
+| report

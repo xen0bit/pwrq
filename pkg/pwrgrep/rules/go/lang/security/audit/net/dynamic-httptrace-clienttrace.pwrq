@@ -2,12 +2,12 @@
 # from: go/lang/security/audit/net/dynamic-httptrace-clienttrace.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "httptrace.WithClientTrace($ANY, $TRACE)",
-      "package $PACKAGE\n$$$_\n&httptrace.ClientTrace { $$$_ }\n$$$_"
+| ( ($root | scan_regex(["*.go"]; [
+      "httptrace\\.WithClientTrace\\((?P<ANY>\\S+),\\s+(?P<TRACE>\\S+)\\)",
+      "package\\s+(?P<PACKAGE>\\S+)\\s+[\\s\\S]*?\\s+&httptrace\\.ClientTrace\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["httptrace.WithClientTrace($ANY, $TRACE)"])
-          | in_files_without($all | of(["package $PACKAGE\n$$$_\n&httptrace.ClientTrace { $$$_ }\n$$$_"]))
+    | ( $all | of(["httptrace\\.WithClientTrace\\((?P<ANY>\\S+),\\s+(?P<TRACE>\\S+)\\)"])
+          | in_files_without($all | of(["package\\s+(?P<PACKAGE>\\S+)\\s+[\\s\\S]*?\\s+&httptrace\\.ClientTrace\\s+\\{\\s+[\\s\\S]*?\\s+\\}\\s+[\\s\\S]*?"]))
         | finding("dynamic-httptrace-clienttrace";
             "Detected a potentially dynamic ClientTrace.") ) )
 | report

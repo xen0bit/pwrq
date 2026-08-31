@@ -1,0 +1,59 @@
+# rules: express-puppeteer-injection
+# languages: typescript
+# from: javascript/express/security/express-puppeteer-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})",
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})",
+      "$PAGE.evaluate($CODE,$SINK,$$$_)",
+      "$PAGE.evaluate($SINK,$$$_)",
+      "$PAGE.evaluateHandle($CODE,$SINK,$$$_)",
+      "$PAGE.evaluateHandle($SINK,$$$_)",
+      "$PAGE.evaluateOnNewDocument($CODE,$SINK,$$$_)",
+      "$PAGE.evaluateOnNewDocument($SINK,$$$_)",
+      "$PAGE.goto($SINK,$$$_)",
+      "$PAGE.setContent($SINK,$$$_)",
+      "$REQ.body",
+      "$REQ.cookies",
+      "$REQ.headers",
+      "$REQ.params",
+      "$REQ.query",
+      "({ $REQ }: Request,$RES: Response) => {$$$_}",
+      "({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}",
+      "body",
+      "cookies",
+      "function $$$_ ($REQ, $RES) {$$$_}",
+      "function $$$_ ($REQ, $RES, $NEXT) {$$$_}",
+      "headers",
+      "import 'puppeteer';\n$$$_",
+      "params",
+      "query",
+      "require('puppeteer');\n$$$_"
+    ])) as $all
+    | ( ((($all
+          | in_files_with($all | of(["require('puppeteer');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import 'puppeteer';\n$$$_"])))
+          | at_same_place(($all | of(["$PAGE.goto($SINK,$$$_)","$PAGE.setContent($SINK,$$$_)","$PAGE.evaluate($SINK,$$$_)","$PAGE.evaluate($CODE,$SINK,$$$_)","$PAGE.evaluateHandle($SINK,$$$_)","$PAGE.evaluateHandle($CODE,$SINK,$$$_)","$PAGE.evaluateOnNewDocument($SINK,$$$_)","$PAGE.evaluateOnNewDocument($CODE,$SINK,$$$_)"])))
+          | focus("SINK")))
+          | reaching(((($all
+          | within($all | of(["function $$$_ ($REQ, $RES) {$$$_}"])))
+          + ($all
+          | within($all | of(["function $$$_ ($REQ, $RES, $NEXT) {$$$_}"])))
+          + (($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})"])))
+          + ($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})"])))
+          | where_capture("METHOD"; "^(get|post|put|head|delete|options)$"))
+          | at_same_place(($all | of(["$REQ.query","$REQ.body","$REQ.params","$REQ.cookies","$REQ.headers"]))))
+              + (($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}"])))
+          + ($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response) => {$$$_}"])))
+          | at_same_place(($all | of(["params","query","cookies","headers","body"])))
+          | focus("REQ")));
+              ([]))
+        | finding("express-puppeteer-injection";
+            "If unverified user data can reach the `puppeteer` methods it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

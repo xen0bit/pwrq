@@ -1,0 +1,16 @@
+# rules: azure-mysql-geo-backup-enabled
+# languages: hcl
+# from: terraform/azure/best-practice/azure-mysql-geo-backup-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_mysql_server\" \"$$$_\" {\n$$$_\ngeo_redundant_backup_enabled = true\n$$$_\n}",
+      "resource \"azurerm_mysql_server\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_mysql_server\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"azurerm_mysql_server\" \"$$$_\" {\n$$$_\ngeo_redundant_backup_enabled = true\n$$$_\n}"]))
+        | finding("azure-mysql-geo-backup-enabled";
+            "Ensure that MySQL server enables geo-redundant backups") ) )
+| report

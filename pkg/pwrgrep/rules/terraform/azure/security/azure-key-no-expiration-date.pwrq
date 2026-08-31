@@ -1,0 +1,16 @@
+# rules: azure-key-no-expiration-date
+# languages: hcl
+# from: terraform/azure/security/azure-key-no-expiration-date.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_key_vault_key\" \"$$$_\" {\n$$$_\nexpiration_date = \"$$$_\"\n$$$_\n}",
+      "resource \"azurerm_key_vault_key\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_key_vault_key\" \"$$$_\" {\n$$$_\nexpiration_date = \"$$$_\"\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_key_vault_key\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-key-no-expiration-date";
+            "Ensure that the expiration date is set on all keys") ) )
+| report

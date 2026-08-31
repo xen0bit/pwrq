@@ -1,4 +1,5 @@
 # rules: detect-openai
+# languages: go
 # from: ai/go/detect-openai.yaml
 
 . as $root

@@ -1,0 +1,18 @@
+# rules: eqeq
+# from: java/lang/correctness/eqeq.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.java"]; [
+      "(?P<X>\\S+)\\s+!=\\s+(?P<X>\\S+)",
+      "(?P<X>\\S+)\\s+==\\s+(?P<X>\\S+)",
+      "1\\s+==\\s+1",
+      "assert\\s+(?P<X>\\S+);",
+      "assert\\s+(?P<X>\\S+)\\s+:\\s+(?P<Y>\\S+);"
+    ])) as $all
+    | ( $all | of(["(?P<X>\\S+)\\s+==\\s+(?P<X>\\S+)","(?P<X>\\S+)\\s+!=\\s+(?P<X>\\S+)"])
+          | outside($all | of(["assert\\s+(?P<X>\\S+);"]))
+          | outside($all | of(["assert\\s+(?P<X>\\S+)\\s+:\\s+(?P<Y>\\S+);"]))
+          | not_at($all | of(["1\\s+==\\s+1"]))
+        | finding("eqeq";
+            "`$X == $X` or `$X != $X` is always true.") ) )
+| report

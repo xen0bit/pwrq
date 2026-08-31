@@ -1,0 +1,15 @@
+# rules: missing-alb-drop-http-headers
+# languages: hcl
+# from: terraform/aws/best-practice/missing-alb-drop-http-headers.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_alb\" $ENABLED {\n  $$$_\n}",
+      "resource \"aws_lb\" $ENABLED {\n  $$$_\n}",
+      "resource $ANYTHING $ENABLED {\n  $$$_\n  drop_invalid_header_fields = true\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_lb\" $ENABLED {\n  $$$_\n}","resource \"aws_alb\" $ENABLED {\n  $$$_\n}"])
+          | outside($all | of(["resource $ANYTHING $ENABLED {\n  $$$_\n  drop_invalid_header_fields = true\n  $$$_\n}"]))
+        | finding("missing-alb-drop-http-headers";
+            "Detected a AWS load balancer that is not configured to drop invalid HTTP headers.") ) )
+| report

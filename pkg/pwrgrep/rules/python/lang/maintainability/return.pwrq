@@ -1,19 +1,22 @@
 # rules: code-after-unconditional-return, return-not-in-function
+# languages: python
 # from: python/lang/maintainability/return.yaml
 
 . as $root
 | ( ($root | scan_ast(["*.py"]; [
       "def $F($$$_) ->  $Y:\n    $$$_",
       "def $F($$$_):\n    $$$_\n# TODO: first pattern should just automatically include this one",
-      "return $$$_",
-      "return $$$_\n$S"
+      "return $$$_"
     ])) as $all
-    | ( $all | of(["return $$$_\n$S"])
-        | finding("code-after-unconditional-return";
-            "code after return statement will not be executed") )
-      + ( $all | of(["return $$$_"])
+    | ( $all | of(["return $$$_"])
           | outside($all | of(["def $F($$$_):\n    $$$_\n# TODO: first pattern should just automatically include this one"]))
           | outside($all | of(["def $F($$$_) ->  $Y:\n    $$$_"]))
         | finding("return-not-in-function";
             "`return` only makes sense inside a function") ) )
++ ( ($root | scan_regex(["*.py"]; [
+      "return\\s+[\\s\\S]*?\\s+(?P<S>\\S+)"
+    ])) as $all
+    | ( $all | of(["return\\s+[\\s\\S]*?\\s+(?P<S>\\S+)"])
+        | finding("code-after-unconditional-return";
+            "code after return statement will not be executed") ) )
 | report

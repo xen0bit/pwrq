@@ -1,4 +1,5 @@
 # rules: do-privileged-use
+# languages: java
 # from: java/lang/security/do-privileged-use.yaml
 
 . as $root

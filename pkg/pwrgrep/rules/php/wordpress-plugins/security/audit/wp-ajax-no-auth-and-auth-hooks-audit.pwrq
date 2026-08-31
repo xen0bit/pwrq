@@ -1,0 +1,13 @@
+# rules: wp-ajax-no-auth-and-auth-hooks-audit
+# languages: php
+# from: php/wordpress-plugins/security/audit/wp-ajax-no-auth-and-auth-hooks-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "add_action($HOOK,$$$_)"
+    ])) as $all
+    | ( $all | of(["add_action($HOOK,$$$_)"])
+          | where_capture("HOOK"; "^(?:'wp_ajax_.*')")
+        | finding("wp-ajax-no-auth-and-auth-hooks-audit";
+            "These hooks allow the developer to handle the custom AJAX endpoints.\"wp_ajax_$action\" hook get fires for any authenticated user and \"wp_ajax_nopriv_$action\" hook get fires for non-authenticated users.") ) )
+| report

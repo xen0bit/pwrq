@@ -365,11 +365,25 @@ func matchObject(path, language, pattern string, source []byte, r grep.Result) a
 	// a hole written twice, which hold the same text as the first. None of
 	// them is a name anybody wrote, so none is reported. See sexp.go.
 	captures := map[string]any{}
+	// Where a hole landed, as well as what it caught. A rule that wants to
+	// report the argument rather than the call it sits in needs the span, and
+	// a capture that only carries text has nothing to point at.
+	spans := map[string]any{}
 	for name, c := range r.Captures {
 		if name == rootCapture || name == ellipsisName || strings.Contains(name, againSuffix) {
 			continue
 		}
 		captures[name] = string(c.Text)
+		startLine, startColumn := position(source, c.StartByte)
+		endLine, endColumn := position(source, c.EndByte)
+		spans[name] = map[string]any{
+			"LineNumber":    startLine,
+			"Column":        startColumn,
+			"EndLineNumber": endLine,
+			"EndColumn":     endColumn,
+			"Offset":        int(c.StartByte),
+			"EndOffset":     min(int(c.EndByte), len(source)),
+		}
 	}
 
 	return AstMatch.Build(map[string]any{
@@ -384,6 +398,7 @@ func matchObject(path, language, pattern string, source []byte, r grep.Result) a
 		"EndOffset":     end,
 		"Text":          string(source[min(int(r.StartByte), end):end]),
 		"Captures":      captures,
+		"CaptureSpans":  spans,
 		"PwrqValue":     path,
 	})
 }

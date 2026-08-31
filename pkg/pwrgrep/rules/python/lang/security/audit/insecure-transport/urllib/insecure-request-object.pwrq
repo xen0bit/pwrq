@@ -1,4 +1,5 @@
 # rules: insecure-request-object
+# languages: python
 # from: python/lang/security/audit/insecure-transport/urllib/insecure-request-object.yaml
 
 . as $root

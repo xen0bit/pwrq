@@ -1,4 +1,5 @@
 # rules: insecure-createnodesfrommarkup
+# languages: javascript, typescript
 # from: javascript/fbjs/security/audit/insecure-createnodesfrommarkup.yaml
 
 . as $root

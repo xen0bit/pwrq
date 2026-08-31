@@ -1,0 +1,20 @@
+# rules: bad-deserialization
+# languages: ruby
+# from: ruby/lang/security/bad-deserialization.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "CSV.load($$$_)",
+      "Marshal.load($$$_)",
+      "Marshal.restore($$$_)",
+      "Oj.load($X)",
+      "Oj.object_load($$$_)",
+      "cookies",
+      "params"
+    ])) as $all
+    | ( (($all | of(["CSV.load($$$_)","Marshal.load($$$_)","Marshal.restore($$$_)","Oj.object_load($$$_)","Oj.load($X)"])))
+          | reaching((($all | of(["params","cookies"])));
+              ([]))
+        | finding("bad-deserialization";
+            "Checks for unsafe deserialization.") ) )
+| report

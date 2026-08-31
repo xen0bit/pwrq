@@ -1,4 +1,5 @@
 # rules: java-weak-random
+# languages: java
 # fixture: java/weak-random.java
 # from: java/lang/security/audit/crypto/weak-random.yaml (weak-random)
 #

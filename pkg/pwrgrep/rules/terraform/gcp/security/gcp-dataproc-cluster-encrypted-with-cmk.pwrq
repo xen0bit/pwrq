@@ -1,0 +1,14 @@
+# rules: gcp-dataproc-cluster-encrypted-with-cmk
+# languages: hcl
+# from: terraform/gcp/security/gcp-dataproc-cluster-encrypted-with-cmk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_dataproc_cluster\" $ANYTHING {\n  $$$_\n  cluster_config {\n    encryption_config {\n      $$$_\n      kms_key_name = $$$_\n      $$$_\n    }\n  }\n  $$$_\n}",
+      "resource \"google_dataproc_cluster\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_dataproc_cluster\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_dataproc_cluster\" $ANYTHING {\n  $$$_\n  cluster_config {\n    encryption_config {\n      $$$_\n      kms_key_name = $$$_\n      $$$_\n    }\n  }\n  $$$_\n}"]))
+        | finding("gcp-dataproc-cluster-encrypted-with-cmk";
+            "Ensure Dataproc cluster is encrypted with Customer Supplied Encryption Keys (CSEK)") ) )
+| report

@@ -1,0 +1,26 @@
+# rules: conf-csrf-headers-bypass
+# from: scala/play/security/conf-csrf-headers-bypass.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf"]; [
+      "Csrf\\-Token\\s+=\\s+\"[\\s\\S]*?\"",
+      "X\\-Requested\\-With\\s+=\\s+\"\\*\"",
+      "\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}",
+      "\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}",
+      "\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}",
+      "\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}",
+      "\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}",
+      "\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}",
+      "bypassHeaders\\s+\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"
+    ])) as $all
+    | ( $all | of(["X\\-Requested\\-With\\s+=\\s+\"\\*\"","Csrf\\-Token\\s+=\\s+\"[\\s\\S]*?\""])
+          | within($all | of(["bypassHeaders\\s+\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"]))
+          | outside($all | of(["\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"]))
+          | outside($all | of(["\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"]))
+          | outside($all | of(["\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"]))
+          | outside($all | of(["\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"]))
+          | outside($all | of(["\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"]))
+          | outside($all | of(["\\{[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?blackList\\s+=\\s+\\[[\\s\\S]*?\"text\\/plain\"[\\s\\S]*?\"multipart\\/form\\-data\"[\\s\\S]*?\"application\\/x\\-www\\-form\\-urlencoded\"[\\s\\S]*?\\]\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\}"]))
+        | finding("conf-csrf-headers-bypass";
+            "Possibly bypassable CSRF configuration found.") ) )
+| report

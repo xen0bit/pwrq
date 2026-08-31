@@ -1,0 +1,16 @@
+# rules: azure-appservice-python-version
+# languages: hcl
+# from: terraform/azure/best-practice/azure-appservice-python-version.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nsite_config {\n  $$$_\n  python_version = \"3.10\"\n  $$$_\n}\n$$$_\n}",
+      "resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\nsite_config {\n  $$$_\n  python_version = \"3.10\"\n  $$$_\n}\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_app_service\" \"$$$_\" {\n$$$_\n}"]))
+        | finding("azure-appservice-python-version";
+            "Ensure that Python version is the latest, if used to run the web app") ) )
+| report

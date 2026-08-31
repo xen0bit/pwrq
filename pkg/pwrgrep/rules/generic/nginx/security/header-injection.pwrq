@@ -1,0 +1,11 @@
+# rules: header-injection
+# from: generic/nginx/security/header-injection.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "location\\s+[\\s\\S]*?\\s+<(?P<VARIABLE>\\S+)>\\s+[\\s\\S]*?\\s+\\{\\s+[\\s\\S]*?\\s+add_header\\s+[\\s\\S]*?\\s+\\$(?P<VARIABLE>\\S+)\\s+[\\s\\S]*?\\s+\\}"
+    ])) as $all
+    | ( $all | of(["location\\s+[\\s\\S]*?\\s+<(?P<VARIABLE>\\S+)>\\s+[\\s\\S]*?\\s+\\{\\s+[\\s\\S]*?\\s+add_header\\s+[\\s\\S]*?\\s+\\$(?P<VARIABLE>\\S+)\\s+[\\s\\S]*?\\s+\\}"])
+        | finding("header-injection";
+            "The $$VARIABLE path parameter is added as a header in the response.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: detect-pseudoRandomBytes
+# languages: javascript, typescript
 # from: javascript/lang/security/detect-pseudoRandomBytes.yaml
 
 . as $root

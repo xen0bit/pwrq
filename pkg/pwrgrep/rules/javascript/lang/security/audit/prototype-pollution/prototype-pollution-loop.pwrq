@@ -1,0 +1,30 @@
+# rules: prototype-pollution-loop
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/prototype-pollution/prototype-pollution-loop.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$SMTH = $SMTH[$A]",
+      "$SMTH = $SMTH[$A] && $Z",
+      "$SMTH = $SMTH[$A] = $$$_",
+      "$SMTH = $SMTH[$A] || $Z",
+      "$X.forEach(function $NAME($$$_) {\n  $$$_\n})",
+      "$X.forEach(function $NAME($OBJ, $A,$$$_) {$$$_})",
+      "for($$$_) {\n  $$$_\n}",
+      "for($A = $S; $$$_; $$$_) {$$$_}",
+      "for(var $A = $S; $$$_; $$$_) {$$$_}",
+      "while($$$_) {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$SMTH = $SMTH[$A]","$SMTH = $SMTH[$A] = $$$_","$SMTH = $SMTH[$A] && $Z","$SMTH = $SMTH[$A] || $Z"])
+          | at_same_place((($all
+          | within($all | of(["for($$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["while($$$_) {\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["$X.forEach(function $NAME($$$_) {\n  $$$_\n})"])))))
+          | outside($all | of(["for(var $A = $S; $$$_; $$$_) {$$$_}"]))
+          | outside($all | of(["for($A = $S; $$$_; $$$_) {$$$_}"]))
+          | outside($all | of(["$X.forEach(function $NAME($OBJ, $A,$$$_) {$$$_})"]))
+        | finding("prototype-pollution-loop";
+            "Possibility of prototype polluting function detected.") ) )
+| report

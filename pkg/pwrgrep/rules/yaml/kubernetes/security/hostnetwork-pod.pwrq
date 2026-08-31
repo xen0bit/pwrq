@@ -2,12 +2,12 @@
 # from: yaml/kubernetes/security/hostnetwork-pod.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "hostNetwork: true",
-      "spec:\n  $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "hostNetwork:\\s+true",
+      "spec:\\s+[\\s\\S]*?"
     ])) as $all
-    | ( $all | of(["hostNetwork: true"])
-          | within($all | of(["spec:\n  $$$_"]))
+    | ( $all | of(["hostNetwork:\\s+true"])
+          | within($all | of(["spec:\\s+[\\s\\S]*?"]))
         | finding("hostnetwork-pod";
             "Pod may use the node network namespace.") ) )
 | report

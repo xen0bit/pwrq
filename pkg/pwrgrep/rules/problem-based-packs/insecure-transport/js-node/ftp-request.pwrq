@@ -1,4 +1,5 @@
 # rules: ftp-request
+# languages: javascript, typescript
 # from: problem-based-packs/insecure-transport/js-node/ftp-request.yaml
 
 . as $root

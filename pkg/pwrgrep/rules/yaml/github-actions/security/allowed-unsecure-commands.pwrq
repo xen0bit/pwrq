@@ -1,4 +1,5 @@
 # rules: allowed-unsecure-commands
+# languages: yaml
 # from: yaml/github-actions/security/allowed-unsecure-commands.yaml
 
 . as $root

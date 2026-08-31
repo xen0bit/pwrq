@@ -1,0 +1,32 @@
+# rules: openssl-decrypt-validate
+# languages: php
+# from: php/lang/security/audit/openssl-decrypt-validate.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\n$REFERENCE::assertTrue($DECRYPTED_STRING !== false,$$$_);",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\n$REFERENCE::assertTrue(false !== $DECRYPTED_STRING,$$$_);",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassert($DECRYPTED_STRING !== false,$$$_);",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassert(false !== $DECRYPTED_STRING,$$$_);",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassertTrue($DECRYPTED_STRING !== false,$$$_);",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassertTrue(false !== $DECRYPTED_STRING,$$$_);",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif($DECRYPTED_STRING == false){\n  $$$_\n}",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif($DECRYPTED_STRING === false){\n  $$$_\n}",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif(false == $DECRYPTED_STRING){\n  $$$_\n}",
+      "$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif(false === $DECRYPTED_STRING){\n  $$$_\n}",
+      "openssl_decrypt($$$_);"
+    ])) as $all
+    | ( $all | of(["openssl_decrypt($$$_);"])
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif($DECRYPTED_STRING === false){\n  $$$_\n}"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif($DECRYPTED_STRING == false){\n  $$$_\n}"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif(false === $DECRYPTED_STRING){\n  $$$_\n}"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nif(false == $DECRYPTED_STRING){\n  $$$_\n}"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassertTrue(false !== $DECRYPTED_STRING,$$$_);"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassertTrue($DECRYPTED_STRING !== false,$$$_);"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\n$REFERENCE::assertTrue(false !== $DECRYPTED_STRING,$$$_);"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\n$REFERENCE::assertTrue($DECRYPTED_STRING !== false,$$$_);"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassert(false !== $DECRYPTED_STRING,$$$_);"]))
+          | outside($all | of(["$DECRYPTED_STRING = openssl_decrypt($$$_);\n$$$_\nassert($DECRYPTED_STRING !== false,$$$_);"]))
+        | finding("openssl-decrypt-validate";
+            "The function `openssl_decrypt` returns either a string of the decrypted data on success or `false` on failure.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: unlink-use
+# languages: php
 # from: php/lang/security/unlink-use.yaml
 
 . as $root

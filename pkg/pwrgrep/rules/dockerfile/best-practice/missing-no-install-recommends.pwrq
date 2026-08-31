@@ -1,4 +1,5 @@
 # rules: missing-no-install-recommends
+# languages: dockerfile
 # from: dockerfile/best-practice/missing-no-install-recommends.yaml
 
 . as $root

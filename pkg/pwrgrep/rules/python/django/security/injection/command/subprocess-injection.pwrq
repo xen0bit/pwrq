@@ -1,0 +1,33 @@
+# rules: subprocess-injection
+# languages: python
+# from: python/django/security/injection/command/subprocess-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CMD = [\"$$$_\", $$$_]\n$$$_\nsubprocess.$FUNC($CMD, $$$_)",
+      "$DICT[$KEY]",
+      "def $FUNC($$$_, $REQUEST, $$$_):\n  $$$_",
+      "request",
+      "request.build_absolute_uri",
+      "subprocess.$FUNC(\"$$$_\", $$$_)",
+      "subprocess.$FUNC($$$_)",
+      "subprocess.$FUNC([\"$$$_\", $$$_], $$$_)",
+      "subprocess.$FUNC([\"$INTERPRETER\", $$$_], $$$_)",
+      "subprocess.$FUNC([\"$SHELL\", \"-c\", $$$_], $$$_)"
+    ])) as $all
+    | ( ((($all | of(["subprocess.$FUNC($$$_)"])
+          | not_at($all | of(["subprocess.$FUNC(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["subprocess.$FUNC([\"$$$_\", $$$_], $$$_)"]))
+          | outside($all | of(["$CMD = [\"$$$_\", $$$_]\n$$$_\nsubprocess.$FUNC($CMD, $$$_)"])))
+          + ($all | of(["subprocess.$FUNC([\"$SHELL\", \"-c\", $$$_], $$$_)"])
+          | where_capture("SHELL"; "^(sh|bash|ksh|csh|tcsh|zsh)$"))
+          + ($all | of(["subprocess.$FUNC([\"$INTERPRETER\", $$$_], $$$_)"])
+          | where_capture("INTERPRETER"; "^(python|python\\d)$"))))
+          | reaching((($all
+          | within($all | of(["def $FUNC($$$_, $REQUEST, $$$_):\n  $$$_"]))
+          | focus("REQUEST")));
+              (($all | of(["$DICT[$KEY]"])
+          | focus("KEY"))))
+        | finding("subprocess-injection";
+            "Detected user input entering a `subprocess` call unsafely.") ) )
+| report

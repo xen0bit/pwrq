@@ -1,0 +1,14 @@
+# rules: all-origins-allowed
+# languages: hcl
+# from: terraform/lang/security/s3-cors-all-origins.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "allowed_origins = [\"*\"]",
+      "cors_rule { $$$_ }"
+    ])) as $all
+    | ( $all | of(["allowed_origins = [\"*\"]"])
+          | within($all | of(["cors_rule { $$$_ }"]))
+        | finding("all-origins-allowed";
+            "CORS rule on bucket permits any origin") ) )
+| report

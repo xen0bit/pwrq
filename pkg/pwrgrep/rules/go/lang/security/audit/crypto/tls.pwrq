@@ -1,4 +1,5 @@
 # rules: tls-with-insecure-cipher
+# languages: go
 # from: go/lang/security/audit/crypto/tls.yaml
 
 . as $root

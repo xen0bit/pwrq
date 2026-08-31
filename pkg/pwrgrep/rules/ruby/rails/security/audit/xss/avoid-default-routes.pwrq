@@ -1,4 +1,5 @@
 # rules: avoid-default-routes
+# languages: ruby
 # from: ruby/rails/security/audit/xss/avoid-default-routes.yaml
 
 . as $root

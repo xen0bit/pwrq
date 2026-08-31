@@ -1,0 +1,14 @@
+# rules: use_ecb_mode
+# languages: c_sharp
+# from: csharp/dotnet/security/use_ecb_mode.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "($KEYTYPE $KEY).DecryptEcb($$$_);",
+      "($KEYTYPE $KEY).EncryptEcb($$$_);",
+      "($KEYTYPE $KEY).Mode = CipherMode.ECB;"
+    ])) as $all
+    | ( $all | of(["($KEYTYPE $KEY).EncryptEcb($$$_);","($KEYTYPE $KEY).DecryptEcb($$$_);","($KEYTYPE $KEY).Mode = CipherMode.ECB;"])
+        | finding("use_ecb_mode";
+            "Usage of the insecure ECB mode detected.") ) )
+| report

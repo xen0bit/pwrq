@@ -1,4 +1,5 @@
 # rules: jpa-sqli
+# languages: java
 # from: java/lang/security/audit/sqli/jpa-sqli.yaml
 
 . as $root
@@ -14,15 +15,20 @@
       "String $SQL = $X + $Y;\n$$$_",
       "String $SQL = String.format($$$_);\n$$$_"
     ])) as $all
-    | ( (($all)
-          + ($all)
-          + ($all)
+    | ( (($all
+          | in_files_with($all | of(["String $SQL = $X + $Y;\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["String $SQL = String.format($$$_);\n$$$_"])))
+          + ($all
+          | within($all | of(["$TYPE $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}"])))
           | at_same_place(($all | of(["$EM.$METHOD($SQL,$$$_)"])))
           | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
           + ($all | of(["$EM.$METHOD(String.format($$$_),$$$_);"]))
           + ($all | of(["$EM.$METHOD($X + $Y,$$$_);"]))
-          | at_same_place((($all)
-          + ($all)))
+          | at_same_place((($all
+          | in_files_with($all | of(["EntityManager $EM = $$$_;\n$$$_"])))
+          + ($all
+          | within($all | of(["$TYPE $FUNC($$$_,EntityManager $EM,$$$_) {\n  $$$_\n}"])))))
           | not_at($all | of(["$EM.$METHOD(\"$$$_\" + \"$$$_\",$$$_);"]))
           | where_capture("METHOD"; "^(createQuery|createNativeQuery)$")
         | finding("jpa-sqli";

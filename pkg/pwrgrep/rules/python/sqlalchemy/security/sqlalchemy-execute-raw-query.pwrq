@@ -1,4 +1,5 @@
 # rules: sqlalchemy-execute-raw-query
+# languages: python
 # from: python/sqlalchemy/security/sqlalchemy-execute-raw-query.yaml
 
 . as $root

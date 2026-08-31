@@ -1,0 +1,16 @@
+# rules: writable-filesystem-service
+# from: yaml/docker-compose/security/writable-filesystem-service.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?",
+      "(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+read_only:\\s+true",
+      "version:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+services:\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?"])
+          | within($all | of(["version:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+services:\\s+[\\s\\S]*?"]))
+          | not_at($all | of(["(?P<SERVICE>\\S+):\\s+[\\s\\S]*?\\s+image:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+read_only:\\s+true"]))
+          | focus("SERVICE")
+        | finding("writable-filesystem-service";
+            "Service '$SERVICE' is running with a writable root filesystem.") ) )
+| report

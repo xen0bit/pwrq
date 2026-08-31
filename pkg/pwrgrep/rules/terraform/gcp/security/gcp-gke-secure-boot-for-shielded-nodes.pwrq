@@ -1,0 +1,16 @@
+# rules: gcp-gke-secure-boot-for-shielded-nodes
+# languages: hcl
+# from: terraform/gcp/security/gcp-gke-secure-boot-for-shielded-nodes.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nshielded_instance_config {\n  $$$_\n  enable_secure_boot = true\n  $$$_\n}\n$$$_\n}",
+      "resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\n}"]))
+          | outside($all | of(["resource \"google_container_cluster\" \"$$$_\" {\n$$$_\nshielded_instance_config {\n  $$$_\n  enable_secure_boot = true\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-gke-secure-boot-for-shielded-nodes";
+            "Ensure Secure Boot for Shielded GKE Nodes is Enabled") ) )
+| report

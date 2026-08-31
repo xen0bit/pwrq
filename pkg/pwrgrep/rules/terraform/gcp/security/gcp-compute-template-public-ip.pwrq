@@ -1,0 +1,14 @@
+# rules: gcp-compute-template-public-ip
+# languages: hcl
+# from: terraform/gcp/security/gcp-compute-template-public-ip.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_compute_instance_template\" \"$$$_\" {\n$$$_\nnetwork_interface {\n  $$$_\n  network = \"default\"\n  $$$_\n}\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_compute_instance_template\" \"$$$_\" {\n$$$_\nnetwork_interface {\n  $$$_\n  network = \"default\"\n  $$$_\n}\n$$$_\n}"]))
+        | finding("gcp-compute-template-public-ip";
+            "Ensure that Compute instances do not have public IP addresses") ) )
+| report

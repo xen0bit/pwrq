@@ -1,4 +1,5 @@
 # rules: detect-gemini
+# languages: javascript, typescript
 # from: ai/typescript/detect-gemini.yaml
 
 . as $root

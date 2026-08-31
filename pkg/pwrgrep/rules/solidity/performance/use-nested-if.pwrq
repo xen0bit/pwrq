@@ -1,0 +1,13 @@
+# rules: use-nested-if
+# languages: solidity
+# from: solidity/performance/use-nested-if.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "if ($PWRQDEEP1) {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["if ($PWRQDEEP1) {\n  $$$_\n}"])
+          | where_capture_ast("PWRQDEEP1"; "$X && $Y")
+        | finding("use-nested-if";
+            "Using nested is cheaper than using && multiple check combinations.") ) )
+| report

@@ -1,0 +1,16 @@
+# rules: gcp-kms-prevent-destroy
+# languages: hcl
+# from: terraform/gcp/security/gcp-kms-prevent-destroy.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_kms_crypto_key\" \"$$$_\" {\n  $$$_\n  lifecycle {\n    prevent_destroy = true\n  }\n  $$$_\n}",
+      "resource \"google_kms_crypto_key\" \"$$$_\" {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_kms_crypto_key\" \"$$$_\" {\n  $$$_\n}"]))
+          | outside($all | of(["resource \"google_kms_crypto_key\" \"$$$_\" {\n  $$$_\n  lifecycle {\n    prevent_destroy = true\n  }\n  $$$_\n}"]))
+        | finding("gcp-kms-prevent-destroy";
+            "Ensure KMS keys are protected from deletion") ) )
+| report

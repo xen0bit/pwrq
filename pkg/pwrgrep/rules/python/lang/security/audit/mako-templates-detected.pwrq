@@ -1,4 +1,5 @@
 # rules: mako-templates-detected
+# languages: python
 # from: python/lang/security/audit/mako-templates-detected.yaml
 
 . as $root

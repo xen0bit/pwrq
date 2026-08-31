@@ -1,0 +1,18 @@
+# rules: hardcoded-jwt-key
+# languages: go
+# from: go/jwt-go/security/jwt.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$TOKEN.SignedString($F)",
+      "[]byte(\"$F\")"
+    ])) as $all
+    | ( ((($all
+          | within($all | of(["$TOKEN.SignedString($F)"])))
+          | focus("F")))
+          | reaching((($all
+          | within($all | of(["[]byte(\"$F\")"]))));
+              ([]))
+        | finding("hardcoded-jwt-key";
+            "A hard-coded credential was detected.") ) )
+| report

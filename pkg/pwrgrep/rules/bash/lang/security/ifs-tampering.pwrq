@@ -1,4 +1,5 @@
 # rules: ifs-tampering
+# languages: bash
 # from: bash/lang/security/ifs-tampering.yaml
 
 . as $root

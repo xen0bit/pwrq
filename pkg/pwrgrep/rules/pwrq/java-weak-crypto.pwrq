@@ -1,4 +1,5 @@
 # rules: java-weak-crypto
+# languages: java
 # fixture: java/weak-crypto.java
 # from: java/lang/security/audit/crypto/use-of-md5.yaml (use-of-md5), use-of-sha1.yaml (use-of-sha1), use-of-aes-ecb.yaml (use-of-aes-ecb)
 #

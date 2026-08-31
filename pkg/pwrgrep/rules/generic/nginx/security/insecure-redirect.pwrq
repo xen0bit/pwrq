@@ -1,0 +1,18 @@
+# rules: insecure-redirect
+# from: generic/nginx/security/insecure-redirect.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "\\(\\?i\\)https:\\\\\\/\\\\\\/",
+      "rewrite\\s+[\\s\\S]*?\\s+https\\s+[\\s\\S]*?\\s+\\$host\\s+[\\s\\S]*?\\s+permanent",
+      "rewrite\\s+[\\s\\S]*?\\s+https\\s+[\\s\\S]*?\\s+\\$host\\s+[\\s\\S]*?\\s+redirect",
+      "rewrite\\s+[\\s\\S]*?\\s+permanent",
+      "rewrite\\s+[\\s\\S]*?\\s+redirect"
+    ])) as $all
+    | ( $all | of(["rewrite\\s+[\\s\\S]*?\\s+redirect","rewrite\\s+[\\s\\S]*?\\s+permanent"])
+          | outside($all | of(["rewrite\\s+[\\s\\S]*?\\s+https\\s+[\\s\\S]*?\\s+\\$host\\s+[\\s\\S]*?\\s+redirect"]))
+          | outside($all | of(["rewrite\\s+[\\s\\S]*?\\s+https\\s+[\\s\\S]*?\\s+\\$host\\s+[\\s\\S]*?\\s+permanent"]))
+          | not_at($all | of(["\\(\\?i\\)https:\\\\\\/\\\\\\/"]))
+        | finding("insecure-redirect";
+            "Detected an insecure redirect in this nginx configuration.") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: dangerous-globals-use
+# languages: python
 # from: python/lang/security/dangerous-globals-use.yaml
 
 . as $root
@@ -29,8 +30,10 @@
           + ($all | of(["locals().get($$$_)"]))
           + ($all | of(["globals()[$$$_]"]))
           + ($all | of(["locals()[$$$_]"]))
-          + (($all)
-          + ($all)
+          + (($all
+          | in_files_with($all | of(["$G = globals()\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$G = locals()\n$$$_"])))
           | at_same_place(($all | of(["$G.get($$$_)","$G[$$$_]"]))))
           + ($all | of(["$FUNC.__globals__[$$$_]"]))
           | not_at($all | of(["globals().get(\"$$$_\")"]))

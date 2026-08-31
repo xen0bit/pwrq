@@ -1,0 +1,14 @@
+# rules: model-attributes-attr-accessible
+# from: ruby/lang/security/model-attributes-attr-accessible.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.rb"]; [
+      "class\\s+(?P<CLASS>\\S+)\\s+<\\s+(?P<TYPE>\\S+)\\s+[\\s\\S]*?\\s+attr_accessible\\s+:(?P<XXX>\\S+)\\s+[\\s\\S]*?\\s+end\\s+[\\s\\S]*?\\s+(?P<CLASS>\\S+)\\.(?P<FUNC>\\S+)\\([\\s\\S]*?\\)",
+      "class\\s+(?P<CLASS>\\S+)\\s+<\\s+(?P<TYPE>\\S+)\\s+[\\s\\S]*?\\s+end\\s+[\\s\\S]*?\\s+(?P<CLASS>\\S+)\\.(?P<FUNC>\\S+)\\([\\s\\S]*?\\)"
+    ])) as $all
+    | ( $all | of(["class\\s+(?P<CLASS>\\S+)\\s+<\\s+(?P<TYPE>\\S+)\\s+[\\s\\S]*?\\s+end\\s+[\\s\\S]*?\\s+(?P<CLASS>\\S+)\\.(?P<FUNC>\\S+)\\([\\s\\S]*?\\)"])
+          | not_at($all | of(["class\\s+(?P<CLASS>\\S+)\\s+<\\s+(?P<TYPE>\\S+)\\s+[\\s\\S]*?\\s+attr_accessible\\s+:(?P<XXX>\\S+)\\s+[\\s\\S]*?\\s+end\\s+[\\s\\S]*?\\s+(?P<CLASS>\\S+)\\.(?P<FUNC>\\S+)\\([\\s\\S]*?\\)"]))
+          | focus("CLASS")
+        | finding("model-attributes-attr-accessible";
+            "Checks for models that do not use attr_accessible.") ) )
+| report

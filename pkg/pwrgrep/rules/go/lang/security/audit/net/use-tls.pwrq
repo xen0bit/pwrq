@@ -1,4 +1,5 @@
 # rules: use-tls
+# languages: go
 # from: go/lang/security/audit/net/use-tls.yaml
 
 . as $root

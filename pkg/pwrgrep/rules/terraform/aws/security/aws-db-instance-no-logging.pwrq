@@ -1,0 +1,14 @@
+# rules: aws-db-instance-no-logging
+# languages: hcl
+# from: terraform/aws/security/aws-db-instance-no-logging.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n  enabled_cloudwatch_logs_exports = [$SOMETHING, $$$_]\n  $$$_\n}",
+      "resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n  enabled_cloudwatch_logs_exports = [$SOMETHING, $$$_]\n  $$$_\n}"]))
+        | finding("aws-db-instance-no-logging";
+            "Database instance has no logging.") ) )
+| report

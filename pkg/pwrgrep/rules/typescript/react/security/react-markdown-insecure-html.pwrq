@@ -1,0 +1,26 @@
+# rules: react-markdown-insecure-html
+# from: typescript/react/security/react-markdown-insecure-html.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.js","*.ts"]; [
+      "(?P<X>\\S+)\\s+=\\s+require\\('react\\-markdown'\\);\\s+[\\s\\S]*?",
+      "(?P<X>\\S+)\\s+=\\s+require\\('react\\-markdown\\/with\\-html'\\);\\s+[\\s\\S]*?",
+      "<(?P<EL>\\S+)\\s+allowDangerousHtml\\s+\\/>",
+      "<(?P<EL>\\S+)\\s+escapeHtml=\\{false\\}\\s+\\/>",
+      "<(?P<EL>\\S+)\\s+transformImageUri=[\\s\\S]*?\\s+\\/>",
+      "<(?P<EL>\\S+)\\s+transformLinkUri=[\\s\\S]*?\\s+\\/>",
+      "import\\s+'react\\-markdown';\\s+[\\s\\S]*?",
+      "import\\s+'react\\-markdown\\/with\\-html';\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( ($all
+          | in_files_with($all | of(["(?P<X>\\S+)\\s+=\\s+require\\('react\\-markdown\\/with\\-html'\\);\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["(?P<X>\\S+)\\s+=\\s+require\\('react\\-markdown'\\);\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["import\\s+'react\\-markdown\\/with\\-html';\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["import\\s+'react\\-markdown';\\s+[\\s\\S]*?"])))
+          | at_same_place(($all | of(["<(?P<EL>\\S+)\\s+allowDangerousHtml\\s+\\/>","<(?P<EL>\\S+)\\s+escapeHtml=\\{false\\}\\s+\\/>","<(?P<EL>\\S+)\\s+transformLinkUri=[\\s\\S]*?\\s+\\/>","<(?P<EL>\\S+)\\s+transformImageUri=[\\s\\S]*?\\s+\\/>"])))
+        | finding("react-markdown-insecure-html";
+            "Overwriting `transformLinkUri` or `transformImageUri` to something insecure, or turning `allowDangerousHtml` on, or turning `escapeHtml` off, will open the code up to XSS vectors.") ) )
+| report

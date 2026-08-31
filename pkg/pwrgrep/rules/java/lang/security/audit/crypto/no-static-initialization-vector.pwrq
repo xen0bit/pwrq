@@ -1,4 +1,5 @@
 # rules: no-static-initialization-vector
+# languages: java
 # from: java/lang/security/audit/crypto/no-static-initialization-vector.yaml
 
 . as $root

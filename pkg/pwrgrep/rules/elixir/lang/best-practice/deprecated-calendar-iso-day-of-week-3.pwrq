@@ -1,4 +1,5 @@
 # rules: deprecated_calendar_iso_day_of_week_3
+# languages: elixir
 # from: elixir/lang/best-practice/deprecated-calendar-iso-day-of-week-3.yaml
 
 . as $root

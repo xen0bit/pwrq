@@ -1,4 +1,5 @@
 # rules: insecure-cipher-algorithm-xor
+# languages: python
 # from: python/pycryptodome/security/insecure-cipher-algorithm.yaml
 
 . as $root

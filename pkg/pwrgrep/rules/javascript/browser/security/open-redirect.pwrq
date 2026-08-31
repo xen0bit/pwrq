@@ -1,0 +1,65 @@
+# rules: js-open-redirect
+# languages: javascript, typescript
+# from: javascript/browser/security/open-redirect.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$$$_\" + $VALUE",
+      "$PROP",
+      "$PROP = new URLSearchParams($WINDOW. $$$_ .location.hash.substring(1)).get('$$$_')\n$$$_",
+      "$PROP = new URLSearchParams($WINDOW. $$$_ .location.search).get('$$$_')\n$$$_",
+      "$PROP = new URLSearchParams(location.hash.substring(1)).get('$$$_')\n$$$_",
+      "$PROP = new URLSearchParams(location.search).get('$$$_')\n$$$_",
+      "$PROPS",
+      "$PROPS = new URL($WINDOW. $$$_ .location.href)\n$$$_",
+      "$PROPS = new URL($WINDOW. $$$_ .location.href).searchParams.get('$$$_')\n$$$_",
+      "$PROPS = new URL(location.href)\n$$$_",
+      "$PROPS = new URL(location.href).searchParams.get('$$$_')\n$$$_",
+      "$PROPS = new URLSearchParams($WINDOW. $$$_ .location.hash.substring(1))\n$$$_",
+      "$PROPS = new URLSearchParams($WINDOW. $$$_ .location.search)\n$$$_",
+      "$PROPS = new URLSearchParams(location.hash.substring(1))\n$$$_",
+      "$PROPS = new URLSearchParams(location.search)\n$$$_",
+      "$PROPS.get('$$$_')",
+      "$PROPS.searchParams.get('$$$_')",
+      "$THIS. $$$_ .location.href = $SINK",
+      "$THIS. $$$_ .location.replace($SINK)",
+      "$WINDOW. $$$_ .location = $SINK",
+      "`$$$_${$VALUE}`",
+      "location = $SINK",
+      "location.href = $SINK",
+      "location.replace($SINK)"
+    ])) as $all
+    | ( (($all | of(["location.href = $SINK","$THIS. $$$_ .location.href = $SINK","location.replace($SINK)","$THIS. $$$_ .location.replace($SINK)","location = $SINK","$WINDOW. $$$_ .location = $SINK"])
+          | focus("SINK")))
+          | reaching(((($all
+          | in_files_with($all | of(["$PROP = new URLSearchParams($WINDOW. $$$_ .location.search).get('$$$_')\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROP = new URLSearchParams(location.search).get('$$$_')\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROP = new URLSearchParams($WINDOW. $$$_ .location.hash.substring(1)).get('$$$_')\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROP = new URLSearchParams(location.hash.substring(1)).get('$$$_')\n$$$_"])))
+          | at_same_place(($all | of(["$PROP"]))))
+              + (($all
+          | in_files_with($all | of(["$PROPS = new URLSearchParams($WINDOW. $$$_ .location.search)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROPS = new URLSearchParams(location.search)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROPS = new URLSearchParams($WINDOW. $$$_ .location.hash.substring(1))\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROPS = new URLSearchParams(location.hash.substring(1))\n$$$_"])))
+          | at_same_place(($all | of(["$PROPS.get('$$$_')"]))))
+              + (($all
+          | in_files_with($all | of(["$PROPS = new URL($WINDOW. $$$_ .location.href)\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROPS = new URL(location.href)\n$$$_"])))
+          | at_same_place(($all | of(["$PROPS.searchParams.get('$$$_')"]))))
+              + (($all
+          | in_files_with($all | of(["$PROPS = new URL($WINDOW. $$$_ .location.href).searchParams.get('$$$_')\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$PROPS = new URL(location.href).searchParams.get('$$$_')\n$$$_"])))
+          | at_same_place(($all | of(["$PROPS"])))));
+              ([]))
+        | finding("js-open-redirect";
+            "The application accepts potentially user-controlled input `$PROP` which can control the location of the current window context.") ) )
+| report

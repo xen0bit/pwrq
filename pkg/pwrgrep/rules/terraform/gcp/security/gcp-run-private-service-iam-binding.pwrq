@@ -1,0 +1,18 @@
+# rules: gcp-run-private-service-iam-binding
+# languages: hcl
+# from: terraform/gcp/security/gcp-run-private-service-iam-binding.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_cloud_run_service_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allAuthenticatedUsers\", $$$_]\n$$$_\n}",
+      "resource \"google_cloud_run_service_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allUsers\", $$$_]\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | at_same_place((($all
+          | within($all | of(["resource \"google_cloud_run_service_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allAuthenticatedUsers\", $$$_]\n$$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"google_cloud_run_service_iam_binding\" \"$$$_\" {\n$$$_\nmembers = [ $$$_, \"allUsers\", $$$_]\n$$$_\n}"])))))
+        | finding("gcp-run-private-service-iam-binding";
+            "Ensure that GCP Cloud Run services are not anonymously or publicly accessible") ) )
+| report

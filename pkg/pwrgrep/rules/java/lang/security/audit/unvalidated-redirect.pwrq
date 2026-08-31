@@ -1,0 +1,25 @@
+# rules: unvalidated-redirect
+# languages: java
+# from: java/lang/security/audit/unvalidated-redirect.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$REQ.getParameter($$$_));\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.sendRedirect($REQ.getParameter($$$_));\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$REQ.getParameter($$$_));\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  $RES.sendRedirect($REQ.getParameter($$$_));\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_,String $URL,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,HttpServletResponse $RES,$$$_,String $URL,$$$_) {\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  HttpServletResponse $RES = $$$_;\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  HttpServletResponse $RES = $$$_;\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,String $URL,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,String $URL,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$X $METHOD($$$_,HttpServletResponse $RES,$$$_,String $URL,$$$_) {\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}","$X $METHOD($$$_,String $URL,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}","$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}","$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}","$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  HttpServletResponse $RES = $$$_;\n  $$$_\n  $RES.sendRedirect($URL);\n  $$$_\n}","$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.sendRedirect($REQ.getParameter($$$_));\n  $$$_\n}","$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  $RES.sendRedirect($REQ.getParameter($$$_));\n  $$$_\n}","$X $METHOD($$$_,HttpServletResponse $RES,$$$_,String $URL,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}","$X $METHOD($$$_,String $URL,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}","$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}","$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  String $URL = $REQ.getParameter($$$_);\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}","$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  HttpServletResponse $RES = $$$_;\n  $$$_\n  $RES.addHeader(\"Location\",$URL);\n  $$$_\n}","$X $METHOD($$$_,HttpServletRequest $REQ,$$$_,HttpServletResponse $RES,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$REQ.getParameter($$$_));\n  $$$_\n}","$X $METHOD($$$_,HttpServletResponse $RES,$$$_,HttpServletRequest $REQ,$$$_) {\n  $$$_\n  $RES.addHeader(\"Location\",$REQ.getParameter($$$_));\n  $$$_\n}"])
+        | finding("unvalidated-redirect";
+            "Application redirects to a destination URL specified by a user-supplied parameter that is not validated.") ) )
+| report

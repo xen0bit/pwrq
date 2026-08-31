@@ -1,4 +1,5 @@
 # rules: disabled-cert-validation
+# languages: python
 # from: python/requests/security/disabled-cert-validation.yaml
 
 . as $root

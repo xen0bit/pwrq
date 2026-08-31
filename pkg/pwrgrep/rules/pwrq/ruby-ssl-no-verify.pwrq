@@ -1,4 +1,5 @@
 # rules: ruby-ssl-no-verify
+# languages: ruby
 # fixture: ruby/ssl-no-verify.rb
 # from: ruby/lang/security/ssl-mode-no-verify.yaml (ssl-mode-no-verify)
 #

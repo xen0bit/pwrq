@@ -1,4 +1,5 @@
 # rules: ssl-v3-is-insecure
+# languages: go
 # from: go/lang/security/audit/crypto/ssl.yaml
 
 . as $root

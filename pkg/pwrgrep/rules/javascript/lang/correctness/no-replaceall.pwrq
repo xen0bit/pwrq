@@ -1,4 +1,5 @@
 # rules: no-replaceall
+# languages: javascript, typescript
 # from: javascript/lang/correctness/no-replaceall.yaml
 
 . as $root

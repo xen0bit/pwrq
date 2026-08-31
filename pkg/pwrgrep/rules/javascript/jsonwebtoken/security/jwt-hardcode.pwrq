@@ -1,0 +1,40 @@
+# rules: hardcoded-jwt-secret
+# languages: javascript, typescript
+# from: javascript/jsonwebtoken/security/jwt-hardcode.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$JWT = require(\"jsonwebtoken\")\n$$$_",
+      "$JWT.sign($DATA,\"$$$_\",$$$_);",
+      "$JWT.sign($DATA,$VALUE,$$$_);",
+      "$JWT.verify($DATA,\"$$$_\",$$$_);",
+      "$JWT.verify($DATA,$VALUE,$$$_);",
+      "$X = '$$$_'",
+      "$X = '$Y'",
+      "import $JWT from \"jsonwebtoken\"\n$$$_",
+      "import * as $JWT from \"jsonwebtoken\"\n$$$_",
+      "import {$$$_,$JWT,$$$_} from \"jsonwebtoken\"\n$$$_"
+    ])) as $all
+    | ( ((($all
+          | in_files_with($all | of(["$JWT = require(\"jsonwebtoken\")\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import $JWT from \"jsonwebtoken\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import * as $JWT from \"jsonwebtoken\"\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import {$$$_,$JWT,$$$_} from \"jsonwebtoken\"\n$$$_"])))
+          | at_same_place((($all
+          | within($all | of(["$JWT.sign($DATA,$VALUE,$$$_);"])))
+          + ($all
+          | within($all | of(["$JWT.verify($DATA,$VALUE,$$$_);"])))))
+          | focus("VALUE")))
+          | reaching((($all | of(["$X = '$$$_'"])
+          | at_same_place(($all | of(["$X = '$Y'"]))))
+              + (($all
+          | within($all | of(["$JWT.sign($DATA,\"$$$_\",$$$_);"])))
+          + ($all
+          | within($all | of(["$JWT.verify($DATA,\"$$$_\",$$$_);"])))));
+              ([]))
+        | finding("hardcoded-jwt-secret";
+            "A hard-coded credential was detected.") ) )
+| report

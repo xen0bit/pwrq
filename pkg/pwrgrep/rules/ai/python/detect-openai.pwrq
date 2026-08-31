@@ -1,4 +1,5 @@
 # rules: detect-openai
+# languages: python
 # from: ai/python/detect-openai.yaml
 
 . as $root

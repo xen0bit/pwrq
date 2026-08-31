@@ -1,4 +1,5 @@
 # rules: awscdk-sqs-unencryptedqueue
+# languages: typescript
 # from: typescript/aws-cdk/security/audit/awscdk-sqs-unencryptedqueue.yml
 
 . as $root

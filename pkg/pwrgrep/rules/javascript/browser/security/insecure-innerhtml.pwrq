@@ -1,4 +1,5 @@
 # rules: insecure-innerhtml
+# languages: javascript, typescript
 # from: javascript/browser/security/insecure-innerhtml.yaml
 
 . as $root

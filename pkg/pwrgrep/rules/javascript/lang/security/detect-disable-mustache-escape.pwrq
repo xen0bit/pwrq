@@ -1,4 +1,5 @@
 # rules: detect-disable-mustache-escape
+# languages: javascript, typescript
 # from: javascript/lang/security/detect-disable-mustache-escape.yaml
 
 . as $root

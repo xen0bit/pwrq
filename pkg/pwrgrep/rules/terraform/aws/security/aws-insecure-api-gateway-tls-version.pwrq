@@ -1,0 +1,16 @@
+# rules: aws-insecure-api-gateway-tls-version
+# from: terraform/aws/security/aws-insecure-api-gateway-tls-version.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.tf"]; [
+      "resource\\s+\"aws_api_gateway_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+security_policy\\s+=\\s+\"TLS_1_2\"\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+\"aws_api_gateway_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+security_policy\\s+=\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+\"aws_apigatewayv2_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+domain_name_configuration\\s+\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?\\s+\\}",
+      "resource\\s+\"aws_apigatewayv2_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+domain_name_configuration\\s+\\{\\s+[\\s\\S]*?\\s+security_policy\\s+=\\s+\"TLS_1_2\"\\s+[\\s\\S]*?\\s+\\}\\s+\\}"
+    ])) as $all
+    | ( $all | of(["resource\\s+\"aws_api_gateway_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+security_policy\\s+=\\s+\"[\\s\\S]*?\"\\s+[\\s\\S]*?\\s+\\}","resource\\s+\"aws_apigatewayv2_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+domain_name_configuration\\s+\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?\\s+\\}"])
+          | not_at($all | of(["resource\\s+\"aws_api_gateway_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+security_policy\\s+=\\s+\"TLS_1_2\"\\s+[\\s\\S]*?\\s+\\}"]))
+          | not_at($all | of(["resource\\s+\"aws_apigatewayv2_domain_name\"\\s+(?P<ANYTHING>\\S+)\\s+\\{\\s+[\\s\\S]*?\\s+domain_name_configuration\\s+\\{\\s+[\\s\\S]*?\\s+security_policy\\s+=\\s+\"TLS_1_2\"\\s+[\\s\\S]*?\\s+\\}\\s+\\}"]))
+        | finding("aws-insecure-api-gateway-tls-version";
+            "Detected AWS API Gateway to be using an insecure version of TLS.") ) )
+| report

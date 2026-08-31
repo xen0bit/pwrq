@@ -1,0 +1,25 @@
+# rules: unsafe-dynamic-method
+# languages: javascript, typescript
+# from: javascript/lang/security/audit/unsafe-dynamic-method.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$OBJ[$X]($$$_)",
+      "$SMTH.forEach($$$_)",
+      "$SMTH.map($$$_)",
+      "$SMTH.reduce($$$_)",
+      "$SMTH.reduceRight($$$_)",
+      "$Y = $OBJ[$X]\n$$$_\n$Y($$$_)",
+      "for ($$$_) {$$$_}",
+      "if ($PWRQDEEP1) {\n  $$$_\n}\n$$$_"
+    ])) as $all
+    | ( $all | of(["$OBJ[$X]($$$_)","$Y = $OBJ[$X]\n$$$_\n$Y($$$_)"])
+          | outside($all | of(["for ($$$_) {$$$_}"]))
+          | outside($all | of(["$SMTH.forEach($$$_)"]))
+          | outside($all | of(["$SMTH.map($$$_)"]))
+          | outside($all | of(["$SMTH.reduce($$$_)"]))
+          | outside($all | of(["$SMTH.reduceRight($$$_)"]))
+          | in_files_without($all | of(["if ($PWRQDEEP1) {\n  $$$_\n}\n$$$_"]))
+        | finding("unsafe-dynamic-method";
+            "Using non-static data to retrieve and run functions from the object is dangerous.") ) )
+| report

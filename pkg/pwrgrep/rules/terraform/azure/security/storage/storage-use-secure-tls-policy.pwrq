@@ -1,0 +1,18 @@
+# rules: storage-use-secure-tls-policy
+# languages: hcl
+# from: terraform/azure/security/storage/storage-use-secure-tls-policy.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n  $$$_\n  min_tls_version = \"$ANYTHING\"\n  $$$_\n}",
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n  $$$_\n  min_tls_version = \"TLS1_2\"\n  $$$_\n}",
+      "resource \"azurerm_storage_account\" \"$$$_\" {\n  $$$_\n}"
+    ])) as $all
+    | ( ($all
+          | within($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n  $$$_\n  min_tls_version = \"$ANYTHING\"\n  $$$_\n}"])))
+          + ($all
+          | within($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n  $$$_\n}"])))
+          | outside($all | of(["resource \"azurerm_storage_account\" \"$$$_\" {\n  $$$_\n  min_tls_version = \"TLS1_2\"\n  $$$_\n}"]))
+        | finding("storage-use-secure-tls-policy";
+            "Azure Storage currently supports three versions of the TLS protocol: 1.0, 1.1, and 1.2.") ) )
+| report

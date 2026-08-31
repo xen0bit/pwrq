@@ -1,4 +1,5 @@
 # rules: debug-enabled
+# languages: python
 # from: python/flask/security/audit/debug-enabled.yaml
 
 . as $root

@@ -1,0 +1,14 @@
+# rules: aws-ecr-mutable-image-tags
+# languages: hcl
+# from: terraform/aws/security/aws-ecr-mutable-image-tags.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_ecr_repository\" $ANYTHING {\n  $$$_\n  image_tag_mutability = \"IMMUTABLE\"\n  $$$_\n}",
+      "resource \"aws_ecr_repository\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_ecr_repository\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_ecr_repository\" $ANYTHING {\n  $$$_\n  image_tag_mutability = \"IMMUTABLE\"\n  $$$_\n}"]))
+        | finding("aws-ecr-mutable-image-tags";
+            "The ECR repository allows tag mutability.") ) )
+| report

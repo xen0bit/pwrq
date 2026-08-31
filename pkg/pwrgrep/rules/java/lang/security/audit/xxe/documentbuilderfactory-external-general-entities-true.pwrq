@@ -1,4 +1,5 @@
 # rules: documentbuilderfactory-external-general-entities-true
+# languages: java
 # from: java/lang/security/audit/xxe/documentbuilderfactory-external-general-entities-true.yaml
 
 . as $root

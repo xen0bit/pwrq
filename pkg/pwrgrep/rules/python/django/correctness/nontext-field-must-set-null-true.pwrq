@@ -1,4 +1,5 @@
 # rules: nontext-field-must-set-null-true
+# languages: python
 # from: python/django/correctness/nontext-field-must-set-null-true.yaml
 
 . as $root

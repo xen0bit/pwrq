@@ -1,0 +1,14 @@
+# rules: insecure-hash-algorithm-md5
+# languages: python
+# from: python/cryptography/security/insecure-hash-algorithms-md5.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "cryptography.hazmat.primitives.hashes.$MD5()"
+    ])) as $all
+    | ( $all | of(["cryptography.hazmat.primitives.hashes.$MD5()"])
+          | where_capture("MD5"; "^(MD5)$")
+          | focus("MD5")
+        | finding("insecure-hash-algorithm-md5";
+            "Detected MD5 hash algorithm which is considered insecure.") ) )
+| report

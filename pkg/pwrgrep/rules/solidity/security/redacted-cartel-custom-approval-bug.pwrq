@@ -1,0 +1,14 @@
+# rules: redacted-cartel-custom-approval-bug
+# languages: solidity
+# from: solidity/security/redacted-cartel-custom-approval-bug.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "_approve($$$_, allowance(sender, recipient).sub(amount, $$$_), $$$_);",
+      "function transferFrom($$$_) {\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["_approve($$$_, allowance(sender, recipient).sub(amount, $$$_), $$$_);"])
+          | within($all | of(["function transferFrom($$$_) {\n$$$_\n}"]))
+        | finding("redacted-cartel-custom-approval-bug";
+            "transferFrom() can steal allowance of other accounts") ) )
+| report

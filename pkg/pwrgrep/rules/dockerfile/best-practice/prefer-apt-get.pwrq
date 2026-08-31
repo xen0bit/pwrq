@@ -1,4 +1,5 @@
 # rules: prefer-apt-get
+# languages: dockerfile
 # from: dockerfile/best-practice/prefer-apt-get.yaml
 
 . as $root

@@ -1,0 +1,14 @@
+# rules: lambda-permission-logs-missing-arn-asterisk
+# languages: hcl
+# from: terraform/aws/correctness/lambda-permission-logs-missing-arn-asterisk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_lambda_permission\" \"$NAME\" { $$$_  }",
+      "source_arn = $ARN"
+    ])) as $all
+    | ( $all | of(["source_arn = $ARN"])
+          | within($all | of(["resource \"aws_lambda_permission\" \"$NAME\" { $$$_  }"]))
+        | finding("lambda-permission-logs-missing-arn-asterisk";
+            "The `source_arn` field needs to end with an asterisk, like this: `<log-group-arn>:*` Without this, the `aws_lambda_permission` resource '$NAME' will not be created.") ) )
+| report

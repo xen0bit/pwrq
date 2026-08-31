@@ -1,0 +1,15 @@
+# rules: scala-slick-sql-non-literal
+# languages: scala
+# from: scala/slick/security/scala-slick-sql-non-literal.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "import slick.$DEPS\n$$$_",
+      "sql\"$$$_\""
+    ])) as $all
+    | ( $all | of(["sql\"$$$_\""])
+          | where_text("\\#\\$")
+          | in_files_with($all | of(["import slick.$DEPS\n$$$_"]))
+        | finding("scala-slick-sql-non-literal";
+            "Detected a formatted string in a SQL statement.") ) )
+| report

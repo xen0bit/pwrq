@@ -1,0 +1,25 @@
+# rules: dangerous-asyncio-create-exec
+# languages: python
+# from: python/aws-lambda/security/dangerous-asyncio-create-exec.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "asyncio.create_subprocess_exec($PROG, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_)",
+      "asyncio.create_subprocess_exec($PROG, $CMD, $$$_)",
+      "asyncio.create_subprocess_exec($PROG, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_], $$$_)",
+      "asyncio.create_subprocess_exec($PROG, [$CMD, $$$_], $$$_)",
+      "asyncio.subprocess.create_subprocess_exec($PROG, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_)",
+      "asyncio.subprocess.create_subprocess_exec($PROG, $CMD, $$$_)",
+      "asyncio.subprocess.create_subprocess_exec($PROG, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_], $$$_)",
+      "asyncio.subprocess.create_subprocess_exec($PROG, [$CMD, $$$_], $$$_)",
+      "def $HANDLER(event, context):\n  $$$_",
+      "event"
+    ])) as $all
+    | ( (($all | of(["asyncio.create_subprocess_exec($PROG, $CMD, $$$_)","asyncio.create_subprocess_exec($PROG, [$CMD, $$$_], $$$_)","asyncio.subprocess.create_subprocess_exec($PROG, $CMD, $$$_)","asyncio.subprocess.create_subprocess_exec($PROG, [$CMD, $$$_], $$$_)","asyncio.create_subprocess_exec($PROG, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_)","asyncio.create_subprocess_exec($PROG, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_], $$$_)","asyncio.subprocess.create_subprocess_exec($PROG, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_)","asyncio.subprocess.create_subprocess_exec($PROG, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $CMD, $$$_], $$$_)"])
+          | focus("CMD")))
+          | reaching((($all | of(["event"])
+          | within($all | of(["def $HANDLER(event, context):\n  $$$_"]))));
+              ([]))
+        | finding("dangerous-asyncio-create-exec";
+            "Detected 'create_subprocess_exec' function with argument tainted by `event` object.") ) )
+| report

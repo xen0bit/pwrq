@@ -1,0 +1,21 @@
+# rules: use-SRI-for-CDNs
+# from: generic/visualforce/security/ncino/html/UseSRIForCDNs.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.component","*.page"]; [
+      "<link[\\s\\S]*?href=\"(?P<URL>\\S+)[\\s\\S]*?\"[\\s\\S]*?>",
+      "<link[\\s\\S]*?href=\"[\\s\\S]*?\"[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?>",
+      "<link[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?href=\"[\\s\\S]*?\"[\\s\\S]*?>",
+      "<script[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?src=\"[\\s\\S]*?\"[\\s\\S]*?>",
+      "<script[\\s\\S]*?src=\"(?P<URL>\\S+)[\\s\\S]*?\"[\\s\\S]*?>",
+      "<script[\\s\\S]*?src=\"[\\s\\S]*?\"[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?>"
+    ])) as $all
+    | ( $all | of(["<link[\\s\\S]*?href=\"(?P<URL>\\S+)[\\s\\S]*?\"[\\s\\S]*?>","<script[\\s\\S]*?src=\"(?P<URL>\\S+)[\\s\\S]*?\"[\\s\\S]*?>"])
+          | where_capture("URL"; "^(?:http[A-Za-z0-9\\/\\.\\-\\:])")
+          | not_at($all | of(["<script[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?src=\"[\\s\\S]*?\"[\\s\\S]*?>"]))
+          | not_at($all | of(["<script[\\s\\S]*?src=\"[\\s\\S]*?\"[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?>"]))
+          | not_at($all | of(["<link[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?href=\"[\\s\\S]*?\"[\\s\\S]*?>"]))
+          | not_at($all | of(["<link[\\s\\S]*?href=\"[\\s\\S]*?\"[\\s\\S]*?integrity=\"[\\s\\S]*?\"[\\s\\S]*?>"]))
+        | finding("use-SRI-for-CDNs";
+            "Consuming CDNs without including a SubResource Integrity (SRI) can expose your application and its users to compromised code.") ) )
+| report

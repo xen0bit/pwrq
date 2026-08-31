@@ -1,4 +1,5 @@
 # rules: unnecessary-parent-operator
+# languages: yaml
 # from: yaml/semgrep/unnecessary-parent.yaml
 
 . as $root

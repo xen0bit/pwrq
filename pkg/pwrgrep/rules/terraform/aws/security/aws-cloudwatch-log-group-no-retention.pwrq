@@ -1,0 +1,14 @@
+# rules: aws-cloudwatch-log-group-no-retention
+# languages: hcl
+# from: terraform/aws/security/aws-cloudwatch-log-group-no-retention.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_cloudwatch_log_group\" $ANYTHING {\n  $$$_\n  retention_in_days = $$$_\n  $$$_\n}",
+      "resource \"aws_cloudwatch_log_group\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_cloudwatch_log_group\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_cloudwatch_log_group\" $ANYTHING {\n  $$$_\n  retention_in_days = $$$_\n  $$$_\n}"]))
+        | finding("aws-cloudwatch-log-group-no-retention";
+            "The AWS CloudWatch Log Group has no retention.") ) )
+| report

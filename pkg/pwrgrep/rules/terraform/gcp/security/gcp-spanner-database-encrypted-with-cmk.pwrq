@@ -1,0 +1,14 @@
+# rules: gcp-spanner-database-encrypted-with-cmk
+# languages: hcl
+# from: terraform/gcp/security/gcp-spanner-database-encrypted-with-cmk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_spanner_database\" $ANYTHING {\n  $$$_\n  encryption_config {\n    $$$_\n    kms_key_name = $$$_\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"google_spanner_database\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_spanner_database\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_spanner_database\" $ANYTHING {\n  $$$_\n  encryption_config {\n    $$$_\n    kms_key_name = $$$_\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-spanner-database-encrypted-with-cmk";
+            "Ensure Spanner Database is encrypted with Customer Supplied Encryption Keys (CSEK)") ) )
+| report

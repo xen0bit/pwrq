@@ -1,0 +1,13 @@
+# rules: blowfish-insufficient-key-size
+# languages: java
+# from: java/lang/security/audit/blowfish-insufficient-key-size.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$KEYGEN = KeyGenerator.getInstance(\"Blowfish\");\n$$$_\n$KEYGEN.init($SIZE);"
+    ])) as $all
+    | ( $all | of(["$KEYGEN = KeyGenerator.getInstance(\"Blowfish\");\n$$$_\n$KEYGEN.init($SIZE);"])
+          | where_capture_compare("$SIZE < 128")
+        | finding("blowfish-insufficient-key-size";
+            "Using less than 128 bits for Blowfish is considered insecure.") ) )
+| report

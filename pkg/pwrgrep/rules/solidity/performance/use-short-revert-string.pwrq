@@ -1,0 +1,13 @@
+# rules: use-short-revert-string
+# from: solidity/performance/use-short-revert-string.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.sol"]; [
+      "require\\([\\s\\S]*?,\\s+\"(?P<MSG>\\S+)\"\\);",
+      "revert\\(\"(?P<MSG>\\S+)\"\\);"
+    ])) as $all
+    | ( $all | of(["require\\([\\s\\S]*?,\\s+\"(?P<MSG>\\S+)\"\\);","revert\\(\"(?P<MSG>\\S+)\"\\);"])
+          | where_capture("MSG"; "^(?:.{33,})")
+        | finding("use-short-revert-string";
+            "Shortening revert strings to fit in 32 bytes will decrease gas costs for deployment and gas costs when the revert condition has been met.") ) )
+| report

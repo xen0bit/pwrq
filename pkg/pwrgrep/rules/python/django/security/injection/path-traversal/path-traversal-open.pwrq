@@ -1,4 +1,5 @@
 # rules: path-traversal-open
+# languages: python
 # from: python/django/security/injection/path-traversal/path-traversal-open.yaml
 
 . as $root

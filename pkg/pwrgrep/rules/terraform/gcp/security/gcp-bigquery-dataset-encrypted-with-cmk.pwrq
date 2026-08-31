@@ -1,0 +1,14 @@
+# rules: gcp-bigquery-dataset-encrypted-with-cmk
+# languages: hcl
+# from: terraform/gcp/security/gcp-bigquery-dataset-encrypted-with-cmk.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"google_bigquery_dataset\" $ANYTHING {\n  $$$_\n  default_encryption_configuration {\n    $$$_\n    kms_key_name = $$$_\n    $$$_\n  }\n  $$$_\n}",
+      "resource \"google_bigquery_dataset\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"google_bigquery_dataset\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"google_bigquery_dataset\" $ANYTHING {\n  $$$_\n  default_encryption_configuration {\n    $$$_\n    kms_key_name = $$$_\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-bigquery-dataset-encrypted-with-cmk";
+            "Ensure that BigQuery datasets are not anonymously or publicly accessible") ) )
+| report

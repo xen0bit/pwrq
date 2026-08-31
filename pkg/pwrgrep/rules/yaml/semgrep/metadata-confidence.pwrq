@@ -2,15 +2,15 @@
 # from: yaml/semgrep/metadata-confidence.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.yaml"]; [
-      "metadata: \n  $$$_\n  category: security\n  $$$_",
-      "metadata: \n  $$$_\n  confidence: $VALUE",
-      "rules: \n  $$$_"
+| ( ($root | scan_regex(["*.yaml"]; [
+      "metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?",
+      "metadata:\\s+[\\s\\S]*?\\s+confidence:\\s+(?P<VALUE>\\S+)",
+      "rules:\\s+[\\s\\S]*?"
     ])) as $all
     | ( $all
-          | within($all | of(["rules: \n  $$$_"]))
-          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
-          | outside($all | of(["metadata: \n  $$$_\n  confidence: $VALUE"]))
+          | within($all | of(["rules:\\s+[\\s\\S]*?"]))
+          | within($all | of(["metadata:\\s+[\\s\\S]*?\\s+category:\\s+security\\s+[\\s\\S]*?"]))
+          | outside($all | of(["metadata:\\s+[\\s\\S]*?\\s+confidence:\\s+(?P<VALUE>\\S+)"]))
         | finding("metadata-confidence";
             "This Semgrep rule is missing a valid 'confidence' field in the 'metadata'.") ) )
 | report

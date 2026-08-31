@@ -1,0 +1,12 @@
+# rules: use-abi-encodecall-instead-of-encodewithselector
+# languages: solidity
+# from: solidity/best-practice/use-abi-encodecall-instead-of-encodewithselector.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "abi.encodeWithSelector($$$_);"
+    ])) as $all
+    | ( $all | of(["abi.encodeWithSelector($$$_);"])
+        | finding("use-abi-encodecall-instead-of-encodewithselector";
+            "To guarantee arguments type safety it is recommended to use `abi.encodeCall` instead of `abi.encodeWithSelector`.") ) )
+| report

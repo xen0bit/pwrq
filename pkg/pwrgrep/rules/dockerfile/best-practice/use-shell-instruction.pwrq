@@ -1,0 +1,11 @@
+# rules: use-shell-instruction
+# from: dockerfile/best-practice/use-shell-instruction.yaml
+
+. as $root
+| ( ($root | scan_regex(["Dockerfile*"]; [
+      "RUN\\s+ln\\s+[\\s\\S]*?\\s+(?P<SHELL>\\S+)\\s+\\/bin\\/sh"
+    ])) as $all
+    | ( $all | of(["RUN\\s+ln\\s+[\\s\\S]*?\\s+(?P<SHELL>\\S+)\\s+\\/bin\\/sh"])
+        | finding("use-shell-instruction";
+            "Use the SHELL instruction to set the default shell instead of overwriting '/bin/sh'.") ) )
+| report

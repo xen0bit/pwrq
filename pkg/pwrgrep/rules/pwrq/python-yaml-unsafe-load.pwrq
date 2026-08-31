@@ -1,4 +1,5 @@
 # rules: python-yaml-unsafe-load
+# languages: python
 # fixture: python/yaml-unsafe-load.py
 # from: python/lang/security/deserialization/avoid-pyyaml-load.yaml (avoid-pyyaml-load)
 #

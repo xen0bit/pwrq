@@ -1,0 +1,14 @@
+# rules: xmlinputfactory-external-entities-enabled
+# from: java/lang/security/xmlinputfactory-external-entities-enabled.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.java"]; [
+      "\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(\"javax\\.xml\\.stream\\.isSupportingExternalEntities\",\\s+Boolean\\.TRUE\\);",
+      "\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(\"javax\\.xml\\.stream\\.isSupportingExternalEntities\",\\s+true\\);",
+      "\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(javax\\.xml\\.stream\\.XMLInputFactory\\.SUPPORT_DTD,\\s+Boolean\\.TRUE\\);",
+      "\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(javax\\.xml\\.stream\\.XMLInputFactory\\.SUPPORT_DTD,\\s+true\\);"
+    ])) as $all
+    | ( $all | of(["\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(\"javax\\.xml\\.stream\\.isSupportingExternalEntities\",\\s+true\\);","\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(javax\\.xml\\.stream\\.XMLInputFactory\\.SUPPORT_DTD,\\s+true\\);","\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(\"javax\\.xml\\.stream\\.isSupportingExternalEntities\",\\s+Boolean\\.TRUE\\);","\\(javax\\.xml\\.stream\\.XMLInputFactory\\s+(?P<XMLFACTORY>\\S+)\\)\\.setProperty\\(javax\\.xml\\.stream\\.XMLInputFactory\\.SUPPORT_DTD,\\s+Boolean\\.TRUE\\);"])
+        | finding("xmlinputfactory-external-entities-enabled";
+            "XML external entities are enabled for this XMLInputFactory.") ) )
+| report

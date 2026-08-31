@@ -1,4 +1,5 @@
 # rules: missing-yum-assume-yes-switch
+# languages: dockerfile
 # from: dockerfile/best-practice/missing-yum-assume-yes-switch.yaml
 
 . as $root

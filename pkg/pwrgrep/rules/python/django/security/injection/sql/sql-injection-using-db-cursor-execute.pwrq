@@ -1,4 +1,5 @@
 # rules: sql-injection-db-cursor-execute
+# languages: python
 # from: python/django/security/injection/sql/sql-injection-using-db-cursor-execute.yaml
 
 . as $root

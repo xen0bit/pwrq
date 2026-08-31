@@ -1,0 +1,14 @@
+# rules: missing-api-gateway-cache-cluster
+# languages: hcl
+# from: terraform/aws/best-practice/missing-api-gateway-cache-cluster.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_api_gateway_stage\" $ANYTHING {\n  $$$_\n  cache_cluster_enabled = true\n  $$$_\n}",
+      "resource \"aws_api_gateway_stage\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_api_gateway_stage\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_api_gateway_stage\" $ANYTHING {\n  $$$_\n  cache_cluster_enabled = true\n  $$$_\n}"]))
+        | finding("missing-api-gateway-cache-cluster";
+            "Found a AWS API Gateway Stage without cache cluster enabled.") ) )
+| report

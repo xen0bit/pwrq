@@ -1,4 +1,5 @@
 # rules: scala-dangerous-process-run
+# languages: scala
 # from: scala/lang/security/audit/scala-dangerous-process-run.yaml
 
 . as $root

@@ -1,0 +1,18 @@
+# rules: aws-ec2-security-group-allows-public-ingress
+# languages: hcl
+# from: terraform/aws/security/aws-ec2-security-group-allows-public-ingress.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "ingress {\n  $$$_\n  cidr_blocks = [$$$_, \"$PUBLIC_IPV4_CIDR\", $$$_]\n  $$$_\n}",
+      "resource \"aws_security_group\" $ANYTHING {\n  $$$_\n}",
+      "resource \"aws_security_group_rule\" $ANYTHING {\n  $$$_\n  type = \"ingress\"\n  cidr_blocks = [$$$_, \"$PUBLIC_IPV4_CIDR\", $$$_]\n  $$$_\n}",
+      "resource \"aws_vpc_security_group_ingress_rule\" $ANYTHING {\n  $$$_\n  cidr_ipv4 = \"$PUBLIC_IPV4_CIDR\"\n  $$$_\n}"
+    ])) as $all
+    | ( ($all | of(["resource \"aws_security_group_rule\" $ANYTHING {\n  $$$_\n  type = \"ingress\"\n  cidr_blocks = [$$$_, \"$PUBLIC_IPV4_CIDR\", $$$_]\n  $$$_\n}"]))
+          + ($all | of(["resource \"aws_vpc_security_group_ingress_rule\" $ANYTHING {\n  $$$_\n  cidr_ipv4 = \"$PUBLIC_IPV4_CIDR\"\n  $$$_\n}"]))
+          + ($all | of(["ingress {\n  $$$_\n  cidr_blocks = [$$$_, \"$PUBLIC_IPV4_CIDR\", $$$_]\n  $$$_\n}"])
+          | within($all | of(["resource \"aws_security_group\" $ANYTHING {\n  $$$_\n}"])))
+        | finding("aws-ec2-security-group-allows-public-ingress";
+            "The security group rule allows ingress from public internet.") ) )
+| report

@@ -1,0 +1,14 @@
+# rules: azure-redis-cache-enable-non-ssl-port
+# languages: hcl
+# from: terraform/azure/security/azure-redis-cache-enable-non-ssl-port.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_redis_cache\" \"$$$_\" {\n$$$_\nenable_non_ssl_port = true\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"azurerm_redis_cache\" \"$$$_\" {\n$$$_\nenable_non_ssl_port = true\n$$$_\n}"]))
+        | finding("azure-redis-cache-enable-non-ssl-port";
+            "Ensure that only SSL are enabled for Cache for Redis") ) )
+| report

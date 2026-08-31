@@ -1,4 +1,5 @@
 # rules: detect-gemini
+# languages: dart
 # from: ai/dart/detect-gemini.yaml
 
 . as $root

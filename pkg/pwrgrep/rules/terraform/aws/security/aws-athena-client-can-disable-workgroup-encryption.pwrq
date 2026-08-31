@@ -1,0 +1,12 @@
+# rules: aws-athena-client-can-disable-workgroup-encryption
+# languages: hcl
+# from: terraform/aws/security/aws-athena-client-can-disable-workgroup-encryption.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_athena_workgroup\" $ANYTHING {\n  $$$_\n  configuration {\n    $$$_\n    enforce_workgroup_configuration = false\n    $$$_\n    result_configuration {\n      $$$_\n      encryption_configuration {\n        $$$_\n      }\n      $$$_\n    }\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_athena_workgroup\" $ANYTHING {\n  $$$_\n  configuration {\n    $$$_\n    enforce_workgroup_configuration = false\n    $$$_\n    result_configuration {\n      $$$_\n      encryption_configuration {\n        $$$_\n      }\n      $$$_\n    }\n    $$$_\n  }\n  $$$_\n}"])
+        | finding("aws-athena-client-can-disable-workgroup-encryption";
+            "The Athena workgroup configuration can be overriden by client-side settings.") ) )
+| report

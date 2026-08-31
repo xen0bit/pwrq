@@ -1,0 +1,17 @@
+# rules: oracle-price-update-not-restricted
+# languages: solidity
+# from: solidity/security/oracle-price-update-not-restricted.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "function $F($$$_) external  {$$$_}",
+      "function $F($$$_) onlyOwner { $$$_ }",
+      "function $F($$$_) onlySybil { $$$_ }",
+      "function $F($$$_) public  {$$$_}"
+    ])) as $all
+    | ( $all | of(["function $F($$$_) public  {$$$_}","function $F($$$_) external  {$$$_}"])
+          | not_at($all | of(["function $F($$$_) onlyOwner { $$$_ }"]))
+          | not_at($all | of(["function $F($$$_) onlySybil { $$$_ }"]))
+        | finding("oracle-price-update-not-restricted";
+            "Oracle price data can be submitted by anyone") ) )
+| report

@@ -1,4 +1,5 @@
 # rules: use-of-unsafe-block
+# languages: go
 # from: go/lang/security/audit/unsafe.yaml
 
 . as $root

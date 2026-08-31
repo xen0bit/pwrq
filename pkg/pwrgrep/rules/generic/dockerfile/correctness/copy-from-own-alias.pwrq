@@ -1,0 +1,12 @@
+# rules: copy-from-own-alias
+# from: generic/dockerfile/correctness/copy-from-own-alias.yaml
+
+. as $root
+| ( ($root | scan_regex(["*dockerfile*","*Dockerfile*"]; [
+      "FROM\\s+(?P<IMAGE>\\S+):(?P<TAG>\\S+)\\s+AS\\s+(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+COPY\\s+\\-\\-from=(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+FROM",
+      "FROM\\s+(?P<IMAGE>\\S+):(?P<TAG>\\S+)\\s+as\\s+(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+COPY\\s+\\-\\-from=(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+FROM"
+    ])) as $all
+    | ( $all | of(["FROM\\s+(?P<IMAGE>\\S+):(?P<TAG>\\S+)\\s+as\\s+(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+COPY\\s+\\-\\-from=(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+FROM","FROM\\s+(?P<IMAGE>\\S+):(?P<TAG>\\S+)\\s+AS\\s+(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+COPY\\s+\\-\\-from=(?P<REF>\\S+)\\s+[\\s\\S]*?\\s+FROM"])
+        | finding("copy-from-own-alias";
+            "COPY instructions cannot copy from its own alias.") ) )
+| report

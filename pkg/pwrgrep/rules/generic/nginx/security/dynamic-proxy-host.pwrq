@@ -1,0 +1,12 @@
+# rules: dynamic-proxy-host
+# from: generic/nginx/security/dynamic-proxy-host.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.conf","*.vhost","sites-available/*","sites-enabled/*"]; [
+      "proxy_pass\\s+(?P<SCHEME>\\S+):\\/\\/\\$(?P<HOST>\\S+)\\s+[\\s\\S]*?;",
+      "proxy_pass\\s+\\$(?P<SCHEME>\\S+):\\/\\/\\$(?P<HOST>\\S+)\\s+[\\s\\S]*?;"
+    ])) as $all
+    | ( $all | of(["proxy_pass\\s+(?P<SCHEME>\\S+):\\/\\/\\$(?P<HOST>\\S+)\\s+[\\s\\S]*?;","proxy_pass\\s+\\$(?P<SCHEME>\\S+):\\/\\/\\$(?P<HOST>\\S+)\\s+[\\s\\S]*?;"])
+        | finding("dynamic-proxy-host";
+            "The host for this proxy URL is dynamically determined.") ) )
+| report

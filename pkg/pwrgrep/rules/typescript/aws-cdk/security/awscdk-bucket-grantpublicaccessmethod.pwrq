@@ -1,4 +1,5 @@
 # rules: awscdk-bucket-grantpublicaccessmethod
+# languages: typescript
 # from: typescript/aws-cdk/security/awscdk-bucket-grantpublicaccessmethod.yml
 
 . as $root

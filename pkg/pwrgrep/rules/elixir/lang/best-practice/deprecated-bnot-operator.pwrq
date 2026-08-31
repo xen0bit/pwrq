@@ -1,4 +1,5 @@
 # rules: deprecated_bnot_operator
+# languages: elixir
 # from: elixir/lang/best-practice/deprecated-bnot-operator.yaml
 
 . as $root

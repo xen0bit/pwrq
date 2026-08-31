@@ -1,4 +1,5 @@
 # rules: xml2json-xxe
+# languages: javascript, typescript
 # from: javascript/xml2json/security/audit/xml2json-xxe.yaml
 
 . as $root

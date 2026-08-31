@@ -1,0 +1,29 @@
+# rules: shared-url-struct-mutation
+# from: go/lang/security/shared-url-struct-mutation.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.go"]; [
+      "(?P<URL>\\S+)\\.Fragment\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.Host\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.Opaque\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.Path\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.RawFragment\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.RawPath\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.RawQuery\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.Scheme\\s+=\\s+[\\s\\S]*?",
+      "(?P<URL>\\S+)\\.User\\s+=\\s+[\\s\\S]*?",
+      "[\\s\\S]*?\\s+=\\s+url\\.ParseRequestURI\\([\\s\\S]*?\\)\\s+[\\s\\S]*?",
+      "[\\s\\S]*?\\s+=\\s+url\\.Parse\\([\\s\\S]*?\\)\\s+[\\s\\S]*?",
+      "[\\s\\S]*?\\s+=\\s+url\\.URL\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?",
+      "import\\s+\"net\\/url\"\\s+[\\s\\S]*?",
+      "var\\s+(?P<URL>\\S+)\\s+\\*(?P<X>\\S+)\\.URL\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["(?P<URL>\\S+)\\.RawQuery\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.Path\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.RawPath\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.Fragment\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.RawFragment\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.Scheme\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.Opaque\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.Host\\s+=\\s+[\\s\\S]*?","(?P<URL>\\S+)\\.User\\s+=\\s+[\\s\\S]*?"])
+          | in_files_with($all | of(["import\\s+\"net\\/url\"\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["[\\s\\S]*?\\s+=\\s+url\\.Parse\\([\\s\\S]*?\\)\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["[\\s\\S]*?\\s+=\\s+url\\.ParseRequestURI\\([\\s\\S]*?\\)\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["[\\s\\S]*?\\s+=\\s+url\\.URL\\{[\\s\\S]*?\\}\\s+[\\s\\S]*?"]))
+          | in_files_without($all | of(["var\\s+(?P<URL>\\S+)\\s+\\*(?P<X>\\S+)\\.URL\\s+[\\s\\S]*?"]))
+        | finding("shared-url-struct-mutation";
+            "Shared URL struct may have been accidentally mutated.") ) )
+| report

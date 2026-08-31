@@ -1,4 +1,5 @@
 # rules: prohibit-jquery-html
+# languages: javascript, typescript
 # from: javascript/jquery/security/audit/prohibit-jquery-html.yaml
 
 . as $root

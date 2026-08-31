@@ -1,4 +1,5 @@
 # rules: go-hardcoded-if-condition
+# languages: go
 # fixture: go/hardcoded-if-condition.go
 # from: go/lang/correctness/useless-eqeq.yaml (hardcoded-eq-true-or-false)
 #

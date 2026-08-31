@@ -1,0 +1,14 @@
+# rules: jsx-not-internationalized
+# from: typescript/react/portability/i18next/jsx-not-internationalized.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.js","*.ts"]; [
+      "<(?P<ELEMENT>\\S+)>(?P<MESSAGE>\\S+)<\\/(?P<ELEMENT>\\S+)>",
+      "<(?P<ELEMENT>\\S+)>t\\('(?P<KEY>\\S+)',\\s+[\\s\\S]*?\\)<\\/(?P<ELEMENT>\\S+)>"
+    ])) as $all
+    | ( $all | of(["<(?P<ELEMENT>\\S+)>(?P<MESSAGE>\\S+)<\\/(?P<ELEMENT>\\S+)>"])
+          | where_capture("MESSAGE"; "^(?:([A-Za-z\\n ]+[A-Za-z]+[A-Za-z\\n ]+))")
+          | not_at($all | of(["<(?P<ELEMENT>\\S+)>t\\('(?P<KEY>\\S+)',\\s+[\\s\\S]*?\\)<\\/(?P<ELEMENT>\\S+)>"]))
+        | finding("jsx-not-internationalized";
+            "JSX element not internationalized: '$MESSAGE'.") ) )
+| report

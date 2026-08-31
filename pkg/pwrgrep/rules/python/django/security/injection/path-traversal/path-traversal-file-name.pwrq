@@ -1,4 +1,5 @@
 # rules: path-traversal-file-name
+# languages: python
 # from: python/django/security/injection/path-traversal/path-traversal-file-name.yaml
 
 . as $root
@@ -19,7 +20,7 @@
           | within($all | of(["def $F($$$_):\n  $$$_"]))
           | outside($all | of(["def $F($$$_):\n  $$$_\n  os.path.realpath($$$_)\n  $$$_"]))
           | outside($all | of(["def $F($$$_):\n  $$$_\n  os.path.abspath($$$_)\n  $$$_"]))
-          | where_capture("FILE"; ".*\\.(log|zip|txt|csv|xml|html).*")
+          | where_capture("FILE"; "^(?:.*\\.(log|zip|txt|csv|xml|html).*)")
         | finding("path-traversal-file-name";
             "Data from request is passed to a file name `$FILE`.") ) )
 | report

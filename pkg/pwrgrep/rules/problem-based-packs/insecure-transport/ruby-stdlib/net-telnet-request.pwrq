@@ -1,4 +1,5 @@
 # rules: net-telnet-request
+# languages: ruby
 # from: problem-based-packs/insecure-transport/ruby-stdlib/net-telnet-request.yaml
 
 . as $root

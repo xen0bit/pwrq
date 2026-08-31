@@ -1,4 +1,5 @@
 # rules: javascript-insecure-document-method
+# languages: javascript
 # fixture: javascript/insecure-document-method.js
 # from: javascript/browser/security/insecure-document-method.yaml (insecure-document-method)
 #

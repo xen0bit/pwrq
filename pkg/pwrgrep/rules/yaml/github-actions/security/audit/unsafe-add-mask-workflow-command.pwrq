@@ -1,0 +1,11 @@
+# rules: unsafe-add-mask-workflow-command
+# from: yaml/github-actions/security/audit/unsafe-add-mask-workflow-command.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "::add\\-mask::"
+    ])) as $all
+    | ( $all | of(["::add\\-mask::"])
+        | finding("unsafe-add-mask-workflow-command";
+            "GitHub Actions provides the **'add-mask'** workflow command to mask sensitive data in the workflow logs.") ) )
+| report

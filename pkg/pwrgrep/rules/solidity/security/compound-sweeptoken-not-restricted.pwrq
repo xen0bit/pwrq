@@ -1,0 +1,21 @@
+# rules: compound-sweeptoken-not-restricted
+# languages: solidity
+# from: solidity/security/compound-sweeptoken-not-restricted.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "\"$$$_\"",
+      "function sweepToken($$$_) $M {\n$$$_\n}",
+      "function sweepToken($$$_) {\n$$$_\n}",
+      "require(_msgSender() == admin, \"$$$_\");\n$$$_",
+      "require(msg.sender == admin, \"$$$_\");\n$$$_",
+      "token.transfer($$$_);"
+    ])) as $all
+    | ( $all | of(["token.transfer($$$_);"])
+          | within($all | of(["function sweepToken($$$_) {\n$$$_\n}"]))
+          | outside($all | of(["function sweepToken($$$_) $M {\n$$$_\n}"]))
+          | in_files_without($all | of(["require(msg.sender == admin, \"$$$_\");\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["require(_msgSender() == admin, \"$$$_\");\n$$$_","\"$$$_\""]))
+        | finding("compound-sweeptoken-not-restricted";
+            "Function sweepToken is allowed to be called by anyone") ) )
+| report

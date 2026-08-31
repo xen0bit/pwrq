@@ -1,4 +1,5 @@
 # rules: eval-detected
+# languages: javascript, typescript
 # from: javascript/browser/security/eval-detected.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: request-data-write
+# languages: python
 # from: python/django/security/injection/request-data-write.yaml
 
 . as $root

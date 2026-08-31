@@ -1,0 +1,21 @@
+# rules: useless-inner-function
+# languages: python
+# from: python/lang/maintainability/useless-innerfunction.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "@$DECORATOR\ndef $FF($$$_):\n  $$$_",
+      "def $F($$$_):\n    $$$_\n    class $CLAZZ($$$_):\n      $$$_",
+      "def $F($$$_):\n    $$$_\n    def $FF($$$_):\n       $$$_\n    $$$_\n    $PWRQDEEP1",
+      "def $F($$$_):\n  $$$_\n  def $FF($$$_):\n     $$$_\n  $$$_",
+      "def $FF($$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["def $FF($$$_):\n  $$$_"])
+          | outside($all | of(["def $F($$$_):\n    $$$_\n    def $FF($$$_):\n       $$$_\n    $$$_\n    $PWRQDEEP1"])
+          | where_capture_ast("PWRQDEEP1"; "$FF"))
+          | outside($all | of(["def $F($$$_):\n    $$$_\n    class $CLAZZ($$$_):\n      $$$_"]))
+          | within($all | of(["def $F($$$_):\n  $$$_\n  def $FF($$$_):\n     $$$_\n  $$$_"]))
+          | not_at($all | of(["@$DECORATOR\ndef $FF($$$_):\n  $$$_"]))
+        | finding("useless-inner-function";
+            "function `$FF` is defined inside a function but never used") ) )
+| report

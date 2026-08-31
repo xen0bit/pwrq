@@ -1,0 +1,14 @@
+# rules: aws-iam-admin-policy-ssoadmin
+# languages: hcl
+# from: terraform/aws/security/aws-iam-admin-policy-ssoadmin.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "inline_policy = \"$STATEMENT\"",
+      "resource \"aws_ssoadmin_permission_set_inline_policy\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["inline_policy = \"$STATEMENT\""])
+          | within($all | of(["resource \"aws_ssoadmin_permission_set_inline_policy\" $ANYTHING {\n  $$$_\n}"]))
+        | finding("aws-iam-admin-policy-ssoadmin";
+            "Detected admin access granted in your policy.") ) )
+| report

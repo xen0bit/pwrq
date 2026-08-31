@@ -1,4 +1,5 @@
 # rules: go-tls-skip-verify
+# languages: go
 # fixture: go/tls-skip-verify.go
 # from: problem-based-packs/insecure-transport/go-stdlib/bypass-tls-verification.yaml (bypass-tls-verification)
 #

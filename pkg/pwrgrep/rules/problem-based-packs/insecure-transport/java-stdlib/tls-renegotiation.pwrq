@@ -1,4 +1,5 @@
 # rules: tls-renegotiation
+# languages: java
 # from: problem-based-packs/insecure-transport/java-stdlib/tls-renegotiation.yaml
 
 . as $root

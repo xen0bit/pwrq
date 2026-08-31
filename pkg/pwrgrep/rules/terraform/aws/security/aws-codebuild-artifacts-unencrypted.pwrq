@@ -1,0 +1,16 @@
+# rules: aws-codebuild-artifacts-unencrypted
+# languages: hcl
+# from: terraform/aws/security/aws-codebuild-artifacts-unencrypted.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "$ARTIFACTS {\n  $$$_\n  type = \"$TYPE\"\n  encryption_disabled = true\n  $$$_\n}",
+      "resource \"aws_codebuild_project\" \"$ANYTHING\" {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$ARTIFACTS {\n  $$$_\n  type = \"$TYPE\"\n  encryption_disabled = true\n  $$$_\n}"])
+          | within($all | of(["resource \"aws_codebuild_project\" \"$ANYTHING\" {\n  $$$_\n}"]))
+          | where_capture("ARTIFACTS"; "^(artifacts|secondary_artifacts)$")
+          | where_capture("TYPE"; "^(CODEPIPELINE|S3)$")
+        | finding("aws-codebuild-artifacts-unencrypted";
+            "The CodeBuild project artifacts are unencrypted.") ) )
+| report

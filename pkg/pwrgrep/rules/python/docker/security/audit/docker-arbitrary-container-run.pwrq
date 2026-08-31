@@ -1,4 +1,5 @@
 # rules: docker-arbitrary-container-run
+# languages: python
 # from: python/docker/security/audit/docker-arbitrary-container-run.yaml
 
 . as $root
@@ -10,8 +11,10 @@
       "$CLIENT.containers.run(\"$$$_\",$$$_)",
       "$CLIENT.containers.run($$$_)"
     ])) as $all
-    | ( ($all)
-          + ($all)
+    | ( ($all
+          | in_files_with($all | of(["$CLIENT = docker.from_env()\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["$CLIENT = docker.DockerClient($$$_)\n$$$_"])))
           | at_same_place(($all | of(["$CLIENT.containers.run($$$_)","$CLIENT.containers.create($$$_)"])))
           | not_at($all | of(["$CLIENT.containers.run(\"$$$_\",$$$_)"]))
           | not_at($all | of(["$CLIENT.containers.create(\"$$$_\",$$$_)"]))

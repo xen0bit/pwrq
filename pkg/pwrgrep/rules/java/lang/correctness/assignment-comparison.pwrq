@@ -1,4 +1,5 @@
 # rules: assignment-comparison
+# languages: java
 # from: java/lang/correctness/assignment-comparison.yaml
 
 . as $root

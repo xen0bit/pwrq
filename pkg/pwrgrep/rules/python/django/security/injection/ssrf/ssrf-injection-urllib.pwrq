@@ -1,4 +1,5 @@
 # rules: ssrf-injection-urllib
+# languages: python
 # from: python/django/security/injection/ssrf/ssrf-injection-urllib.yaml
 
 . as $root

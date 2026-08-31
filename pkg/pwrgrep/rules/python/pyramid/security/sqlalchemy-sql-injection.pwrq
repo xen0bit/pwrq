@@ -1,0 +1,26 @@
+# rules: pyramid-sqlalchemy-sql-injection
+# languages: python
+# from: python/pyramid/security/sqlalchemy-sql-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$QUERY = $REQ.dbsession.query($$$_)\n$$$_",
+      "$QUERY.$SQLFUNC(\"$$$_\".$FORMATFUNC($$$_, $SINK, $$$_))",
+      "$QUERY.join($$$_).$SQLFUNC(\"$$$_\".$FORMATFUNC($$$_, $SINK, $$$_))",
+      "$REQ.$ANYTHING",
+      "$REQ.dbsession",
+      "$SINK",
+      "from pyramid.view import view_config\n$$$_\n@view_config( $$$_ )\ndef $VIEW($REQ):\n  $$$_"
+    ])) as $all
+    | ( (($all | of(["$QUERY.$SQLFUNC(\"$$$_\".$FORMATFUNC($$$_, $SINK, $$$_))","$QUERY.join($$$_).$SQLFUNC(\"$$$_\".$FORMATFUNC($$$_, $SINK, $$$_))"])
+          | at_same_place(($all | of(["$SINK"])))
+          | in_files_with($all | of(["$QUERY = $REQ.dbsession.query($$$_)\n$$$_"]))
+          | where_capture("SQLFUNC"; "^(?:(group_by|order_by|distinct|having|filter))")
+          | where_capture_not("FORMATFUNC"; "^(?:bindparams)")))
+          | reaching((($all | of(["$REQ.$ANYTHING"])
+          | within($all | of(["from pyramid.view import view_config\n$$$_\n@view_config( $$$_ )\ndef $VIEW($REQ):\n  $$$_"]))
+          | not_at($all | of(["$REQ.dbsession"]))));
+              ([]))
+        | finding("pyramid-sqlalchemy-sql-injection";
+            "Distinct, Having, Group_by, Order_by, and Filter in SQLAlchemy can cause sql injections if the developer inputs raw SQL into the before-mentioned clauses.") ) )
+| report

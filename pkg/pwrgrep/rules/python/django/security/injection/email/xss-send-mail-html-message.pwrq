@@ -1,4 +1,5 @@
 # rules: xss-send-mail-html-message
+# languages: python
 # from: python/django/security/injection/email/xss-send-mail-html-message.yaml
 
 . as $root

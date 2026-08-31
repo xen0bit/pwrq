@@ -1,0 +1,16 @@
+# rules: azure-defenderon-storage
+# languages: hcl
+# from: terraform/azure/best-practice/azure-defenderon-storage.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Free\"\nresource_type = \"StorageAccounts\"\n$$$_\n}",
+      "resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Standard\"\nresource_type = \"StorageAccounts\"\n$$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | outside($all | of(["resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Standard\"\nresource_type = \"StorageAccounts\"\n$$$_\n}"]))
+          | within($all | of(["resource \"azurerm_security_center_subscription_pricing\" \"$$$_\" {\n$$$_\ntier = \"Free\"\nresource_type = \"StorageAccounts\"\n$$$_\n}"]))
+        | finding("azure-defenderon-storage";
+            "Ensure that Azure Defender is set to On for Storage") ) )
+| report

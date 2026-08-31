@@ -2,17 +2,17 @@
 # from: go/jwt-go/security/jwt-none-alg.yaml
 
 . as $root
-| ( ($root | scan_ast(["*.go"]; [
-      "\"github.com/dgrijalva/jwt-go\"",
-      "\"github.com/golang-jwt/jwt\"",
-      "import \"github.com/dgrijalva/jwt-go\"\n$$$_",
-      "import \"github.com/golang-jwt/jwt\"\n$$$_",
-      "jwt.SigningMethodNone",
-      "jwt.UnsafeAllowNoneSignatureType"
+| ( ($root | scan_regex(["*.go"]; [
+      "import\\s+\"github\\.com\\/dgrijalva\\/jwt\\-go\"\\s+[\\s\\S]*?",
+      "import\\s+\"github\\.com\\/golang\\-jwt\\/jwt\"\\s+[\\s\\S]*?",
+      "jwt\\.SigningMethodNone",
+      "jwt\\.UnsafeAllowNoneSignatureType"
     ])) as $all
-    | ( ($all)
-          + ($all)
-          | at_same_place(($all | of(["jwt.SigningMethodNone","jwt.UnsafeAllowNoneSignatureType"])))
+    | ( ($all
+          | in_files_with($all | of(["import\\s+\"github\\.com\\/golang\\-jwt\\/jwt\"\\s+[\\s\\S]*?"])))
+          + ($all
+          | in_files_with($all | of(["import\\s+\"github\\.com\\/dgrijalva\\/jwt\\-go\"\\s+[\\s\\S]*?"])))
+          | at_same_place(($all | of(["jwt\\.SigningMethodNone","jwt\\.UnsafeAllowNoneSignatureType"])))
         | finding("jwt-go-none-algorithm";
             "Detected use of the 'none' algorithm in a JWT token.") ) )
 | report

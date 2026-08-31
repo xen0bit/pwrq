@@ -1,0 +1,13 @@
+# rules: avoid-html-safe
+# from: ruby/rails/security/audit/xss/templates/avoid-html-safe.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.erb"]; [
+      "(?P<SOMETHING>\\S+)\\.html_safe",
+      "<%=\\s+[\\s\\S]*?\\s+%>"
+    ])) as $all
+    | ( $all | of(["(?P<SOMETHING>\\S+)\\.html_safe"])
+          | within($all | of(["<%=\\s+[\\s\\S]*?\\s+%>"]))
+        | finding("avoid-html-safe";
+            "'html_safe' renders raw HTML.") ) )
+| report

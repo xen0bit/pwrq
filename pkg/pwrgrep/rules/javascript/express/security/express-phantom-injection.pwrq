@@ -1,0 +1,56 @@
+# rules: express-phantom-injection
+# languages: typescript
+# from: javascript/express/security/express-phantom-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})",
+      "$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})",
+      "$PAGE.evaluateJavaScript($SINK,$$$_)",
+      "$PAGE.open($SINK,$$$_)",
+      "$PAGE.openUrl($SINK,$$$_)",
+      "$PAGE.property(\"content\",$SINK,$$$_)",
+      "$PAGE.setContent($SINK,$$$_)",
+      "$REQ.body",
+      "$REQ.cookies",
+      "$REQ.headers",
+      "$REQ.params",
+      "$REQ.query",
+      "({ $REQ }: Request,$RES: Response) => {$$$_}",
+      "({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}",
+      "body",
+      "cookies",
+      "function $$$_ ($REQ, $RES) {$$$_}",
+      "function $$$_ ($REQ, $RES, $NEXT) {$$$_}",
+      "headers",
+      "import 'phantom';\n$$$_",
+      "params",
+      "query",
+      "require('phantom');\n$$$_"
+    ])) as $all
+    | ( ((($all
+          | in_files_with($all | of(["require('phantom');\n$$$_"])))
+          + ($all
+          | in_files_with($all | of(["import 'phantom';\n$$$_"])))
+          | at_same_place(($all | of(["$PAGE.open($SINK,$$$_)","$PAGE.setContent($SINK,$$$_)","$PAGE.openUrl($SINK,$$$_)","$PAGE.evaluateJavaScript($SINK,$$$_)","$PAGE.property(\"content\",$SINK,$$$_)"])))
+          | focus("SINK")))
+          | reaching(((($all
+          | within($all | of(["function $$$_ ($REQ, $RES) {$$$_}"])))
+          + ($all
+          | within($all | of(["function $$$_ ($REQ, $RES, $NEXT) {$$$_}"])))
+          + (($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES) {$$$_})"])))
+          + ($all
+          | within($all | of(["$APP.$METHOD($$$_, function $FUNC($REQ, $RES, $NEXT) {$$$_})"])))
+          | where_capture("METHOD"; "^(get|post|put|head|delete|options)$"))
+          | at_same_place(($all | of(["$REQ.query","$REQ.body","$REQ.params","$REQ.cookies","$REQ.headers"]))))
+              + (($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response, $NEXT: NextFunction) =>\n{$$$_}"])))
+          + ($all
+          | within($all | of(["({ $REQ }: Request,$RES: Response) => {$$$_}"])))
+          | at_same_place(($all | of(["params","query","cookies","headers","body"])))
+          | focus("REQ")));
+              ([]))
+        | finding("express-phantom-injection";
+            "If unverified user data can reach the `phantom` methods it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: aws-rds-backup-no-retention
+# languages: hcl
+# from: terraform/aws/security/aws-rds-backup-no-retention.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n  backup_retention_period = 0\n  $$$_\n}",
+      "resource \"aws_rds_cluster\" $ANYTHING {\n  $$$_\n  backup_retention_period = 0\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_rds_cluster\" $ANYTHING {\n  $$$_\n  backup_retention_period = 0\n  $$$_\n}","resource \"aws_db_instance\" $ANYTHING {\n  $$$_\n  backup_retention_period = 0\n  $$$_\n}"])
+        | finding("aws-rds-backup-no-retention";
+            "The AWS RDS has no retention.") ) )
+| report

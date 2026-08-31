@@ -1,0 +1,13 @@
+# rules: wp-authorisation-checks-audit
+# languages: php
+# from: php/wordpress-plugins/security/audit/wp-authorisation-checks-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "$FUNCTION($$$_)"
+    ])) as $all
+    | ( $all | of(["$FUNCTION($$$_)"])
+          | where_capture("FUNCTION"; "^(?:current_user_can|is_admin|is_user_logged_in|is_user_admin)")
+        | finding("wp-authorisation-checks-audit";
+            "These are some of the patterns used for authorisation.") ) )
+| report

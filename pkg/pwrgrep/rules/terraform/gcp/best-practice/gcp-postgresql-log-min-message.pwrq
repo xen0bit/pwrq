@@ -1,0 +1,14 @@
+# rules: gcp-postgresql-log-min-message
+# languages: hcl
+# from: terraform/gcp/best-practice/gcp-postgresql-log-min-message.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource",
+      "resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"log_min_messages\"\n    value = \"$VALUE\"\n    $$$_\n  }\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource"])
+          | within($all | of(["resource \"google_sql_database_instance\" \"$$$_\" {\n  $$$_\n  database_flags {\n    $$$_\n    name  = \"log_min_messages\"\n    value = \"$VALUE\"\n    $$$_\n  }\n  $$$_\n}"]))
+        | finding("gcp-postgresql-log-min-message";
+            "Ensure PostgreSQL database 'log_min_messages' flag is set to a valid value") ) )
+| report

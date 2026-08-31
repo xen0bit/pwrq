@@ -1,4 +1,5 @@
 # rules: expat-xxe
+# languages: javascript, typescript
 # from: javascript/node-expat/security/audit/expat-xxe.yaml
 
 . as $root

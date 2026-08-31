@@ -1,4 +1,5 @@
 # rules: detect-apple-core-ml
+# languages: swift
 # from: ai/swift/detect-apple-core-ml.yaml
 
 . as $root

@@ -1,4 +1,5 @@
 # rules: scala-slick-overrideSql-literal
+# languages: scala
 # from: scala/slick/security/scala-slick-overrideSql-literal.yaml
 
 . as $root

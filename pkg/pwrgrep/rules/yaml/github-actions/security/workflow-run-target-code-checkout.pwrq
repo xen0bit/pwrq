@@ -1,0 +1,16 @@
+# rules: workflow-run-target-code-checkout
+# from: yaml/github-actions/security/workflow-run-target-code-checkout.yaml
+
+. as $root
+| ( ($root | scan_regex(["*.yaml"]; [
+      "[\\s\\S]*?\\s+uses:\\s+\"(?P<ACTION>\\S+)\"\\s+with:\\s+[\\s\\S]*?\\s+ref:\\s+(?P<EXPR>\\S+)",
+      "jobs:\\s+[\\s\\S]*?\\s+(?P<JOBNAME>\\S+):\\s+[\\s\\S]*?\\s+steps:\\s+[\\s\\S]*?",
+      "on:\\s+[\\s\\S]*?\\s+workflow_run:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?"
+    ])) as $all
+    | ( $all | of(["[\\s\\S]*?\\s+uses:\\s+\"(?P<ACTION>\\S+)\"\\s+with:\\s+[\\s\\S]*?\\s+ref:\\s+(?P<EXPR>\\S+)"])
+          | in_files_with($all | of(["on:\\s+[\\s\\S]*?\\s+workflow_run:\\s+[\\s\\S]*?\\s+[\\s\\S]*?\\s+[\\s\\S]*?"]))
+          | within($all | of(["jobs:\\s+[\\s\\S]*?\\s+(?P<JOBNAME>\\S+):\\s+[\\s\\S]*?\\s+steps:\\s+[\\s\\S]*?"]))
+          | where_capture("ACTION"; "^(?:actions/checkout@.*)")
+        | finding("workflow-run-target-code-checkout";
+            "This GitHub Actions workflow file uses `workflow_run` and checks out code from the incoming pull request.") ) )
+| report

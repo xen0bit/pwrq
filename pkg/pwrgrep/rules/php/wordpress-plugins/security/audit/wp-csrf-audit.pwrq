@@ -1,4 +1,5 @@
 # rules: wp-csrf-audit
+# languages: php
 # from: php/wordpress-plugins/security/audit/wp-csrf-audit.yaml
 
 . as $root

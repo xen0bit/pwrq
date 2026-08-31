@@ -1,0 +1,14 @@
+# rules: aws-documentdb-storage-unencrypted
+# languages: hcl
+# from: terraform/aws/security/aws-documentdb-storage-unencrypted.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.tf"]; [
+      "resource \"aws_docdb_cluster\" $ANYTHING {\n  $$$_\n  storage_encrypted = true\n  $$$_\n}",
+      "resource \"aws_docdb_cluster\" $ANYTHING {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["resource \"aws_docdb_cluster\" $ANYTHING {\n  $$$_\n}"])
+          | outside($all | of(["resource \"aws_docdb_cluster\" $ANYTHING {\n  $$$_\n  storage_encrypted = true\n  $$$_\n}"]))
+        | finding("aws-documentdb-storage-unencrypted";
+            "The AWS DocumentDB cluster is unencrypted.") ) )
+| report
