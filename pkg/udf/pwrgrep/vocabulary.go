@@ -2,6 +2,7 @@ package pwrgrep
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"regexp"
 	"sort"
@@ -98,7 +99,14 @@ func keepIf(list []any, pred func(map[string]any) bool) []any {
 
 // filterOp registers an operator that narrows a list of matches by comparing
 // it against another list.
-func filterOp(name string, decide func(match map[string]any, other []any) bool) gojq.CompilerOption {
+//
+// narrow is handed both lists whole rather than being asked about one match at
+// a time. What these operators want from the other list is an index - the
+// files it covers, the spans it encloses - and an index built inside the
+// per-match question is an index built once per match: a rule combining two
+// results of a thousand matches each did a million comparisons to answer a
+// question worth two thousand.
+func filterOp(name string, narrow func(list, other []any) []any) gojq.CompilerOption {
 	common.DeclareInput(name, common.InputPipeline)
 	return common.WithFunction(name, 1, 2, func(v any, args []any) any {
 		in, rest := common.SplitInput(v, args, 1)
@@ -110,7 +118,7 @@ func filterOp(name string, decide func(match map[string]any, other []any) bool) 
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
-		return keepIf(list, func(m map[string]any) bool { return decide(m, other) })
+		return narrow(list, other)
 	})
 }
 
@@ -270,29 +278,38 @@ func scanTree(root, glob string, exprs []string, compiled []*regexp.Regexp) ([]a
 			continue
 		}
 		text := string(source)
-		var hits []any
+		// The line starts are read once per file rather than once per number
+		// reported, and the spans are sorted before the matches are rendered,
+		// so the comparison is two integers rather than two decoded objects.
+		lines := astsearch.Index(source)
+		var found []textHit
 		for i, re := range compiled {
 			for _, span := range re.FindAllStringSubmatchIndex(text, -1) {
-				hits = append(hits, textMatch(path, exprs[i], re, text, span))
+				found = append(found, textHit{expr: i, span: span})
 			}
 		}
 		// A file reads top to bottom whatever order the regexes were written
 		// in, which is what scan_ast promises too.
-		sort.SliceStable(hits, func(a, b int) bool {
-			x, _ := number(object(hits[a])["Offset"])
-			y, _ := number(object(hits[b])["Offset"])
-			return x < y
-		})
-		out = append(out, hits...)
+		sort.SliceStable(found, func(a, b int) bool { return found[a].span[0] < found[b].span[0] })
+		for _, h := range found {
+			out = append(out, textMatch(path, exprs[h.expr], compiled[h.expr], text, lines, h.span))
+		}
 	}
+}
+
+// textHit is one regex match before it is rendered: which regex found it, and
+// where. Ordering these is cheaper than ordering finished match objects.
+type textHit struct {
+	expr int
+	span []int
 }
 
 // textMatch renders one regex hit as the match object scan_ast would have
 // produced, so that a rule cannot tell the two apart.
-func textMatch(path, expr string, re *regexp.Regexp, text string, span []int) any {
+func textMatch(path, expr string, re *regexp.Regexp, text string, lines *astsearch.Lines, span []int) any {
 	start, end := span[0], span[1]
-	line, column := position(text, start)
-	endLine, endColumn := position(text, end)
+	line, column := lines.At(start)
+	endLine, endColumn := lines.At(end)
 	captures := map[string]any{}
 	for i, name := range re.SubexpNames() {
 		if name == "" || 2*i+1 >= len(span) || span[2*i] < 0 {
@@ -314,16 +331,6 @@ func textMatch(path, expr string, re *regexp.Regexp, text string, span []int) an
 		"Captures":      captures,
 		"PwrqValue":     path,
 	})
-}
-
-// position is the one-based line and column of a byte offset, counting bytes
-// for the column the way every other pwrq path-and-position pair does.
-func position(text string, offset int) (int, int) {
-	if offset > len(text) {
-		offset = len(text)
-	}
-	before := text[:offset]
-	return strings.Count(before, "\n") + 1, offset - (strings.LastIndex(before, "\n") + 1) + 1
 }
 
 // RegisterWhereText registers where_text: keep the matches whose own text
@@ -393,39 +400,93 @@ func RegisterOf() gojq.CompilerOption {
 	})
 }
 
-// encloses reports whether one match's span covers another's.
-func encloses(outer, inner map[string]any) bool {
-	outerPath, outerStart, outerEnd, ok := span(outer)
-	if !ok {
-		return false
-	}
-	innerPath, innerStart, innerEnd, ok := span(inner)
-	if !ok {
-		return false
-	}
-	return outerPath == innerPath && outerStart <= innerStart && outerEnd >= innerEnd
+// place is one match's span: the file, and the bytes it covers.
+type place struct {
+	path       string
+	start, end float64
 }
 
-// samePlace reports whether two matches describe exactly the same code.
-func samePlace(a, b map[string]any) bool {
-	aPath, aStart, aEnd, ok := span(a)
-	if !ok {
-		return false
-	}
-	bPath, bStart, bEnd, ok := span(b)
-	if !ok {
-		return false
-	}
-	return aPath == bPath && aStart == bStart && aEnd == bEnd
+// placeOf reads a match's place, or reports that it has none. A match without
+// offsets is neither inside anything nor at the same place as anything, which
+// is what the two indexes below do with it.
+func placeOf(m map[string]any) (place, bool) {
+	path, start, end, ok := span(m)
+	return place{path: path, start: start, end: end}, ok
 }
 
-func anyOf(list []any, pred func(map[string]any) bool) bool {
+// enclosures answers "does some match in this list cover that span" without
+// looking at every match in the list.
+//
+// Spans are grouped by file and sorted by where they begin, with a running
+// maximum of where they end. One span covers another when it begins at or
+// before it and ends at or after it - so among the spans that begin in time,
+// the only question left is whether any of them reached far enough, and the
+// running maximum is that answer. Building it is a sort; asking it is a binary
+// search.
+type enclosures map[string]*sortedSpans
+
+type sortedSpans struct {
+	starts []float64
+	// reach[i] is the furthest any of the first i+1 spans ends.
+	reach []float64
+}
+
+func enclosuresOf(list []any) enclosures {
+	byPath := map[string][]place{}
 	for _, v := range list {
-		if pred(object(v)) {
-			return true
+		if p, ok := placeOf(object(v)); ok {
+			byPath[p.path] = append(byPath[p.path], p)
 		}
 	}
-	return false
+	index := make(enclosures, len(byPath))
+	for path, places := range byPath {
+		sort.Slice(places, func(a, b int) bool { return places[a].start < places[b].start })
+		f := &sortedSpans{starts: make([]float64, len(places)), reach: make([]float64, len(places))}
+		furthest := math.Inf(-1)
+		for i, p := range places {
+			if p.end > furthest {
+				furthest = p.end
+			}
+			f.starts[i], f.reach[i] = p.start, furthest
+		}
+		index[path] = f
+	}
+	return index
+}
+
+// covers reports whether some indexed span encloses this match.
+func (e enclosures) covers(m map[string]any) bool {
+	p, ok := placeOf(m)
+	if !ok {
+		return false
+	}
+	f := e[p.path]
+	if f == nil {
+		return false
+	}
+	// The last span that begins at or before this one; everything up to there
+	// is a candidate, and reach says how far the best of them got.
+	i := sort.Search(len(f.starts), func(i int) bool { return f.starts[i] > p.start })
+	return i > 0 && f.reach[i-1] >= p.end
+}
+
+// places is the set of spans a list occupies, for the operators that ask
+// whether two patterns describe exactly the same code.
+type places map[place]bool
+
+func placesOf(list []any) places {
+	set := make(places, len(list))
+	for _, v := range list {
+		if p, ok := placeOf(object(v)); ok {
+			set[p] = true
+		}
+	}
+	return set
+}
+
+func (s places) holds(m map[string]any) bool {
+	p, ok := placeOf(m)
+	return ok && s[p]
 }
 
 func pathsOf(list []any) map[string]bool {
@@ -444,8 +505,9 @@ func pathsOf(list []any) map[string]bool {
 //
 //	$all | of($calls) | within($all | of(["func $F($$$_) { $$$B }"]))
 func RegisterWithin() gojq.CompilerOption {
-	return filterOp("within", func(m map[string]any, other []any) bool {
-		return anyOf(other, func(o map[string]any) bool { return encloses(o, m) })
+	return filterOp("within", func(list, other []any) []any {
+		covering := enclosuresOf(other)
+		return keepIf(list, covering.covers)
 	})
 }
 
@@ -457,8 +519,9 @@ func RegisterWithin() gojq.CompilerOption {
 //
 //	$all | of($compare) | outside($all | of("assert($$$_)"))
 func RegisterOutside() gojq.CompilerOption {
-	return filterOp("outside", func(m map[string]any, other []any) bool {
-		return !anyOf(other, func(o map[string]any) bool { return encloses(o, m) })
+	return filterOp("outside", func(list, other []any) []any {
+		covering := enclosuresOf(other)
+		return keepIf(list, func(m map[string]any) bool { return !covering.covers(m) })
 	})
 }
 
@@ -472,8 +535,9 @@ func RegisterOutside() gojq.CompilerOption {
 //
 //	$all | of($calls) | in_files_with($all | of($imports))
 func RegisterInFilesWith() gojq.CompilerOption {
-	return filterOp("in_files_with", func(m map[string]any, other []any) bool {
-		return pathsOf(other)[text(m, "Path")]
+	return filterOp("in_files_with", func(list, other []any) []any {
+		paths := pathsOf(other)
+		return keepIf(list, func(m map[string]any) bool { return paths[text(m, "Path")] })
 	})
 }
 
@@ -482,8 +546,9 @@ func RegisterInFilesWith() gojq.CompilerOption {
 //
 //	$all | of($calls) | in_files_without($all | of($guards))
 func RegisterInFilesWithout() gojq.CompilerOption {
-	return filterOp("in_files_without", func(m map[string]any, other []any) bool {
-		return !pathsOf(other)[text(m, "Path")]
+	return filterOp("in_files_without", func(list, other []any) []any {
+		paths := pathsOf(other)
+		return keepIf(list, func(m map[string]any) bool { return !paths[text(m, "Path")] })
 	})
 }
 
@@ -495,8 +560,9 @@ func RegisterInFilesWithout() gojq.CompilerOption {
 //
 //	$all | of($calls) | at_same_place($all | of($alsoTrue))
 func RegisterAtSamePlace() gojq.CompilerOption {
-	return filterOp("at_same_place", func(m map[string]any, other []any) bool {
-		return anyOf(other, func(o map[string]any) bool { return samePlace(o, m) })
+	return filterOp("at_same_place", func(list, other []any) []any {
+		taken := placesOf(other)
+		return keepIf(list, taken.holds)
 	})
 }
 
@@ -505,8 +571,9 @@ func RegisterAtSamePlace() gojq.CompilerOption {
 //
 //	$all | of($writes) | not_at($all | of($constant))
 func RegisterNotAt() gojq.CompilerOption {
-	return filterOp("not_at", func(m map[string]any, other []any) bool {
-		return !anyOf(other, func(o map[string]any) bool { return samePlace(o, m) })
+	return filterOp("not_at", func(list, other []any) []any {
+		taken := placesOf(other)
+		return keepIf(list, func(m map[string]any) bool { return !taken.holds(m) })
 	})
 }
 
@@ -636,12 +703,18 @@ func RegisterReaching() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(err, nil)
 		}
 		// One file at a time: following a value means parsing the file it is
-		// in, and a rule run over a tree has sinks in many.
+		// in, and a rule run over a tree has sinks in many. Each list is
+		// grouped by file once, because picking one file's matches out of a
+		// list is a pass over the list, and doing that per file is a pass per
+		// file over all three.
+		bySink, order := byFile(sinks)
+		bySource, _ := byFile(sources)
+		bySanitizer, _ := byFile(sanitizers)
 		out := []any{}
-		for _, path := range filesOf(sinks) {
-			mine := inFile(sinks, path)
+		for _, path := range order {
+			mine := bySink[path]
 			reached, err := astsearch.Reaches(path, languageOf(mine),
-				spansOf(inFile(sources, path)), spansOf(mine), spansOf(inFile(sanitizers, path)))
+				spansOf(bySource[path]), spansOf(mine), spansOf(bySanitizer[path]))
 			if err != nil {
 				return common.MakeUDFErrorResult(fmt.Errorf("%s: %s: %v", op, path, err), nil)
 			}
@@ -653,30 +726,23 @@ func RegisterReaching() gojq.CompilerOption {
 	})
 }
 
-// filesOf are the paths a list of matches covers, in the order they first
-// appear, so that a run over one tree reports in the same order twice.
-func filesOf(list []any) []string {
-	var paths []string
-	seen := map[string]bool{}
+// byFile groups a list of matches by the file they are in, and returns the
+// files in the order they first appear, so that a run over one tree reports in
+// the same order twice.
+func byFile(list []any) (map[string][]any, []string) {
+	grouped := map[string][]any{}
+	var order []string
 	for _, item := range list {
 		path := text(object(item), "Path")
-		if path == "" || seen[path] {
+		if path == "" {
 			continue
 		}
-		seen[path] = true
-		paths = append(paths, path)
-	}
-	return paths
-}
-
-func inFile(list []any, path string) []any {
-	var out []any
-	for _, item := range list {
-		if text(object(item), "Path") == path {
-			out = append(out, item)
+		if _, seen := grouped[path]; !seen {
+			order = append(order, path)
 		}
+		grouped[path] = append(grouped[path], item)
 	}
-	return out
+	return grouped, order
 }
 
 func languageOf(list []any) string {
@@ -788,16 +854,29 @@ func RegisterWhereCaptureAst() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
 		}
+		// Answers are remembered for the length of this call. Deciding one
+		// means parsing the fragment, and a rule's matches catch the same
+		// fragment over and over - the same variable, the same call, once per
+		// place it is used - so a list of a thousand matches usually asks a
+		// few dozen distinct questions.
+		decided := map[string]bool{}
 		return keepIf(list, func(m map[string]any) bool {
 			caught := capture(m, hole)
 			if caught == "" {
 				return false
 			}
+			language := text(m, "Language")
+			key := language + "\x00" + caught
+			if answer, asked := decided[key]; asked {
+				return answer
+			}
 			// A pattern that is not code in this match's language cannot
 			// constrain it, and saying so by keeping nothing is the safe
 			// direction for a rule deciding what to report.
-			ok, err := astsearch.MatchesText(pattern, text(m, "Language"), caught)
-			return err == nil && ok
+			ok, err := astsearch.MatchesText(pattern, language, caught)
+			answer := err == nil && ok
+			decided[key] = answer
+			return answer
 		})
 	})
 }
@@ -980,22 +1059,36 @@ func RegisterReport() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
-		findings := append([]any(nil), list...)
-		sort.SliceStable(findings, func(a, b int) bool {
-			return sortKey(object(findings[a])) < sortKey(object(findings[b]))
-		})
+		// The key is built once per finding rather than inside the comparison,
+		// which asks for it log n times, and again for the duplicate check.
+		// Building it is a Sprintf, so a report of a thousand findings was
+		// twenty thousand of them.
+		findings := make([]keyed, len(list))
+		for i, f := range list {
+			m := object(f)
+			findings[i] = keyed{value: f, order: sortKey(m), match: text(m, "Match")}
+		}
+		sort.SliceStable(findings, func(a, b int) bool { return findings[a].order < findings[b].order })
 		out := make([]any, 0, len(findings))
-		seen := map[string]bool{}
+		seen := make(map[string]bool, len(findings))
 		for _, f := range findings {
-			key := sortKey(object(f)) + "\x00" + text(object(f), "Match")
+			key := f.order + "\x00" + f.match
 			if seen[key] {
 				continue
 			}
 			seen[key] = true
-			out = append(out, f)
+			out = append(out, f.value)
 		}
 		return out
 	})
+}
+
+// keyed is one finding with the strings the report is built from, so that
+// neither the sort nor the duplicate check has to derive them again.
+type keyed struct {
+	value any
+	order string
+	match string
 }
 
 // sortKey orders findings the way a person reads a report: by file, then down

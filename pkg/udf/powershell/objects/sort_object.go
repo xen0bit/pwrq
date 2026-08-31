@@ -235,11 +235,7 @@ func sortObject(objects []any, opts SortObjectOptions) ([]any, error) {
 	}
 
 	// Create a sortable wrapper
-	sorter := &objectSorter{
-		objects:       objects,
-		properties:    opts.Properties,
-		caseSensitive: opts.CaseSensitive,
-	}
+	sorter := newObjectSorter(objects, opts.Properties, opts.CaseSensitive)
 
 	sort.Stable(sorter)
 
@@ -272,12 +268,44 @@ func sortByValue(objects []any, descending, caseSensitive, unique bool) ([]any, 
 	return result, nil
 }
 
-// objectSorter implements sort.Interface for sorting objects by properties
+// objectSorter implements sort.Interface for sorting objects by properties.
+//
+// keys holds each object's sort values, read once before the sort rather than
+// inside the comparison. Reading one means walking a dotted path, and a
+// wildcard property means matching the pattern against every name the object
+// has, so a comparison did that work twice: a sort of n objects read n log n
+// of them instead of n.
 type objectSorter struct {
 	objects       []any
+	keys          [][]any
 	properties    []SortProperty
 	caseSensitive bool
 }
+
+// newObjectSorter reads every object's sort keys.
+//
+// A property an object does not have is a missing key rather than an error,
+// which is what Less already made of it: missing values sort first.
+func newObjectSorter(objects []any, properties []SortProperty, caseSensitive bool) *objectSorter {
+	keys := make([][]any, len(objects))
+	for i, obj := range objects {
+		row := make([]any, len(properties))
+		for j, prop := range properties {
+			if value, err := extractPropertyByWildcard(obj, prop.Name); err == nil {
+				row[j] = value
+			} else {
+				row[j] = missingProperty
+			}
+		}
+		keys[i] = row
+	}
+	return &objectSorter{objects: objects, keys: keys,
+		properties: properties, caseSensitive: caseSensitive}
+}
+
+// missingProperty stands for a property the object did not have, so that a
+// missing value is told apart from a property whose value is nil.
+var missingProperty = new(struct{})
 
 func (s *objectSorter) Len() int {
 	return len(s.objects)
@@ -285,24 +313,22 @@ func (s *objectSorter) Len() int {
 
 func (s *objectSorter) Swap(i, j int) {
 	s.objects[i], s.objects[j] = s.objects[j], s.objects[i]
+	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 }
 
 func (s *objectSorter) Less(i, j int) bool {
-	objI := s.objects[i]
-	objJ := s.objects[j]
-
-	for _, prop := range s.properties {
-		valI, errI := extractPropertyByWildcard(objI, prop.Name)
-		valJ, errJ := extractPropertyByWildcard(objJ, prop.Name)
+	for p, prop := range s.properties {
+		valI, valJ := s.keys[i][p], s.keys[j][p]
 
 		// Handle missing properties
-		if errI != nil && errJ != nil {
+		missingI, missingJ := valI == missingProperty, valJ == missingProperty
+		if missingI && missingJ {
 			continue // Both missing, continue to next property
 		}
-		if errI != nil {
+		if missingI {
 			return true // Missing values sort first
 		}
-		if errJ != nil {
+		if missingJ {
 			return false
 		}
 

@@ -27,12 +27,15 @@ func RegisterUnicodeEscape() gojq.CompilerOption {
 	})
 }
 
+// unicodeEscape is the \uXXXX form unicode_unescape reads. It is compiled here
+// rather than in the function, which runs once per string it is given.
+var unicodeEscape = regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
+
 // RegisterUnicodeUnescape registers unicode_unescape, \uXXXX escapes rendered
 // back into their characters.
 func RegisterUnicodeUnescape() gojq.CompilerOption {
 	return registerTextFn("unicode_unescape", func(s string) any {
-		re := regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
-		return re.ReplaceAllStringFunc(s, func(m string) string {
+		return unicodeEscape.ReplaceAllStringFunc(s, func(m string) string {
 			hex := m[2:]
 			n, err := strconv.ParseUint(hex, 16, 32)
 			if err != nil {
@@ -188,7 +191,7 @@ func RegisterMatchGlob() gojq.CompilerOption {
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("match_glob: %v", err), nil)
 		}
-		re, err := regexp.Compile(globToRegex(glob))
+		re, err := common.Regex(globToRegex(glob))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("match_glob: %v", err), nil)
 		}
