@@ -1,0 +1,11 @@
+# rules: grpc-client-insecure-connection
+# from: go/grpc/security/grpc-client-insecure-connection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$GRPC.Dial($ADDR, $$$_, $GRPC.WithInsecure($$$_), $$$_)"
+    ])) as $all
+    | ( $all | of(["$GRPC.Dial($ADDR, $$$_, $GRPC.WithInsecure($$$_), $$$_)"])
+        | finding("grpc-client-insecure-connection";
+            "Found an insecure gRPC connection using 'grpc.WithInsecure()'.") ) )
+| report

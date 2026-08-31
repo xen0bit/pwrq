@@ -1,0 +1,19 @@
+# rules: fs-directory-listing
+# from: go/lang/security/audit/net/fs-directory-listing.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$FS := http.FileServer($$$_)\n$$$_",
+      "http.$FN($$$_, http.FileServer($$$_))",
+      "http.Handle($$$_, $FS)",
+      "http.HandleFunc($$$_, $FS)",
+      "http.ListenAndServe($$$_, $FS)",
+      "http.ListenAndServeTLS($$$_, $FS)"
+    ])) as $all
+    | ( ($all | of(["http.ListenAndServe($$$_, $FS)","http.ListenAndServeTLS($$$_, $FS)","http.Handle($$$_, $FS)","http.HandleFunc($$$_, $FS)"])
+          | in_files_with($all | of(["$FS := http.FileServer($$$_)\n$$$_"])))
+          + ($all | of(["http.$FN($$$_, http.FileServer($$$_))"])
+          | where_capture("FN"; "(ListenAndServe|ListenAndServeTLS|Handle|HandleFunc)"))
+        | finding("fs-directory-listing";
+            "Detected usage of 'http.FileServer' as handler: this allows directory listing and an attacker could navigate through directories looking for sensitive files.") ) )
+| report

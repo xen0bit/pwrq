@@ -1,0 +1,11 @@
+# rules: documentbuilderfactory-external-general-entities-true
+# from: java/lang/security/audit/xxe/documentbuilderfactory-external-general-entities-true.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$DBFACTORY.setFeature(\"http://xml.org/sax/features/external-general-entities\", true);"
+    ])) as $all
+    | ( $all | of(["$DBFACTORY.setFeature(\"http://xml.org/sax/features/external-general-entities\", true);"])
+        | finding("documentbuilderfactory-external-general-entities-true";
+            "External entities are allowed for $DBFACTORY.") ) )
+| report

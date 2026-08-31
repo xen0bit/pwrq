@@ -1,0 +1,49 @@
+# rules: psycopg-sqli
+# from: python/lang/security/audit/sqli/psycopg-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_\"",
+      "$CONN = psycopg2.connect($$$_)\n$$$_\n$CUR = $CONN.cursor($$$_)\n$$$_",
+      "$CONN = psycopg2.connect($$$_)\n$$$_\nwith $CONN.cursor($$$_) as $CUR:\n  $$$_",
+      "$CUR.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)",
+      "$CUR.$METHOD($$$_, $X + $Y, $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_' % ($$$_), $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_'%(), $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_'.format($$$_), $$$_)",
+      "$CUR.$METHOD($$$_, '$$$_'.format(), $$$_)",
+      "$CUR.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)",
+      "$CUR.$METHOD($$$_,$QUERY,$$$_)",
+      "$QUERY += \"$$$_\"\n$$$_",
+      "$QUERY += $X\n$$$_",
+      "$QUERY = \"$$$_\" + \"$$$_\"\n$$$_",
+      "$QUERY = $X + $Y\n$$$_",
+      "$QUERY = '$$$_' % ($$$_)\n$$$_",
+      "$QUERY = '$$$_' % ()\n$$$_",
+      "$QUERY = '$$$_'.format($$$_)\n$$$_",
+      "$QUERY = '$$$_'.format()\n$$$_",
+      "$QUERY = f'$$$_{$USERINPUT}$$$_'\n$$$_"
+    ])) as $all
+    | ( ($all | of(["$CUR.$METHOD($$$_,$QUERY,$$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_'.format()\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_' % ()\n$$$_"])))
+          + ($all | of(["$CUR.$METHOD($$$_, $X + $Y, $$$_)"]))
+          + ($all | of(["$CUR.$METHOD($$$_, '$$$_'.format($$$_), $$$_)"]))
+          + ($all | of(["$CUR.$METHOD($$$_, '$$$_' % ($$$_), $$$_)"]))
+          + ($all | of(["$CUR.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)"]))
+          | at_same_place((($all)
+          + ($all)))
+          | not_at($all | of(["$CUR.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)"]))
+          | not_at($all | of(["$CUR.$METHOD($$$_, '$$$_'.format(), $$$_)"]))
+          | not_at($all | of(["$CUR.$METHOD($$$_, '$$$_'%(), $$$_)"]))
+          | where_capture("METHOD"; "^(execute|executemany|mogrify)$")
+        | finding("psycopg-sqli";
+            "Detected string concatenation with a non-literal variable in a psycopg2 Python SQL statement.") ) )
+| report

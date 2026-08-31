@@ -1,0 +1,13 @@
+# rules: dangerous-subinterpreters-run-string-audit
+# from: python/lang/security/audit/dangerous-subinterpreters-run-string-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "_xxsubinterpreters.run_string($ID, \"$$$_\", $$$_)",
+      "_xxsubinterpreters.run_string($ID, $PAYLOAD, $$$_)"
+    ])) as $all
+    | ( $all | of(["_xxsubinterpreters.run_string($ID, $PAYLOAD, $$$_)"])
+          | not_at($all | of(["_xxsubinterpreters.run_string($ID, \"$$$_\", $$$_)"]))
+        | finding("dangerous-subinterpreters-run-string-audit";
+            "Found dynamic content in `run_string`.") ) )
+| report

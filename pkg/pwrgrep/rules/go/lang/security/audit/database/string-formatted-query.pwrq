@@ -1,0 +1,73 @@
+# rules: string-formatted-query
+# from: go/lang/security/audit/database/string-formatted-query.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$OBJ.Exec(\"$$$_\")",
+      "$OBJ.Exec($X + $$$_)",
+      "$OBJ.Exec(fmt.$P(\"$$$_\", $$$_))",
+      "$OBJ.ExecContext($CTX, \"$$$_\")",
+      "$OBJ.ExecContext($CTX, $X + $$$_)",
+      "$OBJ.ExecContext($CTX, fmt.$P(\"$$$_\", $$$_))",
+      "$OBJ.Query(\"$$$_\")",
+      "$OBJ.Query($X + $$$_)",
+      "$OBJ.Query(fmt.$P(\"$$$_\", $$$_))",
+      "$OBJ.QueryContext($CTX, \"$$$_\")",
+      "$OBJ.QueryContext($CTX, $X + $$$_)",
+      "$OBJ.QueryContext($CTX, fmt.$P(\"$$$_\", $$$_))",
+      "$OBJ.QueryRow(\"$$$_\")",
+      "$OBJ.QueryRow($CTX, \"$$$_\")",
+      "$OBJ.QueryRow($CTX, $X + $$$_)",
+      "$OBJ.QueryRow($CTX, fmt.$U(\"$$$_\", $$$_))",
+      "$OBJ.QueryRow($X + $$$_)",
+      "$OBJ.QueryRow(fmt.$P(\"$$$_\", $$$_))",
+      "$OBJ.QueryRowContext($CTX, \"$$$_\")",
+      "$OBJ.QueryRowContext($CTX, $X + $$$_)",
+      "$OBJ.QueryRowContext($CTX, fmt.$P(\"$$$_\", $$$_))",
+      "$QUERY = $X + $$$_",
+      "$QUERY = fmt.Fprintf($F, \"$SQLSTR\", $$$_)",
+      "$QUERY = fmt.Printf(\"$SQLSTR\", $$$_)",
+      "$QUERY = fmt.Sprintf(\"$SQLSTR\", $$$_)",
+      "$VAR = \"$$$_\" + \"$$$_\"\n$$$_\n$OBJ.$SINK($$$_, $VAR, $$$_)",
+      "func $FUNC($$$_) {\n    $$$_\n    $OBJ.Exec($QUERY, $$$_)\n    $$$_\n}",
+      "func $FUNC($$$_) {\n    $$$_\n    $OBJ.ExecContext($CTX, $QUERY, $$$_)\n    $$$_\n}",
+      "func $FUNC($$$_) {\n    $$$_\n    $OBJ.Query($QUERY, $$$_)\n    $$$_\n}",
+      "func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryContext($CTX, $QUERY)\n    $$$_\n}",
+      "func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryRow($CTX, $QUERY)\n    $$$_\n}",
+      "func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryRow($QUERY)\n    $$$_\n}",
+      "func $FUNC($$$_) {\n    $$$_\n    $OBJ.QueryRowContext($CTX, $QUERY, $$$_)\n    $$$_\n}"
+    ])) as $all
+    | ( ($all | of(["$OBJ.Exec($X + $$$_)"]))
+          + ($all | of(["$OBJ.ExecContext($CTX, $X + $$$_)"]))
+          + ($all | of(["$OBJ.Query($X + $$$_)"]))
+          + ($all | of(["$OBJ.QueryContext($CTX, $X + $$$_)"]))
+          + ($all | of(["$OBJ.QueryRow($X + $$$_)"]))
+          + ($all | of(["$OBJ.QueryRow($CTX, $X + $$$_)"]))
+          + ($all | of(["$OBJ.QueryRowContext($CTX, $X + $$$_)"]))
+          + ($all | of(["$OBJ.Exec(fmt.$P(\"$$$_\", $$$_))"]))
+          + ($all | of(["$OBJ.ExecContext($CTX, fmt.$P(\"$$$_\", $$$_))"]))
+          + ($all | of(["$OBJ.Query(fmt.$P(\"$$$_\", $$$_))"]))
+          + ($all | of(["$OBJ.QueryContext($CTX, fmt.$P(\"$$$_\", $$$_))"]))
+          + ($all | of(["$OBJ.QueryRow(fmt.$P(\"$$$_\", $$$_))"]))
+          + ($all | of(["$OBJ.QueryRow($CTX, fmt.$U(\"$$$_\", $$$_))"]))
+          + ($all | of(["$OBJ.QueryRowContext($CTX, fmt.$P(\"$$$_\", $$$_))"]))
+          + ($all | of(["$QUERY = fmt.Fprintf($F, \"$SQLSTR\", $$$_)","$QUERY = fmt.Sprintf(\"$SQLSTR\", $$$_)","$QUERY = fmt.Printf(\"$SQLSTR\", $$$_)","$QUERY = $X + $$$_"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all))))
+          | where_capture("OBJ"; "(?i).*(db|database)")
+          | outside($all | of(["$VAR = \"$$$_\" + \"$$$_\"\n$$$_\n$OBJ.$SINK($$$_, $VAR, $$$_)"]))
+          | not_at($all | of(["$OBJ.Exec(\"$$$_\")"]))
+          | not_at($all | of(["$OBJ.ExecContext($CTX, \"$$$_\")"]))
+          | not_at($all | of(["$OBJ.Query(\"$$$_\")"]))
+          | not_at($all | of(["$OBJ.QueryContext($CTX, \"$$$_\")"]))
+          | not_at($all | of(["$OBJ.QueryRow(\"$$$_\")"]))
+          | not_at($all | of(["$OBJ.QueryRow($CTX, \"$$$_\")"]))
+          | not_at($all | of(["$OBJ.QueryRowContext($CTX, \"$$$_\")"]))
+        | finding("string-formatted-query";
+            "String-formatted SQL query detected.") ) )
+| report

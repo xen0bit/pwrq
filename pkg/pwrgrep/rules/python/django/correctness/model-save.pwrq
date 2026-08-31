@@ -1,0 +1,17 @@
+# rules: django-db-model-save-super
+# from: python/django/correctness/model-save.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class $MODEL(django.db.models.Model):\n    $$$_",
+      "def save(self, $$$_):\n  $$$_",
+      "def save(self, $$$_):\n  $$$_\n  super($MODEL, self).save($$$_)",
+      "def save(self, $$$_):\n  $$$_\n  super().save($$$_)"
+    ])) as $all
+    | ( $all | of(["def save(self, $$$_):\n  $$$_"])
+          | within($all | of(["class $MODEL(django.db.models.Model):\n    $$$_"]))
+          | not_at($all | of(["def save(self, $$$_):\n  $$$_\n  super($MODEL, self).save($$$_)"]))
+          | not_at($all | of(["def save(self, $$$_):\n  $$$_\n  super().save($$$_)"]))
+        | finding("django-db-model-save-super";
+            "Detected a django model `$MODEL` is not calling super().save() inside of the save method.") ) )
+| report

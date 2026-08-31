@@ -1,0 +1,17 @@
+# rules: jwt-exposed-data
+# from: javascript/jsonwebtoken/security/audit/jwt-exposed-data.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$JWT = require('jsonwebtoken');\n$$$_",
+      "$JWT.sign($INPUT,$$$_)",
+      "function $F($$$_,$INPUT,$$$_) {$$$_}",
+      "function ($$$_,$INPUT,$$$_) {$$$_}"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["$JWT.sign($INPUT,$$$_)"])))
+          | in_files_with($all | of(["$JWT = require('jsonwebtoken');\n$$$_"]))
+        | finding("jwt-exposed-data";
+            "The object is passed strictly to jsonwebtoken.sign(...) Make sure that sensitive information is not exposed through JWT token payload.") ) )
+| report

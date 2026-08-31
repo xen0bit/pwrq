@@ -1,0 +1,13 @@
+# rules: avoid-jsonpickle
+# from: python/lang/security/deserialization/avoid-jsonpickle.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "jsonpickle.decode(\"$$$_\",$$$_)",
+      "jsonpickle.decode($PAYLOAD,$$$_)"
+    ])) as $all
+    | ( $all | of(["jsonpickle.decode($PAYLOAD,$$$_)"])
+          | not_at($all | of(["jsonpickle.decode(\"$$$_\",$$$_)"]))
+        | finding("avoid-jsonpickle";
+            "Avoid using `jsonpickle`, which is known to lead to code execution vulnerabilities.") ) )
+| report

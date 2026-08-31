@@ -1,0 +1,11 @@
+# rules: improper-list-concat
+# from: python/lang/maintainability/improper-list-concat.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "[$$$_] + [$$$_] if $EXPRESSION else [$$$_]"
+    ])) as $all
+    | ( $all | of(["[$$$_] + [$$$_] if $EXPRESSION else [$$$_]"])
+        | finding("improper-list-concat";
+            "This expression will evaluate to be ONLY value the of the `else` clause if the condition `$EXPRESSION` is false.") ) )
+| report

@@ -1,0 +1,32 @@
+# rules: scala-dangerous-process-run
+# from: scala/lang/security/audit/scala-dangerous-process-run.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "\"$$$_\"",
+      "\"$$$_\".!",
+      "\"$$$_\".!!",
+      "\"$$$_\".lazyLines",
+      "$X.!",
+      "$X.!!",
+      "$X.lazyLines",
+      "Seq($$$_).!",
+      "Seq($$$_).!!",
+      "Seq($$$_).lazyLines",
+      "import sys.process\n$$$_",
+      "val $X = \"$$$_\"\n$$$_",
+      "val $X = Seq($$$_)\n$$$_"
+    ])) as $all
+    | ( $all | of(["$X.!","$X.!!","$X.lazyLines"])
+          | in_files_with($all | of(["import sys.process\n$$$_"]))
+          | not_at($all | of(["\"$$$_\".!"]))
+          | not_at($all | of(["\"$$$_\".!!"]))
+          | not_at($all | of(["\"$$$_\".lazyLines"]))
+          | not_at($all | of(["Seq($$$_).!"]))
+          | not_at($all | of(["Seq($$$_).!!"]))
+          | not_at($all | of(["Seq($$$_).lazyLines"]))
+          | in_files_without($all | of(["val $X = \"$$$_\"\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["val $X = Seq($$$_)\n$$$_"]))
+        | finding("scala-dangerous-process-run";
+            "Found dynamic content used for the external process.") ) )
+| report

@@ -1,0 +1,14 @@
+# rules: lang-consistency-regex
+# from: yaml/semgrep/consistency/lang-consistency-regex.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$X",
+      "languages: $$$_"
+    ])) as $all
+    | ( $all | of(["$X"])
+          | within($all | of(["languages: $$$_"]))
+          | where_capture("X"; "^(none)$")
+        | finding("lang-consistency-regex";
+            "Found '$X' in language config which diverges from semgrep.dev normalization.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: hostpid-pod
+# from: yaml/kubernetes/security/hostpid-pod.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "hostPID: true",
+      "spec:\n  $$$_"
+    ])) as $all
+    | ( $all | of(["hostPID: true"])
+          | within($all | of(["spec:\n  $$$_"]))
+        | finding("hostpid-pod";
+            "Pod is sharing the host process ID namespace.") ) )
+| report

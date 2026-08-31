@@ -1,0 +1,11 @@
+# rules: wp-open-redirect-audit
+# from: php/wordpress-plugins/security/audit/wp-open-redirect-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "wp_redirect($$$_)"
+    ])) as $all
+    | ( $all | of(["wp_redirect($$$_)"])
+        | finding("wp-open-redirect-audit";
+            "This function can be used to redirect to user supplied URLs.") ) )
+| report

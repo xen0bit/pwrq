@@ -1,0 +1,13 @@
+# rules: missing-no-install-recommends
+# from: dockerfile/best-practice/missing-no-install-recommends.yaml
+
+. as $root
+| ( ($root | scan_ast(["Dockerfile*"]; [
+      "RUN apt-get install $$$_",
+      "RUN apt-get install $$$_ --no-install-recommends $$$_"
+    ])) as $all
+    | ( $all | of(["RUN apt-get install $$$_"])
+          | not_at($all | of(["RUN apt-get install $$$_ --no-install-recommends $$$_"]))
+        | finding("missing-no-install-recommends";
+            "This 'apt-get install' is missing '--no-install-recommends'.") ) )
+| report

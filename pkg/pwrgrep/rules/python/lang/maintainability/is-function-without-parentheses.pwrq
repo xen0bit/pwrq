@@ -1,0 +1,14 @@
+# rules: is-function-without-parentheses
+# from: python/lang/maintainability/is-function-without-parentheses.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$X.$FUNC",
+      "$X.$FUNC($$$_)"
+    ])) as $all
+    | ( $all | of(["$X.$FUNC"])
+          | outside($all | of(["$X.$FUNC($$$_)"]))
+          | where_capture("FUNC"; "is_.*")
+        | finding("is-function-without-parentheses";
+            "Is \"$FUNC\" a function or an attribute?") ) )
+| report

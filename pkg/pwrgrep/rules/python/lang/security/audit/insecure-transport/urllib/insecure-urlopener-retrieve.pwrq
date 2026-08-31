@@ -1,0 +1,27 @@
+# rules: insecure-urlopener-retrieve
+# from: python/lang/security/audit/insecure-transport/urllib/insecure-urlopener-retrieve.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$OPENERDIRECTOR = urllib.request.URLopener($$$_)\n$$$_",
+      "$OPENERDIRECTOR.retrieve(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)",
+      "$OPENERDIRECTOR.retrieve($URL, $$$_)",
+      "$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\n$OPENERDIRECTOR.retrieve($URL, $$$_)",
+      "$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.URLopener($$$_).retrieve($URL, $$$_)",
+      "def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_",
+      "urllib.request.URLopener($$$_).retrieve(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)",
+      "urllib.request.URLopener($$$_).retrieve($URL, $$$_)"
+    ])) as $all
+    | ( ($all | of(["urllib.request.URLopener($$$_).retrieve(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)"]))
+          + ($all | of(["$OPENERDIRECTOR.retrieve(\"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_)"])
+          | in_files_with($all | of(["$OPENERDIRECTOR = urllib.request.URLopener($$$_)\n$$$_"])))
+          + ($all | of(["$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\n$OPENERDIRECTOR.retrieve($URL, $$$_)"])
+          | in_files_with($all | of(["$OPENERDIRECTOR = urllib.request.URLopener($$$_)\n$$$_"])))
+          + ($all | of(["$URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\"\n$$$_\nurllib.request.URLopener($$$_).retrieve($URL, $$$_)"]))
+          + (($all | of(["urllib.request.URLopener($$$_).retrieve($URL, $$$_)"]))
+          + ($all | of(["$OPENERDIRECTOR.retrieve($URL, $$$_)"])
+          | in_files_with($all | of(["$OPENERDIRECTOR = urllib.request.URLopener($$$_)\n$$$_"])))
+          | within($all | of(["def $FUNC($$$_, $URL = \"=~/[Hh][Tt][Tt][Pp]://.*/\", $$$_):\n  $$$_"])))
+        | finding("insecure-urlopener-retrieve";
+            "Detected an unsecured transmission channel.") ) )
+| report

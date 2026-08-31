@@ -1,0 +1,12 @@
+# rules: dom-based-xss
+# from: javascript/browser/security/dom-based-xss.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "document.write(<$$$_ document.location.$W $$$_>)",
+      "document.write(<$$$_ location.$W $$$_>)"
+    ])) as $all
+    | ( $all | of(["document.write(<$$$_ document.location.$W $$$_>)","document.write(<$$$_ location.$W $$$_>)"])
+        | finding("dom-based-xss";
+            "Detected possible DOM-based XSS.") ) )
+| report

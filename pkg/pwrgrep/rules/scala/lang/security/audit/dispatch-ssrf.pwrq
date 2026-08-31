@@ -1,0 +1,17 @@
+# rules: dispatch-ssrf
+# from: scala/lang/security/audit/dispatch-ssrf.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "def $FUNC($$$_, $URL: $T, $$$_) = $A {\n  $$$_\n}",
+      "def $FUNC($$$_, $URL: $T, $$$_) = {\n  $$$_\n}",
+      "import dispatch._\n$$$_",
+      "url($URL)"
+    ])) as $all
+    | ( $all | of(["url($URL)"])
+          | at_same_place((($all)
+          + ($all)))
+          | in_files_with($all | of(["import dispatch._\n$$$_"]))
+        | finding("dispatch-ssrf";
+            "A parameter being passed directly into `url` most likely lead to SSRF.") ) )
+| report

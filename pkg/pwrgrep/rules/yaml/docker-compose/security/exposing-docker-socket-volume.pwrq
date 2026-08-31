@@ -1,0 +1,20 @@
+# rules: exposing-docker-socket-volume
+# from: yaml/docker-compose/security/exposing-docker-socket-volume.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "version: $$$_\n$$$_",
+      "volumes:\n  - $$$_\n  - $$$_\n    source: /run/docker.sock\n    $$$_\n  - $$$_",
+      "volumes:\n  - $$$_\n  - $$$_\n    source: /var/run/docker.sock\n    $$$_\n  - $$$_",
+      "volumes:\n  - $$$_\n  - /run/docker.sock\n  - $$$_",
+      "volumes:\n  - $$$_\n  - /run/docker.sock:/run/docker.sock\n  - $$$_",
+      "volumes:\n  - $$$_\n  - /run/docker.sock:/var/run/docker.sock\n  - $$$_",
+      "volumes:\n  - $$$_\n  - /var/run/docker.sock\n  - $$$_",
+      "volumes:\n  - $$$_\n  - /var/run/docker.sock:/run/docker.sock\n  - $$$_",
+      "volumes:\n  - $$$_\n  - /var/run/docker.sock:/var/run/docker.sock\n  - $$$_"
+    ])) as $all
+    | ( $all | of(["volumes:\n  - $$$_\n  - /var/run/docker.sock:/var/run/docker.sock\n  - $$$_","volumes:\n  - $$$_\n  - /run/docker.sock:/run/docker.sock\n  - $$$_","volumes:\n  - $$$_\n  - /var/run/docker.sock:/run/docker.sock\n  - $$$_","volumes:\n  - $$$_\n  - /run/docker.sock:/var/run/docker.sock\n  - $$$_","volumes:\n  - $$$_\n  - /var/run/docker.sock\n  - $$$_","volumes:\n  - $$$_\n  - /run/docker.sock\n  - $$$_","volumes:\n  - $$$_\n  - $$$_\n    source: /var/run/docker.sock\n    $$$_\n  - $$$_","volumes:\n  - $$$_\n  - $$$_\n    source: /run/docker.sock\n    $$$_\n  - $$$_"])
+          | in_files_with($all | of(["version: $$$_\n$$$_"]))
+        | finding("exposing-docker-socket-volume";
+            "Exposing host's Docker socket to containers via a volume.") ) )
+| report

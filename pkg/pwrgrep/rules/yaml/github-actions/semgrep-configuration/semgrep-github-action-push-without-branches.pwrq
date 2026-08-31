@@ -1,0 +1,22 @@
+# rules: semgrep-github-action-push-without-branches
+# from: yaml/github-actions/semgrep-configuration/semgrep-github-action-push-without-branches.yml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "branches: \"\"",
+      "branches: []",
+      "on:\n  $$$_\n  push: \"\"\n  $$$_\n$$$_",
+      "on:\n  $$$_\n  push: $$$_\n  $$$_\n$$$_",
+      "on:\n  $$$_\n  push: {}\n  $$$_\n$$$_",
+      "on: [$$$_, push, $$$_]\n$$$_",
+      "on: push\n$$$_"
+    ])) as $all
+    | ( ($all | of(["on: [$$$_, push, $$$_]\n$$$_"]))
+          + ($all | of(["on: push\n$$$_"]))
+          + ($all | of(["on:\n  $$$_\n  push: \"\"\n  $$$_\n$$$_"]))
+          + ($all | of(["on:\n  $$$_\n  push: {}\n  $$$_\n$$$_"]))
+          + ($all | of(["branches: \"\"","branches: []"])
+          | in_files_with($all | of(["on:\n  $$$_\n  push: $$$_\n  $$$_\n$$$_"])))
+        | finding("semgrep-github-action-push-without-branches";
+            "The 'branches' field (in the push event configuration) contains no branches.") ) )
+| report

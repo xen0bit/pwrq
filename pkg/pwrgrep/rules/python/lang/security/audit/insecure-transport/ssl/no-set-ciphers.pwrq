@@ -1,0 +1,11 @@
+# rules: no-set-ciphers
+# from: python/lang/security/audit/insecure-transport/ssl/no-set-ciphers.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CONTEXT.set_ciphers($$$_)"
+    ])) as $all
+    | ( $all | of(["$CONTEXT.set_ciphers($$$_)"])
+        | finding("no-set-ciphers";
+            "The 'ssl' module disables insecure cipher suites by default.") ) )
+| report

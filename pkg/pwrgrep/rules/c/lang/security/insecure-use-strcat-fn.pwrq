@@ -1,0 +1,12 @@
+# rules: insecure-use-strcat-fn
+# from: c/lang/security/insecure-use-strcat-fn.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "strcat($$$_)",
+      "strncat($$$_)"
+    ])) as $all
+    | ( $all | of(["strcat($$$_)","strncat($$$_)"])
+        | finding("insecure-use-strcat-fn";
+            "Finding triggers whenever there is a strcat or strncat used.") ) )
+| report

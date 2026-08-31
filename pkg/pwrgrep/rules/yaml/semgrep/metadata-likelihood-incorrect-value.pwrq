@@ -1,0 +1,21 @@
+# rules: metadata-likelihood-incorrect-value
+# from: yaml/semgrep/metadata-likelihood-incorrect-value.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "likelihood: $VALUE",
+      "likelihood: HIGH",
+      "likelihood: LOW",
+      "likelihood: MEDIUM",
+      "metadata: \n  $$$_\n  category: security\n  $$$_",
+      "rules: \n  $$$_"
+    ])) as $all
+    | ( $all | of(["likelihood: $VALUE"])
+          | within($all | of(["rules: \n  $$$_"]))
+          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
+          | not_at($all | of(["likelihood: LOW"]))
+          | not_at($all | of(["likelihood: MEDIUM"]))
+          | not_at($all | of(["likelihood: HIGH"]))
+        | finding("metadata-likelihood-incorrect-value";
+            "Semgrep rule likelihood: $VALUE detected, but the value must be LOW, MEDIUM, or HIGH.") ) )
+| report

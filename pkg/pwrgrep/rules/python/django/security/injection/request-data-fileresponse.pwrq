@@ -1,0 +1,32 @@
+# rules: request-data-fileresponse
+# from: python/django/security/injection/request-data-fileresponse.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A = django.http.FileResponse($$$_, request.$W($$$_), $$$_)",
+      "$A = django.http.FileResponse($$$_, request.$W, $$$_)",
+      "$A = django.http.FileResponse($$$_, request.$W.get($$$_), $$$_)",
+      "$A = django.http.FileResponse($$$_, request.$W[$$$_], $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)",
+      "def $FUNC($$$_):\n  $$$_",
+      "django.http.FileResponse($$$_, request.$W($$$_), $$$_)",
+      "django.http.FileResponse($$$_, request.$W, $$$_)",
+      "django.http.FileResponse($$$_, request.$W.get($$$_), $$$_)",
+      "django.http.FileResponse($$$_, request.$W[$$$_], $$$_)",
+      "return django.http.FileResponse($$$_, request.$W($$$_), $$$_)",
+      "return django.http.FileResponse($$$_, request.$W, $$$_)",
+      "return django.http.FileResponse($$$_, request.$W.get($$$_), $$$_)",
+      "return django.http.FileResponse($$$_, request.$W[$$$_], $$$_)"
+    ])) as $all
+    | ( $all | of(["django.http.FileResponse($$$_, request.$W.get($$$_), $$$_)","$DATA = request.$W.get($$$_)\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)","$A = django.http.FileResponse($$$_, request.$W.get($$$_), $$$_)","return django.http.FileResponse($$$_, request.$W.get($$$_), $$$_)","django.http.FileResponse($$$_, request.$W($$$_), $$$_)","$DATA = request.$W($$$_)\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)","$A = django.http.FileResponse($$$_, request.$W($$$_), $$$_)","return django.http.FileResponse($$$_, request.$W($$$_), $$$_)","django.http.FileResponse($$$_, request.$W[$$$_], $$$_)","$DATA = request.$W[$$$_]\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)","$A = django.http.FileResponse($$$_, request.$W[$$$_], $$$_)","return django.http.FileResponse($$$_, request.$W[$$$_], $$$_)","django.http.FileResponse($$$_, request.$W, $$$_)","$DATA = request.$W\n$$$_\ndjango.http.FileResponse($$$_, open($DATA, $$$_), $$$_)","$DATA = request.$W\n$$$_\n$INTERM = open($DATA, $$$_)\n$$$_\ndjango.http.FileResponse($$$_, $INTERM, $$$_)","$A = django.http.FileResponse($$$_, request.$W, $$$_)","return django.http.FileResponse($$$_, request.$W, $$$_)"])
+          | within($all | of(["def $FUNC($$$_):\n  $$$_"]))
+        | finding("request-data-fileresponse";
+            "Found user-controlled request data being passed into a file open, which is them passed as an argument into the FileResponse.") ) )
+| report

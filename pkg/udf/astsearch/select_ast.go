@@ -359,13 +359,14 @@ func matchObject(path, language, pattern string, source []byte, r grep.Result) a
 	endLine, endColumn := position(source, r.EndByte)
 	end := min(int(r.EndByte), len(source))
 
-	// The rewritten query carries two captures of its own: the whole matched
-	// construct, which is where the span comes from, and the ellipsis, which
-	// is a hole the caller said not to look at. Neither is a name anybody
-	// wrote, so neither is reported. See sexp.go.
+	// The rewritten query carries captures of its own: the whole matched
+	// construct, which is where the span comes from; the ellipsis, which is a
+	// hole the caller said not to look at; and the second and later halves of
+	// a hole written twice, which hold the same text as the first. None of
+	// them is a name anybody wrote, so none is reported. See sexp.go.
 	captures := map[string]any{}
 	for name, c := range r.Captures {
-		if name == rootCapture || name == ellipsisName {
+		if name == rootCapture || name == ellipsisName || strings.Contains(name, againSuffix) {
 			continue
 		}
 		captures[name] = string(c.Text)

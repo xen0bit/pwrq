@@ -1,0 +1,14 @@
+# rules: spring-unvalidated-redirect
+# from: java/spring/security/audit/spring-unvalidated-redirect.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  String $REDIR = \"redirect:\" + $URL;\n  $$$_\n  new ModelAndView($REDIR);\n  $$$_\n}",
+      "$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  String $REDIR = \"redirect:\" + $URL;\n  $$$_\n  return $REDIR;\n  $$$_\n}",
+      "$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  new ModelAndView(\"redirect:\" + $URL);\n  $$$_\n}",
+      "$X $METHOD($$$_,String $URL,$$$_) {\n  return \"redirect:\" + $URL;\n}"
+    ])) as $all
+    | ( $all | of(["$X $METHOD($$$_,String $URL,$$$_) {\n  return \"redirect:\" + $URL;\n}","$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  String $REDIR = \"redirect:\" + $URL;\n  $$$_\n  return $REDIR;\n  $$$_\n}","$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  new ModelAndView(\"redirect:\" + $URL);\n  $$$_\n}","$X $METHOD($$$_,String $URL,$$$_) {\n  $$$_\n  String $REDIR = \"redirect:\" + $URL;\n  $$$_\n  new ModelAndView($REDIR);\n  $$$_\n}"])
+        | finding("spring-unvalidated-redirect";
+            "Application redirects a user to a destination URL specified by a user supplied parameter that is not validated.") ) )
+| report

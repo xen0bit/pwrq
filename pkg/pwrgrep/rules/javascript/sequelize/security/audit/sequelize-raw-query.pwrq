@@ -1,0 +1,18 @@
+# rules: sequelize-raw-query
+# from: javascript/sequelize/security/audit/sequelize-raw-query.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$DATABASE.sequelize.query($SQL + $VALUE, $$$_)",
+      "$DATABASE.sequelize.query(`$$$_${$$$_}$$$_`, $$$_)",
+      "$QUERY = $SQL + $VALUE\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)",
+      "$QUERY = $SQL + $VALUE\n$$$_\nSequelize.literal($QUERY)",
+      "$QUERY = `$$$_${$$$_}$$$_`\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)",
+      "$QUERY = `$$$_${$$$_}$$$_`\n$$$_\nSequelize.literal($QUERY)",
+      "Sequelize.literal($SQL + $VALUE)",
+      "Sequelize.literal(`$$$_${$$$_}$$$_`)"
+    ])) as $all
+    | ( $all | of(["$DATABASE.sequelize.query(`$$$_${$$$_}$$$_`, $$$_)","$QUERY = `$$$_${$$$_}$$$_`\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)","$DATABASE.sequelize.query($SQL + $VALUE, $$$_)","$QUERY = $SQL + $VALUE\n$$$_\n$DATABASE.sequelize.query($QUERY, $$$_)","Sequelize.literal(`$$$_${$$$_}$$$_`)","$QUERY = `$$$_${$$$_}$$$_`\n$$$_\nSequelize.literal($QUERY)","Sequelize.literal($SQL + $VALUE)","$QUERY = $SQL + $VALUE\n$$$_\nSequelize.literal($QUERY)"])
+        | finding("sequelize-raw-query";
+            "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection.") ) )
+| report

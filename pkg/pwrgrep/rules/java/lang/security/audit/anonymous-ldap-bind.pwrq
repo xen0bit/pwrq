@@ -1,0 +1,11 @@
+# rules: anonymous-ldap-bind
+# from: java/lang/security/audit/anonymous-ldap-bind.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$ENV.put($CTX.SECURITY_AUTHENTICATION, \"none\");\n$$$_\n$DCTX = new InitialDirContext($ENV, $$$_);"
+    ])) as $all
+    | ( $all | of(["$ENV.put($CTX.SECURITY_AUTHENTICATION, \"none\");\n$$$_\n$DCTX = new InitialDirContext($ENV, $$$_);"])
+        | finding("anonymous-ldap-bind";
+            "Detected anonymous LDAP bind.") ) )
+| report

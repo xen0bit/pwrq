@@ -1,0 +1,11 @@
+# rules: detect-pseudoRandomBytes
+# from: javascript/lang/security/detect-pseudoRandomBytes.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "crypto.pseudoRandomBytes"
+    ])) as $all
+    | ( $all | of(["crypto.pseudoRandomBytes"])
+        | finding("detect-pseudoRandomBytes";
+            "Detected usage of crypto.pseudoRandomBytes, which does not produce secure random numbers.") ) )
+| report

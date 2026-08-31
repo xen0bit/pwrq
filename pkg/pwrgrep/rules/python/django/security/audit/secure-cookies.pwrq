@@ -1,0 +1,31 @@
+# rules: django-secure-set-cookie
+# from: python/django/security/audit/secure-cookies.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "LANGUAGE_QUERY_PARAMETER = 'language'\n$$$_\ndef set_language(request):\n    $$$_\n# Exclude vendored contrib/messages/storage/cookie.py",
+      "class CookieStorage(django.contrib.messages.storage.base.BaseStorage):\n    $$$_\n# Exclude cookies handled by vendored middleware",
+      "import django.http.HttpResponse\n$$$_",
+      "import django.shortcuts.render\n$$$_",
+      "response.set_cookie($$$_)",
+      "response.set_cookie($$$_, **$A)",
+      "response.set_cookie($$$_, secure=$A, httponly=$B, samesite=$C, $$$_)",
+      "response.set_cookie(django.conf.settings.CSRF_COOKIE_NAME, $$$_)",
+      "response.set_cookie(django.conf.settings.LANGUAGE_COOKIE_NAME, $$$_)",
+      "response.set_cookie(django.conf.settings.SESSION_COOKIE_NAME, $$$_)",
+      "response.set_cookie(rest_framework_jwt.settings.api_settings.JWT_AUTH_COOKIE, $$$_)"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["response.set_cookie($$$_)"])))
+          | outside($all | of(["LANGUAGE_QUERY_PARAMETER = 'language'\n$$$_\ndef set_language(request):\n    $$$_\n# Exclude vendored contrib/messages/storage/cookie.py"]))
+          | outside($all | of(["class CookieStorage(django.contrib.messages.storage.base.BaseStorage):\n    $$$_\n# Exclude cookies handled by vendored middleware"]))
+          | not_at($all | of(["response.set_cookie(django.conf.settings.SESSION_COOKIE_NAME, $$$_)"]))
+          | not_at($all | of(["response.set_cookie(django.conf.settings.CSRF_COOKIE_NAME, $$$_)"]))
+          | not_at($all | of(["response.set_cookie(django.conf.settings.LANGUAGE_COOKIE_NAME, $$$_)"]))
+          | not_at($all | of(["response.set_cookie(rest_framework_jwt.settings.api_settings.JWT_AUTH_COOKIE, $$$_)"]))
+          | not_at($all | of(["response.set_cookie($$$_, secure=$A, httponly=$B, samesite=$C, $$$_)"]))
+          | not_at($all | of(["response.set_cookie($$$_, **$A)"]))
+        | finding("django-secure-set-cookie";
+            "Django cookies should be handled securely by setting secure=True, httponly=True, and samesite='Lax' in response.set_cookie(...).") ) )
+| report

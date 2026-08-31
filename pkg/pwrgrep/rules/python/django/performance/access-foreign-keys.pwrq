@@ -1,0 +1,19 @@
+# rules: access-foreign-keys
+# from: python/django/performance/access-foreign-keys.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$X.user.id",
+      "from django.$Y import $Z\n$$$_",
+      "import django\n$$$_",
+      "request.user.id",
+      "self.request.user.id"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["$X.user.id"])))
+          | not_at($all | of(["request.user.id"]))
+          | not_at($all | of(["self.request.user.id"]))
+        | finding("access-foreign-keys";
+            "You should use ITEM.user_id rather than ITEM.user.id to prevent running an extra query.") ) )
+| report

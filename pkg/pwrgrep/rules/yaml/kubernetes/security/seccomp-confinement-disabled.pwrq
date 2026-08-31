@@ -1,0 +1,13 @@
+# rules: seccomp-confinement-disabled
+# from: yaml/kubernetes/security/seccomp-confinement-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "containers:\n  $$$_",
+      "image: $$$_\n$$$_\nsecurityContext:\n  $$$_\n  seccompProfile: unconfined"
+    ])) as $all
+    | ( $all | of(["image: $$$_\n$$$_\nsecurityContext:\n  $$$_\n  seccompProfile: unconfined"])
+          | within($all | of(["containers:\n  $$$_"]))
+        | finding("seccomp-confinement-disabled";
+            "Container is explicitly disabling seccomp confinement.") ) )
+| report

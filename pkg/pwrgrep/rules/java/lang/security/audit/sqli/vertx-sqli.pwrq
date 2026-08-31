@@ -1,0 +1,34 @@
+# rules: vertx-sqli
+# from: java/lang/security/audit/sqli/vertx-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$SC.$METHOD(\"$$$_\" + \"$$$_\",$$$_);",
+      "$SC.$METHOD($SQL,$$$_)",
+      "$SC.$METHOD($X + $Y,$$$_);",
+      "$SC.$METHOD(String.format($$$_),$$$_);",
+      "$TYPE $FUNC($$$_,SqlClient $SC,$$$_) {\n  $$$_\n}",
+      "$TYPE $FUNC($$$_,SqlConnection $SC,$$$_) {\n  $$$_\n}",
+      "$TYPE $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}",
+      "SqlClient $SC = $$$_;\n$$$_",
+      "SqlConnection $SC = $$$_;\n$$$_",
+      "String $SQL = \"$$$_\" + \"$$$_\";\n$$$_",
+      "String $SQL = $X + $Y;\n$$$_",
+      "String $SQL = String.format($$$_);\n$$$_"
+    ])) as $all
+    | ( (($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$SC.$METHOD($SQL,$$$_)"])))
+          | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
+          + ($all | of(["$SC.$METHOD(String.format($$$_),$$$_);"]))
+          + ($all | of(["$SC.$METHOD($X + $Y,$$$_);"]))
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | not_at($all | of(["$SC.$METHOD(\"$$$_\" + \"$$$_\",$$$_);"]))
+          | where_capture("METHOD"; "^(query|preparedQuery|prepare)$")
+        | finding("vertx-sqli";
+            "Detected a formatted string in a SQL statement.") ) )
+| report

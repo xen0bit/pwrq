@@ -1,0 +1,30 @@
+# rules: tempfile-without-flush
+# from: python/lang/correctness/tempfile/flush.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$F = tempfile.NamedTemporaryFile($$$_)\n$$$_",
+      "$F = tempfile.NamedTemporaryFile($$$_)\n$$$_\n$F.write($$$_)\n$$$_\n$F.close()\n$$$_\n$F.name",
+      "$F = tempfile.NamedTemporaryFile($$$_)\n$$$_\n$F.write($$$_)\n$$$_\n$F.flush()\n$$$_\n$F.name",
+      "$F = tempfile.NamedTemporaryFile($$$_, delete=False, $$$_)\n$$$_\n$F.close()\n$$$_\n$F.name",
+      "$F.name",
+      "with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_",
+      "with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $F.write($$$_)\n    $$$_\n    $F.close()\n    $$$_\n    $F.name",
+      "with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $F.write($$$_)\n    $$$_\n    $F.flush()\n    $$$_\n    $F.name",
+      "with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $MODULE.dump($$$_, $F, $$$_)\n    $$$_\n    $F.close()\n    $$$_\n    $F.name",
+      "with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $MODULE.dump($$$_, $F, $$$_)\n    $$$_\n    $F.flush()\n    $$$_\n    $F.name"
+    ])) as $all
+    | ( ($all | of(["$F.name"])
+          | outside($all | of(["$F = tempfile.NamedTemporaryFile($$$_)\n$$$_\n$F.write($$$_)\n$$$_\n$F.flush()\n$$$_\n$F.name"]))
+          | outside($all | of(["$F = tempfile.NamedTemporaryFile($$$_)\n$$$_\n$F.write($$$_)\n$$$_\n$F.close()\n$$$_\n$F.name"]))
+          | outside($all | of(["$F = tempfile.NamedTemporaryFile($$$_, delete=False, $$$_)\n$$$_\n$F.close()\n$$$_\n$F.name"]))
+          | in_files_with($all | of(["$F = tempfile.NamedTemporaryFile($$$_)\n$$$_"])))
+          + ($all | of(["$F.name"])
+          | outside($all | of(["with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $F.write($$$_)\n    $$$_\n    $F.flush()\n    $$$_\n    $F.name"]))
+          | outside($all | of(["with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $F.write($$$_)\n    $$$_\n    $F.close()\n    $$$_\n    $F.name"]))
+          | outside($all | of(["with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $MODULE.dump($$$_, $F, $$$_)\n    $$$_\n    $F.flush()\n    $$$_\n    $F.name"]))
+          | outside($all | of(["with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_\n    $MODULE.dump($$$_, $F, $$$_)\n    $$$_\n    $F.close()\n    $$$_\n    $F.name"]))
+          | within($all | of(["with tempfile.NamedTemporaryFile($$$_) as $F:\n    $$$_"])))
+        | finding("tempfile-without-flush";
+            "Using '$F.name' without '.flush()' or '.close()' may cause an error because the file may not exist when '$F.name' is used.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: skip-tls-verify-service
+# from: yaml/kubernetes/security/skip-tls-verify-service.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "spec:\n  $$$_\n  insecureSkipTLSVerify: true"
+    ])) as $all
+    | ( $all | of(["spec:\n  $$$_\n  insecureSkipTLSVerify: true"])
+        | finding("skip-tls-verify-service";
+            "Service is disabling TLS certificate verification when communicating with the server.") ) )
+| report

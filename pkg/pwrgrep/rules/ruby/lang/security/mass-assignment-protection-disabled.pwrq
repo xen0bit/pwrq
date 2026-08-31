@@ -1,0 +1,11 @@
+# rules: mass-assignment-protection-disabled
+# from: ruby/lang/security/mass-assignment-protection-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$MODEL.new(params[$$$_], $$$_, :without_protection => true, $$$_)"
+    ])) as $all
+    | ( $all | of(["$MODEL.new(params[$$$_], $$$_, :without_protection => true, $$$_)"])
+        | finding("mass-assignment-protection-disabled";
+            "Mass assignment protection disabled for '$MODEL'.") ) )
+| report

@@ -1,0 +1,24 @@
+# rules: ocamllint-str-first-chars, ocamllint-str-string-after, ocamllint-str-last-chars, ocamllint-useless-sprintf
+# from: ocaml/lang/best-practice/string.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "Printf.sprintf \"$$$_\"",
+      "Printf.sprintf \"%s\" $S",
+      "String.sub $S $N (String.length $S - $N)",
+      "String.sub $S (String.length $S - $N) $N",
+      "String.sub $S 0 $N"
+    ])) as $all
+    | ( $all | of(["String.sub $S 0 $N"])
+        | finding("ocamllint-str-first-chars";
+            "Use instead `Str.first_chars`") )
+      + ( $all | of(["String.sub $S $N (String.length $S - $N)"])
+        | finding("ocamllint-str-string-after";
+            "Use instead `Str.string_after`") )
+      + ( $all | of(["String.sub $S (String.length $S - $N) $N"])
+        | finding("ocamllint-str-last-chars";
+            "Use instead `Str.last_chars`") )
+      + ( $all | of(["Printf.sprintf \"$$$_\"","Printf.sprintf \"%s\" $S"])
+        | finding("ocamllint-useless-sprintf";
+            "Useless sprintf") ) )
+| report

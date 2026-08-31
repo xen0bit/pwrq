@@ -1,0 +1,26 @@
+# rules: manual-defaultdict-dict-create, manual-defaultdict-set-create, manual-defaultdict-list-create, manual-counter-create
+# from: python/lang/best-practice/manual-collections-create.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    $DICT.setdefault($KEY, []).append($$$_)",
+      "$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    $DICT.setdefault($KEY, set()).add($$$_)",
+      "$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    $DICT.setdefault($KEY, {}).update($$$_)",
+      "$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = 0\n        $$$_\n    $DICT[$KEY] += 1",
+      "$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = []\n        $$$_\n    $DICT[$KEY].append($$$_)",
+      "$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = set()\n        $$$_\n    $DICT[$KEY].add($$$_)",
+      "$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = {}\n        $$$_\n    $DICT[$KEY].update($$$_)"
+    ])) as $all
+    | ( $all | of(["$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = {}\n        $$$_\n    $DICT[$KEY].update($$$_)","$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    $DICT.setdefault($KEY, {}).update($$$_)"])
+        | finding("manual-defaultdict-dict-create";
+            "manually creating a defaultdict - use collections.defaultdict(dict)") )
+      + ( $all | of(["$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = set()\n        $$$_\n    $DICT[$KEY].add($$$_)","$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    $DICT.setdefault($KEY, set()).add($$$_)"])
+        | finding("manual-defaultdict-set-create";
+            "manually creating a defaultdict - use collections.defaultdict(set)") )
+      + ( $all | of(["$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = []\n        $$$_\n    $DICT[$KEY].append($$$_)","$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    $DICT.setdefault($KEY, []).append($$$_)"])
+        | finding("manual-defaultdict-list-create";
+            "manually creating a defaultdict - use collections.defaultdict(list)") )
+      + ( $all | of(["$DICT = {}\n$$$_\nfor $KEY, $VALUE in $OTHERDICT.items():\n    $$$_\n    if $KEY not in $DICT:\n        $$$_\n        $DICT[$KEY] = 0\n        $$$_\n    $DICT[$KEY] += 1"])
+        | finding("manual-counter-create";
+            "manually creating a counter - use collections.Counter") ) )
+| report

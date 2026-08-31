@@ -1,0 +1,20 @@
+# rules: no-direct-write-to-responsewriter
+# from: go/lang/security/audit/xss/no-direct-write-to-responsewriter.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$WRITER.Write($$$_)",
+      "$WRITER.Write([]byte(\"$$$_\"))",
+      "(*$WRITER).Write($$$_)",
+      "func $HANDLER($$$_, $WRITER *http.ResponseWriter, $$$_) {\n  $$$_\n}",
+      "func $HANDLER($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}",
+      "func($$$_, $WRITER http.ResponseWriter, $$$_) {\n  $$$_\n}"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$WRITER.Write($$$_)","(*$WRITER).Write($$$_)"])))
+          | not_at($all | of(["$WRITER.Write([]byte(\"$$$_\"))"]))
+        | finding("no-direct-write-to-responsewriter";
+            "Detected directly writing or similar in 'http.ResponseWriter.write()'.") ) )
+| report

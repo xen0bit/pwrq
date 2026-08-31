@@ -1,0 +1,30 @@
+# rules: jdbc-sqli
+# from: java/lang/security/audit/sqli/jdbc-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$S.$METHOD(\"$$$_\" + \"$$$_\",$$$_);",
+      "$S.$METHOD($SQL,$$$_)",
+      "$S.$METHOD($X + $Y,$$$_);",
+      "$S.$METHOD(String.format($$$_),$$$_);",
+      "$TYPE $FUNC($$$_,java.sql.Statement $S,$$$_) {\n  $$$_\n}",
+      "$VAL $FUNC($$$_,String $SQL,$$$_) {\n  $$$_\n}",
+      "String $SQL = \"$$$_\" + \"$$$_\";\n$$$_",
+      "String $SQL = $X + $Y;\n$$$_",
+      "String $SQL = String.format($$$_);\n$$$_",
+      "java.sql.Statement $S = $$$_;\n$$$_"
+    ])) as $all
+    | ( (($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$S.$METHOD($SQL,$$$_)"])))
+          | in_files_without($all | of(["String $SQL = \"$$$_\" + \"$$$_\";\n$$$_"])))
+          + ($all | of(["$S.$METHOD(String.format($$$_),$$$_);"]))
+          + ($all | of(["$S.$METHOD($X + $Y,$$$_);"]))
+          | at_same_place((($all)
+          + ($all)))
+          | not_at($all | of(["$S.$METHOD(\"$$$_\" + \"$$$_\",$$$_);"]))
+          | where_capture("METHOD"; "^(executeQuery|execute|executeUpdate|executeLargeUpdate|addBatch|nativeSQL)$")
+        | finding("jdbc-sqli";
+            "Detected a formatted string in a SQL statement.") ) )
+| report

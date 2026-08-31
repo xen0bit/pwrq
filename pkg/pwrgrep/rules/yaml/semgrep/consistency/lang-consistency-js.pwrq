@@ -1,0 +1,14 @@
+# rules: lang-consistency-js
+# from: yaml/semgrep/consistency/lang-consistency-js.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$X",
+      "languages: $$$_"
+    ])) as $all
+    | ( $all | of(["$X"])
+          | within($all | of(["languages: $$$_"]))
+          | where_capture("X"; "^(javascript)$")
+        | finding("lang-consistency-js";
+            "Found '$X' in language config which diverges from semgrep.dev normalization.") ) )
+| report

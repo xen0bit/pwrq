@@ -1,0 +1,12 @@
+# rules: openzeppelin-ecdsa-recover-malleable
+# from: solidity/security/openzeppelin-ecdsa-recover-malleable.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "function $F($$$_, bytes $Y, $$$_) {\n   $$$_\n   $Z = ECDSA.recover($$$_, $Y);\n   $$$_\n   $A[$B][$Y] = $$$_;\n   $$$_\n}",
+      "function $F($$$_, bytes $Y, $$$_) {\n   $$$_\n   $Z = ECDSA.recover($$$_, $Y);\n   $$$_\n   $A[$Y] = $$$_;\n   $$$_\n}"
+    ])) as $all
+    | ( $all | of(["function $F($$$_, bytes $Y, $$$_) {\n   $$$_\n   $Z = ECDSA.recover($$$_, $Y);\n   $$$_\n   $A[$Y] = $$$_;\n   $$$_\n}","function $F($$$_, bytes $Y, $$$_) {\n   $$$_\n   $Z = ECDSA.recover($$$_, $Y);\n   $$$_\n   $A[$B][$Y] = $$$_;\n   $$$_\n}"])
+        | finding("openzeppelin-ecdsa-recover-malleable";
+            "Potential signature malleability in $F") ) )
+| report

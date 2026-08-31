@@ -1,0 +1,12 @@
+# rules: use-of-md5
+# from: kotlin/lang/security/use-of-md5.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.kt"]; [
+      "$DU.getMd5Digest().digest($$$_)",
+      "$VAR = $MD.getInstance(\"MD5\")"
+    ])) as $all
+    | ( $all | of(["$VAR = $MD.getInstance(\"MD5\")","$DU.getMd5Digest().digest($$$_)"])
+        | finding("use-of-md5";
+            "Detected MD5 hash algorithm which is considered insecure.") ) )
+| report

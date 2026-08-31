@@ -1,0 +1,12 @@
+# rules: detect-gemini
+# from: ai/kotlin/detect-gemini.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.kt"]; [
+      "GenerativeModel($$$_)",
+      "import com.google.ai"
+    ])) as $all
+    | ( $all | of(["import com.google.ai","GenerativeModel($$$_)"])
+        | finding("detect-gemini";
+            "Possibly found usage of AI: Gemini") ) )
+| report

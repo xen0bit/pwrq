@@ -1,0 +1,14 @@
+# rules: lang-consistency-ts
+# from: yaml/semgrep/consistency/lang-consistency-ts.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$X",
+      "languages: $$$_"
+    ])) as $all
+    | ( $all | of(["$X"])
+          | within($all | of(["languages: $$$_"]))
+          | where_capture("X"; "^(typescript)$")
+        | finding("lang-consistency-ts";
+            "Found '$X' in language config which diverges from semgrep.dev normalization.") ) )
+| report

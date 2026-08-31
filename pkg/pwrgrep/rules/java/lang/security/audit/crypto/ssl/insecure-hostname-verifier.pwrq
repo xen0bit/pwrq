@@ -1,0 +1,13 @@
+# rules: insecure-hostname-verifier
+# from: java/lang/security/audit/crypto/ssl/insecure-hostname-verifier.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "class $CLASS implements HostnameVerifier {\n  $$$_\n  public boolean verify($$$_) { return true; }\n}",
+      "import org.apache.http.conn.ssl.NoopHostnameVerifier;",
+      "new HostnameVerifier($$$_){\n  public boolean verify($$$_) {\n    return true;\n  }\n}"
+    ])) as $all
+    | ( $all | of(["class $CLASS implements HostnameVerifier {\n  $$$_\n  public boolean verify($$$_) { return true; }\n}","new HostnameVerifier($$$_){\n  public boolean verify($$$_) {\n    return true;\n  }\n}","import org.apache.http.conn.ssl.NoopHostnameVerifier;"])
+        | finding("insecure-hostname-verifier";
+            "Insecure HostnameVerifier implementation detected.") ) )
+| report

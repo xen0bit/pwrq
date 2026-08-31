@@ -1,0 +1,13 @@
+# rules: enum_map_join
+# from: elixir/lang/best-practice/enum-map-join.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ex"]; [
+      "$E\n|> Enum.map($FUN)\n|> Enum.join($JOINER)",
+      "Enum.join(Enum.map($E, $FUN), $JOINER)",
+      "Enum.map($E, $FUN)\n|> Enum.join($JOINER)"
+    ])) as $all
+    | ( $all | of(["Enum.join(Enum.map($E, $FUN), $JOINER)","Enum.map($E, $FUN)\n|> Enum.join($JOINER)","$E\n|> Enum.map($FUN)\n|> Enum.join($JOINER)"])
+        | finding("enum_map_join";
+            "Using `Enum.map_join/3` is more efficient than using `Enum.map/2 |> Enum.join/2`.") ) )
+| report

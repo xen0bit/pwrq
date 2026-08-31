@@ -1,0 +1,18 @@
+# rules: ruby-ssl-no-verify
+# fixture: ruby/ssl-no-verify.rb
+# from: ruby/lang/security/ssl-mode-no-verify.yaml (ssl-mode-no-verify)
+#
+# CWE-295. VERIFY_NONE turns a TLS connection into an encrypted one, which is
+# not the same as an authenticated one.
+#
+# The original's pattern is the constant on its own, so it reports the constant
+# wherever it appears - including in a comparison that checks for it. This port
+# asks for the assignment, which is the line that changes what the program
+# does, and says so rather than claiming to be the same rule.
+
+["$OBJ.verify_mode = OpenSSL::SSL::VERIFY_NONE"] as $disabled
+| scan_ast("*.rb"; $disabled)
+| finding("ruby-ssl-no-verify";
+    "VERIFY_NONE accepts any certificate, so the connection is encrypted but not "
+    + "authenticated; VERIFY_PEER, and set ca_file if the CA is private")
+| report

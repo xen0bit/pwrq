@@ -1,0 +1,19 @@
+# rules: unsafe-reflect-by-name
+# from: go/lang/security/audit/unsafe-reflect-by-name.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"reflect\"",
+      "$SMTH.FieldByName(\"$$$_\",$$$_)",
+      "$SMTH.FieldByName($NAME,$$$_)",
+      "$SMTH.MethodByName(\"$$$_\",$$$_)",
+      "$SMTH.MethodByName($NAME,$$$_)",
+      "import \"reflect\"\n$$$_"
+    ])) as $all
+    | ( $all | of(["$SMTH.MethodByName($NAME,$$$_)","$SMTH.FieldByName($NAME,$$$_)"])
+          | not_at($all | of(["$SMTH.MethodByName(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$SMTH.FieldByName(\"$$$_\",$$$_)"]))
+          | in_files_with($all | of(["import \"reflect\"\n$$$_","\"reflect\""]))
+        | finding("unsafe-reflect-by-name";
+            "If an attacker can supply values that the application then uses to determine which method or field to invoke, the potential exists for the attacker to create control flow paths through the application that were not intended by the application developers.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: ruby-jwt-exposed-data
+# from: ruby/jwt/security/audit/jwt-exposed-data.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "JWT.encode($INPUT,$$$_)",
+      "def $FUNC($$$_,$INPUT,$$$_)\n  $$$_\nend",
+      "require 'jwt'\n$$$_"
+    ])) as $all
+    | ( $all | of(["JWT.encode($INPUT,$$$_)"])
+          | in_files_with($all | of(["require 'jwt'\n$$$_"]))
+          | within($all | of(["def $FUNC($$$_,$INPUT,$$$_)\n  $$$_\nend"]))
+        | finding("ruby-jwt-exposed-data";
+            "The object is passed strictly to jsonwebtoken.sign(...) Make sure that sensitive information is not exposed through JWT token payload.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: multiprocessing-recv
+# from: python/lang/security/audit/conn_recv.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$C = multiprocessing.connection.Client($$$_)\n$$$_\n$C.recv($$$_)",
+      "multiprocessing.connection.Client.recv($$$_)",
+      "multiprocessing.connection.Connection.recv($$$_)"
+    ])) as $all
+    | ( $all | of(["multiprocessing.connection.Connection.recv($$$_)","multiprocessing.connection.Client.recv($$$_)","$C = multiprocessing.connection.Client($$$_)\n$$$_\n$C.recv($$$_)"])
+        | finding("multiprocessing-recv";
+            "The Connection.recv() method automatically unpickles the data it receives, which can be a security risk unless you can trust the process which sent the message.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: empty-aes-key
+# from: python/cryptography/security/empty-aes-key.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "AES.new(\"\",$$$_)"
+    ])) as $all
+    | ( $all | of(["AES.new(\"\",$$$_)"])
+        | finding("empty-aes-key";
+            "Potential empty AES encryption key.") ) )
+| report

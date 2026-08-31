@@ -1,0 +1,34 @@
+# rules: dynamic-urllib-use-detected
+# from: python/lang/security/audit/dynamic-urllib-use-detected.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$OPENER = urllib.FancyURLopener($$$_)\n$$$_",
+      "$OPENER = urllib.URLopener($$$_)\n$$$_",
+      "$OPENER = urllib.request.FancyURLopener($$$_)\n$$$_",
+      "$OPENER = urllib.request.URLopener($$$_)\n$$$_",
+      "$OPENER.$W(\"$$$_\")",
+      "$OPENER.open($$$_)",
+      "$OPENER.retrieve($$$_)",
+      "urllib.$W(\"$$$_\")",
+      "urllib.request.$W(\"$$$_\")",
+      "urllib.request.urlopen($$$_)",
+      "urllib.request.urlretrieve($$$_)",
+      "urllib.urlopen($$$_)",
+      "urllib.urlretrieve($$$_)"
+    ])) as $all
+    | ( ($all | of(["urllib.urlopen($$$_)"]))
+          + ($all | of(["urllib.request.urlopen($$$_)"]))
+          + ($all | of(["urllib.urlretrieve($$$_)"]))
+          + ($all | of(["urllib.request.urlretrieve($$$_)"]))
+          + (($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$OPENER.open($$$_)","$OPENER.retrieve($$$_)"]))))
+          | not_at($all | of(["urllib.$W(\"$$$_\")"]))
+          | not_at($all | of(["urllib.request.$W(\"$$$_\")"]))
+          | not_at($all | of(["$OPENER.$W(\"$$$_\")"]))
+        | finding("dynamic-urllib-use-detected";
+            "Detected a dynamic value being used with urllib.") ) )
+| report

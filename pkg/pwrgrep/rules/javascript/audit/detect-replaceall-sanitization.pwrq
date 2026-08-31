@@ -1,0 +1,16 @@
+# rules: detect-replaceall-sanitization
+# from: javascript/audit/detect-replaceall-sanitization.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$STR.$FUNC(\"'\", '&apos;')",
+      "$STR.$FUNC('\"', '&quot;')",
+      "$STR.$FUNC('&', '&amp;')",
+      "$STR.$FUNC('<', '&lt;')",
+      "$STR.$FUNC('>', '&gt;')"
+    ])) as $all
+    | ( $all | of(["$STR.$FUNC('<', '&lt;')","$STR.$FUNC('>', '&gt;')","$STR.$FUNC('\"', '&quot;')","$STR.$FUNC(\"'\", '&apos;')","$STR.$FUNC('&', '&amp;')"])
+          | where_capture("FUNC"; "(replace|replaceAll)")
+        | finding("detect-replaceall-sanitization";
+            "Detected a call to `$FUNC()` in an attempt to HTML escape the string `$STR`.") ) )
+| report

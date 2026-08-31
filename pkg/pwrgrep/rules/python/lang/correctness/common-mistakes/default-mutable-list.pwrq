@@ -1,0 +1,35 @@
+# rules: default-mutable-list
+# from: python/lang/correctness/common-mistakes/default-mutable-list.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$D = $D or []\n$$$_",
+      "$D = $D[:]\n$$$_",
+      "$D = [$$$_ for $$$_ in $$$_]\n$$$_",
+      "$D = [$$$_]\n$$$_",
+      "$D = []\n$$$_",
+      "$D = copy.copy($D)\n$$$_",
+      "$D = copy.deepcopy($D)\n$$$_",
+      "$D = list($$$_)\n$$$_",
+      "$D = list.copy($D)\n$$$_",
+      "$D.append($$$_)",
+      "$D.extend($$$_)",
+      "$D.insert($$$_)",
+      "def $A($$$_):\n  $$$_\n  def $F($$$_, $D=[], $$$_):\n    $$$_",
+      "def $F($$$_, $D=[], $$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["$D.append($$$_)","$D.extend($$$_)","$D.insert($$$_)"])
+          | outside($all | of(["def $A($$$_):\n  $$$_\n  def $F($$$_, $D=[], $$$_):\n    $$$_"]))
+          | within($all | of(["def $F($$$_, $D=[], $$$_):\n  $$$_"]))
+          | in_files_without($all | of(["$D = []\n$$$_"]))
+          | in_files_without($all | of(["$D = [$$$_]\n$$$_"]))
+          | in_files_without($all | of(["$D = list($$$_)\n$$$_"]))
+          | in_files_without($all | of(["$D = copy.deepcopy($D)\n$$$_"]))
+          | in_files_without($all | of(["$D = copy.copy($D)\n$$$_"]))
+          | in_files_without($all | of(["$D = list.copy($D)\n$$$_"]))
+          | in_files_without($all | of(["$D = $D[:]\n$$$_"]))
+          | in_files_without($all | of(["$D = [$$$_ for $$$_ in $$$_]\n$$$_"]))
+          | in_files_without($all | of(["$D = $D or []\n$$$_"]))
+        | finding("default-mutable-list";
+            "Function $F mutates default list $D.") ) )
+| report

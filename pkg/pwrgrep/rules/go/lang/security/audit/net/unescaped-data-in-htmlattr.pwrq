@@ -1,0 +1,17 @@
+# rules: unescaped-data-in-htmlattr
+# from: go/lang/security/audit/net/unescaped-data-in-htmlattr.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$T = \"$$$_\"\n$$$_\n$OTHER, $ERR = fmt.$P($$$_, $T, $$$_)\n$$$_\ntemplate.HTMLAttr($OTHER, $$$_)",
+      "$T = \"$$$_\"\n$$$_\n$T = $FXN($$$_, $T, $$$_)\n$$$_\ntemplate.HTMLAttr($T, $$$_)",
+      "$T = $X + $Y\n$$$_\ntemplate.HTMLAttr($T, $$$_)",
+      "$T = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.HTMLAttr($T, $$$_)",
+      "$T, $ERR = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.HTMLAttr($T, $$$_)",
+      "template.HTMLAttr($T + $X, $$$_)",
+      "template.HTMLAttr(fmt.$P(\"$$$_\", $$$_), $$$_)"
+    ])) as $all
+    | ( $all | of(["template.HTMLAttr($T + $X, $$$_)","template.HTMLAttr(fmt.$P(\"$$$_\", $$$_), $$$_)","$T = \"$$$_\"\n$$$_\n$T = $FXN($$$_, $T, $$$_)\n$$$_\ntemplate.HTMLAttr($T, $$$_)","$T = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.HTMLAttr($T, $$$_)","$T, $ERR = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.HTMLAttr($T, $$$_)","$T = $X + $Y\n$$$_\ntemplate.HTMLAttr($T, $$$_)","$T = \"$$$_\"\n$$$_\n$OTHER, $ERR = fmt.$P($$$_, $T, $$$_)\n$$$_\ntemplate.HTMLAttr($OTHER, $$$_)"])
+        | finding("unescaped-data-in-htmlattr";
+            "Found a formatted template string passed to 'template.") ) )
+| report

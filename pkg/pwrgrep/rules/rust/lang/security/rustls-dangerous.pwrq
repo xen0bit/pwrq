@@ -1,0 +1,13 @@
+# rules: rustls-dangerous
+# from: rust/lang/security/rustls-dangerous.yml
+
+. as $root
+| ( ($root | scan_ast(["*.rs"]; [
+      "$CLIENT.dangerous().set_certificate_verifier($$$_)",
+      "let $CLIENT = rustls::client::ClientConfig::dangerous($$$_);\n$$$_\n$CLIENT.set_certificate_verifier($$$_);",
+      "rustls::client::DangerousClientConfig"
+    ])) as $all
+    | ( $all | of(["rustls::client::DangerousClientConfig","$CLIENT.dangerous().set_certificate_verifier($$$_)","let $CLIENT = rustls::client::ClientConfig::dangerous($$$_);\n$$$_\n$CLIENT.set_certificate_verifier($$$_);"])
+        | finding("rustls-dangerous";
+            "Dangerous client config used, ensure SSL verification") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: ecb-cipher
+# from: kotlin/lang/security/ecb-cipher.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.kt"]; [
+      "val $VAR : Cipher = $CIPHER.getInstance($MODE)",
+      "val $VAR = $CIPHER.getInstance($MODE)",
+      "var $VAR : Cipher = $CIPHER.getInstance($MODE)",
+      "var $VAR = $CIPHER.getInstance($MODE)"
+    ])) as $all
+    | ( $all | of(["val $VAR : Cipher = $CIPHER.getInstance($MODE)","var $VAR : Cipher = $CIPHER.getInstance($MODE)","val $VAR = $CIPHER.getInstance($MODE)","var $VAR = $CIPHER.getInstance($MODE)"])
+          | where_capture("MODE"; ".*ECB.*")
+        | finding("ecb-cipher";
+            "Cipher in ECB mode is detected.") ) )
+| report

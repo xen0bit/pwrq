@@ -1,0 +1,12 @@
+# rules: jwt-python-none-alg
+# from: python/jwt/security/jwt-none-alg.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "jwt.decode($$$_,algorithms=[$$$_,\"none\",$$$_],$$$_)",
+      "jwt.encode($$$_,algorithm=\"none\",$$$_)"
+    ])) as $all
+    | ( $all | of(["jwt.encode($$$_,algorithm=\"none\",$$$_)","jwt.decode($$$_,algorithms=[$$$_,\"none\",$$$_],$$$_)"])
+        | finding("jwt-python-none-alg";
+            "Detected use of the 'none' algorithm in a JWT token.") ) )
+| report

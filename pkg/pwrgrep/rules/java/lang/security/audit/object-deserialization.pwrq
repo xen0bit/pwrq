@@ -1,0 +1,11 @@
+# rules: object-deserialization
+# from: java/lang/security/audit/object-deserialization.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "new ObjectInputStream($$$_);"
+    ])) as $all
+    | ( $all | of(["new ObjectInputStream($$$_);"])
+        | finding("object-deserialization";
+            "Found object deserialization using ObjectInputStream.") ) )
+| report

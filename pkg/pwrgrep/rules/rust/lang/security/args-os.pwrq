@@ -1,0 +1,11 @@
+# rules: args-os
+# from: rust/lang/security/args-os.yml
+
+. as $root
+| ( ($root | scan_ast(["*.rs"]; [
+      "std::env::args_os()"
+    ])) as $all
+    | ( $all | of(["std::env::args_os()"])
+        | finding("args-os";
+            "args_os should not be used for security operations.") ) )
+| report

@@ -1,0 +1,26 @@
+# rules: tls-with-insecure-cipher
+# from: go/lang/security/audit/crypto/tls.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "tls.CipherSuite{$$$_, TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, $$$_}",
+      "tls.CipherSuite{$$$_, TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, $$$_}",
+      "tls.CipherSuite{$$$_, TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}",
+      "tls.CipherSuite{$$$_, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, $$$_}",
+      "tls.CipherSuite{$$$_, TLS_ECDHE_RSA_WITH_RC4_128_SHA, $$$_}",
+      "tls.CipherSuite{$$$_, TLS_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}",
+      "tls.CipherSuite{$$$_, TLS_RSA_WITH_AES_128_CBC_SHA256, $$$_}",
+      "tls.CipherSuite{$$$_, TLS_RSA_WITH_RC4_128_SHA, $$$_}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, $$$_}}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, $$$_}}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, $$$_}}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA, $$$_}}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_RSA_WITH_AES_128_CBC_SHA256, $$$_}}",
+      "tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_RSA_WITH_RC4_128_SHA, $$$_}}"
+    ])) as $all
+    | ( $all | of(["tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_RSA_WITH_RC4_128_SHA, $$$_}}","tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}}","tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_RSA_WITH_AES_128_CBC_SHA256, $$$_}}","tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, $$$_}}","tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA, $$$_}}","tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}}","tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, $$$_}}","tls.Config{$$$_, CipherSuites: []$TYPE{$$$_, tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, $$$_}}","tls.CipherSuite{$$$_, TLS_RSA_WITH_RC4_128_SHA, $$$_}","tls.CipherSuite{$$$_, TLS_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}","tls.CipherSuite{$$$_, TLS_RSA_WITH_AES_128_CBC_SHA256, $$$_}","tls.CipherSuite{$$$_, TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, $$$_}","tls.CipherSuite{$$$_, TLS_ECDHE_RSA_WITH_RC4_128_SHA, $$$_}","tls.CipherSuite{$$$_, TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, $$$_}","tls.CipherSuite{$$$_, TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, $$$_}","tls.CipherSuite{$$$_, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, $$$_}"])
+        | finding("tls-with-insecure-cipher";
+            "Detected an insecure CipherSuite via the 'tls' module.") ) )
+| report

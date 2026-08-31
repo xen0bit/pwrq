@@ -1,0 +1,12 @@
+# rules: insecure-cipher-algorithm-blowfish
+# from: python/pycryptodome/security/insecure-cipher-algorithm-blowfish.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "Crypto.Cipher.Blowfish.new($$$_)",
+      "Cryptodome.Cipher.Blowfish.new($$$_)"
+    ])) as $all
+    | ( $all | of(["Cryptodome.Cipher.Blowfish.new($$$_)","Crypto.Cipher.Blowfish.new($$$_)"])
+        | finding("insecure-cipher-algorithm-blowfish";
+            "Detected Blowfish cipher algorithm which is considered insecure.") ) )
+| report

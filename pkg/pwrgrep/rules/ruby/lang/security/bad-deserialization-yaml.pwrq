@@ -1,0 +1,29 @@
+# rules: bad-deserialization-yaml
+# from: ruby/lang/security/bad-deserialization-yaml.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$FILE = File.read($$$_)\n$$$_\nYAML.load($$$_, $FILE, $$$_)",
+      "$FILENAME = $$$_\n$$$_\n$FILE = File.read($FILENAME, $$$_)\n$$$_\nYAML.load($$$_, $FILE, $$$_)",
+      "$T = $MOD.$MET(File.read($$$_))\n$$$_\nYAML.load($$$_, $T, $$$_)",
+      "$T = $MOD.$MET(File.read($$$_))\n$$$_\nYAML.load($$$_, $T.$R, $$$_)",
+      "YAML.load(\"$$$_\", $$$_)",
+      "YAML.load($$$ARGS)",
+      "YAML.load($$$_, $X.$Y(File.read($$$_)), $$$_)",
+      "YAML.load($$$_, $X.$Y(File.read($$$_)).$Z, $$$_)",
+      "YAML.load($$$_, File.read($$$_), $$$_)",
+      "YAML.load($$$_, safe: true, $$$_)"
+    ])) as $all
+    | ( $all | of(["YAML.load($$$ARGS)"])
+          | not_at($all | of(["YAML.load($$$_, safe: true, $$$_)"]))
+          | not_at($all | of(["YAML.load(\"$$$_\", $$$_)"]))
+          | outside($all | of(["YAML.load($$$_, File.read($$$_), $$$_)"]))
+          | outside($all | of(["$FILE = File.read($$$_)\n$$$_\nYAML.load($$$_, $FILE, $$$_)"]))
+          | outside($all | of(["$FILENAME = $$$_\n$$$_\n$FILE = File.read($FILENAME, $$$_)\n$$$_\nYAML.load($$$_, $FILE, $$$_)"]))
+          | outside($all | of(["YAML.load($$$_, $X.$Y(File.read($$$_)), $$$_)"]))
+          | outside($all | of(["YAML.load($$$_, $X.$Y(File.read($$$_)).$Z, $$$_)"]))
+          | outside($all | of(["$T = $MOD.$MET(File.read($$$_))\n$$$_\nYAML.load($$$_, $T, $$$_)"]))
+          | outside($all | of(["$T = $MOD.$MET(File.read($$$_))\n$$$_\nYAML.load($$$_, $T.$R, $$$_)"]))
+        | finding("bad-deserialization-yaml";
+            "Unsafe deserialization from YAML.") ) )
+| report

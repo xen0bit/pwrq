@@ -1,0 +1,11 @@
+# rules: insecure-uuid-version
+# from: python/lang/security/insecure-uuid-version.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "uuid.uuid1($$$_)"
+    ])) as $all
+    | ( $all | of(["uuid.uuid1($$$_)"])
+        | finding("insecure-uuid-version";
+            "Using UUID version 1 for UUID generation can lead to predictable UUIDs based on system information (e.g., MAC address, timestamp).") ) )
+| report

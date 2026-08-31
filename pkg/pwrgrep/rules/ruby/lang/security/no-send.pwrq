@@ -1,0 +1,14 @@
+# rules: bad-send
+# from: ruby/lang/security/no-send.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.__send__($PARAM.$FUNC)",
+      "$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.public_send($PARAM.$FUNC)",
+      "$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.send($PARAM.$FUNC)",
+      "$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.try($PARAM.$FUNC)"
+    ])) as $all
+    | ( $all | of(["$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.send($PARAM.$FUNC)","$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.try($PARAM.$FUNC)","$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.__send__($PARAM.$FUNC)","$PARAM = params[$$$_]\n$$$_\n$RES = $MOD.public_send($PARAM.$FUNC)"])
+        | finding("bad-send";
+            "Checks for unsafe use of Object#send, try, __send__, and public_send.") ) )
+| report

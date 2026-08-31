@@ -1,0 +1,11 @@
+# rules: avoid-apk-upgrade
+# from: dockerfile/best-practice/avoid-apk-upgrade.yaml
+
+. as $root
+| ( ($root | scan_ast(["Dockerfile*"]; [
+      "RUN $$$_ apk upgrade $$$_"
+    ])) as $all
+    | ( $all | of(["RUN $$$_ apk upgrade $$$_"])
+        | finding("avoid-apk-upgrade";
+            "Packages in base images should be up-to-date, removing the need for 'apk upgrade'.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: sync-sleep-in-async-code
+# from: python/lang/correctness/sync-sleep-in-async-code.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "async def $F($$$_):\n  $$$_",
+      "async def $F($$$_):\n  def $INNER($$$_):\n    $$$_",
+      "time.sleep($$$_)"
+    ])) as $all
+    | ( $all | of(["time.sleep($$$_)"])
+          | within($all | of(["async def $F($$$_):\n  $$$_"]))
+          | outside($all | of(["async def $F($$$_):\n  def $INNER($$$_):\n    $$$_"]))
+        | finding("sync-sleep-in-async-code";
+            "Synchronous time.sleep in async code will block the event loop and not allow other tasks to execute.") ) )
+| report

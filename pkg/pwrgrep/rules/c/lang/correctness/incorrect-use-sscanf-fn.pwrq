@@ -1,0 +1,12 @@
+# rules: incorrect-use-sscanf-fn
+# from: c/lang/correctness/incorrect-use-sscanf-fn.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "sscanf($STR, $FMT, $PTR);"
+    ])) as $all
+    | ( $all | of(["sscanf($STR, $FMT, $PTR);"])
+          | where_capture("FMT"; "\"%(l{0,2}|L)([fegEa]|[dDiouxX])\"")
+        | finding("incorrect-use-sscanf-fn";
+            "Avoid 'sscanf()' for number conversions.") ) )
+| report

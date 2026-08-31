@@ -1,0 +1,11 @@
+# rules: ocamllint-filenameconcat
+# from: ocaml/lang/security/filenameconcat.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "Filename.concat"
+    ])) as $all
+    | ( $all | of(["Filename.concat"])
+        | finding("ocamllint-filenameconcat";
+            "When attacker supplied data is passed to Filename.concat directory traversal attacks might be possible.") ) )
+| report

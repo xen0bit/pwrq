@@ -1,0 +1,15 @@
+# rules: hashtbl-find-outside-try
+# from: ocaml/lang/best-practice/hashtbl.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "Hashtbl.find $$$_",
+      "match $$$_ with | $$$_ -> $$$_",
+      "try $$$_ with $$$_ -> $$$_"
+    ])) as $all
+    | ( $all | of(["Hashtbl.find $$$_"])
+          | outside($all | of(["try $$$_ with $$$_ -> $$$_"]))
+          | outside($all | of(["match $$$_ with | $$$_ -> $$$_"]))
+        | finding("hashtbl-find-outside-try";
+            "You should not use Hashtbl.find outside of a try, or you should use Hashtbl.find_opt") ) )
+| report

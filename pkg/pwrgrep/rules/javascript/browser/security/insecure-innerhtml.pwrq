@@ -1,0 +1,13 @@
+# rules: insecure-innerhtml
+# from: javascript/browser/security/insecure-innerhtml.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$EL.innerHTML = \"$$$_\";",
+      "$EL.innerHTML = $HTML;"
+    ])) as $all
+    | ( $all | of(["$EL.innerHTML = $HTML;"])
+          | not_at($all | of(["$EL.innerHTML = \"$$$_\";"]))
+        | finding("insecure-innerhtml";
+            "User controlled data in a `$EL.innerHTML` is an anti-pattern that can lead to XSS vulnerabilities") ) )
+| report

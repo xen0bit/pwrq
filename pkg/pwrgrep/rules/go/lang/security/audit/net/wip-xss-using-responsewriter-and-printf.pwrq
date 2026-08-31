@@ -1,0 +1,17 @@
+# rules: wip-xss-using-responsewriter-and-printf
+# from: go/lang/security/audit/net/wip-xss-using-responsewriter-and-printf.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$DATA, $ERR := r.URL.Query()[$$$_]\n$$$_\n$INTERM = $ANYTHING($$$_, $DATA, $$$_)\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))",
+      "$DATA, $ERR := r.URL.Query()[$$$_]\n$$$_\n$INTERM = $DATA[$$$_]\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))",
+      "$PARAMS = r.URL.Query()\n$$$_\n$DATA, $ERR := $PARAMS[$$$_]\n$$$_\n$INTERM = $ANYTHING($$$_, $DATA, $$$_)\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))",
+      "$PARAMS = r.URL.Query()\n$$$_\n$DATA, $ERR := $PARAMS[$$$_]\n$$$_\n$INTERM = $DATA[$$$_]\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))",
+      "$PARAMS = r.URL.Query()\n$$$_\n$DATA, $ERR := $PARAMS[$$$_]\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $DATA, $$$_)))",
+      "func $FUNC($$$_, $W http.ResponseWriter, $$$_) {\n  $$$_\n  var $TEMPLATE = \"$$$_\"\n  $$$_\n  $W.Write([]byte(fmt.$PRINTF($TEMPLATE, $$$_)), $$$_)\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$PARAMS = r.URL.Query()\n$$$_\n$DATA, $ERR := $PARAMS[$$$_]\n$$$_\n$INTERM = $ANYTHING($$$_, $DATA, $$$_)\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))","$PARAMS = r.URL.Query()\n$$$_\n$DATA, $ERR := $PARAMS[$$$_]\n$$$_\n$INTERM = $DATA[$$$_]\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))","$DATA, $ERR := r.URL.Query()[$$$_]\n$$$_\n$INTERM = $DATA[$$$_]\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))","$DATA, $ERR := r.URL.Query()[$$$_]\n$$$_\n$INTERM = $ANYTHING($$$_, $DATA, $$$_)\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $INTERM, $$$_)))","$PARAMS = r.URL.Query()\n$$$_\n$DATA, $ERR := $PARAMS[$$$_]\n$$$_\n$W.Write([]byte(fmt.$PRINTF($$$_, $DATA, $$$_)))"])
+          | within($all | of(["func $FUNC($$$_, $W http.ResponseWriter, $$$_) {\n  $$$_\n  var $TEMPLATE = \"$$$_\"\n  $$$_\n  $W.Write([]byte(fmt.$PRINTF($TEMPLATE, $$$_)), $$$_)\n  $$$_\n}"]))
+        | finding("wip-xss-using-responsewriter-and-printf";
+            "Found data going from url query parameters into formatted data written to ResponseWriter.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: anonymous-ldap-bind
+# from: kotlin/lang/security/anonymous-ldap-bind.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.kt"]; [
+      "$ENV.put($CTX.SECURITY_AUTHENTICATION, \"none\")\n$$$_\n$DCTX = InitialDirContext($ENV, $$$_)"
+    ])) as $all
+    | ( $all | of(["$ENV.put($CTX.SECURITY_AUTHENTICATION, \"none\")\n$$$_\n$DCTX = InitialDirContext($ENV, $$$_)"])
+        | finding("anonymous-ldap-bind";
+            "Detected anonymous LDAP bind.") ) )
+| report

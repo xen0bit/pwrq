@@ -1,0 +1,12 @@
+# rules: detect-apple-core-ml
+# from: ai/swift/detect-apple-core-ml.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.swift"]; [
+      "MLModelConfiguration($$$_)",
+      "VNCoreMLModel($$$_)"
+    ])) as $all
+    | ( $all | of(["VNCoreMLModel($$$_)","MLModelConfiguration($$$_)"])
+        | finding("detect-apple-core-ml";
+            "Possibly found usage of AI: Apple CoreML") ) )
+| report

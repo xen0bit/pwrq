@@ -1,0 +1,17 @@
+# rules: openai-consequential-action-false
+# from: yaml/openapi/security/openai-consequential-action-false.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "delete:\n  $$$_\n  x-openai-isConsequential: false",
+      "patch:\n  $$$_\n  x-openai-isConsequential: false",
+      "post:\n  $$$_\n  x-openai-isConsequential: false",
+      "put:\n  $$$_\n  x-openai-isConsequential: false"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+        | finding("openai-consequential-action-false";
+            "Found 'x-openai-isConsequential: false' in a state-changing HTTP method: $METHOD $PATH.") ) )
+| report

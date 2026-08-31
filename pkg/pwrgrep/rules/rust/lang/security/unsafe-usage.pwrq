@@ -1,0 +1,11 @@
+# rules: unsafe-usage
+# from: rust/lang/security/unsafe-usage.yml
+
+. as $root
+| ( ($root | scan_ast(["*.rs"]; [
+      "unsafe { $$$_ }"
+    ])) as $all
+    | ( $all | of(["unsafe { $$$_ }"])
+        | finding("unsafe-usage";
+            "Detected 'unsafe' usage, please audit for secure usage") ) )
+| report

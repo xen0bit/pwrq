@@ -239,3 +239,117 @@ func TestAFragmentCIsRefusedRatherThanRescued(t *testing.T) {
 		t.Errorf("`$A + $B` was accepted for c, compiling to %s", c.query().SExpr)
 	}
 }
+
+// sameness is source where the same comparison is written both ways, which is
+// what a pattern with one name on two holes cannot tell apart.
+const sameness = `package main
+
+func f(a, b int) bool {
+	if a == a {
+		return true
+	}
+	if a == b {
+		return false
+	}
+	return b == b
+}
+`
+
+// TestAHoleWrittenTwiceMeansTheSameCodeTwice covers the pattern the corpus
+// this was ported against writes most often after a plain call: a name used in
+// two places, meaning the same code in both.
+//
+// A tree-sitter query with one capture name on two nodes does not require the
+// two to be equal - it keeps whichever it bound last - so `$X == $X` used to
+// be refused outright, and a caller had to name the holes apart and compare
+// the captures in a later stage. The query says it directly with a predicate,
+// and now does.
+func TestAHoleWrittenTwiceMeansTheSameCodeTwice(t *testing.T) {
+	var got []string
+	for _, m := range matches(t, sameness, "$X == $X") {
+		got = append(got, fmt.Sprint(field(t, m, "Text")))
+	}
+	want := []string{"a == a", "b == b"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("`$X == $X` matched %v, want %v; `a == b` is not a comparison of one thing "+
+			"with itself", got, want)
+	}
+}
+
+// TestARepeatedHoleIsNotReportedTwice keeps the rewrite out of the caller's
+// results: the second half of a repeated hole is a capture nobody wrote.
+func TestARepeatedHoleIsNotReportedTwice(t *testing.T) {
+	got := matches(t, sameness, "$X == $X")
+	if len(got) == 0 {
+		t.Fatal("no matches to read captures from")
+	}
+	captures, ok := field(t, got[0], "Captures").(map[string]any)
+	if !ok {
+		t.Fatalf("Captures is %T, want an object", field(t, got[0], "Captures"))
+	}
+	if len(captures) != 1 || captures["X"] != "a" {
+		t.Errorf("captures are %v, want just X bound to a", captures)
+	}
+}
+
+// flow is source where the same variable is set and then used, once with the
+// call the pattern names and once with another.
+const flow = `import os
+
+def handler(request):
+    name = request.args
+    log("hello")
+    foo(name)
+    return name
+
+def other(request):
+    x = request.args
+    return bar(x)
+`
+
+// TestAPatternOfSeveralStatementsMatchesInsideAnyBlock is the second half of
+// the same defect, and the reason the first was not enough.
+//
+// A pattern of more than one statement has no single node to compile to, so
+// the engine gives it the node the grammar wraps a whole file in. Read
+// literally that query says "a file whose first statement is this and whose
+// last is that", and the statements it is looking for are nearly always in a
+// function body - a different node - so it matched nothing anywhere, silently.
+// See openUnit.
+func TestAPatternOfSeveralStatementsMatchesInsideAnyBlock(t *testing.T) {
+	dir := tree(t, map[string]string{"v.py": flow})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, `$D = request.args
+$$$_
+foo($D)`))
+	if len(got) != 1 {
+		t.Fatalf("matched %d times, want 1: the second function assigns request.args too, "+
+			"but passes it to bar", len(got))
+	}
+	captures, _ := field(t, got[0], "Captures").(map[string]any)
+	if captures["D"] != "name" {
+		t.Errorf("$D caught %v, want name", captures["D"])
+	}
+}
+
+// TestASequenceSpansTheStatementsItNamed says where such a match starts and
+// stops. Capturing the node the statements share would report the whole
+// enclosing block; the span runs from the first statement to the last.
+func TestASequenceSpansTheStatementsItNamed(t *testing.T) {
+	dir := tree(t, map[string]string{"v.py": flow})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, `$D = request.args
+$$$_
+foo($D)`))
+	if len(got) != 1 {
+		t.Fatalf("matched %d times, want 1", len(got))
+	}
+	if line := fmt.Sprint(field(t, got[0], "LineNumber")); line != "4" {
+		t.Errorf("starts at line %s, want 4", line)
+	}
+	if line := fmt.Sprint(field(t, got[0], "EndLineNumber")); line != "6" {
+		t.Errorf("ends at line %s, want 6", line)
+	}
+	if text := fmt.Sprint(field(t, got[0], "Text")); !strings.HasPrefix(text, "name = request.args") ||
+		!strings.HasSuffix(text, "foo(name)") {
+		t.Errorf("matched text is %q, want the three statements the pattern named", text)
+	}
+}

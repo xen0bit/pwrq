@@ -1,0 +1,12 @@
+# rules: detect-gemini
+# from: ai/dart/detect-gemini.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.dart"]; [
+      "final $MODEL = GenerativeModel($$$_);",
+      "import 'package:google_generative_ai';"
+    ])) as $all
+    | ( $all | of(["import 'package:google_generative_ai';","final $MODEL = GenerativeModel($$$_);"])
+        | finding("detect-gemini";
+            "Possibly found usage of AI: Gemini") ) )
+| report

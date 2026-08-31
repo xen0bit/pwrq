@@ -1,0 +1,13 @@
+# rules: check-http-verb-confusion
+# from: ruby/rails/security/brakeman/check-http-verb-confusion.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "if $$$_\nelsif $$$_\n  $$$_\nend",
+      "if request.get?\n  $$$_\nelse\n  $$$_\nend"
+    ])) as $all
+    | ( $all | of(["if request.get?\n  $$$_\nelse\n  $$$_\nend"])
+          | outside($all | of(["if $$$_\nelsif $$$_\n  $$$_\nend"]))
+        | finding("check-http-verb-confusion";
+            "Found an improperly constructed control flow block with `request.get?`.") ) )
+| report

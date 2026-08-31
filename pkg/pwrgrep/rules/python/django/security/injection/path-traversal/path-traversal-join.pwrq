@@ -1,0 +1,32 @@
+# rules: path-traversal-join
+# from: python/django/security/injection/path-traversal/path-traversal-join.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$P = os.path.join($$$_, request.$W($$$_), $$$_)\n$$$_\nopen($P, $$$_)",
+      "$P = os.path.join($$$_, request.$W, $$$_)\n$$$_\nopen($P, $$$_)",
+      "$P = os.path.join($$$_, request.$W.get($$$_), $$$_)\n$$$_\nopen($P, $$$_)",
+      "$P = os.path.join($$$_, request.$W[$$$_], $$$_)\n$$$_\nopen($P, $$$_)",
+      "$P = request.$W\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)",
+      "$P = request.$W($$$_)\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)",
+      "$P = request.$W.get($$$_)\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)",
+      "$P = request.$W[$$$_]\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)",
+      "$V = request.$W\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)",
+      "$V = request.$W($X)\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)",
+      "$V = request.$W.get($X)\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)",
+      "$V = request.$W[$X]\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)",
+      "def $F($$$_):\n  $$$_",
+      "def $F($$$_):\n  $$$_\n  os.path.abspath($$$_)\n  $$$_",
+      "def $F($$$_):\n  $$$_\n  os.path.realpath($$$_)\n  $$$_",
+      "open(os.path.join($$$_, request.$W($$$_), $$$_), $$$_)",
+      "open(os.path.join($$$_, request.$W, $$$_), $$$_)",
+      "open(os.path.join($$$_, request.$W.get($$$_), $$$_), $$$_)",
+      "open(os.path.join($$$_, request.$W[$$$_], $$$_), $$$_)"
+    ])) as $all
+    | ( $all | of(["open(os.path.join($$$_, request.$W.get($$$_), $$$_), $$$_)","open(os.path.join($$$_, request.$W($$$_), $$$_), $$$_)","open(os.path.join($$$_, request.$W, $$$_), $$$_)","open(os.path.join($$$_, request.$W[$$$_], $$$_), $$$_)","$P = os.path.join($$$_, request.$W.get($$$_), $$$_)\n$$$_\nopen($P, $$$_)","$P = os.path.join($$$_, request.$W($$$_), $$$_)\n$$$_\nopen($P, $$$_)","$P = os.path.join($$$_, request.$W, $$$_)\n$$$_\nopen($P, $$$_)","$P = os.path.join($$$_, request.$W[$$$_], $$$_)\n$$$_\nopen($P, $$$_)","$V = request.$W.get($X)\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)","$V = request.$W($X)\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)","$V = request.$W[$X]\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)","$V = request.$W\n$$$_\n$P = os.path.join($$$_, $V, $$$_)\n$$$_\nopen($P, $$$_)","$P = request.$W.get($$$_)\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)","$P = request.$W($$$_)\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)","$P = request.$W\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)","$P = request.$W[$$$_]\n$$$_\nopen(os.path.join($$$_, $P, $$$_), $$$_)"])
+          | within($all | of(["def $F($$$_):\n  $$$_"]))
+          | outside($all | of(["def $F($$$_):\n  $$$_\n  os.path.abspath($$$_)\n  $$$_"]))
+          | outside($all | of(["def $F($$$_):\n  $$$_\n  os.path.realpath($$$_)\n  $$$_"]))
+        | finding("path-traversal-join";
+            "Data from request is passed to os.path.join() and to open().") ) )
+| report

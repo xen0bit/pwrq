@@ -1,0 +1,14 @@
+# rules: insecure-hashes
+# from: rust/lang/security/insecure-hashes.yml
+
+. as $root
+| ( ($root | scan_ast(["*.rs"]; [
+      "md2::Md2::new($$$_)",
+      "md4::Md4::new($$$_)",
+      "md5::Md5::new($$$_)",
+      "sha1::Sha1::new($$$_)"
+    ])) as $all
+    | ( $all | of(["md2::Md2::new($$$_)","md4::Md4::new($$$_)","md5::Md5::new($$$_)","sha1::Sha1::new($$$_)"])
+        | finding("insecure-hashes";
+            "Detected cryptographically insecure hashing function") ) )
+| report

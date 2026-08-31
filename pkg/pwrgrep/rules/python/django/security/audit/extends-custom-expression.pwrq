@@ -1,0 +1,48 @@
+# rules: extends-custom-expression
+# from: python/django/security/audit/extends-custom-expression.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class $CLASS($$$_, django.db.models.Case, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Col, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.DurationValue, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Exists, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Expression, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.ExpressionList, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.ExpressionWrapper, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Func, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Random, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.RawSQL, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Ref, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.RowRange, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Star, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Subquery, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Value, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.ValueRange, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.When, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.Window, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.WindowFrame, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Case, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Col, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.DurationValue, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Exists, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Expression, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.ExpressionList, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.ExpressionWrapper, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Func, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Random, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.RawSQL, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Ref, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.RowRange, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Star, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Subquery, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Value, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.ValueRange, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.When, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.Window, $$$_):\n    $$$_",
+      "class $CLASS($$$_, django.db.models.expressions.WindowFrame, $$$_):\n    $$$_"
+    ])) as $all
+    | ( $all | of(["class $CLASS($$$_, django.db.models.Func, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Func, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Expression, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Expression, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Value, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Value, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.DurationValue, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.DurationValue, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.RawSQL, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.RawSQL, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Star, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Star, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Random, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Random, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Col, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Col, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Ref, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Ref, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.ExpressionList, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.ExpressionList, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.ExpressionWrapper, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.ExpressionWrapper, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.When, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.When, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Case, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Case, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Subquery, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Subquery, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Exists, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Exists, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.Window, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.Window, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.WindowFrame, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.WindowFrame, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.RowRange, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.RowRange, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.ValueRange, $$$_):\n    $$$_","class $CLASS($$$_, django.db.models.expressions.ValueRange, $$$_):\n    $$$_"])
+        | finding("extends-custom-expression";
+            "Found extension of custom expression: $CLASS.") ) )
+| report

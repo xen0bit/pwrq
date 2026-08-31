@@ -1,0 +1,15 @@
+# rules: ocamllint-length-list-zero, ocamllint-length-more-than-zero
+# from: ocaml/lang/performance/list.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "List.length $X = 0",
+      "List.length $X > 0"
+    ])) as $all
+    | ( $all | of(["List.length $X = 0"])
+        | finding("ocamllint-length-list-zero";
+            "You probably want $X = [], which is faster.") )
+      + ( $all | of(["List.length $X > 0"])
+        | finding("ocamllint-length-more-than-zero";
+            "You probably want $X <> [], which is faster.") ) )
+| report

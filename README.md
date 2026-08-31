@@ -578,17 +578,58 @@ does, because line breaks are not part of the tree.
 
 A pattern says how many children a construct has, so `f($A, $B)` is a call with
 two arguments rather than a call whose arguments include those two, and `$$$_`
-is how a pattern declines to say — the same thing Semgrep writes as `...`:
+is how a pattern declines to say:
 
 ```console
 $ pwrq -c '[select_ast("."; "exec.Command($NAME, $$$_)") | .Captures.NAME]'
 $ pwrq -c '[select_ast("."; "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}")]'
 ```
 
-[cli/testdata/rules](cli/testdata/rules) is eighteen of
-[opengrep](https://github.com/opengrep/opengrep)'s rules written this way, in
-six languages, with a small library that names each Semgrep operator it stands
-in for. It is what the pattern semantics above were built against.
+A hole written twice means the same code twice, so `$X == $X` is a comparison
+of something with itself and does not match `a == b`. A pattern can be several
+statements, and then it matches them in that order wherever they sit — in a
+function body, not only at the top of a file:
+
+```console
+$ pwrq -c '[select_ast("."; "$D = request.args\n$$$_\nrender($D)")]'
+```
+
+### Rules
+
+A search is not a finding. "MD5" is a search; "MD5, in a file that imports
+crypto/md5, and not the one call that says it is not a signature" is a rule,
+and pwrq ships 700-odd of them:
+
+```console
+$ echo src | pwrq -R 'invoke_pwrgrep("go-weak-hash")'
+$ pwrq -n '[invoke_pwrgrep("src"; "go/lang/security")] | group_by(.RuleId)'
+$ pwrq -n '[get_pwrgrep_rule("python-*")] | map(.Id)'
+```
+
+A rule is an ordinary pwrq query in a file, and that is the whole design —
+`scan_ast`, `of`, `within`, `not_at`, `in_files_with`, `where_capture`,
+`finding` and `report` are cmdlets like any other, so writing a rule is writing
+a query and extending the corpus is dropping a file in:
+
+```
+# rules: go-weak-hash
+
+["md5.New()", "md5.Sum($$$A)"] as $calls
+| ["\"crypto/md5\""] as $imports
+| scan_ast("*.go"; $calls + $imports) as $all
+| ($all | of($calls) | in_files_with($all | of($imports)))
+| finding("go-weak-hash"; "this hash is not collision resistant")
+| report
+```
+
+The rules are built into the binary and installed to `/usr/share/pwrq/rules`.
+pwrq reads `$PWRQ_RULES`, then `~/.config/pwrq/rules`, then that directory,
+then its own copy — so a rule you drop in is found beside the ones that
+shipped, and one you copy in under a shipped rule's path replaces it.
+[pkg/pwrgrep](pkg/pwrgrep) has the corpus, the translator that produced most of
+it, a manifest accounting for every rule it was given, and a validation run
+against the fixtures those rules are tested with.
+
 
 Parsing is [gotreesitter](https://github.com/odvcencio/gotreesitter), a pure-Go
 tree-sitter runtime — no cgo, so this changes nothing about cross-compiling to

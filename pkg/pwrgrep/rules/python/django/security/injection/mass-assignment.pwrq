@@ -1,0 +1,12 @@
+# rules: mass-assignment
+# from: python/django/security/injection/mass-assignment.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$MODEL.objects.create(**request.$W)",
+      "$OBJ.update(**request.$W)\n$$$_\n$OBJ.save()"
+    ])) as $all
+    | ( $all | of(["$MODEL.objects.create(**request.$W)","$OBJ.update(**request.$W)\n$$$_\n$OBJ.save()"])
+        | finding("mass-assignment";
+            "Mass assignment detected.") ) )
+| report

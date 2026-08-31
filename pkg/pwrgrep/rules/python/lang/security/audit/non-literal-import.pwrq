@@ -1,0 +1,13 @@
+# rules: non-literal-import
+# from: python/lang/security/audit/non-literal-import.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "importlib.import_module(\"$$$_\", $$$_)",
+      "importlib.import_module($NAME, $$$_)"
+    ])) as $all
+    | ( $all | of(["importlib.import_module($NAME, $$$_)"])
+          | not_at($all | of(["importlib.import_module(\"$$$_\", $$$_)"]))
+        | finding("non-literal-import";
+            "Untrusted user input in `importlib.import_module()` function allows an attacker to load arbitrary code.") ) )
+| report

@@ -1,0 +1,14 @@
+# rules: aead-no-final
+# from: javascript/node-crypto/security/aead-no-final.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$DECIPHER = $CRYPTO.createDecipheriv('$ALGO', $$$_)\n$$$_\n$DECIPHER.final($$$_)",
+      "$DECIPHER = $CRYPTO.createDecipheriv('$ALGO', $$$_)\n$$$_\n$DECIPHER.update($$$_)"
+    ])) as $all
+    | ( $all | of(["$DECIPHER = $CRYPTO.createDecipheriv('$ALGO', $$$_)\n$$$_\n$DECIPHER.update($$$_)"])
+          | outside($all | of(["$DECIPHER = $CRYPTO.createDecipheriv('$ALGO', $$$_)\n$$$_\n$DECIPHER.final($$$_)"]))
+          | where_capture("ALGO"; ".*(-gcm|-ccm|-ocb|chacha20-poly1305)$")
+        | finding("aead-no-final";
+            "The 'final' call of a Decipher object checks the authentication tag in a mode for authenticated encryption.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: unchecked-subprocess-call
+# from: yaml/semgrep/duplicate-pattern.test.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$S = subprocess.call($$$_)",
+      "subprocess.call($$$_)",
+      "subprocess.call($$$_) == $X"
+    ])) as $all
+    | ( $all | of(["subprocess.call($$$_)","subprocess.call($$$_)"])
+          | outside($all | of(["$S = subprocess.call($$$_)"]))
+          | outside($all | of(["subprocess.call($$$_) == $X"]))
+        | finding("unchecked-subprocess-call";
+            "This is not checking the return value of this subprocess call; if it fails no exception will be raised.") ) )
+| report

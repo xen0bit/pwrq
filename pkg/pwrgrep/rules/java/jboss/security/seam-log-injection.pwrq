@@ -1,0 +1,16 @@
+# rules: seam-log-injection
+# from: java/jboss/security/seam-log-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$LOG.$INFO($X + $Y,$$$_)",
+      "import org.jboss.seam.log.Log;\n$$$_",
+      "org.jboss.seam.log.Log $LOG = $$$_;\n$$$_"
+    ])) as $all
+    | ( $all | of(["$LOG.$INFO($X + $Y,$$$_)"])
+          | at_same_place((($all)
+          + ($all)))
+          | where_capture("INFO"; "(debug|error|fatal|info|trace|warn)")
+        | finding("seam-log-injection";
+            "Seam Logging API support an expression language to introduce bean property to log messages.") ) )
+| report

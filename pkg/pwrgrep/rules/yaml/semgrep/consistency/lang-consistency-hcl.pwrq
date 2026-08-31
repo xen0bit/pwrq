@@ -1,0 +1,14 @@
+# rules: lang-consistency-hcl
+# from: yaml/semgrep/consistency/lang-consistency-hcl.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$X",
+      "languages: $$$_"
+    ])) as $all
+    | ( $all | of(["$X"])
+          | within($all | of(["languages: $$$_"]))
+          | where_capture("X"; "^(tf|terraform)$")
+        | finding("lang-consistency-hcl";
+            "Found '$X' in language config which diverges from semgrep.dev normalization.") ) )
+| report

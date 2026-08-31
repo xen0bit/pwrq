@@ -1,0 +1,15 @@
+# rules: paramiko-exec-command
+# from: python/lang/security/audit/paramiko/paramiko-exec-command.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CLIENT = paramiko.client.SSHClient($$$_)\n$$$_",
+      "$CLIENT.exec_command(\"$$$_\", $$$_)",
+      "$CLIENT.exec_command($$$_)"
+    ])) as $all
+    | ( $all | of(["$CLIENT.exec_command($$$_)"])
+          | in_files_with($all | of(["$CLIENT = paramiko.client.SSHClient($$$_)\n$$$_"]))
+          | not_at($all | of(["$CLIENT.exec_command(\"$$$_\", $$$_)"]))
+        | finding("paramiko-exec-command";
+            "Unverified SSL context detected.") ) )
+| report

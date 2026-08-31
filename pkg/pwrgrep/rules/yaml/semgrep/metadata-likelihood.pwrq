@@ -1,0 +1,16 @@
+# rules: metadata-likelihood
+# from: yaml/semgrep/metadata-likelihood.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "metadata: \n  $$$_\n  category: security\n  $$$_",
+      "metadata: \n  $$$_\n  likelihood: $VALUE",
+      "rules: \n  $$$_"
+    ])) as $all
+    | ( $all
+          | within($all | of(["rules: \n  $$$_"]))
+          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
+          | outside($all | of(["metadata: \n  $$$_\n  likelihood: $VALUE"]))
+        | finding("metadata-likelihood";
+            "This Semgrep rule is missing a valid 'likelihood' field in the 'metadata'.") ) )
+| report

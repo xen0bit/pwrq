@@ -1,0 +1,13 @@
+# rules: flask-debugging-enabled
+# from: yaml/kubernetes/security/env/flask-debugging-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "env: [$$$_]",
+      "{name: FLASK_ENV, value: \"development\"}"
+    ])) as $all
+    | ( $all | of(["{name: FLASK_ENV, value: \"development\"}"])
+          | within($all | of(["env: [$$$_]"]))
+        | finding("flask-debugging-enabled";
+            "Do not set FLASK_ENV to \"development\" since that sets `debug=True` in Flask.") ) )
+| report

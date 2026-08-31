@@ -1,0 +1,12 @@
+# rules: find-sql-string-concatenation
+# from: java/jboss/security/session_sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$RETURN $METHOD($$$_,String $X,$$$_){\n  $$$_\n  Session $SESSION = $$$_;\n  $$$_\n  String $QUERY = $$$_ + $X + $$$_;\n  $$$_\n  PreparedStatement $PS = $SESSION.connection().prepareStatement($QUERY);\n  $$$_\n  ResultSet $RESULT = $PS.executeQuery();\n  $$$_\n}",
+      "$RETURN $METHOD($$$_,String $X,$$$_){\n  $$$_\n  String $QUERY = $$$_ + $X + $$$_;\n  $$$_\n  Session $SESSION = $$$_;\n  $$$_\n  PreparedStatement $PS = $SESSION.connection().prepareStatement($QUERY);\n  $$$_\n  ResultSet $RESULT = $PS.executeQuery();\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$RETURN $METHOD($$$_,String $X,$$$_){\n  $$$_\n  Session $SESSION = $$$_;\n  $$$_\n  String $QUERY = $$$_ + $X + $$$_;\n  $$$_\n  PreparedStatement $PS = $SESSION.connection().prepareStatement($QUERY);\n  $$$_\n  ResultSet $RESULT = $PS.executeQuery();\n  $$$_\n}","$RETURN $METHOD($$$_,String $X,$$$_){\n  $$$_\n  String $QUERY = $$$_ + $X + $$$_;\n  $$$_\n  Session $SESSION = $$$_;\n  $$$_\n  PreparedStatement $PS = $SESSION.connection().prepareStatement($QUERY);\n  $$$_\n  ResultSet $RESULT = $PS.executeQuery();\n  $$$_\n}"])
+        | finding("find-sql-string-concatenation";
+            "In $METHOD, $X is used to construct a SQL query via string concatenation.") ) )
+| report

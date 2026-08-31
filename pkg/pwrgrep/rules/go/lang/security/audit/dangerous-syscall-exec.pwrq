@@ -1,0 +1,49 @@
+# rules: dangerous-syscall-exec
+# from: go/lang/security/audit/dangerous-syscall-exec.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"$$$_\"",
+      "\"syscall\"",
+      "$ARGS := []string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_};\n$$$_",
+      "$ARGS := []string{\"$$$_\",$$$_};\n$$$_",
+      "$ARGS := []string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_};\n$$$_",
+      "$BIN = \"$$$_\";\n$$$_",
+      "$BIN,$ERR := exec.LookPath(\"$$$_\");\n$$$_",
+      "$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_",
+      "$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_",
+      "$CMD = \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\";\n$$$_\n$ARGS = []string{$CMD,\"-c\",$EXE,$$$_};\n$$$_",
+      "$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_",
+      "$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_",
+      "$CMD,$ERR := exec.LookPath(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\");\n$$$_\n$ARGS = []string{$CMD,\"-c\",$EXE,$$$_};\n$$$_",
+      "import \"syscall\"\n$$$_",
+      "syscall.$METHOD(\"$$$_\",$$$_)",
+      "syscall.$METHOD($BIN,$$$_)",
+      "syscall.$METHOD($BIN,$ARGS,$$$_)",
+      "syscall.$METHOD($BIN,[]string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_)",
+      "syscall.$METHOD($BIN,[]string{\"$$$_\",$$$_},$$$_)",
+      "syscall.$METHOD($BIN,[]string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_},$$$_)"
+    ])) as $all
+    | ( ($all | of(["syscall.$METHOD($BIN,$$$_)"])
+          | not_at($all | of(["syscall.$METHOD(\"$$$_\",$$$_)"]))
+          | in_files_without($all | of(["$BIN,$ERR := exec.LookPath(\"$$$_\");\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$BIN = \"$$$_\";\n$$$_","\"$$$_\""])))
+          + ($all | of(["syscall.$METHOD($BIN,$ARGS,$$$_)"])
+          | not_at($all | of(["syscall.$METHOD($BIN,[]string{\"$$$_\",$$$_},$$$_)"]))
+          | in_files_without($all | of(["$ARGS := []string{\"$$$_\",$$$_};\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,$$$_};\n$$$_","\"$$$_\""])))
+          + ($all | of(["syscall.$METHOD($BIN,[]string{\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$EXE,$$$_},$$$_)"])
+          | not_at($all | of(["syscall.$METHOD($BIN,[]string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_},$$$_)"])))
+          + ($all | of(["syscall.$METHOD($BIN,$ARGS,$$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)))
+          | in_files_without($all | of(["$ARGS := []string{\"$$$_\",\"$$$_\",\"$$$_\",$$$_};\n$$$_"]))
+          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_"]))
+          | in_files_without($all | of(["$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_\n$ARGS = []string{$CMD,\"$$$_\",\"$$$_\",$$$_};\n$$$_"])))
+          | in_files_with($all | of(["import \"syscall\"\n$$$_","\"syscall\""]))
+          | where_capture("METHOD"; "(Exec|ForkExec)")
+        | finding("dangerous-syscall-exec";
+            "Detected non-static command inside Exec.") ) )
+| report

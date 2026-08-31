@@ -1,0 +1,11 @@
+# rules: ssl-mode-no-verify
+# from: ruby/lang/security/ssl-mode-no-verify.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "OpenSSL::SSL::VERIFY_NONE"
+    ])) as $all
+    | ( $all | of(["OpenSSL::SSL::VERIFY_NONE"])
+        | finding("ssl-mode-no-verify";
+            "Detected SSL that will accept an unverified connection.") ) )
+| report

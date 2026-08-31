@@ -1,0 +1,15 @@
+# rules: missing-zypper-no-confirm-switch
+# from: generic/dockerfile/missing-zypper-no-confirm-switch.yaml
+
+. as $root
+| ( ($root | scan_ast(["Dockerfile*"]; [
+      "RUN $$$_ zypper install $$$_",
+      "RUN $$$_ zypper install $$$_ --no-confirm $$$_",
+      "RUN $$$_ zypper install $$$_ -y $$$_"
+    ])) as $all
+    | ( $all | of(["RUN $$$_ zypper install $$$_"])
+          | not_at($all | of(["RUN $$$_ zypper install $$$_ -y $$$_"]))
+          | not_at($all | of(["RUN $$$_ zypper install $$$_ --no-confirm $$$_"]))
+        | finding("missing-zypper-no-confirm-switch";
+            "This 'zypper install' is missing the '-y' switch.") ) )
+| report

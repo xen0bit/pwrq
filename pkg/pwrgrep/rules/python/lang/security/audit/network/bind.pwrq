@@ -1,0 +1,13 @@
+# rules: avoid-bind-to-all-interfaces
+# from: python/lang/security/audit/network/bind.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$S = socket.socket($$$_)\n$$$_\n$S.bind((\"\", $$$_))",
+      "$S = socket.socket($$$_)\n$$$_\n$S.bind((\"0.0.0.0\", $$$_))",
+      "$S = socket.socket($$$_)\n$$$_\n$S.bind((\"::\", $$$_))"
+    ])) as $all
+    | ( $all | of(["$S = socket.socket($$$_)\n$$$_\n$S.bind((\"0.0.0.0\", $$$_))","$S = socket.socket($$$_)\n$$$_\n$S.bind((\"::\", $$$_))","$S = socket.socket($$$_)\n$$$_\n$S.bind((\"\", $$$_))"])
+        | finding("avoid-bind-to-all-interfaces";
+            "Running `socket.bind` to 0.0.0.0, or empty string could unexpectedly expose the server publicly as it binds to all available interfaces.") ) )
+| report

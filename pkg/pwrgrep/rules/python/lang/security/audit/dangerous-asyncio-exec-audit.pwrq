@@ -1,0 +1,23 @@
+# rules: dangerous-asyncio-exec-audit
+# from: python/lang/security/audit/dangerous-asyncio-exec-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$LOOP.subprocess_exec($$$_)",
+      "$LOOP.subprocess_exec($PROTOCOL, \"$$$_\", $$$_)",
+      "$LOOP.subprocess_exec($PROTOCOL, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", \"$$$_\", $$$_)",
+      "$LOOP.subprocess_exec($PROTOCOL, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\",$$$_)",
+      "$LOOP.subprocess_exec($PROTOCOL, [\"$$$_\",$$$_], $$$_)",
+      "$LOOP.subprocess_exec($PROTOCOL, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", \"$$$_\", $$$_], $$$_)",
+      "$LOOP.subprocess_exec($PROTOCOL, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $$$_], $$$_)"
+    ])) as $all
+    | ( ($all | of(["$LOOP.subprocess_exec($$$_)"])
+          | not_at($all | of(["$LOOP.subprocess_exec($PROTOCOL, \"$$$_\", $$$_)"]))
+          | not_at($all | of(["$LOOP.subprocess_exec($PROTOCOL, [\"$$$_\",$$$_], $$$_)"])))
+          + ($all | of(["$LOOP.subprocess_exec($PROTOCOL, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\",$$$_)"])
+          | not_at($all | of(["$LOOP.subprocess_exec($PROTOCOL, \"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", \"$$$_\", $$$_)"])))
+          + ($all | of(["$LOOP.subprocess_exec($PROTOCOL, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", $$$_], $$$_)"])
+          | not_at($all | of(["$LOOP.subprocess_exec($PROTOCOL, [\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\", \"-c\", \"$$$_\", $$$_], $$$_)"])))
+        | finding("dangerous-asyncio-exec-audit";
+            "Detected subprocess function '$LOOP.subprocess_exec' without a static string.") ) )
+| report

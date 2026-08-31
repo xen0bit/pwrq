@@ -1,0 +1,19 @@
+# rules: useless-cat
+# from: bash/lang/best-practice/useless-cat.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sh"]; [
+      "$$$_ | cat",
+      "$$$_ | cat | $$$_",
+      "cat $ARG | $$$_",
+      "cat ${$SEVERAL_FILES} | $$$_",
+      "cat | $$$_"
+    ])) as $all
+    | ( ($all | of(["cat | $$$_"]))
+          + ($all | of(["cat $ARG | $$$_"])
+          | not_at($all | of(["cat ${$SEVERAL_FILES} | $$$_"])))
+          + ($all | of(["$$$_ | cat"]))
+          + ($all | of(["$$$_ | cat | $$$_"]))
+        | finding("useless-cat";
+            "Useless call to 'cat' in a pipeline.") ) )
+| report

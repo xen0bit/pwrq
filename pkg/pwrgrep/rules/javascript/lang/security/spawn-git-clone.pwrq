@@ -1,0 +1,22 @@
+# rules: spawn-git-clone
+# from: javascript/lang/security/spawn-git-clone.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$X.spawn('git', ['clone',$$$_,\"$$$_\",\"$$$_\"])",
+      "$X.spawn('git', ['clone',$$$_,\"$$$_\"])",
+      "$X.spawn('git', ['clone',$$$_,$F])",
+      "$X.spawn('git', ['clone',$$$_,$P,$F])",
+      "spawn('git', ['clone',$$$_,\"$$$_\",\"$$$_\"])",
+      "spawn('git', ['clone',$$$_,\"$$$_\"])",
+      "spawn('git', ['clone',$$$_,$F])",
+      "spawn('git', ['clone',$$$_,$P,$F])"
+    ])) as $all
+    | ( $all | of(["spawn('git', ['clone',$$$_,$F])","$X.spawn('git', ['clone',$$$_,$F])","spawn('git', ['clone',$$$_,$P,$F])","$X.spawn('git', ['clone',$$$_,$P,$F])"])
+          | not_at($all | of(["spawn('git', ['clone',$$$_,\"$$$_\"])"]))
+          | not_at($all | of(["$X.spawn('git', ['clone',$$$_,\"$$$_\"])"]))
+          | not_at($all | of(["spawn('git', ['clone',$$$_,\"$$$_\",\"$$$_\"])"]))
+          | not_at($all | of(["$X.spawn('git', ['clone',$$$_,\"$$$_\",\"$$$_\"])"]))
+        | finding("spawn-git-clone";
+            "Git allows shell commands to be specified in ext URLs for remote repositories.") ) )
+| report

@@ -1,0 +1,17 @@
+# rules: gorequest-http-request
+# from: problem-based-packs/insecure-transport/go-stdlib/gorequest-http-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$REQ = gorequest.New()\n$$$_\n$RES = $$$_",
+      "$REQ.$FUNC(\"=~/[hH][tT][tT][pP]://.*/\")",
+      "gorequest.New().$FUNC(\"=~/[hH][tT][tT][pP]://.*/\")"
+    ])) as $all
+    | ( ($all | of(["$REQ.$FUNC(\"=~/[hH][tT][tT][pP]://.*/\")"])
+          | within($all | of(["$REQ = gorequest.New()\n$$$_\n$RES = $$$_"]))
+          | where_capture("FUNC"; "(Get|Post|Delete|Head|Put|Patch)"))
+          + ($all | of(["gorequest.New().$FUNC(\"=~/[hH][tT][tT][pP]://.*/\")"])
+          | where_capture("FUNC"; "(Get|Post|Delete|Head|Put|Patch)"))
+        | finding("gorequest-http-request";
+            "Checks for requests to http (unencrypted) sites using gorequest, a popular HTTP client library.") ) )
+| report

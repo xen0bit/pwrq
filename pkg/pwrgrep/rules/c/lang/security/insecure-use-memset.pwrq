@@ -1,0 +1,11 @@
+# rules: insecure-use-memset
+# from: c/lang/security/insecure-use-memset.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "memset($$$VARS)"
+    ])) as $all
+    | ( $all | of(["memset($$$VARS)"])
+        | finding("insecure-use-memset";
+            "When handling sensitive information in a buffer, it's important to ensure that the data is securely erased before the buffer is deleted or reused.") ) )
+| report

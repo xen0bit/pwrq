@@ -1,0 +1,20 @@
+# rules: writing-to-file-in-read-mode
+# from: python/lang/correctness/writing-to-file-in-read-mode.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"rb\"",
+      "$FD = open($NAME, \"r\", $$$_)\n$$$_",
+      "$FD = open($NAME, \"rb\", $$$_)\n$$$_",
+      "$FD.write($$$_)",
+      "with open($NAME, \"r\", $$$_) as $FD:\n  $$$_",
+      "with open($NAME, \"rb\", $$$_) as $FD:\n  $$$_"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$FD.write($$$_)"])))
+        | finding("writing-to-file-in-read-mode";
+            "The file object '$FD' was opened in read mode, but is being written to.") ) )
+| report

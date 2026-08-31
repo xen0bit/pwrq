@@ -1,0 +1,13 @@
+# rules: debug-enabled
+# from: python/flask/security/audit/debug-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$APP.run($$$_, debug=True, $$$_)",
+      "import flask\n$$$_"
+    ])) as $all
+    | ( $all | of(["$APP.run($$$_, debug=True, $$$_)"])
+          | in_files_with($all | of(["import flask\n$$$_"]))
+        | finding("debug-enabled";
+            "Detected Flask app with debug=True.") ) )
+| report

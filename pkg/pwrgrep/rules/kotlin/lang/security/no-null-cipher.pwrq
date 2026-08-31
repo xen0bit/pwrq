@@ -1,0 +1,11 @@
+# rules: no-null-cipher
+# from: kotlin/lang/security/no-null-cipher.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.kt","*.scala"]; [
+      "NullCipher($$$_)"
+    ])) as $all
+    | ( $all | of(["NullCipher($$$_)"])
+        | finding("no-null-cipher";
+            "NullCipher was detected.") ) )
+| report

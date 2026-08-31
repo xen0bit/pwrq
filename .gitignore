@@ -1,6 +1,8 @@
-# Binaries
-pwrq
-pwrq-viz
+# Binaries. Anchored to the repository root: unanchored, `pwrq` matches a
+# directory of that name anywhere, and it silently swallowed the hand-written
+# rules under pkg/pwrgrep/rules/pwrq.
+/pwrq
+/pwrq-viz
 
 # GoReleaser output
 /dist/

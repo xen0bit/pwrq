@@ -1,0 +1,11 @@
+# rules: bad-hexa-conversion
+# from: kotlin/lang/security/bad-hexa-conversion.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.kt"]; [
+      "fun $METHOD($$$_) {\n  $$$_\n  val $MD: MessageDigest = $$$_\n  $$$_\n  $MD.digest($$$_)\n  $$$_\n  Integer.toHexString($$$_)\n}"
+    ])) as $all
+    | ( $all | of(["fun $METHOD($$$_) {\n  $$$_\n  val $MD: MessageDigest = $$$_\n  $$$_\n  $MD.digest($$$_)\n  $$$_\n  Integer.toHexString($$$_)\n}"])
+        | finding("bad-hexa-conversion";
+            "'Integer.toHexString()' strips leading zeroes from each byte if read byte-by-byte.") ) )
+| report

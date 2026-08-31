@@ -1,0 +1,20 @@
+# rules: insecure-random
+# from: swift/lang/crypto/insecure-random.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.swift"]; [
+      "Bool.random($$$_)",
+      "Double.random($$$_)",
+      "Float.random($$$_)",
+      "Int.random($$$_)",
+      "SystemRandomNumberGenerator($$$_)",
+      "arc4random()",
+      "arc4random_buf($$$_)",
+      "arc4random_uniform($$$_)",
+      "rand()",
+      "random()"
+    ])) as $all
+    | ( $all | of(["random()","Int.random($$$_)","Bool.random($$$_)","Float.random($$$_)","Double.random($$$_)","arc4random()","arc4random_buf($$$_)","arc4random_uniform($$$_)","SystemRandomNumberGenerator($$$_)","rand()"])
+        | finding("insecure-random";
+            "A random number generator was detected which is **not** *guaranteed* to be Cryptographically secure.") ) )
+| report

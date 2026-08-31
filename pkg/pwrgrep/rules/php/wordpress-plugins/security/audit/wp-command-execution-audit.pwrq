@@ -1,0 +1,14 @@
+# rules: wp-command-execution-audit
+# from: php/wordpress-plugins/security/audit/wp-command-execution-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "exec($$$_)",
+      "passthru($$$_)",
+      "shell_exec($$$_)",
+      "system($$$_)"
+    ])) as $all
+    | ( $all | of(["system($$$_)","exec($$$_)","passthru($$$_)","shell_exec($$$_)"])
+        | finding("wp-command-execution-audit";
+            "These functions can lead to command execution if the data inside them is user-controlled.") ) )
+| report

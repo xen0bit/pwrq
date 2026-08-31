@@ -1,0 +1,27 @@
+# rules: return-in-init, yield-in-init
+# from: python/lang/correctness/return-in-init.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class $A($$$_):\n    $$$_",
+      "def __init__($$$_):\n    $$$_",
+      "def __init__($$$_):\n    $$$_\n    def $F($$$_):\n        $$$_",
+      "return",
+      "return $$$_",
+      "return None",
+      "yield",
+      "yield $$$_"
+    ])) as $all
+    | ( $all
+          | within($all | of(["class $A($$$_):\n    $$$_"]))
+          | within($all | of(["def __init__($$$_):\n    $$$_"]))
+          | outside($all | of(["def __init__($$$_):\n    $$$_\n    def $F($$$_):\n        $$$_"]))
+        | finding("return-in-init";
+            "`return` should never appear inside a class __init__ function.") )
+      + ( $all | of(["yield $$$_","yield"])
+          | within($all | of(["class $A($$$_):\n    $$$_"]))
+          | within($all | of(["def __init__($$$_):\n    $$$_"]))
+          | outside($all | of(["def __init__($$$_):\n    $$$_\n    def $F($$$_):\n        $$$_"]))
+        | finding("yield-in-init";
+            "`yield` should never appear inside a class __init__ function.") ) )
+| report

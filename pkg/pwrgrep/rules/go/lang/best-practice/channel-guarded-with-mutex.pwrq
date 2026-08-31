@@ -1,0 +1,12 @@
+# rules: channel-guarded-with-mutex
+# from: go/lang/best-practice/channel-guarded-with-mutex.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$MUX.Lock()\n$VALUE <- $CHANNEL\n$MUX.Unlock()",
+      "$MUX.Lock()\n$VALUE = <- $CHANNEL\n$MUX.Unlock()"
+    ])) as $all
+    | ( $all | of(["$MUX.Lock()\n$VALUE <- $CHANNEL\n$MUX.Unlock()","$MUX.Lock()\n$VALUE = <- $CHANNEL\n$MUX.Unlock()"])
+        | finding("channel-guarded-with-mutex";
+            "Detected a channel guarded with a mutex.") ) )
+| report

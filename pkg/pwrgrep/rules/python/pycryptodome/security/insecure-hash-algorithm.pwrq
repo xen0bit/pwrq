@@ -1,0 +1,12 @@
+# rules: insecure-hash-algorithm-sha1
+# from: python/pycryptodome/security/insecure-hash-algorithm.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "Crypto.Hash.SHA.new($$$_)",
+      "Cryptodome.Hash.SHA.new ($$$_)"
+    ])) as $all
+    | ( $all | of(["Crypto.Hash.SHA.new($$$_)","Cryptodome.Hash.SHA.new ($$$_)"])
+        | finding("insecure-hash-algorithm-sha1";
+            "Detected SHA1 hash algorithm which is considered insecure.") ) )
+| report

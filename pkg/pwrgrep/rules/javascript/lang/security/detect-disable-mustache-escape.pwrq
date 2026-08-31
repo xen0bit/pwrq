@@ -1,0 +1,11 @@
+# rules: detect-disable-mustache-escape
+# from: javascript/lang/security/detect-disable-mustache-escape.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$OBJ.escapeMarkup = false"
+    ])) as $all
+    | ( $all | of(["$OBJ.escapeMarkup = false"])
+        | finding("detect-disable-mustache-escape";
+            "Markup escaping disabled.") ) )
+| report

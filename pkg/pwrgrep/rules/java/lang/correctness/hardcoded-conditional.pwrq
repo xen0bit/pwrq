@@ -1,0 +1,18 @@
+# rules: hardcoded-conditional
+# from: java/lang/correctness/hardcoded-conditional.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "if ($EXPR && false) { $$$_ }",
+      "if ($EXPR || true) { $$$_ }",
+      "if ($VAR = false) { $$$_ }",
+      "if ($VAR = true) { $$$_ }",
+      "if (false && $EXPR) { $$$_ }",
+      "if (false) { $$$_ }",
+      "if (true || $EXPR) { $$$_ }",
+      "if (true) { $$$_ }"
+    ])) as $all
+    | ( $all | of(["if (true) { $$$_ }","if (false) { $$$_ }","if ($VAR = true) { $$$_ }","if ($VAR = false) { $$$_ }","if ($EXPR && false) { $$$_ }","if (false && $EXPR) { $$$_ }","if ($EXPR || true) { $$$_ }","if (true || $EXPR) { $$$_ }"])
+        | finding("hardcoded-conditional";
+            "This if statement will always have the same behavior and is therefore unnecessary.") ) )
+| report

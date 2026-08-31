@@ -1,0 +1,11 @@
+# rules: telnet-request
+# from: problem-based-packs/insecure-transport/go-stdlib/telnet-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "telnet.DialToAndCall($$$_)"
+    ])) as $all
+    | ( $all | of(["telnet.DialToAndCall($$$_)"])
+        | finding("telnet-request";
+            "Checks for attempts to connect to an insecure telnet server using the package telnet.") ) )
+| report

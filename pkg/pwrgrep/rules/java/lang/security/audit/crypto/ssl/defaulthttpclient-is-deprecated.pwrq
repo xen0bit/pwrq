@@ -1,0 +1,11 @@
+# rules: defaulthttpclient-is-deprecated
+# from: java/lang/security/audit/crypto/ssl/defaulthttpclient-is-deprecated.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "new DefaultHttpClient($$$_);"
+    ])) as $all
+    | ( $all | of(["new DefaultHttpClient($$$_);"])
+        | finding("defaulthttpclient-is-deprecated";
+            "DefaultHttpClient is deprecated.") ) )
+| report

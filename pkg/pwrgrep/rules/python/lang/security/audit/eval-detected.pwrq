@@ -1,0 +1,15 @@
+# rules: eval-detected
+# from: python/lang/security/audit/eval-detected.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "eval(\"$$$_\")",
+      "eval($$$_)",
+      "eval(f\"\")"
+    ])) as $all
+    | ( $all | of(["eval($$$_)"])
+          | not_at($all | of(["eval(f\"\")"]))
+          | not_at($all | of(["eval(\"$$$_\")"]))
+        | finding("eval-detected";
+            "Detected the use of eval().") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: wildcard-postmessage-configuration
+# from: javascript/browser/security/wildcard-postmessage-configuration.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$OBJECT.postMessage($$$_,'*')"
+    ])) as $all
+    | ( $all | of(["$OBJECT.postMessage($$$_,'*')"])
+        | finding("wildcard-postmessage-configuration";
+            "The target origin of the window.postMessage() API is set to \"*\".") ) )
+| report

@@ -1,0 +1,14 @@
+# rules: detect-angular-trust-as-js-method
+# from: javascript/angular/security/detect-angular-trust-as-js-method.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$SOURCE = $scope.$INPUT;\n$sce.trustAsJs($SOURCE);",
+      "$sce.trustAsJs($scope.$INPUT);",
+      "app.controller($$$_, function($scope,$sce){\n$$$_\n});"
+    ])) as $all
+    | ( $all | of(["$SOURCE = $scope.$INPUT;\n$sce.trustAsJs($SOURCE);","$sce.trustAsJs($scope.$INPUT);"])
+          | within($all | of(["app.controller($$$_, function($scope,$sce){\n$$$_\n});"]))
+        | finding("detect-angular-trust-as-js-method";
+            "The use of $sce.trustAsJs can be dangerous if unsanitized user input flows through this API.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: insecure-netdatacontract-deserialization
+# from: csharp/lang/security/insecure-deserialization/net-data-contract.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "new NetDataContractSerializer();",
+      "using System.Runtime.Serialization;\n$$$_"
+    ])) as $all
+    | ( $all | of(["new NetDataContractSerializer();"])
+          | in_files_with($all | of(["using System.Runtime.Serialization;\n$$$_"]))
+        | finding("insecure-netdatacontract-deserialization";
+            "The NetDataContractSerializer type is dangerous and is not recommended for data processing.") ) )
+| report

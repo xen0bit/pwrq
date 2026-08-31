@@ -1,0 +1,17 @@
+# rules: awscdk-codebuild-project-public
+# from: typescript/aws-cdk/security/awscdk-codebuild-project-public.yml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "const $X = new $Y.Project($$$_, {$$$_, badge: true, $$$_})",
+      "const $X = new Project($$$_, {$$$_, badge: true, $$$_})",
+      "import * as $Y from '@aws-cdk/aws-codebuild'\n$$$_",
+      "import {Project} from '@aws-cdk/aws-codebuild'\n$$$_"
+    ])) as $all
+    | ( ($all | of(["const $X = new Project($$$_, {$$$_, badge: true, $$$_})"])
+          | in_files_with($all | of(["import {Project} from '@aws-cdk/aws-codebuild'\n$$$_"])))
+          + ($all | of(["const $X = new $Y.Project($$$_, {$$$_, badge: true, $$$_})"])
+          | in_files_with($all | of(["import * as $Y from '@aws-cdk/aws-codebuild'\n$$$_"])))
+        | finding("awscdk-codebuild-project-public";
+            "CodeBuild Project $X is set to have a public URL.") ) )
+| report

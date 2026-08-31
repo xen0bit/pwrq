@@ -1,0 +1,15 @@
+# rules: insecure-smtp-connection
+# from: java/lang/security/audit/insecure-smtp-connection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$EMAIL = new SimpleEmail($$$_);\n$$$_",
+      "$EMAIL.send($$$_);",
+      "$EMAIL.setSSLCheckServerIdentity(true);\n$$$_"
+    ])) as $all
+    | ( $all | of(["$EMAIL.send($$$_);"])
+          | in_files_without($all | of(["$EMAIL.setSSLCheckServerIdentity(true);\n$$$_"]))
+          | in_files_with($all | of(["$EMAIL = new SimpleEmail($$$_);\n$$$_"]))
+        | finding("insecure-smtp-connection";
+            "Insecure SMTP connection detected.") ) )
+| report

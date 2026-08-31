@@ -1,0 +1,12 @@
+# rules: rsa-padding-set
+# from: scala/lang/security/audit/rsa-padding-set.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "$VAR = $CIPHER.getInstance($MODE)"
+    ])) as $all
+    | ( $all | of(["$VAR = $CIPHER.getInstance($MODE)"])
+          | where_capture("MODE"; ".*RSA/.*/NoPadding.*")
+        | finding("rsa-padding-set";
+            "Usage of RSA without OAEP (Optimal Asymmetric Encryption Padding) may weaken encryption.") ) )
+| report
