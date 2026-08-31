@@ -1,0 +1,13 @@
+# rules: mui-snackbar-message
+# from: typescript/react/portability/i18next/mui-snackbar-message.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "enqueueSnackbar('$MESSAGE', $X2)",
+      "enqueueSnackbar(t($KEY), $X2)"
+    ])) as $all
+    | ( $all | of(["enqueueSnackbar('$MESSAGE', $X2)"])
+          | not_at($all | of(["enqueueSnackbar(t($KEY), $X2)"]))
+        | finding("mui-snackbar-message";
+            "React MUI enqueueSnackbar() title is not internationalized: '$MESSAGE'") ) )
+| report

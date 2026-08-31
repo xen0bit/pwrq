@@ -1,0 +1,21 @@
+# rules: express-check-csurf-middleware-usage
+# from: javascript/express/security/audit/express-check-csurf-middleware-usage.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$APP = $EXPRESS()",
+      "$EXPRESS = require('express')\n$$$_",
+      "import {$CSRF} from 'csrf'\n$$$_",
+      "import {$CSRF} from 'csurf'\n$$$_",
+      "require('csrf')\n$$$_",
+      "require('csurf')\n$$$_"
+    ])) as $all
+    | ( $all | of(["$APP = $EXPRESS()"])
+          | in_files_with($all | of(["$EXPRESS = require('express')\n$$$_"]))
+          | in_files_without($all | of(["import {$CSRF} from 'csurf'\n$$$_"]))
+          | in_files_without($all | of(["require('csurf')\n$$$_"]))
+          | in_files_without($all | of(["import {$CSRF} from 'csrf'\n$$$_"]))
+          | in_files_without($all | of(["require('csrf')\n$$$_"]))
+        | finding("express-check-csurf-middleware-usage";
+            "A CSRF middleware was not detected in your express application.") ) )
+| report

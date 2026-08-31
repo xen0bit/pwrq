@@ -1,0 +1,25 @@
+# rules: documentbuilder-dtd-enabled
+# from: scala/lang/security/audit/documentbuilder-dtd-enabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.scala"]; [
+      "$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)",
+      "$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)",
+      "$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)",
+      "$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)",
+      "$$$_\n$X = $DB.newDocumentBuilder($$$_)",
+      "$DB = DocumentBuilderFactory.newInstance($$$_)",
+      "$DB = DocumentBuilderFactory.newInstance($$$_).newDocumentBuilder($$$_)",
+      "$DF = DocumentBuilderFactory.newInstance($$$_)\n$$$_\n$DB = $DF.newDocumentBuilder($$$_)"
+    ])) as $all
+    | ( ($all | of(["$DF = DocumentBuilderFactory.newInstance($$$_)\n$$$_\n$DB = $DF.newDocumentBuilder($$$_)"]))
+          + ($all | of(["$DB = DocumentBuilderFactory.newInstance($$$_)"])
+          | outside($all | of(["$$$_\n$X = $DB.newDocumentBuilder($$$_)"])))
+          + ($all | of(["$DB = DocumentBuilderFactory.newInstance($$$_).newDocumentBuilder($$$_)"]))
+          | outside($all | of(["$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)"]))
+          | outside($all | of(["$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)"]))
+          | outside($all | of(["$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)"]))
+          | outside($all | of(["$$$_\n$DB.setXIncludeAware(true)\n$$$_\n$DB.setNamespaceAware(true)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-general-entities\", false)\n$$$_\n$DB.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", false)\n$$$_\n$DB.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)"]))
+        | finding("documentbuilder-dtd-enabled";
+            "Document Builder being instantiated without calling the `setFeature` functions that are generally used for disabling entity processing.") ) )
+| report

@@ -1,0 +1,12 @@
+# rules: gcm-nonce-reuse
+# from: java/lang/security/audit/crypto/gcm-nonce-reuse.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "byte[] $NONCE = \"$$$_\".getBytes($$$_); $$$_ new GCMParameterSpec($$$_, $NONCE, $$$_);",
+      "new GCMParameterSpec($$$_, \"$$$_\".getBytes($$$_), $$$_);"
+    ])) as $all
+    | ( $all | of(["new GCMParameterSpec($$$_, \"$$$_\".getBytes($$$_), $$$_);","byte[] $NONCE = \"$$$_\".getBytes($$$_); $$$_ new GCMParameterSpec($$$_, $NONCE, $$$_);"])
+        | finding("gcm-nonce-reuse";
+            "GCM IV/nonce is reused: encryption can be totally useless") ) )
+| report

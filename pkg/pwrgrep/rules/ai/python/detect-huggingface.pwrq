@@ -1,0 +1,11 @@
+# rules: detect-huggingface
+# from: ai/python/detect-huggingface.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "import huggingface_hub"
+    ])) as $all
+    | ( $all | of(["import huggingface_hub"])
+        | finding("detect-huggingface";
+            "Possibly found usage of AI: HuggingFace") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: delete-where-no-execute
+# from: python/sqlalchemy/correctness/delete-where.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$C.execute($$$_)",
+      "$X.delete().where($$$_)",
+      "$X.delete().where($$$_).execute()"
+    ])) as $all
+    | ( $all | of(["$X.delete().where($$$_)"])
+          | outside($all | of(["$X.delete().where($$$_).execute()"]))
+          | outside($all | of(["$C.execute($$$_)"]))
+        | finding("delete-where-no-execute";
+            ".delete().where(...) results in a no-op in SQLAlchemy unless the command is executed, use .filter(...).delete() instead.") ) )
+| report

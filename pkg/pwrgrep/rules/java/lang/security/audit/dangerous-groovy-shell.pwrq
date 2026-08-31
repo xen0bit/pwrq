@@ -1,0 +1,23 @@
+# rules: dangerous-groovy-shell
+# from: java/lang/security/audit/dangerous-groovy-shell.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$SHELL.evaluate(\"$$$_\",$$$_)",
+      "$SHELL.evaluate($$$_)",
+      "$SHELL.parse(\"$$$_\",$$$_)",
+      "$SHELL.parse($$$_)",
+      "$SHELL.parseClass(\"$$$_\",$$$_)",
+      "$SHELL.parseClass($$$_)",
+      "groovy.lang.GroovyClassLoader $SHELL = $$$_;\n$$$_",
+      "groovy.lang.GroovyShell $SHELL = $$$_;\n$$$_"
+    ])) as $all
+    | ( $all | of(["$SHELL.parse($$$_)","$SHELL.evaluate($$$_)","$SHELL.parseClass($$$_)"])
+          | at_same_place((($all)
+          + ($all)))
+          | not_at($all | of(["$SHELL.parse(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$SHELL.evaluate(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$SHELL.parseClass(\"$$$_\",$$$_)"]))
+        | finding("dangerous-groovy-shell";
+            "A expression is built with a dynamic value.") ) )
+| report

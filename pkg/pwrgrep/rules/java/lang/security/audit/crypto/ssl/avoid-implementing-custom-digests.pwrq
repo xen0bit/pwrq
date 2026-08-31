@@ -1,0 +1,11 @@
+# rules: avoid-implementing-custom-digests
+# from: java/lang/security/audit/crypto/ssl/avoid-implementing-custom-digests.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "class $CLASS extends MessageDigest {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["class $CLASS extends MessageDigest {\n  $$$_\n}"])
+        | finding("avoid-implementing-custom-digests";
+            "Cryptographic algorithms are notoriously difficult to get right.") ) )
+| report

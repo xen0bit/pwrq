@@ -1,0 +1,21 @@
+# rules: eqeq-is-bad, hardcoded-eq-true-or-false
+# from: go/lang/correctness/useless-eqeq.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$X != $X",
+      "$X == $X",
+      "1 == 1",
+      "assert($$$_)",
+      "if (false) { $$$_ }",
+      "if (true) { $$$_ }"
+    ])) as $all
+    | ( $all | of(["$X == $X","$X != $X"])
+          | outside($all | of(["assert($$$_)"]))
+          | not_at($all | of(["1 == 1"]))
+        | finding("eqeq-is-bad";
+            "Detected useless comparison operation `$X == $X` or `$X != $X`.") )
+      + ( $all | of(["if (true) { $$$_ }","if (false) { $$$_ }"])
+        | finding("hardcoded-eq-true-or-false";
+            "Detected useless if statement.") ) )
+| report

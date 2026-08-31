@@ -1,0 +1,16 @@
+# rules: metadata-subcategory
+# from: yaml/semgrep/metadata-subcategory.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "metadata: \n  $$$_\n  category: security\n  $$$_",
+      "metadata: \n  $$$_\n  subcategory: $VALUE",
+      "rules: \n  $$$_"
+    ])) as $all
+    | ( $all
+          | within($all | of(["rules: \n  $$$_"]))
+          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
+          | outside($all | of(["metadata: \n  $$$_\n  subcategory: $VALUE"]))
+        | finding("metadata-subcategory";
+            "This Semgrep rule is missing a valid 'subcategory' field in the 'metadata'.") ) )
+| report

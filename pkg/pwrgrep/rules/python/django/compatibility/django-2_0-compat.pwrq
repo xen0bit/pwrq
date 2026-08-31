@@ -1,0 +1,36 @@
+# rules: django-compat-2_0-signals-weak, django-compat-2_0-check-aggregate-support, django-compat-2_0-extra-forms, django-compat-2_0-assignment-tag, django-compat-2_0-assert-redirects-helper
+# from: python/django/compatibility/django-2_0-compat.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$X.assertRedirects($$$_, host=$Y, $$$_)",
+      "$X.assignment_tag($$$_)",
+      "assertRedirects($$$_, host=$Y, $$$_)",
+      "assignment_tag($$$_)",
+      "django.db.backends.base.BaseDatabaseOperations.check_aggregate_support($$$_)",
+      "django.dispatch.signals.Signal.disconnect($$$_, weak=$X, $$$_)",
+      "from django.forms import extras",
+      "from django.forms import extras as $Y",
+      "from django.forms.extras import $X",
+      "from django.forms.extras import $X as $Y",
+      "import django.forms.extras",
+      "import django.forms.extras as $Y",
+      "import django.forms.extras.$X",
+      "import django.forms.extras.$X as $Y"
+    ])) as $all
+    | ( $all | of(["django.dispatch.signals.Signal.disconnect($$$_, weak=$X, $$$_)"])
+        | finding("django-compat-2_0-signals-weak";
+            "The weak argument to django.dispatch.signals.Signal.disconnect() is removed in Django 2.0.") )
+      + ( $all | of(["django.db.backends.base.BaseDatabaseOperations.check_aggregate_support($$$_)"])
+        | finding("django-compat-2_0-check-aggregate-support";
+            "django.db.backends.base.BaseDatabaseOperations.check_aggregate_support() is removed in Django 2.0.") )
+      + ( $all | of(["from django.forms import extras","from django.forms.extras import $X","from django.forms import extras as $Y","from django.forms.extras import $X as $Y","import django.forms.extras","import django.forms.extras.$X","import django.forms.extras as $Y","import django.forms.extras.$X as $Y"])
+        | finding("django-compat-2_0-extra-forms";
+            "The django.forms.extras package is removed in Django 2.0.") )
+      + ( $all | of(["$X.assignment_tag($$$_)","assignment_tag($$$_)"])
+        | finding("django-compat-2_0-assignment-tag";
+            "The assignment_tag helper is removed in Django 2.0.") )
+      + ( $all | of(["$X.assertRedirects($$$_, host=$Y, $$$_)","assertRedirects($$$_, host=$Y, $$$_)"])
+        | finding("django-compat-2_0-assert-redirects-helper";
+            "The host argument to assertRedirects is removed in Django 2.0.") ) )
+| report

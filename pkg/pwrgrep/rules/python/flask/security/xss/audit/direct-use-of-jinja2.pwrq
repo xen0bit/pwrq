@@ -1,0 +1,20 @@
+# rules: direct-use-of-jinja2
+# from: python/flask/security/xss/audit/direct-use-of-jinja2.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$TEMPLATE = $ENV.get_template($$$_)\n$$$_",
+      "$TEMPLATE = jinja2.Template($$$_)\n$$$_",
+      "$TEMPLATE.render($$$_)",
+      "jinja2.Environment($$$_)",
+      "jinja2.Template.render($$$_)"
+    ])) as $all
+    | ( ($all | of(["jinja2.Environment($$$_)"]))
+          + ($all | of(["jinja2.Template.render($$$_)"]))
+          + ($all | of(["$TEMPLATE.render($$$_)"])
+          | in_files_with($all | of(["$TEMPLATE = $ENV.get_template($$$_)\n$$$_"])))
+          + ($all | of(["$TEMPLATE.render($$$_)"])
+          | in_files_with($all | of(["$TEMPLATE = jinja2.Template($$$_)\n$$$_"])))
+        | finding("direct-use-of-jinja2";
+            "Detected direct use of jinja2.") ) )
+| report

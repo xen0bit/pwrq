@@ -1,0 +1,15 @@
+# rules: unknown-value-with-script-tag
+# from: javascript/lang/security/audit/unknown-value-with-script-tag.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "$OTHERFUNC($$$_, <$$$_ \"=~/.*<script.*/\" $$$_>, $$$_)",
+      "$UNK",
+      "$UNK = $ANYFUNC($$$_);\n$$$_\n$OTHERFUNC($$$_, <$$$_ $UNK $$$_>, $$$_);"
+    ])) as $all
+    | ( $all | of(["$OTHERFUNC($$$_, <$$$_ \"=~/.*<script.*/\" $$$_>, $$$_)"])
+          | at_same_place(($all | of(["$UNK"])))
+          | within($all | of(["$UNK = $ANYFUNC($$$_);\n$$$_\n$OTHERFUNC($$$_, <$$$_ $UNK $$$_>, $$$_);"]))
+        | finding("unknown-value-with-script-tag";
+            "Cannot determine what '$UNK' is and it is used with a '<script>' tag.") ) )
+| report

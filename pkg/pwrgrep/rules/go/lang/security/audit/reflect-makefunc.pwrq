@@ -1,0 +1,11 @@
+# rules: reflect-makefunc
+# from: go/lang/security/audit/reflect-makefunc.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "reflect.MakeFunc($$$_)"
+    ])) as $all
+    | ( $all | of(["reflect.MakeFunc($$$_)"])
+        | finding("reflect-makefunc";
+            "'reflect.MakeFunc' detected.") ) )
+| report

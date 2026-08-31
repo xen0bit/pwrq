@@ -1,0 +1,12 @@
+# rules: useless-assignment-keyed
+# from: python/lang/maintainability/useless-assign-keyed.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$X[$Y] = $$$_\n$X[$Y] = $$$_",
+      "$X[$Y][$Z] = $$$_\n$X[$Y][$Z] = $$$_"
+    ])) as $all
+    | ( $all | of(["$X[$Y] = $$$_\n$X[$Y] = $$$_","$X[$Y][$Z] = $$$_\n$X[$Y][$Z] = $$$_"])
+        | finding("useless-assignment-keyed";
+            "key `$Y` in `$X` is assigned twice; the first assignment is useless") ) )
+| report

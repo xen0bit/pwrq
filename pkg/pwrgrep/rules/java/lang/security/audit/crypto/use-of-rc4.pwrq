@@ -1,0 +1,11 @@
+# rules: use-of-rc4
+# from: java/lang/security/audit/crypto/use-of-rc4.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$CIPHER.getInstance(\"RC4\")"
+    ])) as $all
+    | ( $all | of(["$CIPHER.getInstance(\"RC4\")"])
+        | finding("use-of-rc4";
+            "Use of RC4 was detected.") ) )
+| report

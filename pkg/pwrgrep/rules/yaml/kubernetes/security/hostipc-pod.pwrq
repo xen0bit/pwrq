@@ -1,0 +1,13 @@
+# rules: hostipc-pod
+# from: yaml/kubernetes/security/hostipc-pod.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "hostIPC: true",
+      "spec:\n  $$$_"
+    ])) as $all
+    | ( $all | of(["hostIPC: true"])
+          | within($all | of(["spec:\n  $$$_"]))
+        | finding("hostipc-pod";
+            "Pod is sharing the host IPC namespace.") ) )
+| report

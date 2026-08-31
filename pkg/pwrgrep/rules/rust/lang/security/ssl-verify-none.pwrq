@@ -1,0 +1,11 @@
+# rules: ssl-verify-none
+# from: rust/lang/security/ssl-verify-none.yml
+
+. as $root
+| ( ($root | scan_ast(["*.rs"]; [
+      "$BUILDER.set_verify(openssl::ssl::SSL_VERIFY_NONE)"
+    ])) as $all
+    | ( $all | of(["$BUILDER.set_verify(openssl::ssl::SSL_VERIFY_NONE)"])
+        | finding("ssl-verify-none";
+            "SSL verification disabled, this allows for MitM attacks") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: use-defused-xml
+# from: python/lang/security/use-defused-xml.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "import xml"
+    ])) as $all
+    | ( $all | of(["import xml"])
+        | finding("use-defused-xml";
+            "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.") ) )
+| report

@@ -1,0 +1,32 @@
+# rules: avoid-pickle, avoid-cPickle, avoid-dill, avoid-shelve
+# from: python/lang/security/deserialization/pickle.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "_pickle.$FUNC(\"$$$_\")",
+      "_pickle.$FUNC($$$_)",
+      "cPickle.$FUNC(\"$$$_\")",
+      "cPickle.$FUNC($$$_)",
+      "dill.$FUNC(\"$$$_\")",
+      "dill.$FUNC($$$_)",
+      "pickle.$FUNC(\"$$$_\")",
+      "pickle.$FUNC($$$_)",
+      "shelve.$FUNC($$$_)"
+    ])) as $all
+    | ( $all | of(["pickle.$FUNC($$$_)","_pickle.$FUNC($$$_)"])
+          | not_at($all | of(["pickle.$FUNC(\"$$$_\")"]))
+          | not_at($all | of(["_pickle.$FUNC(\"$$$_\")"]))
+        | finding("avoid-pickle";
+            "Avoid using `pickle`, which is known to lead to code execution vulnerabilities.") )
+      + ( $all | of(["cPickle.$FUNC($$$_)"])
+          | not_at($all | of(["cPickle.$FUNC(\"$$$_\")"]))
+        | finding("avoid-cPickle";
+            "Avoid using `cPickle`, which is known to lead to code execution vulnerabilities.") )
+      + ( $all | of(["dill.$FUNC($$$_)"])
+          | not_at($all | of(["dill.$FUNC(\"$$$_\")"]))
+        | finding("avoid-dill";
+            "Avoid using `dill`, which uses `pickle`, which is known to lead to code execution vulnerabilities.") )
+      + ( $all | of(["shelve.$FUNC($$$_)"])
+        | finding("avoid-shelve";
+            "Avoid using `shelve`, which uses `pickle`, which is known to lead to code execution vulnerabilities.") ) )
+| report

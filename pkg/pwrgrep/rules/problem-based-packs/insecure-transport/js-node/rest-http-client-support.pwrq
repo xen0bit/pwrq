@@ -1,0 +1,20 @@
+# rules: rest-http-client-support
+# from: problem-based-packs/insecure-transport/js-node/rest-http-client-support.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js"]; [
+      "$C = require('axios');\n$$$_",
+      "$C = require('got');\n$$$_",
+      "$C(\"=~/http://.*/\", $$$_)",
+      "$C({$$$_,url: \"=~/http://.*/\"})",
+      "$C.$REQ(\"=~/http://.*/\", $$$_)",
+      "$C.$REQ({$$$_,url: \"=~/http://.*/\"})",
+      "$CLIENT = require('node-rest-client').Client;\n$$$_\n$C = new $CLIENT();\n$$$_"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          + ($all)
+          | at_same_place(($all | of(["$C.$REQ(\"=~/http://.*/\", $$$_)","$C(\"=~/http://.*/\", $$$_)","$C({$$$_,url: \"=~/http://.*/\"})","$C.$REQ({$$$_,url: \"=~/http://.*/\"})"])))
+        | finding("rest-http-client-support";
+            "Checks for requests to http (unencrypted) sites using some of node js's most popular REST/HTTP libraries, including node-rest-client, axios, and got.") ) )
+| report

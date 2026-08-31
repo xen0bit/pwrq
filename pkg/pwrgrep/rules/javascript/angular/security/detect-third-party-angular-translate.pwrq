@@ -1,0 +1,13 @@
+# rules: detect-angular-translateprovider-translations-method
+# from: javascript/angular/security/detect-third-party-angular-translate.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js"]; [
+      "$translateProvider.translations($$$_,$SOURCE);",
+      "app.controller($$$_, function($scope,$sce){\n$$$_\n});"
+    ])) as $all
+    | ( $all | of(["$translateProvider.translations($$$_,$SOURCE);"])
+          | within($all | of(["app.controller($$$_, function($scope,$sce){\n$$$_\n});"]))
+        | finding("detect-angular-translateprovider-translations-method";
+            "The use of $translateProvider.translations method can be dangerous if user input is provided to this API.") ) )
+| report

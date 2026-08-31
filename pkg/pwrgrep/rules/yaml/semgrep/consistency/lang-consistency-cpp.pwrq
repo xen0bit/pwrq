@@ -1,0 +1,14 @@
+# rules: lang-consistency-cpp
+# from: yaml/semgrep/consistency/lang-consistency-cpp.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$X",
+      "languages: $$$_"
+    ])) as $all
+    | ( $all | of(["$X"])
+          | within($all | of(["languages: $$$_"]))
+          | where_capture("X"; "^(c\\+\\+)$")
+        | finding("lang-consistency-cpp";
+            "Found '$X' in language config which diverges from semgrep.dev normalization.") ) )
+| report

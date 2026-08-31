@@ -1,0 +1,27 @@
+# rules: phantom-injection
+# from: javascript/phantom/security/audit/phantom-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$PAGE.evaluateJavaScript(\"$$$_\",$$$_)",
+      "$PAGE.evaluateJavaScript($INPUT,$$$_)",
+      "$PAGE.open(\"$$$_\",$$$_)",
+      "$PAGE.open($INPUT,$$$_)",
+      "$PAGE.openUrl(\"$$$_\",$$$_)",
+      "$PAGE.openUrl($INPUT,$$$_)",
+      "$PAGE.property(\"content\",\"$$$_\",$$$_)",
+      "$PAGE.property(\"content\",$INPUT,$$$_)",
+      "$PAGE.setContent(\"$$$_\",$$$_)",
+      "$PAGE.setContent($INPUT,$$$_)",
+      "$PHANTOM = require('phantom');\n$$$_"
+    ])) as $all
+    | ( $all | of(["$PAGE.open($INPUT,$$$_)","$PAGE.property(\"content\",$INPUT,$$$_)","$PAGE.setContent($INPUT,$$$_)","$PAGE.openUrl($INPUT,$$$_)","$PAGE.evaluateJavaScript($INPUT,$$$_)"])
+          | in_files_with($all | of(["$PHANTOM = require('phantom');\n$$$_"]))
+          | not_at($all | of(["$PAGE.open(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$PAGE.property(\"content\",\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$PAGE.setContent(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$PAGE.openUrl(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$PAGE.evaluateJavaScript(\"$$$_\",$$$_)"]))
+        | finding("phantom-injection";
+            "If unverified user data can reach the `phantom` page methods it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

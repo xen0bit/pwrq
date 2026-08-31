@@ -1,0 +1,25 @@
+# rules: ocamllint-exec
+# from: ocaml/lang/security/exec.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "Sys.command \"$$$_\"",
+      "Sys.command $STR",
+      "Unix.execve \"$$$_\"",
+      "Unix.execve $STR",
+      "Unix.execvp \"$$$_\"",
+      "Unix.execvp $STR",
+      "Unix.execvpe \"$$$_\"",
+      "Unix.execvpe $STR",
+      "Unix.system \"$$$_\"",
+      "Unix.system $STR"
+    ])) as $all
+    | ( $all | of(["Unix.execve $STR","Unix.execvp $STR","Unix.execvpe $STR","Unix.system $STR","Sys.command $STR"])
+          | not_at($all | of(["Unix.execve \"$$$_\""]))
+          | not_at($all | of(["Unix.execvp \"$$$_\""]))
+          | not_at($all | of(["Unix.execvpe \"$$$_\""]))
+          | not_at($all | of(["Unix.system \"$$$_\""]))
+          | not_at($all | of(["Sys.command \"$$$_\""]))
+        | finding("ocamllint-exec";
+            "Executing external programs might lead to comand or argument injection vulnerabilities.") ) )
+| report

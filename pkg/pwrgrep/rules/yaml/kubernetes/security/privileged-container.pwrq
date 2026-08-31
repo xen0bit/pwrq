@@ -1,0 +1,19 @@
+# rules: privileged-container
+# from: yaml/kubernetes/security/privileged-container.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "containers:\n  $$$_",
+      "image: $$$_\n$$$_",
+      "image: $$$_\n$$$_\nsecurityContext:\n  $$$_\n  privileged: true",
+      "privileged: true",
+      "spec:\n  $$$_"
+    ])) as $all
+    | ( ($all | of(["image: $$$_\n$$$_\nsecurityContext:\n  $$$_\n  privileged: true"])
+          | within($all | of(["containers:\n  $$$_"])))
+          + ($all | of(["privileged: true"])
+          | within($all | of(["spec:\n  $$$_"]))
+          | in_files_without($all | of(["image: $$$_\n$$$_"])))
+        | finding("privileged-container";
+            "Container or pod is running in privileged mode.") ) )
+| report

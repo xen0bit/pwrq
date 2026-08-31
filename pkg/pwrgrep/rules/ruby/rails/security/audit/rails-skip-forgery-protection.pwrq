@@ -1,0 +1,11 @@
+# rules: rails-skip-forgery-protection
+# from: ruby/rails/security/audit/rails-skip-forgery-protection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "skip_forgery_protection"
+    ])) as $all
+    | ( $all | of(["skip_forgery_protection"])
+        | finding("rails-skip-forgery-protection";
+            "This call turns off CSRF protection allowing CSRF attacks against the application") ) )
+| report

@@ -1,0 +1,59 @@
+# rules: asyncpg-sqli
+# from: python/lang/security/audit/sqli/asyncpg-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_\"",
+      "$CONN = await $POOL.acquire($$$_)\n$$$_",
+      "$CONN = await asyncpg.connect($$$_)\n$$$_",
+      "$CONN.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)",
+      "$CONN.$METHOD($$$_, $X + $Y, $$$_)",
+      "$CONN.$METHOD($$$_, $Y.format($$$_), $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_' % ($$$_), $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_'%(), $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_'.format($$$_), $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_'.format(), $$$_)",
+      "$CONN.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)",
+      "$CONN.$METHOD($$$_,$QUERY,$$$_)",
+      "$QUERY += \"$$$_\"\n$$$_",
+      "$QUERY += $X\n$$$_",
+      "$QUERY = \"$$$_\" + \"$$$_\"\n$$$_",
+      "$QUERY = $X + $Y\n$$$_",
+      "$QUERY = '$$$_' % ($$$_)\n$$$_",
+      "$QUERY = '$$$_' % ()\n$$$_",
+      "$QUERY = '$$$_'.format($$$_)\n$$$_",
+      "$QUERY = '$$$_'.format()\n$$$_",
+      "$QUERY = f'$$$_{$USERINPUT}$$$_'\n$$$_",
+      "async with $POOL.acquire($$$_) as $CONN:\n    $$$_",
+      "async with asyncpg.create_pool($$$_) as $CONN:\n    $$$_",
+      "def $FUNCNAME($$$_, $CONN: Connection, $$$_):\n    $$$_",
+      "def $FUNCNAME($$$_, $CONN: asyncpg.Connection, $$$_):\n    $$$_"
+    ])) as $all
+    | ( ($all | of(["$CONN.$METHOD($$$_,$QUERY,$$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_'.format()\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_' % ()\n$$$_"])))
+          + ($all | of(["$CONN.$METHOD($$$_, $X + $Y, $$$_)"]))
+          + ($all | of(["$CONN.$METHOD($$$_, $Y.format($$$_), $$$_)"]))
+          + ($all | of(["$CONN.$METHOD($$$_, '$$$_'.format($$$_), $$$_)"]))
+          + ($all | of(["$CONN.$METHOD($$$_, '$$$_' % ($$$_), $$$_)"]))
+          + ($all | of(["$CONN.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)"]))
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | not_at($all | of(["$CONN.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)"]))
+          | not_at($all | of(["$CONN.$METHOD($$$_, '$$$_'.format(), $$$_)"]))
+          | not_at($all | of(["$CONN.$METHOD($$$_, '$$$_'%(), $$$_)"]))
+          | where_capture("METHOD"; "^(fetch|fetchrow|fetchval|execute|executemany|prepare|cursor|copyfromquery)$")
+        | finding("asyncpg-sqli";
+            "Detected string concatenation with a non-literal variable in a asyncpg Python SQL statement.") ) )
+| report

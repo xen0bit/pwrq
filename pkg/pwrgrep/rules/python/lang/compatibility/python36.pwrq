@@ -1,0 +1,19 @@
+# rules: python36-compatibility-ssl, python36-compatibility-Popen1, python36-compatibility-Popen2
+# from: python/lang/compatibility/python36.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "ssl.get_ciphers()",
+      "subprocess.Popen(encoding=$X, $$$_)",
+      "subprocess.Popen(errors=$X, $$$_)"
+    ])) as $all
+    | ( $all | of(["ssl.get_ciphers()"])
+        | finding("python36-compatibility-ssl";
+            "this function is only available on Python 3.6+") )
+      + ( $all | of(["subprocess.Popen(errors=$X, $$$_)"])
+        | finding("python36-compatibility-Popen1";
+            "the `errors` argument to Popen is only available on Python 3.6+") )
+      + ( $all | of(["subprocess.Popen(encoding=$X, $$$_)"])
+        | finding("python36-compatibility-Popen2";
+            "the `encoding` argument to Popen is only available on Python 3.6+") ) )
+| report

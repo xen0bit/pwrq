@@ -1,0 +1,14 @@
+# rules: openuri-request
+# from: problem-based-packs/insecure-transport/ruby-stdlib/openuri-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$URI = URI.parse('=~/[hH][tT][tT][pP]://.*/', $$$_)\n$$$_\n$URI.open",
+      "$URI = URI.parse('=~/^[fF][tT][pP]://.*/', $$$_)\n$$$_\n$URI.open",
+      "URI.open('=~/[hH][tT][tT][pP]://.*/', $$$_)",
+      "URI.open('=~/^[fF][tT][pP]://.*/', $$$_)"
+    ])) as $all
+    | ( $all | of(["URI.open('=~/[hH][tT][tT][pP]://.*/', $$$_)","$URI = URI.parse('=~/[hH][tT][tT][pP]://.*/', $$$_)\n$$$_\n$URI.open","URI.open('=~/^[fF][tT][pP]://.*/', $$$_)","$URI = URI.parse('=~/^[fF][tT][pP]://.*/', $$$_)\n$$$_\n$URI.open"])
+        | finding("openuri-request";
+            "Checks for requests to http and ftp (unencrypted) sites using OpenURI.") ) )
+| report

@@ -1,0 +1,20 @@
+# rules: python-weak-hash
+# fixture: python/weak-hash.py
+# from: python/lang/security/insecure-hash-algorithms-md5.yaml (insecure-hash-algorithm-md5), insecure-hash-algorithms-sha1.yaml (insecure-hash-algorithm-sha1)
+#
+# CWE-328, the Python spelling of go-weak-hash.
+#
+# The `pattern-not` here is a real one rather than a file-scope join: it names
+# the same call with one more keyword argument, and the two must describe the
+# same code for the exclusion to mean anything. That is at_same_place read
+# backwards, which is not_at.
+
+["hashlib.md5($$$_)", "hashlib.sha1($$$_)"] as $calls
+| ["hashlib.md5($$$_, usedforsecurity=False, $$$_)",
+   "hashlib.sha1($$$_, usedforsecurity=False, $$$_)"] as $declared
+| scan_ast("*.py"; $calls + $declared) as $all
+| ($all | of($calls) | not_at($all | of($declared)))
+| finding("python-weak-hash";
+    "this is not collision resistant; hashlib.sha256, or usedforsecurity=False "
+    + "if this hash is not a signature")
+| report

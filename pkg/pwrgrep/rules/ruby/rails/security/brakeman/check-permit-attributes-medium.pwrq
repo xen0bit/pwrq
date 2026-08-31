@@ -1,0 +1,12 @@
+# rules: check-permit-attributes-medium
+# from: ruby/rails/security/brakeman/check-permit-attributes-medium.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$P.permit($ATTRIBUTE)"
+    ])) as $all
+    | ( $all | of(["$P.permit($ATTRIBUTE)"])
+          | where_capture("ATTRIBUTE"; ".*(role|banned).*")
+        | finding("check-permit-attributes-medium";
+            "Calling `permit` on security-critical properties like `$ATTRIBUTE` may leave your application vulnerable to mass assignment.") ) )
+| report

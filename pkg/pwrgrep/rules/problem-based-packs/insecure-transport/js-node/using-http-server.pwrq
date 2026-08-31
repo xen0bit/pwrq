@@ -1,0 +1,16 @@
+# rules: using-http-server
+# from: problem-based-packs/insecure-transport/js-node/using-http-server.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js"]; [
+      "$HTTP",
+      "$HTTP = require('http');\n$$$_",
+      "$HTTP.$FUNC($$$_);",
+      "new $HTTP.$FUNC2($$$_);"
+    ])) as $all
+    | ( $all | of(["$HTTP.$FUNC($$$_);","new $HTTP.$FUNC2($$$_);"])
+          | at_same_place(($all | of(["$HTTP"])))
+          | in_files_with($all | of(["$HTTP = require('http');\n$$$_"]))
+        | finding("using-http-server";
+            "Checks for any usage of http servers instead of https servers.") ) )
+| report

@@ -1,0 +1,11 @@
+# rules: deprecated_use_bitwise
+# from: elixir/lang/best-practice/deprecated-use-bitwise.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ex"]; [
+      "use Bitwise"
+    ])) as $all
+    | ( $all | of(["use Bitwise"])
+        | finding("deprecated_use_bitwise";
+            "The syntax `use Bitwise` is already deprecated.") ) )
+| report

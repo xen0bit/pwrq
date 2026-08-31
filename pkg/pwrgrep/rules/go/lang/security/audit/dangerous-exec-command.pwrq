@@ -1,0 +1,34 @@
+# rules: dangerous-exec-command
+# from: go/lang/security/audit/dangerous-exec-command.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"$$$_\"",
+      "\"os/exec\"",
+      "$CMD = \"$$$_\";\n$$$_",
+      "$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_",
+      "exec.Command(\"$$$_\",\"$$$_\",\"$$$_\",$$$_)",
+      "exec.Command(\"$$$_\",$$$_)",
+      "exec.Command(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)",
+      "exec.Command(\"=~/\\/bin\\/env/\",\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)",
+      "exec.Command($CMD,$$$_)",
+      "exec.CommandContext($CTX,\"$$$_\",\"$$$_\",\"$$$_\",$$$_)",
+      "exec.CommandContext($CTX,\"$$$_\",$$$_)",
+      "exec.CommandContext($CTX,\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)",
+      "exec.CommandContext($CTX,\"=~/\\/bin\\/env/\",\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)",
+      "exec.CommandContext($CTX,$CMD,$$$_)",
+      "import \"os/exec\"\n$$$_"
+    ])) as $all
+    | ( ($all | of(["exec.Command($CMD,$$$_)","exec.CommandContext($CTX,$CMD,$$$_)"])
+          | not_at($all | of(["exec.Command(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["exec.CommandContext($CTX,\"$$$_\",$$$_)"])))
+          + ($all | of(["exec.Command(\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)","exec.CommandContext($CTX,\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)"])
+          | not_at($all | of(["exec.Command(\"$$$_\",\"$$$_\",\"$$$_\",$$$_)"]))
+          | not_at($all | of(["exec.CommandContext($CTX,\"$$$_\",\"$$$_\",\"$$$_\",$$$_)"])))
+          + ($all | of(["exec.Command(\"=~/\\/bin\\/env/\",\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)","exec.CommandContext($CTX,\"=~/\\/bin\\/env/\",\"=~/(sh|bash|ksh|csh|tcsh|zsh)/\",\"-c\",$CMD,$$$_)"]))
+          | in_files_with($all | of(["import \"os/exec\"\n$$$_","\"os/exec\""]))
+          | in_files_without($all | of(["$CMD,$ERR := exec.LookPath(\"$$$_\");\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$CMD = \"$$$_\";\n$$$_","\"$$$_\""]))
+        | finding("dangerous-exec-command";
+            "Detected non-static command inside Command.") ) )
+| report

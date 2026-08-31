@@ -1,0 +1,12 @@
+# rules: unverified-ssl-context
+# from: python/lang/security/unverified-ssl-context.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "ssl._create_default_https_context = ssl._create_unverified_context",
+      "ssl._create_unverified_context($$$_)"
+    ])) as $all
+    | ( $all | of(["ssl._create_unverified_context($$$_)","ssl._create_default_https_context = ssl._create_unverified_context"])
+        | finding("unverified-ssl-context";
+            "Unverified SSL context detected.") ) )
+| report

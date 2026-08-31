@@ -1,0 +1,15 @@
+# rules: xml-decoder
+# from: java/lang/security/audit/xml-decoder.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$X $METHOD($$$_) {\n  $$$_\n  String $STR = \"$$$_\";\n  $$$_\n  new XMLDecoder($STR);\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  new XMLDecoder(\"$$$_\");\n  $$$_\n}",
+      "$X $METHOD($$$_) {\n  $$$_\n  new XMLDecoder($$$_);\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$X $METHOD($$$_) {\n  $$$_\n  new XMLDecoder($$$_);\n  $$$_\n}"])
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  new XMLDecoder(\"$$$_\");\n  $$$_\n}"]))
+          | not_at($all | of(["$X $METHOD($$$_) {\n  $$$_\n  String $STR = \"$$$_\";\n  $$$_\n  new XMLDecoder($STR);\n  $$$_\n}"]))
+        | finding("xml-decoder";
+            "XMLDecoder should not be used to parse untrusted data.") ) )
+| report

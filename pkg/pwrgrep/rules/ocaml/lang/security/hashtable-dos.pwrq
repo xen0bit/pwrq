@@ -1,0 +1,13 @@
+# rules: ocamllint-hashtable-dos
+# from: ocaml/lang/security/hashtable-dos.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "Hashtbl.create $Y",
+      "Hashtbl.create $Y ~random:true"
+    ])) as $all
+    | ( $all | of(["Hashtbl.create $Y"])
+          | not_at($all | of(["Hashtbl.create $Y ~random:true"]))
+        | finding("ocamllint-hashtable-dos";
+            "Creating a Hashtbl without the optional random number parameter makes it prone to DoS attacks when attackers are able to fill the table with malicious content.") ) )
+| report

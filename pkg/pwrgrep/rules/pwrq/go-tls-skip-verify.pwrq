@@ -1,0 +1,29 @@
+# rules: go-tls-skip-verify
+# fixture: go/tls-skip-verify.go
+# from: problem-based-packs/insecure-transport/go-stdlib/bypass-tls-verification.yaml (bypass-tls-verification)
+#
+# CWE-295, a TLS client that accepts any certificate.
+#
+# The $$$_ on each side of the field is the same thing the original writes as
+# `tls.Config{..., InsecureSkipVerify: true, ...}`, and it is needed for the
+# same reason: a pattern says what a literal's fields are, so without them this
+# would ask for a config that sets InsecureSkipVerify and nothing else, and the
+# one that also pins MinVersion would go unreported.
+#
+# The second half of the original is a sequence - `$CONFIG = &tls.Config{...}`,
+# then later `$CONFIG.InsecureSkipVerify = true` - and pwrq has no way to say
+# "these two statements, in this order, in this block". The guard that sequence
+# provides is that $CONFIG really is a TLS config, so the port asks for that
+# directly: the assignment, in a file that builds a tls.Config. It is a weaker
+# claim than the original's and a stronger one than the assignment alone.
+
+["tls.Config{$$$_, InsecureSkipVerify: true, $$$_}"] as $literal
+| ["$X.InsecureSkipVerify = true"] as $assign
+| ["tls.Config{$$$A}"] as $configs
+| scan_ast("*.go"; $literal + $assign + $configs) as $all
+| (($all | of($literal))
+   + ($all | of($assign) | in_files_with($all | of($configs))))
+| finding("go-tls-skip-verify";
+    "InsecureSkipVerify is set to true, so this client accepts any certificate; "
+    + "leave verification on and add the CA you need to RootCAs")
+| report

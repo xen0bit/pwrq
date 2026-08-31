@@ -1,0 +1,16 @@
+# rules: erc20-public-transfer
+# from: solidity/security/erc20-public-transfer.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "function _transfer($$$_) $M { $$$_ }",
+      "function _transfer($$$_) $M($$$_) { $$$_ }",
+      "function _transfer($$$_) external { $$$_ }",
+      "function _transfer($$$_) public { $$$_ }"
+    ])) as $all
+    | ( $all | of(["function _transfer($$$_) public { $$$_ }","function _transfer($$$_) external { $$$_ }"])
+          | not_at($all | of(["function _transfer($$$_) $M { $$$_ }"]))
+          | not_at($all | of(["function _transfer($$$_) $M($$$_) { $$$_ }"]))
+        | finding("erc20-public-transfer";
+            "Custom ERC20 implementation exposes _transfer() as public") ) )
+| report

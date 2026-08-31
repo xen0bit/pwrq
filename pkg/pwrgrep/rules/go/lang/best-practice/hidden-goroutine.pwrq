@@ -1,0 +1,13 @@
+# rules: hidden-goroutine
+# from: go/lang/best-practice/hidden-goroutine.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "func $FUNC($$$_) {\n  go func() {\n    $$$_\n  }($$$_)\n  $MORE\n}",
+      "func $FUNC($$$_) {\n  go func() {\n    $$$_\n  }($$$_)\n}"
+    ])) as $all
+    | ( $all | of(["func $FUNC($$$_) {\n  go func() {\n    $$$_\n  }($$$_)\n}"])
+          | not_at($all | of(["func $FUNC($$$_) {\n  go func() {\n    $$$_\n  }($$$_)\n  $MORE\n}"]))
+        | finding("hidden-goroutine";
+            "Detected a hidden goroutine.") ) )
+| report

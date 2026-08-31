@@ -1,0 +1,11 @@
+# rules: deprecated_calendar_iso_day_of_week_3
+# from: elixir/lang/best-practice/deprecated-calendar-iso-day-of-week-3.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ex"]; [
+      "$VAR = Calendar.ISO.day_of_week($YEAR, $MONTH, $DAY)"
+    ])) as $all
+    | ( $all | of(["$VAR = Calendar.ISO.day_of_week($YEAR, $MONTH, $DAY)"])
+        | finding("deprecated_calendar_iso_day_of_week_3";
+            "`Calendar.ISO.day_of_week/3` is already deprecated.") ) )
+| report

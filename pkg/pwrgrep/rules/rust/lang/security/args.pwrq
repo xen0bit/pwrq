@@ -1,0 +1,11 @@
+# rules: args
+# from: rust/lang/security/args.yml
+
+. as $root
+| ( ($root | scan_ast(["*.rs"]; [
+      "std::env::args()"
+    ])) as $all
+    | ( $all | of(["std::env::args()"])
+        | finding("args";
+            "args should not be used for security operations.") ) )
+| report

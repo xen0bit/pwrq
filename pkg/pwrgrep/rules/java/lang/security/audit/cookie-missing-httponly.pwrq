@@ -1,0 +1,19 @@
+# rules: cookie-missing-httponly
+# from: java/lang/security/audit/cookie-missing-httponly.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$COOKIE = ResponseCookie.from($$$_). $$$_; $$$_",
+      "$COOKIE.setHttpOnly($$$_); $$$_",
+      "$COOKIE.setHttpOnly(false);",
+      "$COOKIE.setValue(\"\"); $$$_",
+      "$RESPONSE.addCookie($COOKIE);"
+    ])) as $all
+    | ( ($all | of(["$COOKIE.setHttpOnly(false);"]))
+          + ($all | of(["$RESPONSE.addCookie($COOKIE);"])
+          | outside($all | of(["$COOKIE.setHttpOnly($$$_); $$$_"]))
+          | outside($all | of(["$COOKIE = ResponseCookie.from($$$_). $$$_; $$$_"])))
+          | outside($all | of(["$COOKIE.setValue(\"\"); $$$_"]))
+        | finding("cookie-missing-httponly";
+            "A cookie was detected without setting the 'HttpOnly' flag.") ) )
+| report

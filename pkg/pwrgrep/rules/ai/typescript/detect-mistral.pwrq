@@ -1,0 +1,13 @@
+# rules: detect-mistral
+# from: ai/typescript/detect-mistral.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$CLIENT.chat({model: $$$_})",
+      "import \"@mistralai\"",
+      "new MistralClient($$$_)"
+    ])) as $all
+    | ( $all | of(["import \"@mistralai\"","new MistralClient($$$_)","$CLIENT.chat({model: $$$_})"])
+        | finding("detect-mistral";
+            "Possibly found usage of AI: Mistral") ) )
+| report

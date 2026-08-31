@@ -1,0 +1,18 @@
+# rules: wkhtmltoimage-injection
+# from: javascript/wkhtmltoimage/security/audit/wkhtmltoimage-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$$$_\"",
+      "$WK = require('wkhtmltoimage');\n$$$_",
+      "$WK.generate(\"$$$_\",$$$_)",
+      "$WK.generate($INPUT,$$$_)",
+      "var $INPUT = \"$$$_\";\n$$$_"
+    ])) as $all
+    | ( $all | of(["$WK.generate($INPUT,$$$_)"])
+          | in_files_with($all | of(["$WK = require('wkhtmltoimage');\n$$$_"]))
+          | in_files_without($all | of(["var $INPUT = \"$$$_\";\n$$$_","\"$$$_\""]))
+          | not_at($all | of(["$WK.generate(\"$$$_\",$$$_)"]))
+        | finding("wkhtmltoimage-injection";
+            "If unverified user data can reach the `wkhtmltoimage` it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

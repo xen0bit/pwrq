@@ -1,0 +1,12 @@
+# rules: detect-buffer-noassert
+# from: javascript/lang/security/detect-buffer-noassert.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$OBJ.$API($$$_, true)"
+    ])) as $all
+    | ( $all | of(["$OBJ.$API($$$_, true)"])
+          | where_capture("API"; "(read|write)(U?Int8|(U?Int(16|32)|Float|Double)(LE|BE))")
+        | finding("detect-buffer-noassert";
+            "Detected usage of noassert in Buffer API, which allows the offset the be beyond the end of the buffer.") ) )
+| report

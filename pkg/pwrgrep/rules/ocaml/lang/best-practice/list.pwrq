@@ -1,0 +1,13 @@
+# rules: list-find-outside-try
+# from: ocaml/lang/best-practice/list.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "List.find $$$_",
+      "try $$$_ with $$$_ -> $$$_"
+    ])) as $all
+    | ( $all | of(["List.find $$$_"])
+          | outside($all | of(["try $$$_ with $$$_ -> $$$_"]))
+        | finding("list-find-outside-try";
+            "You should not use List.find outside of a try, or you should use List.find_opt") ) )
+| report

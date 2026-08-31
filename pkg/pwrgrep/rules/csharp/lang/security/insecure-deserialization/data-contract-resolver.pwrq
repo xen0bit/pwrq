@@ -1,0 +1,11 @@
+# rules: data-contract-resolver
+# from: csharp/lang/security/insecure-deserialization/data-contract-resolver.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "class $MYDCR : DataContractResolver { $$$_ }"
+    ])) as $all
+    | ( $all | of(["class $MYDCR : DataContractResolver { $$$_ }"])
+        | finding("data-contract-resolver";
+            "Only use DataContractResolver if you are completely sure of what information is being serialized.") ) )
+| report

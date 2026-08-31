@@ -1,0 +1,13 @@
+# rules: socket-request
+# from: problem-based-packs/insecure-transport/java-stdlib/socket-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "$SOCKET = new Socket(\"=~/[hH][tT][tT][pP]://.*/\", $$$_);\n$$$_\n$OUT = new PrintWriter($SOCKET.getOutputStream($$$_), $$$_);\n$$$_\n$OUT.$FUNC($$$_);",
+      "$SOCKET = new Socket(\"=~/[tT][eE][lL][nN][eE][tT]://.*/\", $$$_);\n$$$_\n$OUT = new PrintWriter($SOCKET.getOutputStream($$$_), $$$_);\n$$$_\n$OUT.$FUNC($$$_);",
+      "$SOCKET = new Socket(\"=~/^[fF][tT][pP]://.*/\", $$$_);\n$$$_\n$OUT = new PrintWriter($SOCKET.getOutputStream($$$_), $$$_);\n$$$_\n$OUT.$FUNC($$$_);"
+    ])) as $all
+    | ( $all | of(["$SOCKET = new Socket(\"=~/[tT][eE][lL][nN][eE][tT]://.*/\", $$$_);\n$$$_\n$OUT = new PrintWriter($SOCKET.getOutputStream($$$_), $$$_);\n$$$_\n$OUT.$FUNC($$$_);","$SOCKET = new Socket(\"=~/^[fF][tT][pP]://.*/\", $$$_);\n$$$_\n$OUT = new PrintWriter($SOCKET.getOutputStream($$$_), $$$_);\n$$$_\n$OUT.$FUNC($$$_);","$SOCKET = new Socket(\"=~/[hH][tT][tT][pP]://.*/\", $$$_);\n$$$_\n$OUT = new PrintWriter($SOCKET.getOutputStream($$$_), $$$_);\n$$$_\n$OUT.$FUNC($$$_);"])
+        | finding("socket-request";
+            "Insecure transport rules to catch socket connections to http, telnet, and ftp servers.") ) )
+| report

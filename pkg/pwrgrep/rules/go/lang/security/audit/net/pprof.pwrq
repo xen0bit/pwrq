@@ -1,0 +1,22 @@
+# rules: pprof-debug-exposure
+# from: go/lang/security/audit/net/pprof.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"net/http/pprof\"",
+      "$MUX = http.NewServeMux($$$_)\n$$$_\nhttp.ListenAndServe($ADDR, $MUX)",
+      "func $ANY($$$_) {\n  $$$_\n}",
+      "http.ListenAndServe(\"=~/^127[.]0[.]0[.]1.*/\", $$$_)",
+      "http.ListenAndServe(\"=~/^localhost.*/\", $$$_)",
+      "http.ListenAndServe($$$_)",
+      "import _ \"net/http/pprof\"\n$$$_"
+    ])) as $all
+    | ( $all | of(["http.ListenAndServe($$$_)"])
+          | in_files_with($all | of(["import _ \"net/http/pprof\"\n$$$_","\"net/http/pprof\""]))
+          | within($all | of(["func $ANY($$$_) {\n  $$$_\n}"]))
+          | outside($all | of(["$MUX = http.NewServeMux($$$_)\n$$$_\nhttp.ListenAndServe($ADDR, $MUX)"]))
+          | not_at($all | of(["http.ListenAndServe(\"=~/^localhost.*/\", $$$_)"]))
+          | not_at($all | of(["http.ListenAndServe(\"=~/^127[.]0[.]0[.]1.*/\", $$$_)"]))
+        | finding("pprof-debug-exposure";
+            "The profiling 'pprof' endpoint is automatically exposed on /debug/pprof.") ) )
+| report

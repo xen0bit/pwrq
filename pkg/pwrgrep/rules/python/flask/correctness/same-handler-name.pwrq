@@ -1,0 +1,11 @@
+# rules: flask-duplicate-handler-name
+# from: python/flask/correctness/same-handler-name.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "@app.route(\"$$$_\", $$$_)\ndef $R($$$_):\n    $$$_\n$$$_\n@app.route(\"$$$_\", $$$_)\ndef $R($$$_):\n    $$$_"
+    ])) as $all
+    | ( $all | of(["@app.route(\"$$$_\", $$$_)\ndef $R($$$_):\n    $$$_\n$$$_\n@app.route(\"$$$_\", $$$_)\ndef $R($$$_):\n    $$$_"])
+        | finding("flask-duplicate-handler-name";
+            "Looks like `$R` is a flask function handler that registered to two different routes.") ) )
+| report

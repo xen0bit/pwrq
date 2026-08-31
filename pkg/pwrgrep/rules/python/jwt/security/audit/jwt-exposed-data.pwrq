@@ -1,0 +1,13 @@
+# rules: jwt-python-exposed-data
+# from: python/jwt/security/audit/jwt-exposed-data.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "def $FUNC($$$_,$INPUT,$$$_):\n  $$$_",
+      "jwt.encode($INPUT,$$$_)"
+    ])) as $all
+    | ( $all | of(["jwt.encode($INPUT,$$$_)"])
+          | within($all | of(["def $FUNC($$$_,$INPUT,$$$_):\n  $$$_"]))
+        | finding("jwt-python-exposed-data";
+            "The object is passed strictly to jwt.encode(...) Make sure that sensitive information is not exposed through JWT token payload.") ) )
+| report

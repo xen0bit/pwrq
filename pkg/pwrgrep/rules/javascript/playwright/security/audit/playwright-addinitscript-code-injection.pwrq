@@ -1,0 +1,19 @@
+# rules: playwright-addinitscript-code-injection
+# from: javascript/playwright/security/audit/playwright-addinitscript-code-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$CONTEXT.addInitScript(\"$$$_\",$$$_)",
+      "$CONTEXT.addInitScript($INPUT,$$$_)",
+      "$CONTEXT.addInitScript(function($$$_){$$$_},$$$_)",
+      "require('playwright');\n$$$_",
+      "var $INPUT = function $FNAME($$$_){$$$_};\n$$$_"
+    ])) as $all
+    | ( $all | of(["$CONTEXT.addInitScript($INPUT,$$$_)"])
+          | in_files_with($all | of(["require('playwright');\n$$$_"]))
+          | in_files_without($all | of(["var $INPUT = function $FNAME($$$_){$$$_};\n$$$_"]))
+          | not_at($all | of(["$CONTEXT.addInitScript(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$CONTEXT.addInitScript(function($$$_){$$$_},$$$_)"]))
+        | finding("playwright-addinitscript-code-injection";
+            "If unverified user data can reach the `addInitScript` method it can result in Server-Side Request Forgery vulnerabilities") ) )
+| report

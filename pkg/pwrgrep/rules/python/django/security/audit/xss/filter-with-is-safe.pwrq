@@ -1,0 +1,11 @@
+# rules: filter-with-is-safe
+# from: python/django/security/audit/xss/filter-with-is-safe.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "@register.filter($$$_, is_safe=True, $$$_)\ndef $FILTER($$$_):\n  $$$_"
+    ])) as $all
+    | ( $all | of(["@register.filter($$$_, is_safe=True, $$$_)\ndef $FILTER($$$_):\n  $$$_"])
+        | finding("filter-with-is-safe";
+            "Detected Django filters flagged with 'is_safe'.") ) )
+| report

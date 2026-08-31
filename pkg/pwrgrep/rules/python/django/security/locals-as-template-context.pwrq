@@ -1,0 +1,18 @@
+# rules: locals-as-template-context
+# from: python/django/security/locals-as-template-context.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CONTEXT = locals($$$_)\n$$$_",
+      "django.shortcuts.render($$$_, $CONTEXT, $$$_)",
+      "django.shortcuts.render($$$_, locals($$$_), $$$_)",
+      "django.template.Template.render($$$_, $CONTEXT, $$$_)",
+      "django.template.Template.render($$$_, locals($$$_), $$$_)"
+    ])) as $all
+    | ( ($all | of(["django.shortcuts.render($$$_, locals($$$_), $$$_)"]))
+          + ($all | of(["django.template.Template.render($$$_, locals($$$_), $$$_)"]))
+          + ($all | of(["django.shortcuts.render($$$_, $CONTEXT, $$$_)","django.template.Template.render($$$_, $CONTEXT, $$$_)"])
+          | in_files_with($all | of(["$CONTEXT = locals($$$_)\n$$$_"])))
+        | finding("locals-as-template-context";
+            "Using 'locals()' as a context to 'render(...)' is extremely dangerous.") ) )
+| report

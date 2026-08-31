@@ -1,0 +1,12 @@
+# rules: bypass-tls-verification
+# from: problem-based-packs/insecure-transport/go-stdlib/bypass-tls-verification.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$CONFIG = &tls.Config{$$$_}\n$$$_\n$CONFIG.InsecureSkipVerify = true",
+      "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}"
+    ])) as $all
+    | ( $all | of(["tls.Config{$$$_, InsecureSkipVerify: true, $$$_}","$CONFIG = &tls.Config{$$$_}\n$$$_\n$CONFIG.InsecureSkipVerify = true"])
+        | finding("bypass-tls-verification";
+            "Checks for disabling of TLS/SSL certificate verification.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: filter-skipping
+# from: ruby/lang/security/filter-skipping.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$CALL \"=~/.*(/:action.*).*/\"",
+      "$CALL \"=~/.*(/:action.*).*/\", $ACTION"
+    ])) as $all
+    | ( $all | of(["$CALL \"=~/.*(/:action.*).*/\""])
+          | not_at($all | of(["$CALL \"=~/.*(/:action.*).*/\", $ACTION"]))
+        | finding("filter-skipping";
+            "Checks for use of action in Ruby routes.") ) )
+| report

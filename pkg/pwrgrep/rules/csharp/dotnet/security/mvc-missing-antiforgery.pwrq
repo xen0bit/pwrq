@@ -1,0 +1,18 @@
+# rules: mvc-missing-antiforgery
+# from: csharp/dotnet/security/mvc-missing-antiforgery.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "[$HTTPMETHOD]\npublic IActionResult $METHOD($$$_){\n    $$$_\n}",
+      "[Consumes($$$_)]\npublic IActionResult $METHOD($$$_){\n  $$$_\n}",
+      "[ValidateAntiForgeryToken]\npublic IActionResult $METHOD($$$_){\n    $$$_\n}",
+      "using Microsoft.AspNetCore.Mvc;\n$$$_"
+    ])) as $all
+    | ( $all | of(["[$HTTPMETHOD]\npublic IActionResult $METHOD($$$_){\n    $$$_\n}"])
+          | in_files_with($all | of(["using Microsoft.AspNetCore.Mvc;\n$$$_"]))
+          | not_at($all | of(["[ValidateAntiForgeryToken]\npublic IActionResult $METHOD($$$_){\n    $$$_\n}"]))
+          | not_at($all | of(["[Consumes($$$_)]\npublic IActionResult $METHOD($$$_){\n  $$$_\n}"]))
+          | where_capture("HTTPMETHOD"; "Http(Post|Put|Delete|Patch)")
+        | finding("mvc-missing-antiforgery";
+            "$METHOD is a state-changing MVC method that does not validate the antiforgery token or do strict content-type checking.") ) )
+| report

@@ -1,0 +1,27 @@
+# rules: dangerous-command-write
+# from: go/lang/security/audit/dangerous-command-write.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"$$$_\"",
+      "\"os/exec\"",
+      "$BYTE = []byte(\"$$$_\");\n$$$_",
+      "$BYTE = []byte(\"$$$_\"+\"$$$_\");\n$$$_",
+      "$CW,$ERR := $CMD.StdinPipe()\n$$$_",
+      "$CW.Write(\"$$$_\")",
+      "$CW.Write($BYTE)",
+      "$CW.Write([]byte(\"$$$_\"))",
+      "$CW.Write([]byte(\"$$$_\"+\"$$$_\"))",
+      "import \"os/exec\"\n$$$_"
+    ])) as $all
+    | ( $all | of(["$CW.Write($BYTE)"])
+          | in_files_with($all | of(["$CW,$ERR := $CMD.StdinPipe()\n$$$_"]))
+          | not_at($all | of(["$CW.Write(\"$$$_\")"]))
+          | not_at($all | of(["$CW.Write([]byte(\"$$$_\"))"]))
+          | not_at($all | of(["$CW.Write([]byte(\"$$$_\"+\"$$$_\"))"]))
+          | in_files_without($all | of(["$BYTE = []byte(\"$$$_\");\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$BYTE = []byte(\"$$$_\"+\"$$$_\");\n$$$_"]))
+          | in_files_with($all | of(["import \"os/exec\"\n$$$_","\"os/exec\""]))
+        | finding("dangerous-command-write";
+            "Detected non-static command inside Write.") ) )
+| report

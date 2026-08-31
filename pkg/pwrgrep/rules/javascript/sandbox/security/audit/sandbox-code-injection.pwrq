@@ -1,0 +1,24 @@
+# rules: sandbox-code-injection
+# from: javascript/sandbox/security/audit/sandbox-code-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$$$_\"",
+      "$CODE = \"$$$_\";\n$$$_",
+      "$S = new $SANDBOX($$$_);\n$$$_",
+      "$S = new $SANDBOX($$$_);\n$$$_\n$S.run(\"$$$_\",$$$_);",
+      "$S.run($CODE,$$$_);",
+      "$SANDBOX = require('sandbox');\n$$$_",
+      "new $SANDBOX($$$_).run(\"$$$_\",$$$_);",
+      "new $SANDBOX($$$_).run($CODE,$$$_);"
+    ])) as $all
+    | ( ($all | of(["$S.run($CODE,$$$_);"])
+          | in_files_with($all | of(["$S = new $SANDBOX($$$_);\n$$$_"])))
+          + ($all | of(["new $SANDBOX($$$_).run($CODE,$$$_);"]))
+          | in_files_with($all | of(["$SANDBOX = require('sandbox');\n$$$_"]))
+          | in_files_without($all | of(["$CODE = \"$$$_\";\n$$$_","\"$$$_\""]))
+          | outside($all | of(["$S = new $SANDBOX($$$_);\n$$$_\n$S.run(\"$$$_\",$$$_);"]))
+          | outside($all | of(["new $SANDBOX($$$_).run(\"$$$_\",$$$_);"]))
+        | finding("sandbox-code-injection";
+            "Make sure that unverified user data can not reach `sandbox`.") ) )
+| report

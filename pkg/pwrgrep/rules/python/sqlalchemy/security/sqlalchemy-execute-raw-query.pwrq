@@ -1,0 +1,31 @@
+# rules: sqlalchemy-execute-raw-query
+# from: python/sqlalchemy/security/sqlalchemy-execute-raw-query.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_{$$$_}$$$_\"",
+      "$CONNECTION.execute( $SQL % ($$$_), $$$_)",
+      "$CONNECTION.execute( $SQL + $$$_, $$$_ )",
+      "$CONNECTION.execute( $SQL.format($$$_), $$$_ )",
+      "$CONNECTION.execute($QUERY, $$$_)",
+      "$CONNECTION.execute(f\"$$$_{$$$_}$$$_\", $$$_)",
+      "$QUERY = $SQL % ($$$_)\n$$$_",
+      "$QUERY = $SQL + $$$_\n$$$_",
+      "$QUERY = $SQL.format($$$_)\n$$$_",
+      "$QUERY = f\"$$$_{$$$_}$$$_\"\n$$$_"
+    ])) as $all
+    | ( ($all | of(["$CONNECTION.execute( $SQL + $$$_, $$$_ )"]))
+          + ($all | of(["$CONNECTION.execute( $SQL % ($$$_), $$$_)"]))
+          + ($all | of(["$CONNECTION.execute( $SQL.format($$$_), $$$_ )"]))
+          + ($all | of(["$CONNECTION.execute(f\"$$$_{$$$_}$$$_\", $$$_)"]))
+          + ($all | of(["$CONNECTION.execute($QUERY, $$$_)"])
+          | in_files_with($all | of(["$QUERY = $SQL + $$$_\n$$$_"])))
+          + ($all | of(["$CONNECTION.execute($QUERY, $$$_)"])
+          | in_files_with($all | of(["$QUERY = $SQL % ($$$_)\n$$$_"])))
+          + ($all | of(["$CONNECTION.execute($QUERY, $$$_)"])
+          | in_files_with($all | of(["$QUERY = $SQL.format($$$_)\n$$$_"])))
+          + ($all | of(["$CONNECTION.execute($QUERY, $$$_)"])
+          | in_files_with($all | of(["$QUERY = f\"$$$_{$$$_}$$$_\"\n$$$_","\"$$$_{$$$_}$$$_\""])))
+        | finding("sqlalchemy-execute-raw-query";
+            "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection.") ) )
+| report

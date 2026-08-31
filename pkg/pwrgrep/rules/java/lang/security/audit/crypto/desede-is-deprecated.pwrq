@@ -1,0 +1,12 @@
+# rules: desede-is-deprecated
+# from: java/lang/security/audit/crypto/desede-is-deprecated.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java","*.kt"]; [
+      "$CIPHER.getInstance(\"=~/DESede.*/\")",
+      "$CRYPTO.KeyGenerator.getInstance(\"DES\")"
+    ])) as $all
+    | ( $all | of(["$CIPHER.getInstance(\"=~/DESede.*/\")","$CRYPTO.KeyGenerator.getInstance(\"DES\")"])
+        | finding("desede-is-deprecated";
+            "Triple DES (3DES or DESede) is considered deprecated.") ) )
+| report

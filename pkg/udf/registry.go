@@ -71,6 +71,9 @@ import (
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/service"
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/variables"
 	"github.com/xen0bit/pwrq/pkg/udf/powershell/web"
+
+	rules "github.com/xen0bit/pwrq/pkg/pwrgrep"
+	pwrgrep "github.com/xen0bit/pwrq/pkg/udf/pwrgrep"
 )
 
 // Registry holds all user-defined functions
@@ -295,6 +298,13 @@ func DefaultRegistry() *Registry {
 		reg.Register(opt)
 	}
 
+	// The rules built on that search: the operators one is written with, and
+	// the catalogue of the ones this build carries. Same reason for being
+	// CLI-only - they walk a tree.
+	for _, opt := range pwrgrep.RegisterAll() {
+		reg.Register(opt)
+	}
+
 	// Host lookups and PATH searches. They need the network or the
 	// filesystem, so they are CLI-only like the log readers.
 	for _, opt := range system.RegisterAll() {
@@ -359,6 +369,12 @@ func DefaultRegistry() *Registry {
 	// against. It is a hook for the same reason SetCatalog is: this package
 	// imports llm, so llm cannot import it.
 	llm.SetVocabulary(VocabularyFor)
+
+	// A pwrgrep rule is an ordinary pwrq query in a file, so it compiles
+	// against the vocabulary this registry has just finished building. Another
+	// hook, for the same reason: rules import the cmdlets, so the cmdlets
+	// cannot import the rules.
+	rules.UseVocabulary(reg.Options())
 
 	return reg
 }

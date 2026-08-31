@@ -1,0 +1,13 @@
+# rules: dynamic-httptrace-clienttrace
+# from: go/lang/security/audit/net/dynamic-httptrace-clienttrace.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "httptrace.WithClientTrace($ANY, $TRACE)",
+      "package $PACKAGE\n$$$_\n&httptrace.ClientTrace { $$$_ }\n$$$_"
+    ])) as $all
+    | ( $all | of(["httptrace.WithClientTrace($ANY, $TRACE)"])
+          | in_files_without($all | of(["package $PACKAGE\n$$$_\n&httptrace.ClientTrace { $$$_ }\n$$$_"]))
+        | finding("dynamic-httptrace-clienttrace";
+            "Detected a potentially dynamic ClientTrace.") ) )
+| report

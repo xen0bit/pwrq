@@ -1,0 +1,14 @@
+# rules: insecure-cipher-algorithm-des
+# from: python/pycryptodome/security/insecure-cipher-algorithm-des.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "Crypto.Cipher.DES.new($$$_)",
+      "Crypto.Cipher.DES3.new($$$_)",
+      "Cryptodome.Cipher.DES.new($$$_)",
+      "Cryptodome.Cipher.DES3.new($$$_)"
+    ])) as $all
+    | ( $all | of(["Cryptodome.Cipher.DES.new($$$_)","Crypto.Cipher.DES.new($$$_)","Cryptodome.Cipher.DES3.new($$$_)","Crypto.Cipher.DES3.new($$$_)"])
+        | finding("insecure-cipher-algorithm-des";
+            "Detected DES cipher or Triple DES algorithm which is considered insecure.") ) )
+| report

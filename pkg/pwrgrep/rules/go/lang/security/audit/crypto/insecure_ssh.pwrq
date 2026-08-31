@@ -1,0 +1,11 @@
+# rules: avoid-ssh-insecure-ignore-host-key
+# from: go/lang/security/audit/crypto/insecure_ssh.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "ssh.InsecureIgnoreHostKey()"
+    ])) as $all
+    | ( $all | of(["ssh.InsecureIgnoreHostKey()"])
+        | finding("avoid-ssh-insecure-ignore-host-key";
+            "Disabled host key verification detected.") ) )
+| report

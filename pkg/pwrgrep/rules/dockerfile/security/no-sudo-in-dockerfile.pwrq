@@ -1,0 +1,11 @@
+# rules: no-sudo-in-dockerfile
+# from: dockerfile/security/no-sudo-in-dockerfile.yaml
+
+. as $root
+| ( ($root | scan_ast(["Dockerfile*"]; [
+      "RUN sudo $$$_"
+    ])) as $all
+    | ( $all | of(["RUN sudo $$$_"])
+        | finding("no-sudo-in-dockerfile";
+            "Avoid using sudo in Dockerfiles.") ) )
+| report

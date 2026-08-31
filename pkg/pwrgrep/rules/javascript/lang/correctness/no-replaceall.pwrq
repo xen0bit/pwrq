@@ -1,0 +1,11 @@
+# rules: no-replaceall
+# from: javascript/lang/correctness/no-replaceall.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$STRING.replaceAll(\"$$$_\",$NEW)"
+    ])) as $all
+    | ( $all | of(["$STRING.replaceAll(\"$$$_\",$NEW)"])
+        | finding("no-replaceall";
+            "The string method replaceAll is not supported in all versions of javascript, and is not supported by older browser versions.") ) )
+| report

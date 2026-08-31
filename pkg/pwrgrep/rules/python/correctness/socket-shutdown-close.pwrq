@@ -1,0 +1,15 @@
+# rules: socket-shutdown-close
+# from: python/correctness/socket-shutdown-close.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$SOCK.shutdown(socket.$A)\n$SOCK.close()",
+      "try:\n    $$$_\nexcept $$$_:\n    $$$_\n    $SOCK.close()",
+      "try:\n    $$$_\nfinally:\n    $$$_\n    $SOCK.close()"
+    ])) as $all
+    | ( $all | of(["$SOCK.shutdown(socket.$A)\n$SOCK.close()"])
+          | outside($all | of(["try:\n    $$$_\nexcept $$$_:\n    $$$_\n    $SOCK.close()"]))
+          | outside($all | of(["try:\n    $$$_\nfinally:\n    $$$_\n    $SOCK.close()"]))
+        | finding("socket-shutdown-close";
+            "Socket is not closed if shutdown fails.") ) )
+| report

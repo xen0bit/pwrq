@@ -1,0 +1,16 @@
+# rules: dangerous-testcapi-run-in-subinterp-audit
+# from: python/lang/security/audit/dangerous-testcapi-run-in-subinterp-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "_testcapi.run_in_subinterp(\"$$$_\", $$$_)",
+      "_testcapi.run_in_subinterp($PAYLOAD, $$$_)",
+      "test.support.run_in_subinterp(\"$$$_\", $$$_)",
+      "test.support.run_in_subinterp($PAYLOAD, $$$_)"
+    ])) as $all
+    | ( $all | of(["_testcapi.run_in_subinterp($PAYLOAD, $$$_)","test.support.run_in_subinterp($PAYLOAD, $$$_)"])
+          | not_at($all | of(["_testcapi.run_in_subinterp(\"$$$_\", $$$_)"]))
+          | not_at($all | of(["test.support.run_in_subinterp(\"$$$_\", $$$_)"]))
+        | finding("dangerous-testcapi-run-in-subinterp-audit";
+            "Found dynamic content in `run_in_subinterp`.") ) )
+| report

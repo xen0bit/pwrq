@@ -1,0 +1,14 @@
+# rules: dangerous-open
+# from: ruby/lang/security/dangerous-open.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "open(\"$$$_\",$$$_)",
+      "open($CMD,$$$_)"
+    ])) as $all
+    | ( $all | of(["open($CMD,$$$_)"])
+          | not_at($all | of(["open(\"$$$_\",$$$_)"]))
+          | where_capture("CMD"; "|")
+        | finding("dangerous-open";
+            "Detected non-static command inside 'open'.") ) )
+| report

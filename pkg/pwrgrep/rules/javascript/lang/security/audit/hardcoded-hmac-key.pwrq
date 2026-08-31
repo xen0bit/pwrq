@@ -1,0 +1,15 @@
+# rules: hardcoded-hmac-key
+# from: javascript/lang/security/audit/hardcoded-hmac-key.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$CRYPTO.createHmac($ALGO, $SECRET)",
+      "$CRYPTO.createHmac($ALGO, '$$$_')",
+      "const $SECRET = '$$$_'\n$$$_"
+    ])) as $all
+    | ( ($all | of(["$CRYPTO.createHmac($ALGO, '$$$_')"]))
+          + ($all | of(["$CRYPTO.createHmac($ALGO, $SECRET)"])
+          | in_files_with($all | of(["const $SECRET = '$$$_'\n$$$_"])))
+        | finding("hardcoded-hmac-key";
+            "Detected a hardcoded hmac key.") ) )
+| report

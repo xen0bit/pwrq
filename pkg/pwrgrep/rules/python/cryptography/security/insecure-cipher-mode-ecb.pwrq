@@ -1,0 +1,11 @@
+# rules: insecure-cipher-mode-ecb
+# from: python/cryptography/security/insecure-cipher-mode-ecb.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "cryptography.hazmat.primitives.ciphers.modes.ECB($IV)"
+    ])) as $all
+    | ( $all | of(["cryptography.hazmat.primitives.ciphers.modes.ECB($IV)"])
+        | finding("insecure-cipher-mode-ecb";
+            "ECB (Electronic Code Book) is the simplest mode of operation for block ciphers.") ) )
+| report

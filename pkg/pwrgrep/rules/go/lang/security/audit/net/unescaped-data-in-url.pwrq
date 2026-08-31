@@ -1,0 +1,17 @@
+# rules: unescaped-data-in-url
+# from: go/lang/security/audit/net/unescaped-data-in-url.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "$T = \"$$$_\"\n$$$_\n$OTHER, $ERR = fmt.$P($$$_, $T, $$$_)\n$$$_\ntemplate.URL($OTHER, $$$_)",
+      "$T = \"$$$_\"\n$$$_\n$T = $FXN($$$_, $T, $$$_)\n$$$_\ntemplate.URL($T, $$$_)",
+      "$T = $X + $Y\n$$$_\ntemplate.URL($T, $$$_)",
+      "$T = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.URL($T, $$$_)",
+      "$T, $ERR = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.URL($T, $$$_)",
+      "template.URL($T + $X, $$$_)",
+      "template.URL(fmt.$P(\"$$$_\", $$$_), $$$_)"
+    ])) as $all
+    | ( $all | of(["template.URL($T + $X, $$$_)","template.URL(fmt.$P(\"$$$_\", $$$_), $$$_)","$T = \"$$$_\"\n$$$_\n$T = $FXN($$$_, $T, $$$_)\n$$$_\ntemplate.URL($T, $$$_)","$T = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.URL($T, $$$_)","$T, $ERR = fmt.$P(\"$$$_\", $$$_)\n$$$_\ntemplate.URL($T, $$$_)","$T = $X + $Y\n$$$_\ntemplate.URL($T, $$$_)","$T = \"$$$_\"\n$$$_\n$OTHER, $ERR = fmt.$P($$$_, $T, $$$_)\n$$$_\ntemplate.URL($OTHER, $$$_)"])
+        | finding("unescaped-data-in-url";
+            "Found a formatted template string passed to 'template.URL()'.") ) )
+| report

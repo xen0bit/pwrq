@@ -1,0 +1,53 @@
+# rules: pg8000-sqli
+# from: python/lang/security/audit/sqli/pg8000-sqli.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_\"",
+      "$CONN = pg8000.connect($$$_)\n$$$_",
+      "$CONN = pg8000.dhapi.connect($$$_)\n$$$_",
+      "$CONN = pg8000.native.Connection($$$_)\n$$$_",
+      "$CONN.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)",
+      "$CONN.$METHOD($$$_, $X + $Y, $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_' % ($$$_), $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_'%(), $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_'.format($$$_), $$$_)",
+      "$CONN.$METHOD($$$_, '$$$_'.format(), $$$_)",
+      "$CONN.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)",
+      "$CONN.$METHOD($$$_,$QUERY,$$$_)",
+      "$CONN1 = pg8000.connect($$$_)\n$$$_\n$CONN = $CONN1.cursor($$$_)\n$$$_",
+      "$QUERY += \"$$$_\"\n$$$_",
+      "$QUERY += $X\n$$$_",
+      "$QUERY = \"$$$_\" + \"$$$_\"\n$$$_",
+      "$QUERY = $X + $Y\n$$$_",
+      "$QUERY = '$$$_' % ($$$_)\n$$$_",
+      "$QUERY = '$$$_' % ()\n$$$_",
+      "$QUERY = '$$$_'.format($$$_)\n$$$_",
+      "$QUERY = '$$$_'.format()\n$$$_",
+      "$QUERY = f'$$$_{$USERINPUT}$$$_'\n$$$_"
+    ])) as $all
+    | ( ($all | of(["$CONN.$METHOD($$$_,$QUERY,$$$_)"])
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | in_files_without($all | of(["$QUERY += \"$$$_\"\n$$$_","\"$$$_\""]))
+          | in_files_without($all | of(["$QUERY = \"$$$_\" + \"$$$_\"\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_'.format()\n$$$_"]))
+          | in_files_without($all | of(["$QUERY = '$$$_' % ()\n$$$_"])))
+          + ($all | of(["$CONN.$METHOD($$$_, $X + $Y, $$$_)"]))
+          + ($all | of(["$CONN.$METHOD($$$_, '$$$_'.format($$$_), $$$_)"]))
+          + ($all | of(["$CONN.$METHOD($$$_, '$$$_' % ($$$_), $$$_)"]))
+          + ($all | of(["$CONN.$METHOD($$$_, f'$$$_{$USERINPUT}$$$_', $$$_)"]))
+          | at_same_place((($all)
+          + ($all)
+          + ($all)
+          + ($all)))
+          | not_at($all | of(["$CONN.$METHOD($$$_, \"$$$_\" + \"$$$_\", $$$_)"]))
+          | not_at($all | of(["$CONN.$METHOD($$$_, '$$$_'.format(), $$$_)"]))
+          | not_at($all | of(["$CONN.$METHOD($$$_, '$$$_'%(), $$$_)"]))
+          | where_capture("METHOD"; "^(run|execute|executemany|prepare)$")
+        | finding("pg8000-sqli";
+            "Detected string concatenation with a non-literal variable in a pg8000 Python SQL statement.") ) )
+| report

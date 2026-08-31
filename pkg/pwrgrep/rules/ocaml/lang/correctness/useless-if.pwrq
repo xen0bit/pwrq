@@ -1,0 +1,11 @@
+# rules: ocamllint-useless-if
+# from: ocaml/lang/correctness/useless-if.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "if $X then $E else $E"
+    ])) as $all
+    | ( $all | of(["if $X then $E else $E"])
+        | finding("ocamllint-useless-if";
+            "Useless if.") ) )
+| report

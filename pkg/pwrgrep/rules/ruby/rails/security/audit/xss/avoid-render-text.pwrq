@@ -1,0 +1,11 @@
+# rules: avoid-render-text
+# from: ruby/rails/security/audit/xss/avoid-render-text.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "render text: $$$_"
+    ])) as $all
+    | ( $all | of(["render text: $$$_"])
+        | finding("avoid-render-text";
+            "'render text: ...' actually sets the content-type to 'text/html'.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: session-cookie-missing-secure
+# from: go/gorilla/security/audit/session-cookie-missing-secure.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "&sessions.Options{\n  $$$_,\n  Secure: true,\n  $$$_,\n}",
+      "&sessions.Options{\n  $$$_,\n}"
+    ])) as $all
+    | ( $all | of(["&sessions.Options{\n  $$$_,\n}"])
+          | outside($all | of(["&sessions.Options{\n  $$$_,\n  Secure: true,\n  $$$_,\n}"]))
+        | finding("session-cookie-missing-secure";
+            "A session cookie was detected without setting the 'Secure' flag.") ) )
+| report

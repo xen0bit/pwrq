@@ -1,0 +1,12 @@
+# rules: react-find-dom
+# from: typescript/react/best-practice/react-find-dom.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$DOM.findDOMNode($$$_)",
+      "findDOMNode($$$_)"
+    ])) as $all
+    | ( $all | of(["findDOMNode($$$_)","$DOM.findDOMNode($$$_)"])
+        | finding("react-find-dom";
+            "findDOMNode is an escape hatch used to access the underlying DOM node.") ) )
+| report

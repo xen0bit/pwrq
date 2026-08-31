@@ -1,0 +1,19 @@
+# rules: pass-body-fn, pass-body-range
+# from: python/lang/best-practice/pass-body.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "class $A:\n     $$$_",
+      "def $X($$$_):\n    pass",
+      "def __init__(self, $$$_):\n    $$$_",
+      "for $X in $Y:\n    pass"
+    ])) as $all
+    | ( $all | of(["def $X($$$_):\n    pass"])
+          | outside($all | of(["def __init__(self, $$$_):\n    $$$_"]))
+          | outside($all | of(["class $A:\n     $$$_"]))
+        | finding("pass-body-fn";
+            "`pass` is the body of function $X.") )
+      + ( $all | of(["for $X in $Y:\n    pass"])
+        | finding("pass-body-range";
+            "`pass` is the body of for $X in $Y.") ) )
+| report

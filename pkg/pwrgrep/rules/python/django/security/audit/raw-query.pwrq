@@ -1,0 +1,16 @@
+# rules: avoid-raw-sql
+# from: python/django/security/audit/raw-query.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$MODEL.objects.raw(\"$$$_\")",
+      "$MODEL.objects.raw($QUERY, $$$_)",
+      "django.db.models.expressions.RawSQL(\"$$$_\")",
+      "django.db.models.expressions.RawSQL($$$_)"
+    ])) as $all
+    | ( $all | of(["$MODEL.objects.raw($QUERY, $$$_)","django.db.models.expressions.RawSQL($$$_)"])
+          | not_at($all | of(["$MODEL.objects.raw(\"$$$_\")"]))
+          | not_at($all | of(["django.db.models.expressions.RawSQL(\"$$$_\")"]))
+        | finding("avoid-raw-sql";
+            "Detected the use of 'RawSQL' or 'raw' indicating the execution of a non-parameterized SQL query.") ) )
+| report

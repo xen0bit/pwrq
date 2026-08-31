@@ -1,0 +1,14 @@
+# rules: suppressed-exception-handling-finally-break
+# from: python/correctness/suppressed-exception-handling-finally-break.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "try:\n  $$$_\n  return $$$_\nfinally:\n  $$$_\n  return $$$_",
+      "try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  break",
+      "try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  continue",
+      "try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  return $$$_"
+    ])) as $all
+    | ( $all | of(["try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  break","try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  continue","try:\n  $$$_\nexcept $EXCEPTION:\n  $$$_\nfinally:\n  $$$_\n  return $$$_","try:\n  $$$_\n  return $$$_\nfinally:\n  $$$_\n  return $$$_"])
+        | finding("suppressed-exception-handling-finally-break";
+            "Having a `break`, `continue`, or `return` in a `finally` block will cause strange behaviors, like exceptions not being caught.") ) )
+| report

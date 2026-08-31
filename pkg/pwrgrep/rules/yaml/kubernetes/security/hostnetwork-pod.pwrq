@@ -1,0 +1,13 @@
+# rules: hostnetwork-pod
+# from: yaml/kubernetes/security/hostnetwork-pod.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "hostNetwork: true",
+      "spec:\n  $$$_"
+    ])) as $all
+    | ( $all | of(["hostNetwork: true"])
+          | within($all | of(["spec:\n  $$$_"]))
+        | finding("hostnetwork-pod";
+            "Pod may use the node network namespace.") ) )
+| report

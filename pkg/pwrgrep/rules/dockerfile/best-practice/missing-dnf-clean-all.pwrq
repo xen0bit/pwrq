@@ -1,0 +1,15 @@
+# rules: missing-dnf-clean-all
+# from: dockerfile/best-practice/missing-dnf-clean-all.yaml
+
+. as $root
+| ( ($root | scan_ast(["Dockerfile*"]; [
+      "RUN $$$_ && \\ dnf clean all",
+      "RUN $$$_ && dnf clean all",
+      "RUN $$$_ dnf $$$_"
+    ])) as $all
+    | ( $all | of(["RUN $$$_ dnf $$$_"])
+          | outside($all | of(["RUN $$$_ && dnf clean all"]))
+          | outside($all | of(["RUN $$$_ && \\ dnf clean all"]))
+        | finding("missing-dnf-clean-all";
+            "This dnf command does not end with '&& dnf clean all'.") ) )
+| report

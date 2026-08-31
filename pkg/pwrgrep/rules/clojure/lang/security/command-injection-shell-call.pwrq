@@ -1,0 +1,20 @@
+# rules: command-injection-shell-call
+# from: clojure/lang/security/command-injection-shell-call.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.clj"]; [
+      "(ns $$$_\n$$$_\n(:require \n$$$_ \n[clojure.java.shell $$$_ [sh]]\n$$$_\n))\n$$$_",
+      "(ns $$$_\n$$$_\n(:use \n$$$_ \n[clojure.java.shell $$$_ [sh]]\n$$$_\n))\n$$$_",
+      "(sh \"$$$_\" $$$_)",
+      "(sh $ARG $$$_)",
+      "(sh $BASH $$$_)"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place((($all | of(["(sh $BASH $$$_)"])
+          | where_capture("BASH"; "(.*)(sh|bash|ksh|csh|tcsh|zsh)"))
+          + ($all | of(["(sh $ARG $$$_)"])
+          | not_at($all | of(["(sh \"$$$_\" $$$_)"])))))
+        | finding("command-injection-shell-call";
+            "A call to clojure.java.shell has been found, this could lead to an RCE if the inputs are user-controllable.") ) )
+| report

@@ -1,0 +1,13 @@
+# rules: detect-mistral
+# from: ai/python/detect-mistral.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$CLIENT.chat($$$_,model=$$$_,$$$_)",
+      "MistralClient($$$_)",
+      "import mistralai"
+    ])) as $all
+    | ( $all | of(["import mistralai","MistralClient($$$_)","$CLIENT.chat($$$_,model=$$$_,$$$_)"])
+        | finding("detect-mistral";
+            "Possibly found usage of AI: Mistral") ) )
+| report

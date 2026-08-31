@@ -1,0 +1,14 @@
+# rules: marshal-usage
+# from: python/lang/security/audit/marshal.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "marshal.dump($$$_)",
+      "marshal.dumps($$$_)",
+      "marshal.load($$$_)",
+      "marshal.loads($$$_)"
+    ])) as $all
+    | ( $all | of(["marshal.dump($$$_)","marshal.dumps($$$_)","marshal.load($$$_)","marshal.loads($$$_)"])
+        | finding("marshal-usage";
+            "The marshal module is not intended to be secure against erroneous or maliciously constructed data.") ) )
+| report

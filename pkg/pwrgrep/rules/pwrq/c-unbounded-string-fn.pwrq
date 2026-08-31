@@ -1,0 +1,20 @@
+# rules: c-unbounded-string-fn
+# fixture: c/unbounded-string-fn.c
+# from: c/lang/security/insecure-use-gets-fn.yaml (insecure-use-gets-fn), insecure-use-string-copy-fn.yaml (insecure-use-string-copy-fn), insecure-use-strcat-fn.yaml (insecure-use-strcat-fn), insecure-use-printf-fn.yaml (insecure-use-printf-fn)
+#
+# CWE-787. Four upstream rules, one sentence: a function that writes into a
+# buffer without being told how big the buffer is.
+#
+# C is the language that made this corpus need a second reading of every
+# pattern. `gets($BUF)` on its own parses as a declaration - `gets` the type,
+# `($BUF)` the declarator - because that is what those characters mean where a
+# file begins. The query compiled, reported no problem, and matched nothing in
+# any C ever written. Patterns are now read as statements as well, which is
+# what makes this rule fire at all; see statementReading.
+
+["gets($$$_)", "strcpy($$$_)", "strcat($$$_)", "sprintf($$$_)"] as $unbounded
+| scan_ast("*.[ch]"; $unbounded)
+| finding("c-unbounded-string-fn";
+    "this writes into the destination without being told its size; "
+    + "fgets, strlcpy, strlcat and snprintf take one")
+| report

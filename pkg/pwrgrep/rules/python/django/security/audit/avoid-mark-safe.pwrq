@@ -1,0 +1,15 @@
+# rules: avoid-mark-safe
+# from: python/django/security/audit/avoid-mark-safe.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "django.utils.html.format_html($$$_)",
+      "django.utils.safestring.mark_safe(\"$$$_\")",
+      "django.utils.safestring.mark_safe($$$_)"
+    ])) as $all
+    | ( $all | of(["django.utils.safestring.mark_safe($$$_)"])
+          | outside($all | of(["django.utils.html.format_html($$$_)"]))
+          | not_at($all | of(["django.utils.safestring.mark_safe(\"$$$_\")"]))
+        | finding("avoid-mark-safe";
+            "'mark_safe()' is used to mark a string as \"safe\" for HTML output.") ) )
+| report

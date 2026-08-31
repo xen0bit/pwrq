@@ -1,0 +1,21 @@
+# rules: metadata-impact-incorrect-value
+# from: yaml/semgrep/metadata-impact-incorrect-value.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "impact: $VALUE",
+      "impact: HIGH",
+      "impact: LOW",
+      "impact: MEDIUM",
+      "metadata: \n  $$$_\n  category: security\n  $$$_",
+      "rules: \n  $$$_"
+    ])) as $all
+    | ( $all | of(["impact: $VALUE"])
+          | within($all | of(["rules: \n  $$$_"]))
+          | within($all | of(["metadata: \n  $$$_\n  category: security\n  $$$_"]))
+          | not_at($all | of(["impact: LOW"]))
+          | not_at($all | of(["impact: MEDIUM"]))
+          | not_at($all | of(["impact: HIGH"]))
+        | finding("metadata-impact-incorrect-value";
+            "Semgrep rule impact: $VALUE detected, but the value must be LOW, MEDIUM, or HIGH.") ) )
+| report

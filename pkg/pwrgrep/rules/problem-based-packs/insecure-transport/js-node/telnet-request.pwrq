@@ -1,0 +1,17 @@
+# rules: telnet-request
+# from: problem-based-packs/insecure-transport/js-node/telnet-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js"]; [
+      "$SERVER = require('telnet');\n$$$_",
+      "$SERVER.connect($$$_)",
+      "$SERVER.createServer($$$_)",
+      "$SERVER.on($$$_)",
+      "$TEL = require('telnet-client');\n$$$_\n$SERVER = new $TEL();\n$$$_"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["$SERVER.on($$$_)","$SERVER.connect($$$_)","$SERVER.createServer($$$_)"])))
+        | finding("telnet-request";
+            "Checks for creation of telnet servers or attempts to connect through telnet.") ) )
+| report

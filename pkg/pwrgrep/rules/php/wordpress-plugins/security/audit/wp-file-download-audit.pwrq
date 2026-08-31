@@ -1,0 +1,13 @@
+# rules: wp-file-download-audit
+# from: php/wordpress-plugins/security/audit/wp-file-download-audit.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "file($$$_)",
+      "file_get_contents($$$_)",
+      "readfile($$$_)"
+    ])) as $all
+    | ( $all | of(["file($$$_)","readfile($$$_)","file_get_contents($$$_)"])
+        | finding("wp-file-download-audit";
+            "These functions can be used to read to content of the files if the data inside is user-controlled.") ) )
+| report

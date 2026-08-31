@@ -1,0 +1,15 @@
+# rules: ocamllint-ref-incr, ocamllint-ref-decr
+# from: ocaml/lang/best-practice/ref.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "$X := ! $X + 1",
+      "$X := ! $X - 1"
+    ])) as $all
+    | ( $all | of(["$X := ! $X + 1"])
+        | finding("ocamllint-ref-incr";
+            "You should use `incr`") )
+      + ( $all | of(["$X := ! $X - 1"])
+        | finding("ocamllint-ref-decr";
+            "You should use `decr`") ) )
+| report

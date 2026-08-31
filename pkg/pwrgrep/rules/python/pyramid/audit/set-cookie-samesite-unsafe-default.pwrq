@@ -1,0 +1,19 @@
+# rules: pyramid-set-cookie-samesite-unsafe-default
+# from: python/pyramid/audit/set-cookie-samesite-unsafe-default.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$RESPONSE.set_cookie($$$_)",
+      "$RESPONSE.set_cookie($$$_, **$PARAMS)",
+      "$RESPONSE.set_cookie($$$_, samesite=$SAMESITE, $$$_)",
+      "@pyramid.view.view_config($$$_)\ndef $VIEW($REQUEST):\n    $$$_\n    $RESPONSE = $REQUEST.response\n    $$$_",
+      "def $VIEW($$$_):\n    $$$_\n    $RESPONSE = pyramid.httpexceptions.HTTPFound($$$_)\n    $$$_"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["$RESPONSE.set_cookie($$$_)"])))
+          | not_at($all | of(["$RESPONSE.set_cookie($$$_, samesite=$SAMESITE, $$$_)"]))
+          | not_at($all | of(["$RESPONSE.set_cookie($$$_, **$PARAMS)"]))
+        | finding("pyramid-set-cookie-samesite-unsafe-default";
+            "Found a Pyramid cookie using an unsafe value for the samesite option.") ) )
+| report

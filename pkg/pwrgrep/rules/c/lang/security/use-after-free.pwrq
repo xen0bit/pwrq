@@ -1,0 +1,19 @@
+# rules: use-after-free
+# from: c/lang/security/use-after-free.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "$VAR = NULL; $$$_",
+      "$VAR->$ACCESSOR",
+      "$VAR[$NUM]",
+      "(*$VAR).$ACCESSOR",
+      "free($VAR); $$$_",
+      "free($VAR); $$$_ $VAR = malloc($$$_); $$$_"
+    ])) as $all
+    | ( $all | of(["$VAR->$ACCESSOR","(*$VAR).$ACCESSOR","$VAR[$NUM]"])
+          | within($all | of(["free($VAR); $$$_"]))
+          | outside($all | of(["$VAR = NULL; $$$_"]))
+          | outside($all | of(["free($VAR); $$$_ $VAR = malloc($$$_); $$$_"]))
+        | finding("use-after-free";
+            "Variable '$VAR' was used after being freed.") ) )
+| report

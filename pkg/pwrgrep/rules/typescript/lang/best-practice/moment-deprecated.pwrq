@@ -1,0 +1,11 @@
+# rules: moment-deprecated
+# from: typescript/lang/best-practice/moment-deprecated.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "import 'moment'"
+    ])) as $all
+    | ( $all | of(["import 'moment'"])
+        | finding("moment-deprecated";
+            "Moment is a legacy project in maintenance mode.") ) )
+| report

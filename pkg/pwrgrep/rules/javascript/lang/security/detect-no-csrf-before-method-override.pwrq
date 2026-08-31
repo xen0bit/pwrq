@@ -1,0 +1,11 @@
+# rules: detect-no-csrf-before-method-override
+# from: javascript/lang/security/detect-no-csrf-before-method-override.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "express.csrf();\n$$$_\nexpress.methodOverride();"
+    ])) as $all
+    | ( $all | of(["express.csrf();\n$$$_\nexpress.methodOverride();"])
+        | finding("detect-no-csrf-before-method-override";
+            "Detected use of express.csrf() middleware before express.methodOverride().") ) )
+| report

@@ -1,0 +1,27 @@
+# rules: insecure-openerdirector-open-ftp
+# from: python/lang/security/audit/insecure-transport/urllib/insecure-openerdirector-open-ftp.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$OPENERDIRECTOR = urllib.request.OpenerDirector($$$_)\n$$$_",
+      "$OPENERDIRECTOR.open(\"=~/^[Ff][Tt][Pp]://.*/\", $$$_)",
+      "$OPENERDIRECTOR.open($URL, $$$_)",
+      "$URL = \"=~/^[Ff][Tt][Pp]://.*/\"\n$$$_\n$OPENERDIRECTOR.open($URL, $$$_)",
+      "$URL = \"=~/^[Ff][Tt][Pp]://.*/\"\n$$$_\nurllib.request.OpenerDirector($$$_).open($URL, $$$_)",
+      "def $FUNC($$$_, $URL = \"=~/^[Ff][Tt][Pp]://.*/\", $$$_):\n  $$$_",
+      "urllib.request.OpenerDirector($$$_).open(\"=~/^[Ff][Tt][Pp]://.*/\", $$$_)",
+      "urllib.request.OpenerDirector($$$_).open($URL, $$$_)"
+    ])) as $all
+    | ( ($all | of(["urllib.request.OpenerDirector($$$_).open(\"=~/^[Ff][Tt][Pp]://.*/\", $$$_)"]))
+          + ($all | of(["$OPENERDIRECTOR.open(\"=~/^[Ff][Tt][Pp]://.*/\", $$$_)"])
+          | in_files_with($all | of(["$OPENERDIRECTOR = urllib.request.OpenerDirector($$$_)\n$$$_"])))
+          + ($all | of(["$URL = \"=~/^[Ff][Tt][Pp]://.*/\"\n$$$_\n$OPENERDIRECTOR.open($URL, $$$_)"])
+          | in_files_with($all | of(["$OPENERDIRECTOR = urllib.request.OpenerDirector($$$_)\n$$$_"])))
+          + ($all | of(["$URL = \"=~/^[Ff][Tt][Pp]://.*/\"\n$$$_\nurllib.request.OpenerDirector($$$_).open($URL, $$$_)"]))
+          + (($all | of(["urllib.request.OpenerDirector($$$_).open($URL, $$$_)"]))
+          + ($all | of(["$OPENERDIRECTOR.open($URL, $$$_)"])
+          | in_files_with($all | of(["$OPENERDIRECTOR = urllib.request.OpenerDirector($$$_)\n$$$_"])))
+          | within($all | of(["def $FUNC($$$_, $URL = \"=~/^[Ff][Tt][Pp]://.*/\", $$$_):\n  $$$_"])))
+        | finding("insecure-openerdirector-open-ftp";
+            "Detected an unsecured transmission channel.") ) )
+| report

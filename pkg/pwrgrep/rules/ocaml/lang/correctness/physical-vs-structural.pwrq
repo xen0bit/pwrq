@@ -1,0 +1,15 @@
+# rules: physical-equal, physical-not-equal
+# from: ocaml/lang/correctness/physical-vs-structural.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ml"]; [
+      "$X != $Y",
+      "$X == $Y"
+    ])) as $all
+    | ( $all | of(["$X == $Y"])
+        | finding("physical-equal";
+            "You probably want the structural equality operator =") )
+      + ( $all | of(["$X != $Y"])
+        | finding("physical-not-equal";
+            "You probably want the structural inequality operator <>") ) )
+| report

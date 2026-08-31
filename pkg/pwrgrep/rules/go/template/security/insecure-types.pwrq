@@ -1,0 +1,19 @@
+# rules: go-insecure-templates
+# from: go/template/security/insecure-types.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"html/template\"",
+      "import \"html/template\"\n$$$_",
+      "var $VAR template.CSS = $EXP",
+      "var $VAR template.HTML = $EXP",
+      "var $VAR template.HTMLAttr = $EXP",
+      "var $VAR template.JS = $EXP",
+      "var $VAR template.JSStr = $EXP",
+      "var $VAR template.Srcset = $EXP"
+    ])) as $all
+    | ( $all | of(["var $VAR template.HTML = $EXP","var $VAR template.CSS = $EXP","var $VAR template.HTMLAttr = $EXP","var $VAR template.JS = $EXP","var $VAR template.JSStr = $EXP","var $VAR template.Srcset = $EXP"])
+          | in_files_with($all | of(["import \"html/template\"\n$$$_","\"html/template\""]))
+        | finding("go-insecure-templates";
+            "usage of insecure template types.") ) )
+| report

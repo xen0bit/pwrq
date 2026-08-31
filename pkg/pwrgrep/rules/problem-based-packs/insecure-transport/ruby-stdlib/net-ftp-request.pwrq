@@ -1,0 +1,12 @@
+# rules: net-ftp-request
+# from: problem-based-packs/insecure-transport/ruby-stdlib/net-ftp-request.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.rb"]; [
+      "$FTP = Net::FTP.new('$$$_')\n$$$_\n$FTP.login",
+      "Net::FTP.open('$$$_') do |ftp|\n  $$$_\n  ftp.login\nend"
+    ])) as $all
+    | ( $all | of(["$FTP = Net::FTP.new('$$$_')\n$$$_\n$FTP.login","Net::FTP.open('$$$_') do |ftp|\n  $$$_\n  ftp.login\nend"])
+        | finding("net-ftp-request";
+            "Checks for outgoing connections to ftp servers with the 'net/ftp' package.") ) )
+| report

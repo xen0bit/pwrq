@@ -1,0 +1,11 @@
+# rules: tempfile-insecure
+# from: python/lang/correctness/tempfile/mktemp.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "tempfile.mktemp($$$_)"
+    ])) as $all
+    | ( $all | of(["tempfile.mktemp($$$_)"])
+        | finding("tempfile-insecure";
+            "Use tempfile.NamedTemporaryFile instead.") ) )
+| report

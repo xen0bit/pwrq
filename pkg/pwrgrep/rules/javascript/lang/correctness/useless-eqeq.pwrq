@@ -1,0 +1,16 @@
+# rules: eqeq-is-bad
+# from: javascript/lang/correctness/useless-eqeq.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$X != $X",
+      "$X == $X",
+      "1 == 1",
+      "assert($$$_)"
+    ])) as $all
+    | ( $all | of(["$X == $X","$X != $X"])
+          | outside($all | of(["assert($$$_)"]))
+          | not_at($all | of(["1 == 1"]))
+        | finding("eqeq-is-bad";
+            "Detected a useless comparison operation `$X == $X` or `$X != $X`.") ) )
+| report

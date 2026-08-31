@@ -1,0 +1,12 @@
+# rules: no-null-cipher
+# from: java/lang/security/audit/crypto/no-null-cipher.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "new NullCipher($$$_);",
+      "new javax.crypto.NullCipher($$$_);"
+    ])) as $all
+    | ( $all | of(["new NullCipher($$$_);","new javax.crypto.NullCipher($$$_);"])
+        | finding("no-null-cipher";
+            "NullCipher was detected.") ) )
+| report

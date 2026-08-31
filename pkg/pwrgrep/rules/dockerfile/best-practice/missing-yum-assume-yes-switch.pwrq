@@ -1,0 +1,15 @@
+# rules: missing-yum-assume-yes-switch
+# from: dockerfile/best-practice/missing-yum-assume-yes-switch.yaml
+
+. as $root
+| ( ($root | scan_ast(["Dockerfile*"]; [
+      "RUN $$$_ yum $$$_ --assumeyes $$$_",
+      "RUN $$$_ yum install $$$_",
+      "RUN $$$_ yum install $$$_ -y $$$_"
+    ])) as $all
+    | ( $all | of(["RUN $$$_ yum install $$$_"])
+          | not_at($all | of(["RUN $$$_ yum install $$$_ -y $$$_"]))
+          | not_at($all | of(["RUN $$$_ yum $$$_ --assumeyes $$$_"]))
+        | finding("missing-yum-assume-yes-switch";
+            "This 'yum install' is missing the '-y' switch.") ) )
+| report

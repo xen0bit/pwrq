@@ -1,0 +1,26 @@
+# rules: identical-is-comparison, string-is-comparison
+# from: python/lang/correctness/common-mistakes/is-comparison-string.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"$$$_\" is $S",
+      "$S is \"\"",
+      "$S is \"$$$_\"",
+      "$S is $S",
+      "$S is False",
+      "$S is None",
+      "$S is True",
+      "type($X) is $T"
+    ])) as $all
+    | ( $all | of(["$S is $S"])
+        | finding("identical-is-comparison";
+            "Found identical comparison using is.") )
+      + ( $all | of(["$S is \"$$$_\"","\"$$$_\" is $S"])
+          | not_at($all | of(["$S is None"]))
+          | not_at($all | of(["type($X) is $T"]))
+          | not_at($all | of(["$S is True"]))
+          | not_at($all | of(["$S is False"]))
+          | not_at($all | of(["$S is \"\""]))
+        | finding("string-is-comparison";
+            "Found string comparison using 'is' operator.") ) )
+| report

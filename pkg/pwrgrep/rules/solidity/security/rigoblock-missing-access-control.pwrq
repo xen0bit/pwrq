@@ -1,0 +1,13 @@
+# rules: rigoblock-missing-access-control
+# from: solidity/security/rigoblock-missing-access-control.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.sol"]; [
+      "function setMultipleAllowances($$$_) onlyOwner {$$$_}",
+      "function setMultipleAllowances($$$_) {$$$_}"
+    ])) as $all
+    | ( $all | of(["function setMultipleAllowances($$$_) {$$$_}"])
+          | not_at($all | of(["function setMultipleAllowances($$$_) onlyOwner {$$$_}"]))
+        | finding("rigoblock-missing-access-control";
+            "setMultipleAllowances() is missing onlyOwner modifier") ) )
+| report

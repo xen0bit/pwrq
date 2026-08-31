@@ -1,0 +1,15 @@
+# rules: nestjs-open-redirect
+# from: typescript/nestjs/security/audit/nestjs-open-redirect.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.ts"]; [
+      "class $CN {\n    @Redirect($$$_)\n    $FN($$$_) {\n        $$$_\n    }\n}",
+      "return {url: \"$$$_\"}",
+      "return {url: $URL}"
+    ])) as $all
+    | ( $all | of(["return {url: $URL}"])
+          | within($all | of(["class $CN {\n    @Redirect($$$_)\n    $FN($$$_) {\n        $$$_\n    }\n}"]))
+          | not_at($all | of(["return {url: \"$$$_\"}"]))
+        | finding("nestjs-open-redirect";
+            "Untrusted user input in {url: ...} can result in Open Redirect vulnerability.") ) )
+| report

@@ -1,0 +1,15 @@
+# rules: weak-ssl-context
+# from: java/lang/security/audit/weak-ssl-context.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.java"]; [
+      "SSLContext.getInstance(\"$$$_\")",
+      "SSLContext.getInstance(\"TLSv1.2\")",
+      "SSLContext.getInstance(\"TLSv1.3\")"
+    ])) as $all
+    | ( $all | of(["SSLContext.getInstance(\"$$$_\")"])
+          | not_at($all | of(["SSLContext.getInstance(\"TLSv1.3\")"]))
+          | not_at($all | of(["SSLContext.getInstance(\"TLSv1.2\")"]))
+        | finding("weak-ssl-context";
+            "An insecure SSL context was detected.") ) )
+| report

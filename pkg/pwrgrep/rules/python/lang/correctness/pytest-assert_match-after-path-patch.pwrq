@@ -1,0 +1,18 @@
+# rules: pytest-assert_match-after-path-patch
+# from: python/lang/correctness/pytest-assert_match-after-path-patch.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "\"pathlib.Path\"",
+      "import pytest\n$$$_",
+      "mocker.patch(\"pathlib.Path\", $MOCKED_VALUE)\n$$$_",
+      "mocker.patch.object(pathlib.Path, $METHOD, $MOCKED_VALUE)\n$$$_",
+      "snapshot.assert_match($$$_)"
+    ])) as $all
+    | ( ($all)
+          + ($all)
+          | at_same_place(($all | of(["snapshot.assert_match($$$_)"])))
+          | in_files_with($all | of(["import pytest\n$$$_"]))
+        | finding("pytest-assert_match-after-path-patch";
+            "snapshot.assert_match makes use of pathlib to create files.") ) )
+| report

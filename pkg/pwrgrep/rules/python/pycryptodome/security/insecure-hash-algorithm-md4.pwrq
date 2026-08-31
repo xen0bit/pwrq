@@ -1,0 +1,12 @@
+# rules: insecure-hash-algorithm-md4
+# from: python/pycryptodome/security/insecure-hash-algorithm-md4.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "Crypto.Hash.MD4.new($$$_)",
+      "Cryptodome.Hash.MD4.new ($$$_)"
+    ])) as $all
+    | ( $all | of(["Crypto.Hash.MD4.new($$$_)","Cryptodome.Hash.MD4.new ($$$_)"])
+        | finding("insecure-hash-algorithm-md4";
+            "Detected MD4 hash algorithm which is considered insecure.") ) )
+| report

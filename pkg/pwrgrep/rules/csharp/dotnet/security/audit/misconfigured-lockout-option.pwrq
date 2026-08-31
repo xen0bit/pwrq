@@ -1,0 +1,14 @@
+# rules: misconfigured-lockout-option
+# from: csharp/dotnet/security/audit/misconfigured-lockout-option.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$SIGNIN.CheckPasswordSignInAsync($$$_,lockoutOnFailure: false,$$$_);",
+      "$SIGNIN.PasswordSignInAsync($$$_,lockoutOnFailure: false,$$$_);",
+      "public async $TYPE<IActionResult> $METHOD($$$_) {\n  $$$_\n}"
+    ])) as $all
+    | ( $all | of(["$SIGNIN.PasswordSignInAsync($$$_,lockoutOnFailure: false,$$$_);","$SIGNIN.CheckPasswordSignInAsync($$$_,lockoutOnFailure: false,$$$_);"])
+          | within($all | of(["public async $TYPE<IActionResult> $METHOD($$$_) {\n  $$$_\n}"]))
+        | finding("misconfigured-lockout-option";
+            "A misconfigured lockout mechanism allows an attacker to execute brute-force attacks.") ) )
+| report

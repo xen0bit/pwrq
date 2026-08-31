@@ -1,0 +1,13 @@
+# rules: selinux-separation-disabled
+# from: yaml/docker-compose/security/selinux-separation-disabled.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.yaml"]; [
+      "$SERVICE:\n  $$$_\n  image: $$$_\n  $$$_\n  security_opt:\n    - $$$_\n    - label:disable",
+      "version: $$$_\n$$$_\nservices:\n  $$$_"
+    ])) as $all
+    | ( $all | of(["$SERVICE:\n  $$$_\n  image: $$$_\n  $$$_\n  security_opt:\n    - $$$_\n    - label:disable"])
+          | within($all | of(["version: $$$_\n$$$_\nservices:\n  $$$_"]))
+        | finding("selinux-separation-disabled";
+            "Service '$SERVICE' is explicitly disabling SELinux separation.") ) )
+| report

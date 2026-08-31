@@ -1,0 +1,13 @@
+# rules: avoid_send_file_without_path_sanitization
+# from: python/flask/security/secure-static-file-serve.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "@app.route($$$_)\ndef $X(filename):\n  $$$_",
+      "flask.send_file(filename, $$$_)"
+    ])) as $all
+    | ( $all | of(["flask.send_file(filename, $$$_)"])
+          | within($all | of(["@app.route($$$_)\ndef $X(filename):\n  $$$_"]))
+        | finding("avoid_send_file_without_path_sanitization";
+            "Detected a user-controlled `filename` that could flow to `flask.send_file()` function.") ) )
+| report

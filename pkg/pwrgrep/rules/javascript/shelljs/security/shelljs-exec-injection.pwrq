@@ -1,0 +1,18 @@
+# rules: shelljs-exec-injection
+# from: javascript/shelljs/security/shelljs-exec-injection.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "\"$$$_\"",
+      "$SHELL.exec(\"$$$_\",$$$_)",
+      "$SHELL.exec($INPUT,$$$_)",
+      "require('shelljs');\n$$$_",
+      "require('shelljs');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_"
+    ])) as $all
+    | ( $all | of(["$SHELL.exec($INPUT,$$$_)"])
+          | in_files_with($all | of(["require('shelljs');\n$$$_"]))
+          | in_files_without($all | of(["require('shelljs');\n$$$_\nvar $INPUT = \"$$$_\";\n$$$_","\"$$$_\""]))
+          | not_at($all | of(["$SHELL.exec(\"$$$_\",$$$_)"]))
+        | finding("shelljs-exec-injection";
+            "If unverified user data can reach the `exec` method it can result in Remote Code Execution") ) )
+| report

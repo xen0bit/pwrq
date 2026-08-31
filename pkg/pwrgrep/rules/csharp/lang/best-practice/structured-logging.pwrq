@@ -1,0 +1,26 @@
+# rules: structured-logging
+# from: csharp/lang/best-practice/structured-logging.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.cs"]; [
+      "$LOG.Debug($\"$$$_\")",
+      "$LOG.Error($\"$$$_\")",
+      "$LOG.Fatal($\"$$$_\")",
+      "$LOG.Info($\"$$$_\")",
+      "$LOG.Information($\"$$$_\")",
+      "$LOG.LogCritical($\"$$$_\")",
+      "$LOG.LogDebug($\"$$$_\")",
+      "$LOG.LogError($\"$$$_\")",
+      "$LOG.LogInformation($\"$$$_\")",
+      "$LOG.LogTrace($\"$$$_\")",
+      "$LOG.LogWarning($\"$$$_\")",
+      "$LOG.Trace($\"$$$_\")",
+      "$LOG.Verbose($\"$$$_\")",
+      "$LOG.Warn($\"$$$_\")",
+      "$LOG.Warning($\"$$$_\")"
+    ])) as $all
+    | ( $all | of(["$LOG.Debug($\"$$$_\")","$LOG.Error($\"$$$_\")","$LOG.Fatal($\"$$$_\")","$LOG.Information($\"$$$_\")","$LOG.Verbose($\"$$$_\")","$LOG.Warning($\"$$$_\")","$LOG.LogCritical($\"$$$_\")","$LOG.LogDebug($\"$$$_\")","$LOG.LogError($\"$$$_\")","$LOG.LogInformation($\"$$$_\")","$LOG.LogTrace($\"$$$_\")","$LOG.LogWarning($\"$$$_\")","$LOG.Info($\"$$$_\")","$LOG.Trace($\"$$$_\")","$LOG.Warn($\"$$$_\")"])
+          | where_capture("LOG"; ".*(log|LOG|Log)")
+        | finding("structured-logging";
+            "String interpolation in log message obscures the distinction between variables and the log message.") ) )
+| report

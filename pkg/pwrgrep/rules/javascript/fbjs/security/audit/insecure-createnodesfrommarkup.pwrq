@@ -1,0 +1,16 @@
+# rules: insecure-createnodesfrommarkup
+# from: javascript/fbjs/security/audit/insecure-createnodesfrommarkup.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.js","*.ts"]; [
+      "$X.createNodesFromMarkup(\"$$$_\",$$$_)",
+      "$X.createNodesFromMarkup($$$_)",
+      "createNodesFromMarkup(\"$$$_\",$$$_)",
+      "createNodesFromMarkup($$$_)"
+    ])) as $all
+    | ( $all | of(["createNodesFromMarkup($$$_)","$X.createNodesFromMarkup($$$_)"])
+          | not_at($all | of(["createNodesFromMarkup(\"$$$_\",$$$_)"]))
+          | not_at($all | of(["$X.createNodesFromMarkup(\"$$$_\",$$$_)"]))
+        | finding("insecure-createnodesfrommarkup";
+            "User controlled data in a `createNodesFromMarkup` is an anti-pattern that can lead to XSS vulnerabilities") ) )
+| report

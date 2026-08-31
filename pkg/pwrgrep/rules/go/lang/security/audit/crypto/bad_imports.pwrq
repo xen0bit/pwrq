@@ -1,0 +1,14 @@
+# rules: insecure-module-used
+# from: go/lang/security/audit/crypto/bad_imports.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.go"]; [
+      "\"net/http/cgi\"",
+      "cgi.$FUNC($$$_)",
+      "import \"net/http/cgi\"\n$$$_"
+    ])) as $all
+    | ( ($all | of(["cgi.$FUNC($$$_)"])
+          | in_files_with($all | of(["import \"net/http/cgi\"\n$$$_","\"net/http/cgi\""])))
+        | finding("insecure-module-used";
+            "The package `net/http/cgi` is on the import blocklist.") ) )
+| report

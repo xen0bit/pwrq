@@ -1,0 +1,11 @@
+# rules: listen-eval
+# from: python/lang/security/audit/logging/listeneval.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "logging.config.listen($$$_)"
+    ])) as $all
+    | ( $all | of(["logging.config.listen($$$_)"])
+        | finding("listen-eval";
+            "Because portions of the logging configuration are passed through eval(), use of this function may open its users to a security risk.") ) )
+| report

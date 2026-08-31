@@ -1,0 +1,54 @@
+# rules: request-data-write
+# from: python/django/security/injection/request-data-write.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.py"]; [
+      "$A = $F.write($$$_, request.$W($$$_), $$$_)",
+      "$A = $F.write($$$_, request.$W, $$$_)",
+      "$A = $F.write($$$_, request.$W.get($$$_), $$$_)",
+      "$A = $F.write($$$_, request.$W[$$$_], $$$_)",
+      "$DATA = request.$W\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W\n$$$_\n$F.write($$$_, $DATA, $$$_)",
+      "$DATA = request.$W\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)",
+      "$DATA = request.$W\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, $DATA, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, $DATA, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, $DATA, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$DATA = request.$W[$$$_]\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)",
+      "$F.write($$$_, request.$W($$$_), $$$_)",
+      "$F.write($$$_, request.$W, $$$_)",
+      "$F.write($$$_, request.$W.get($$$_), $$$_)",
+      "$F.write($$$_, request.$W[$$$_], $$$_)",
+      "return $F.write($$$_, request.$W($$$_), $$$_)",
+      "return $F.write($$$_, request.$W, $$$_)",
+      "return $F.write($$$_, request.$W.get($$$_), $$$_)",
+      "return $F.write($$$_, request.$W[$$$_], $$$_)"
+    ])) as $all
+    | ( $all | of(["$F.write($$$_, request.$W.get($$$_), $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, $DATA, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W.get($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$A = $F.write($$$_, request.$W.get($$$_), $$$_)","return $F.write($$$_, request.$W.get($$$_), $$$_)","$F.write($$$_, request.$W($$$_), $$$_)","$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, $DATA, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W($$$_)\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W($$$_)\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$A = $F.write($$$_, request.$W($$$_), $$$_)","return $F.write($$$_, request.$W($$$_), $$$_)","$F.write($$$_, request.$W[$$$_], $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, $DATA, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W[$$$_]\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$A = $F.write($$$_, request.$W[$$$_], $$$_)","return $F.write($$$_, request.$W[$$$_], $$$_)","$F.write($$$_, request.$W, $$$_)","$DATA = request.$W\n$$$_\n$F.write($$$_, $DATA, $$$_)","$DATA = request.$W\n$$$_\n$INTERM = $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W\n$$$_\n$F.write($$$_, $B.$C($$$_, $DATA, $$$_), $$$_)","$DATA = request.$W\n$$$_\n$INTERM = $B.$C($$$_, $DATA, $$$_)\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W\n$$$_\n$F.write($$$_, $STR % $DATA, $$$_)","$DATA = request.$W\n$$$_\n$INTERM = $STR % $DATA\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$DATA = request.$W\n$$$_\n$F.write($$$_, f\"$$$_{$DATA}$$$_\", $$$_)","$DATA = request.$W\n$$$_\n$INTERM = f\"$$$_{$DATA}$$$_\"\n$$$_\n$F.write($$$_, $INTERM, $$$_)","$A = $F.write($$$_, request.$W, $$$_)","return $F.write($$$_, request.$W, $$$_)"])
+        | finding("request-data-write";
+            "Found user-controlled request data passed into '.write(...)'.") ) )
+| report

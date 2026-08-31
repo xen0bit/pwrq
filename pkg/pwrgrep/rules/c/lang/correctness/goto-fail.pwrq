@@ -1,0 +1,11 @@
+# rules: double_goto
+# from: c/lang/correctness/goto-fail.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.c"]; [
+      "if ($COND)\n  goto $FAIL;\n  goto $FAIL;"
+    ])) as $all
+    | ( $all | of(["if ($COND)\n  goto $FAIL;\n  goto $FAIL;"])
+        | finding("double_goto";
+            "The second goto statement will always be executed.") ) )
+| report

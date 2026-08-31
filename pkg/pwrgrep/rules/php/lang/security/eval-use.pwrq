@@ -1,0 +1,13 @@
+# rules: eval-use
+# from: php/lang/security/eval-use.yaml
+
+. as $root
+| ( ($root | scan_ast(["*.php"]; [
+      "eval($$$_);",
+      "eval('$$$_');"
+    ])) as $all
+    | ( $all | of(["eval($$$_);"])
+          | not_at($all | of(["eval('$$$_');"]))
+        | finding("eval-use";
+            "Evaluating non-constant commands.") ) )
+| report
