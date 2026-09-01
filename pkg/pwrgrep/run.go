@@ -84,3 +84,10 @@ func (r *Rule) Run(ctx context.Context, root string) ([]any, error) {
 		}
 	}
 }
+
+// forgetCompiled drops every compiled rule, so a file that changed on disk is
+// recompiled rather than answered from the copy read first. Rules calls it
+// after a reload; nothing else should need to.
+func forgetCompiled() {
+	compiled.Range(func(key, _ any) bool { compiled.Delete(key); return true })
+}

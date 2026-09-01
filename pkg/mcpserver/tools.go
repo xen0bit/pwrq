@@ -33,7 +33,7 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "run_query",
-		Description: "Evaluate a pwrq/jq query against input data. The query language is a strict superset of jq: every jq builtin plus ~490 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output, plus a description of the shape those values had - which keys the objects carried - so a follow-up query can be written without reading every result. Warns when two stages of a pipeline disagree about how bytes are encoded, which is the way a pwrq query most often succeeds and is still wrong.",
+		Description: "Evaluate a pwrq/jq query against input data. The query language is a strict superset of jq: every jq builtin plus ~515 cmdlets for the filesystem, HTTP, crypto, hashes, encodings, compression, statistics and more (see list_functions). Input is a stream of JSON values unless rawInput is set. Returns one encoded value per query output, plus a description of the shape those values had - which keys the objects carried - so a follow-up query can be written without reading every result. Warns when two stages of a pipeline disagree about how bytes are encoded, which is the way a pwrq query most often succeeds and is still wrong.",
 		InputSchema: schemas["run_query"],
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args runQueryArgs) (result *mcp.CallToolResult, structured runQueryResult, err error) {
 		started := time.Now()

@@ -69,18 +69,77 @@ func Dirs() []string {
 const Builtin = "<built in>"
 
 var (
-	corpusOnce  sync.Once
+	corpusMu    sync.Mutex
 	corpusRules []*Rule
 	corpusErr   error
+	corpusRead  bool
+	corpusStamp string
 )
 
 // Rules is every rule pwrq can see, in a fixed order.
 //
-// It is read once, on first use rather than at startup: a query that never
-// mentions a rule should not pay for the catalogue.
+// It is read on first use rather than at startup: a query that never mentions
+// a rule should not pay for the catalogue. It is read again whenever the
+// directories on the search path have changed, because the process asking is
+// not always a command that exits. Under the MCP server one process answers
+// for hours, and an agent that writes a rule and immediately runs it would
+// otherwise be told there is no such rule - the one moment where a stale
+// catalogue is not a subtlety but the whole of the workflow failing.
+//
+// Deciding that costs a walk of the directories, not a read of them: the copy
+// built into the binary cannot change, and a machine with no rules directory
+// at all - the ordinary case - pays nothing, because there is nothing to walk.
 func Rules() ([]*Rule, error) {
-	corpusOnce.Do(func() { corpusRules, corpusErr = load() })
+	corpusMu.Lock()
+	defer corpusMu.Unlock()
+	stamp := stamp()
+	if corpusRead && stamp == corpusStamp {
+		return corpusRules, corpusErr
+	}
+	corpusRules, corpusErr = load()
+	corpusStamp, corpusRead = stamp, true
+	// A rule is compiled once and kept by path, so a file that changed under
+	// a path would otherwise keep running the version that was read first.
+	forgetCompiled()
 	return corpusRules, corpusErr
+}
+
+// stamp summarises the rule directories: which files are there, how big they
+// are, and when each was last written. Two walks that agree describe a
+// catalogue nobody has touched.
+//
+// It is a summary rather than a hash of the contents, so an edit made inside
+// the same filesystem timestamp tick, keeping the byte count identical, is
+// invisible to it. Reading every rule to do better would cost on every call
+// what a reload costs once. Touch the file - or set PWRQ_RULES to a fresh
+// directory - if an edit that fine ever needs to be seen.
+//
+// The walk runs about 4us a file, so the installed corpus in SystemDir costs
+// single-digit milliseconds and a directory of somebody's own costs nothing
+// worth measuring - either way less than compiling the first rule it finds.
+func stamp() string {
+	var b strings.Builder
+	for _, dir := range Dirs() {
+		b.WriteString(dir)
+		b.WriteByte(0)
+		// A directory that fails to walk stamps as whatever it managed. The
+		// error, if it is a real one, is reported by the load that follows.
+		_ = filepath.WalkDir(dir, func(name string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if d.IsDir() || filepath.Ext(name) != ".pwrq" {
+				return nil
+			}
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
+			fmt.Fprintf(&b, "%s\x00%d\x00%d\x00", name, info.Size(), info.ModTime().UnixNano())
+			return nil
+		})
+	}
+	return b.String()
 }
 
 func load() ([]*Rule, error) {

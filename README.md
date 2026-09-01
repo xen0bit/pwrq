@@ -642,11 +642,27 @@ dropping a file in:
 The rules are built into the binary and installed to `/usr/share/pwrq/rules`.
 pwrq reads `$PWRQ_RULES`, then `~/.config/pwrq/rules`, then that directory,
 then its own copy — so a rule you drop in is found beside the ones that
-shipped, and one you copy in under a shipped rule's path replaces it.
-[pkg/pwrgrep](pkg/pwrgrep) has the corpus, the translator that produced most of
-it, a manifest accounting for every rule it was given, and a validation run
-against the fixtures those rules are tested with — which is the number that
-matters, because a rule that runs and finds nothing is worth knowing about.
+shipped, and one you copy in under a shipped rule's path replaces it. Those
+directories are re-read when they change, which means a rule written now is a
+rule this process can run now — so `write_pwrgrep_rule` closes the loop for a
+session that has no shell to drop out to, and an MCP client can write a rule,
+run it, edit it and run it again without restarting anything:
+
+```console
+$ pwrq -nc 'write_pwrgrep_rule("mine/no-timeout"; $source)
+            | [invoke_pwrgrep("src"; .Path)] | map({Path, LineNumber})'
+```
+
+It refuses to write what is not a rule — no `# rules:` header, or a query that
+does not compile — because such a file does not fail to fire, it makes the
+whole catalogue unreadable.
+
+[pkg/pwrgrep](pkg/pwrgrep) is the guide to all of this: listing, reading,
+running, iterating on and writing rules, with examples. It also has the corpus,
+the translator that produced most of it, a manifest accounting for every rule
+it was given, and a validation run against the fixtures those rules are tested
+with — which is the number that matters, because a rule that runs and finds
+nothing is worth knowing about.
 
 Three kinds of rule share the vocabulary. Most search syntax. Those whose
 patterns are lines rather than constructs — Dockerfile, the `regex` and
@@ -777,7 +793,7 @@ trip each time. Seven things it used to have to guess:
   nothing offers the nearest names rather than an empty list.
 - **Whether the vocabulary is only the cmdlets.** It is not: pwrq is a strict
   superset of jq, so `ascii_upcase`, `split`, `fromjson`, `to_entries` and the
-  rest are callable exactly like cmdlets. The catalogue documents only the 487
+  rest are callable exactly like cmdlets. The catalogue documents only the 516
   cmdlets, which used to mean the tool denied the other half outright —
   `list_functions` filtered by `ascii_upcase` answered *no functions match, and
   nothing is named close to it*, about a function that runs. A filtered search

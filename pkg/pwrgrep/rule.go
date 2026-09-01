@@ -19,8 +19,9 @@
 //
 // Which is the point of keeping them as queries. A rule is readable, a rule is
 // editable, and writing a new one is copying a file - not learning a schema
-// and not rebuilding pwrq. See pkg/udf/pwrgrep for the operators, and Dirs for
-// where a rule of your own goes.
+// and not rebuilding pwrq. See pkg/udf/pwrgrep for the operators, Dirs for
+// where a rule of your own goes, Write for putting one there, and README.md
+// for the whole of it with examples.
 package pwrgrep
 
 import (
