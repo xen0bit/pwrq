@@ -147,11 +147,73 @@ func RegisterGetPwrgrepRule() gojq.CompilerOption {
 	})
 }
 
+// RegisterWritePwrgrepRule registers write_pwrgrep_rule: a rule of your own,
+// saved where the catalogue will find it.
+//
+// A rule is a file, so writing one is writing a file, and for a session with a
+// shell that is all it ever needed to be. The MCP server has no shell. What it
+// has is this: a query that hands over the text and gets back the rule, from
+// the same process that will run it a moment later.
+//
+// Three things have to be right for that to work and none of them are obvious
+// from outside. The directory is one - it is $PWRQ_RULES or a path under the
+// user's config directory, it differs by machine, and it usually does not
+// exist yet. The other two are why this refuses more often than it writes: a
+// file with no `# rules:` header, or one whose query does not compile, does
+// not make a rule that never fires, it makes the catalogue itself unreadable,
+// and every later invoke_pwrgrep for any rule at all fails with an error about
+// this file. So the header is read and the query is compiled before anything
+// lands, and a rule that would break the catalogue is refused instead.
+//
+// What comes back is visible immediately: the corpus notices its directories
+// changing, so the next invoke_pwrgrep in the same process runs what was just
+// written.
+//
+//	write_pwrgrep_rule("mine/no-timeout"; $source) | .File
+//	"mine/no-timeout" | write_pwrgrep_rule($source) | .Ids
+func RegisterWritePwrgrepRule() gojq.CompilerOption {
+	common.DeclareInput("write_pwrgrep_rule", common.InputPipeline)
+	return common.WithFunctionOf("write_pwrgrep_rule", 1, 2, WrittenRule, func(v any, args []any) any {
+		in, rest := common.SplitInput(v, args, 1)
+		name, err := common.BindString(in, "rule name")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("write_pwrgrep_rule: %v", err), nil)
+		}
+		source, err := common.BindString(rest[0], "rule")
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("write_pwrgrep_rule: %v", err), nil)
+		}
+		rule, file, err := pwrgrep.Write(name, source)
+		if err != nil {
+			return common.MakeUDFErrorResult(fmt.Errorf("write_pwrgrep_rule: %v", err),
+				map[string]any{"rule": name})
+		}
+		ids := make([]any, len(rule.Ids))
+		for i, id := range rule.Ids {
+			ids[i] = id
+		}
+		languages := make([]any, len(rule.Languages))
+		for i, language := range rule.Languages {
+			languages[i] = language
+		}
+		return WrittenRule.Build(map[string]any{
+			"Id":        rule.Id(),
+			"Ids":       ids,
+			"Languages": languages,
+			"Path":      rule.Path,
+			"File":      file,
+			"Origin":    rule.Origin,
+			"PwrqValue": file,
+		})
+	})
+}
+
 // RegisterAll registers the rule cmdlets and the vocabulary a rule is written
 // with.
 func RegisterAll() []gojq.CompilerOption {
 	return append([]gojq.CompilerOption{
 		RegisterInvokePwrgrep(),
 		RegisterGetPwrgrepRule(),
+		RegisterWritePwrgrepRule(),
 	}, RegisterVocabulary()...)
 }

@@ -38,8 +38,13 @@ var unsafeToRun = regexp.MustCompile(`^(` + strings.Join([]string{
 	// is now caught.
 	"rm", "rms", "mkdir", "expand_archive", "compress_archive",
 	"new_item", "out_sqlite", "invoke_sqlite_command", "set_date",
-	// Process and service control.
+	// Process and service control. get_service only reads, but reading is what
+	// costs: it asks systemd whether every unit on the machine is enabled, two
+	// calls per unit, into an action polkit guards - so on a desktop running its
+	// example puts hundreds of authentication dialogs on the screen and takes
+	// the focus with each one.
 	"sh", "start_process", "stop_process", "start_service", "stop_service",
+	"get_service",
 	// Network and paid APIs.
 	"http", "http_serve", "invoke_web_request", "censys_.*", "get_censys_.*",
 	"set_censys_.*", "add_censys_.*", "remove_censys_.*",

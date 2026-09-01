@@ -134,6 +134,7 @@ var unrunnable = map[string]string{
 	"stop_process":  "kills a process",
 	"start_service": "starts a system service",
 	"stop_service":  "stops a system service",
+	"get_service":   "asks systemd about every unit on the machine, which prompts for authentication once per unit",
 	"set_date":      "sets the system clock",
 	"rm":            "deletes a path outside the test's directory",
 	"mkdir":         "creates a directory outside the test's directory",

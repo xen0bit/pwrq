@@ -40,3 +40,20 @@ var Rule = shape.Fixed("Pwrq.PwrgrepRule",
 	shape.Prop("Origin", shape.String, "the directory the rule was read from, or \"<built in>\" for the copy inside the binary"),
 	shape.Prop("PwrqValue", shape.String, "the id, as the bindable value"),
 ).Note("A rule is a file: copy one into $PWRQ_RULES or ~/.config/pwrq/rules, change it, and yours is the one that runs")
+
+// WrittenRule is a rule that was just saved to disk.
+//
+// It says where the file went, because that is the one thing a caller cannot
+// work out for itself and the one thing it needs in order to edit the rule
+// again. Ids and Languages are read back out of the header that was written
+// rather than echoed from the request: a rule reports under the ids its header
+// names, and seeing them is how you find out the header says what you meant.
+var WrittenRule = shape.Fixed("Pwrq.PwrgrepWrittenRule",
+	shape.Prop("Id", shape.String, "the finding id the rule is called by, from its header"),
+	shape.Prop("Ids", shape.Array, "every finding id the rule reports under"),
+	shape.Prop("Languages", shape.Array, "the grammars its header declares"),
+	shape.Prop("Path", shape.String, "where the rule now sits in the catalogue, which is what invoke_pwrgrep and get_pwrgrep_rule name it by"),
+	shape.Prop("File", shape.String, "the file on disk, which is what to edit next"),
+	shape.Prop("Origin", shape.String, "the rules directory it was written to"),
+	shape.Prop("PwrqValue", shape.String, "the file, as the bindable value"),
+).Note("The rule is live in this process the moment it is written: invoke_pwrgrep(root; .Path) runs it next")
