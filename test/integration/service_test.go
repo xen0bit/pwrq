@@ -17,6 +17,15 @@ import (
 // splitting on newlines. A count is the only assertion that would have caught
 // that, and it is the one thing a unit test with a canned fixture cannot make.
 func TestGetServiceReportsRealServices(t *testing.T) {
+	// Disabled rather than short-skipped. Reading is what costs here: to fill
+	// in StartType, get_service runs `systemctl is-enabled` twice for every
+	// unit on the machine, which on the box this was written for is some three
+	// hundred calls into an action polkit guards - and on a desktop polkit
+	// answers each one with an authentication dialog that takes the keyboard
+	// focus. The count this test exists to assert is not worth making
+	// `go test ./...` unusable. Run it by hand when get_service changes.
+	t.Skip("asks systemd about every unit on the machine, which prompts for authentication once per unit")
+
 	if testing.Short() {
 		t.Skip("reads the system service manager")
 	}

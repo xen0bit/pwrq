@@ -78,6 +78,18 @@ func skipExample(ex string) bool {
 		// Would signal or spawn a real process on the machine running the
 		// tests. stop_process is covered safely by TestKnownPanicQueries.
 		return true
+	case strings.Contains(ex, "get_service"),
+		strings.Contains(ex, "start_service"),
+		strings.Contains(ex, "stop_service"):
+		// Would ask systemd to start or stop a unit - the documented examples
+		// name nginx - and get_service asks it about every unit on the machine,
+		// twice each, to fill in StartType. All three go through polkit, which
+		// on a desktop answers with an authentication dialog that takes the
+		// keyboard focus, once per call: hundreds of them per `go test ./...`,
+		// which makes the suite unusable for the person running it. Matched by
+		// name rather than by `_service(` because get_service's examples take
+		// no arguments and so have no parenthesis to match.
+		return true
 	}
 	return false
 }
@@ -272,7 +284,10 @@ func TestAdversarialQueries(t *testing.T) {
 		"invoke_web_request(\"http://127.0.0.1:1/\")",
 		"which(\"\")",
 		"[get_process | .Name]",
-		"[get_service | .Name]",
+		// [get_service | .Name] belongs here and is left out: it asks systemd
+		// about every unit on the machine and each answer goes through polkit,
+		// so on a desktop it is hundreds of authentication dialogs stealing the
+		// focus. get_process covers the same shape of cmdlet.
 		"sh(\"echo hi\")",
 		"[get_command | .Name] | length",
 		"get_help(\"gci\")",
