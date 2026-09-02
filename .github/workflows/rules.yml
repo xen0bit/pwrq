@@ -53,44 +53,49 @@ jobs:
           go-version: "1.27"
           cache: true
 
-      # Asked before anything is changed. `go list -m mod@main` resolves what
-      # the branch points at - a tag if its tip carries one, a pseudo-version
-      # otherwise - and leaves go.mod and go.sum alone, so the overwhelmingly
-      # common answer of "nothing moved" costs one proxy lookup rather than a
-      # module graph.
+      # Asked before anything is changed, and asked of the commit rather than
+      # of the branch.
+      #
+      # `go list -m mod@main` goes through the module proxy, which caches what
+      # a branch resolves to. Right after a tag lands that cache is behind, and
+      # it will answer with the version before it - so a check written against
+      # @main reads "pinned v0.1.1, main says v0.1.0", calls that a change, and
+      # opens a pull request proposing a downgrade. Observed, not hypothesised.
+      #
+      # Asking GitHub what main points at and resolving that exact commit has
+      # no such window: the answer is a tag if the commit carries one and a
+      # pseudo-version if it does not, and equality then means what it says.
       - name: Has the corpus moved
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mod=github.com/xen0bit/pwrgrep-rules
+          tip=$(gh api repos/xen0bit/pwrgrep-rules/commits/main -q .sha)
           before=$(go list -m -f '{{.Version}}' "$mod")
-          after=$(go list -m -f '{{.Version}}' "$mod@main")
-          echo "before=$before" >> "$GITHUB_OUTPUT"
-          echo "after=$after" >> "$GITHUB_OUTPUT"
+          after=$(go list -m -f '{{.Version}}' "$mod@$tip")
+          echo "main is at ${tip:0:8}, which is $after; pinned is $before"
+          {
+            echo "tip=$tip"
+            echo "before=$before"
+            echo "after=$after"
+          } >> "$GITHUB_OUTPUT"
           if [ "$before" = "$after" ]; then
-            echo "already on $after"
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "$before -> $after"
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # By commit, so that what is pinned is the commit that was checked
+      # rather than whatever the branch has become since.
       - name: Bump
         if: steps.check.outputs.changed == 'true'
         run: |
           set -euo pipefail
-          GOFLAGS=-mod=mod go get "github.com/xen0bit/pwrgrep-rules@${{ steps.check.outputs.after }}"
+          GOFLAGS=-mod=mod go get "github.com/xen0bit/pwrgrep-rules@${{ steps.check.outputs.tip }}"
           go mod tidy
 
-      # The whole suite, not just pkg/pwrgrep. A corpus change reaches further
-      # than the package that loads it: rules are named by id in tests
-      # elsewhere, and a deduplication that retired two ids broke
-      # pkg/udf/pwrgrep/interrupt_test.go while every test in pkg/pwrgrep
-      # stayed green. Whatever this costs in runner minutes, it is less than
-      # merging that.
-      #
-      # -race because that is what CI runs here, and the rule cache is shared
-      # across a process by design.
       - name: Test
         if: steps.check.outputs.changed == 'true'
         run: |
