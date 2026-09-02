@@ -34,26 +34,27 @@ import (
 // cache is dropped at the end of the call that made it.
 //
 // What it is worth, over the Python corpus and certbot, is 339 seconds down to
-// 279 and a peak of 7.7GB up to 8.9GB. The peak is worth reading twice, because
-// it is not what the cache costs: 7.7GB is what the same run costs with the
-// cache turned off. Nearly all of it is garbage from running tree-sitter
+// 272 and a peak of 7.7GB up to 9.4GB. The peak is worth reading twice, because
+// most of it is not what the cache costs: 7.7GB is what the same run costs with
+// the cache turned off. Nearly all of that is garbage from running tree-sitter
 // queries - 56% of everything a corpus run allocates - and from grep building
 // a parser per pattern it compiles, neither of which is ours. The cache adds
-// about 1.2GB on top of that and takes a fifth off the clock.
+// about 1.7GB on top and takes a fifth off the clock.
 
 // treeCacheBudget is how many bytes of parse tree a cache will hold.
 //
 // 512MB, because a rule set asks for the same files over and over: a cache
 // that holds most of a repository hits almost every time, and one that holds a
 // fraction of it thrashes. The whole Python corpus over certbot is 339s with
-// no cache, 308s with 128MB and 279s with 512MB; a fifty-rule search, where
+// no cache, 308s with 128MB and 272s with 512MB; a fifty-rule search, where
 // the fixed cost of compiling patterns is not there to dilute it, is 15.7s,
 // 13.8s and 8.5s. Either way the last doubling is where the working set starts
 // to fit, and 512MB is enough for a repository of a few thousand files.
 //
 // PWRQ_TREE_CACHE_BYTES overrides it. Zero turns the cache off, which is the
 // setting for a machine short of memory: it costs about a fifth of the speed
-// and saves the 1.2GB named above.
+// and saves the 1.7GB named above. 128MB is the middle: a tenth of the time
+// for no memory at all, because a smaller live set offsets what it holds.
 const treeCacheBudget = 512 << 20
 
 // treeBytesPerSourceByte is how much memory a parsed file costs, as a multiple
