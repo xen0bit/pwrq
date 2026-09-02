@@ -9,6 +9,7 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/sessionstate"
+	"github.com/xen0bit/pwrq/pkg/udf/censys"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -242,7 +243,13 @@ func inFixtureDir(t *testing.T) {
 // TestEveryExemptionIsACmdlet keeps the exemption list from outliving what it
 // exempts. A renamed cmdlet would otherwise leave its name here forever,
 // quietly excusing nothing while its real examples went unchecked.
+//
+// Against the whole vocabulary, writes included: the Censys write cmdlets are
+// out of the catalogue unless asked for, and this is a check about names going
+// stale rather than about which of them a given process offers.
 func TestEveryExemptionIsACmdlet(t *testing.T) {
+	t.Setenv(censys.EnvWrite, "1")
+
 	known := make(map[string]bool)
 	for _, meta := range GetFunctionMetadata() {
 		known[meta.Name] = true

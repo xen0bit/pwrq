@@ -197,3 +197,11 @@ service, and it settles three questions the others never face:
 - **Field names** stay the vendor's. Renaming `autonomous_system` to
   `AutonomousSystem` would be a second vocabulary for a schema the user already
   knows from the service's own query language.
+- **Writing** is opt-in, and opt-in at registration rather than at call time.
+  `censys.WriteCmdlets` names the nine whose request is a POST, a PATCH or a
+  DELETE against the organization; `RegisterAll` leaves them out unless
+  `PWRQ_CENSYS_WRITE` asks for them, and `GetFunctionMetadata` withholds their
+  catalogue entries to match. Refusing inside the cmdlet would have been the
+  easier change and the weaker one: a name that is registered is a name
+  `invoke_agent` can be handed and a rule can call, and the only refusal that
+  cannot be reached by accident is one that happens before the query compiles.

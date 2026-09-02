@@ -113,6 +113,17 @@ func (s *server) fail(path string, status int, body string) {
 	}
 }
 
+// writable turns the write cmdlets on for one test.
+//
+// They are unregistered unless EnvWrite asks for them, so a test of what one
+// of them puts on the wire is also a test of the only configuration in which
+// it can be called at all. See TestWriteCmdletsAreNotThereByDefault for the
+// other half.
+func writable(t *testing.T) {
+	t.Helper()
+	t.Setenv(EnvWrite, "1")
+}
+
 // run evaluates a query against the Censys cmdlets and collects every output.
 func run(t *testing.T, query string, input any) ([]any, error) {
 	t.Helper()
@@ -539,6 +550,7 @@ func TestGettingOneTagUsesTheSingleEndpoint(t *testing.T) {
 }
 
 func TestNewTagDefaultsToShared(t *testing.T) {
+	writable(t)
 	srv := newServer(t)
 	srv.handleCreated("POST /v3/tags", `{"result":{"id":"t1","name":"alpha","privacy":"shared"}}`)
 
@@ -554,6 +566,7 @@ func TestNewTagDefaultsToShared(t *testing.T) {
 }
 
 func TestSetTagRefusesAnEmptyPatch(t *testing.T) {
+	writable(t)
 	newServer(t)
 	msg := runErr(t, `set_censys_tag("t1"; {})`, nil)
 	if !strings.Contains(msg, "at least one") {
@@ -564,6 +577,7 @@ func TestSetTagRefusesAnEmptyPatch(t *testing.T) {
 // TestRemoveReturnsTheIdentifier keeps a deletion visible in a pipeline
 // instead of collapsing it to null.
 func TestRemoveReturnsTheIdentifier(t *testing.T) {
+	writable(t)
 	srv := newServer(t)
 	srv.handleFunc("/v3/tags/t1", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -580,6 +594,7 @@ func TestRemoveReturnsTheIdentifier(t *testing.T) {
 // TestAddTagAssignmentTakesTheAssetFromThePipeline is the calling form the
 // cmdlet exists for: tagging everything a search found.
 func TestAddTagAssignmentTakesTheAssetFromThePipeline(t *testing.T) {
+	writable(t)
 	srv := newServer(t)
 	srv.handleCreated("POST /v3/tags/t1/assignments", `{"result":{"id":"a1","asset_id":"1.1.1.1"}}`)
 
@@ -605,6 +620,7 @@ func TestAddTagAssignmentTakesTheAssetFromThePipeline(t *testing.T) {
 }
 
 func TestCenseyeJobTargetsTheAssetKindAsked(t *testing.T) {
+	writable(t)
 	srv := newServer(t)
 	srv.handle("POST /v3/threat-hunting/censeye/jobs", `{"result":{"job_id":"j1","status":"pending"}}`)
 
@@ -621,6 +637,7 @@ func TestCenseyeJobTargetsTheAssetKindAsked(t *testing.T) {
 }
 
 func TestCenseyeJobRejectsAnUnknownAssetKind(t *testing.T) {
+	writable(t)
 	newServer(t)
 	msg := runErr(t, `new_censys_censeye_job("1.1.1.1"; {Type: "router"})`, nil)
 	if !strings.Contains(msg, "host, webproperty or certificate") {
@@ -714,4 +731,124 @@ func TestEmptyResponseIsAnError(t *testing.T) {
 	if !strings.Contains(msg, "empty response") {
 		t.Errorf("error = %q", msg)
 	}
+}
+
+// What a query can reach when nothing has asked for the write cmdlets.
+//
+// This is the whole point of registering them conditionally rather than
+// refusing inside them: an unregistered name does not compile, so it cannot be
+// reached by a typo in a long pipeline, by an agent writing a query from the
+// catalogue, or by a rule that was written when the cmdlet was there. The
+// refusal arrives before a request is built, which is the only place it can
+// arrive without a token having already been spent.
+func TestWriteCmdletsAreNotThereByDefault(t *testing.T) {
+	// Explicitly cleared rather than assumed: a developer with it set in their
+	// shell would otherwise watch this test pass by not testing anything.
+	t.Setenv(EnvWrite, "")
+	options := RegisterAll()
+
+	for _, name := range WriteCmdlets {
+		if defined(t, name, options) {
+			t.Errorf("%s compiles with %s unset", name, EnvWrite)
+		}
+	}
+}
+
+// And that asking gets them back, because a gate that cannot be opened is a
+// deletion with extra steps.
+func TestWriteCmdletsComeBackWhenAskedFor(t *testing.T) {
+	writable(t)
+	options := RegisterAll()
+
+	for _, name := range WriteCmdlets {
+		if !defined(t, name, options) {
+			t.Errorf("%s is still undefined with %s set", name, EnvWrite)
+		}
+	}
+}
+
+// Reading is what is left, and all of it is left.
+//
+// The gate is meant to remove nine names and nothing else. Checked because the
+// way this would go wrong is by hand: RegisterAll lists its cmdlets one per
+// line, and moving nine of them out of that list is an edit in which dropping
+// a tenth looks exactly like the other nine.
+func TestTheReadCmdletsAreUntouched(t *testing.T) {
+	t.Setenv(EnvWrite, "")
+	options := RegisterAll()
+
+	writes := map[string]bool{}
+	for _, name := range WriteCmdlets {
+		writes[name] = true
+	}
+	for _, name := range allCensysCmdlets {
+		if !writes[name] && !defined(t, name, options) {
+			t.Errorf("%s reads, but the read-only vocabulary does not have it", name)
+		}
+	}
+}
+
+// The list and the registrations are the same set.
+//
+// WriteCmdlets is what the metadata catalogue filters on and what the tests
+// above iterate; registerWrites is what actually reaches the compiler. A
+// cmdlet in one and not the other is either unreachable when it was asked for
+// or advertised when it was not, and neither shows up as a failure anywhere
+// else.
+func TestTheWriteListMatchesWhatIsRegistered(t *testing.T) {
+	t.Setenv(EnvWrite, "")
+	readOnly := RegisterAll()
+	t.Setenv(EnvWrite, "1")
+	withWrites := RegisterAll()
+
+	listed := map[string]bool{}
+	for _, name := range WriteCmdlets {
+		listed[name] = true
+	}
+	for _, name := range allCensysCmdlets {
+		gated := defined(t, name, withWrites) && !defined(t, name, readOnly)
+		switch {
+		case gated && !listed[name]:
+			t.Errorf("%q is registered only when writes are on, but WriteCmdlets does not name "+
+				"it, so the catalogue advertises a cmdlet that is not there", name)
+		case listed[name] && !gated:
+			t.Errorf("%q is named by WriteCmdlets but registerWrites does not gate it", name)
+		}
+	}
+}
+
+// defined reports whether a name is callable at any arity a Censys cmdlet
+// uses, by asking the compiler - which is the same question a query asks, and
+// the only one that answers what is reachable rather than what was written.
+func defined(t *testing.T, name string, options []gojq.CompilerOption) bool {
+	t.Helper()
+	for arity := 0; arity <= 3; arity++ {
+		program := name
+		if arity > 0 {
+			program = name + "(" + strings.Repeat("null; ", arity-1) + "null)"
+		}
+		parsed, err := gojq.Parse(program)
+		if err != nil {
+			t.Fatalf("parse %q: %v", program, err)
+		}
+		if _, err := gojq.Compile(parsed, options...); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// allCensysCmdlets is every name this package can register, written out rather
+// than derived, so that a check above cannot be satisfied by a list that shrank
+// along with the thing it was meant to be checking.
+var allCensysCmdlets = []string{
+	"get_censys_context", "get_censys_host", "get_censys_certificate",
+	"get_censys_webproperty", "get_censys_enrichment", "get_censys_host_timeline",
+	"get_censys_webproperty_timeline", "get_censys_host_service", "search_censys",
+	"get_censys_aggregate", "get_censys_collection", "new_censys_collection",
+	"set_censys_collection", "remove_censys_collection", "get_censys_collection_event",
+	"new_censys_censeye_job", "get_censys_censeye_job", "get_censys_censeye_result",
+	"get_censys_threat", "get_censys_tag", "new_censys_tag", "set_censys_tag",
+	"remove_censys_tag", "get_censys_tag_assignment", "add_censys_tag_assignment",
+	"remove_censys_tag_assignment", "get_censys_organization", "get_censys_credits",
 }

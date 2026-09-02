@@ -1,5 +1,7 @@
 package udf
 
+import "github.com/xen0bit/pwrq/pkg/udf/censys"
+
 // FunctionMetadata holds information about a UDF
 type FunctionMetadata struct {
 	Name        string
@@ -10,8 +12,34 @@ type FunctionMetadata struct {
 	Examples    []string
 }
 
-// GetFunctionMetadata returns metadata for all registered functions
+// GetFunctionMetadata returns metadata for all registered functions.
+//
+// Filtered, not the whole table: the Censys write cmdlets are registered only
+// when PWRQ_CENSYS_WRITE asks for them, and the catalogue this builds is what
+// get_command answers with and what an agent is handed as its vocabulary.
+// Listing a cmdlet that is not there would be worse than not listing it - the
+// failure would arrive as "function not defined" from something that had just
+// been advertised.
 func GetFunctionMetadata() []FunctionMetadata {
+	all := allFunctionMetadata()
+	if censys.WriteEnabled() {
+		return all
+	}
+	withheld := make(map[string]bool, len(censys.WriteCmdlets))
+	for _, name := range censys.WriteCmdlets {
+		withheld[name] = true
+	}
+	kept := make([]FunctionMetadata, 0, len(all))
+	for _, meta := range all {
+		if !withheld[meta.Name] {
+			kept = append(kept, meta)
+		}
+	}
+	return kept
+}
+
+// allFunctionMetadata is the whole documented vocabulary, reachable or not.
+func allFunctionMetadata() []FunctionMetadata {
 	return []FunctionMetadata{
 		// File operations
 		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("src"; "file")`, `find("."; "dir")`}},

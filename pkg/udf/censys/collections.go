@@ -95,6 +95,8 @@ type collectionBody struct {
 }
 
 // RegisterNewCollection registers new_censys_collection.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterNewCollection() gojq.CompilerOption {
 	const op = "new_censys_collection"
 	return common.WithFunction(op, 0, 1, func(v any, args []any) any {
@@ -141,6 +143,8 @@ func RegisterNewCollection() gojq.CompilerOption {
 //
 // The endpoint is a whole-object replace rather than a patch: Name and Query
 // are both required, and omitting Description clears it.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterSetCollection() gojq.CompilerOption {
 	const op = "set_censys_collection"
 	return common.WithFunction(op, 1, 2, func(v any, args []any) any {
@@ -187,6 +191,8 @@ func RegisterSetCollection() gojq.CompilerOption {
 // RegisterRemoveCollection registers remove_censys_collection. Like the other
 // removers here it returns the UID it deleted, so the deletion is visible in a
 // pipeline instead of vanishing into a null.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterRemoveCollection() gojq.CompilerOption {
 	const op = "remove_censys_collection"
 	return common.WithFunction(op, 0, 2, func(v any, args []any) any {

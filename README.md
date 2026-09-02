@@ -362,8 +362,18 @@ and marks them unavailable, as it does for anything that needs a filesystem.
 
 `pwrq` speaks the Censys Platform API through Censys' own Go SDK, with a
 vocabulary that follows their CLI: view an asset, enrich a host, search,
-aggregate, run CensEye, manage collections and tags, read the organization and
-its credits.
+aggregate, read CensEye jobs, collections and tags, and read the organization
+and its credits.
+
+It reads. The cmdlets that change something in a Censys organization — creating,
+editing and deleting collections and tags, attaching and detaching tag
+assignments, and starting a CensEye job — are not registered unless
+`PWRQ_CENSYS_WRITE` is set to `1`, so naming one is an error at compile time
+rather than a request. A search that is wrong is rewritten; a
+`remove_censys_tag` that is wrong has already deleted a tag every asset in the
+organization was carrying. With the variable unset they are absent from
+`get_command` too, so nothing — an agent writing a pipeline included — is told
+they are there.
 
 ```console
 $ pwrq -c 'get_censys_host("1.1.1.1") | .resource | {ip, service_count}'
