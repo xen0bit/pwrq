@@ -15,11 +15,18 @@ name: rules
 # in the PR body is the run that actually happened.
 
 on:
-  # A rules change is usually not urgent, so a daily sweep is enough on its
-  # own. The other two triggers are for when it is: workflow_dispatch by hand,
-  # and repository_dispatch from pwrgrep-rules if a token is ever set up there.
+  # Every quarter hour. The corpus repository dispatches to us the moment its
+  # main moves, so this is the fallback for when that is not set up or does
+  # not arrive - and it is frequent rather than daily because the check is
+  # cheap: resolving what main points at does not touch go.mod, so a run that
+  # finds nothing new does no module work at all and is over in seconds.
+  #
+  # GitHub runs scheduled workflows late under load and disables them on a
+  # repository with no activity for 60 days. Neither matters here: late is
+  # still minutes, and a repository nobody has touched in two months has no
+  # corpus bump to miss.
   schedule:
-    - cron: "17 6 * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
   repository_dispatch:
     types: [rules-updated]
@@ -46,14 +53,18 @@ jobs:
           go-version: "1.27"
           cache: true
 
-      - name: Bump
-        id: bump
+      # Asked before anything is changed. `go list -m mod@main` resolves what
+      # the branch points at - a tag if its tip carries one, a pseudo-version
+      # otherwise - and leaves go.mod and go.sum alone, so the overwhelmingly
+      # common answer of "nothing moved" costs one proxy lookup rather than a
+      # module graph.
+      - name: Has the corpus moved
+        id: check
         run: |
           set -euo pipefail
-          before=$(go list -m -f '{{.Version}}' github.com/xen0bit/pwrgrep-rules)
-          GOFLAGS=-mod=mod go get github.com/xen0bit/pwrgrep-rules@main
-          go mod tidy
-          after=$(go list -m -f '{{.Version}}' github.com/xen0bit/pwrgrep-rules)
+          mod=github.com/xen0bit/pwrgrep-rules
+          before=$(go list -m -f '{{.Version}}' "$mod")
+          after=$(go list -m -f '{{.Version}}' "$mod@main")
           echo "before=$before" >> "$GITHUB_OUTPUT"
           echo "after=$after" >> "$GITHUB_OUTPUT"
           if [ "$before" = "$after" ]; then
@@ -63,6 +74,13 @@ jobs:
             echo "$before -> $after"
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Bump
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          GOFLAGS=-mod=mod go get "github.com/xen0bit/pwrgrep-rules@${{ steps.check.outputs.after }}"
+          go mod tidy
 
       # The whole suite, not just pkg/pwrgrep. A corpus change reaches further
       # than the package that loads it: rules are named by id in tests
@@ -74,18 +92,18 @@ jobs:
       # -race because that is what CI runs here, and the rule cache is shared
       # across a process by design.
       - name: Test
-        if: steps.bump.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true'
         run: |
           set -euo pipefail
           go build ./...
           go test -race ./...
 
       - name: Open the pull request
-        if: steps.bump.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BEFORE: ${{ steps.bump.outputs.before }}
-          AFTER: ${{ steps.bump.outputs.after }}
+          BEFORE: ${{ steps.check.outputs.before }}
+          AFTER: ${{ steps.check.outputs.after }}
         run: |
           set -euo pipefail
           branch="rules/bump-$AFTER"
