@@ -64,48 +64,72 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # The two checks only this side can make. A rule compiles against this
-      # binary's cmdlet vocabulary, and the grammars a release carries are
-      # decided by the Makefile here — so a corpus that is fine in its own
-      # repository can still be wrong for this engine.
+      # The whole suite, not just pkg/pwrgrep. A corpus change reaches further
+      # than the package that loads it: rules are named by id in tests
+      # elsewhere, and a deduplication that retired two ids broke
+      # pkg/udf/pwrgrep/interrupt_test.go while every test in pkg/pwrgrep
+      # stayed green. Whatever this costs in runner minutes, it is less than
+      # merging that.
+      #
+      # -race because that is what CI runs here, and the rule cache is shared
+      # across a process by design.
       - name: Test
         if: steps.bump.outputs.changed == 'true'
         run: |
           set -euo pipefail
           go build ./...
-          go test ./pkg/pwrgrep/... 2>&1 | tee /tmp/pwrgrep.log
-          echo "rules=$(go run ./cmd/pwrq -n '[get_pwrgrep_rule] | length')" >> "$GITHUB_OUTPUT"
+          go test -race ./...
 
       - name: Open the pull request
         if: steps.bump.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE: ${{ steps.bump.outputs.before }}
+          AFTER: ${{ steps.bump.outputs.after }}
         run: |
           set -euo pipefail
-          branch=rules/bump-${{ steps.bump.outputs.after }}
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add go.mod go.sum
-          git commit -m "Take the corpus up to ${{ steps.bump.outputs.after }}
+          branch="rules/bump-$AFTER"
+
+          # A re-run for a version already proposed would collide on the branch
+          # name, and there is nothing to add: the open pull request says the
+          # same thing.
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists; nothing to open"
+            exit 0
+          fi
+
+          # Written to files rather than passed inline: a multi-line argument
+          # inside a YAML block scalar carries the block's indentation into the
+          # message.
+          cat > /tmp/commit.txt <<EOF
+          Take the corpus up to $AFTER
 
           pwrgrep-rules main moved. The rules compile against this binary's
           cmdlet vocabulary and every language they name is in GRAMMARS, which
           are the two things the corpus repository cannot check for itself.
 
-          ${{ steps.bump.outputs.before }} -> ${{ steps.bump.outputs.after }}"
+          $BEFORE -> $AFTER
+          EOF
+          cat > /tmp/body.md <<EOF
+          pwrgrep-rules main moved, so pwrq follows it.
+
+          \`$BEFORE\` -> \`$AFTER\`
+
+          \`go test -race ./...\` passed in the job that opened this, which is where it
+          had to run: a pull request opened with \`GITHUB_TOKEN\` does not start another
+          workflow. That covers the two checks the corpus repository cannot make for
+          itself - every rule compiles against this binary's cmdlet vocabulary, and
+          every language a rule names is a grammar the release build carries.
+
+          Opened by \`.github/workflows/rules.yml\`.
+          EOF
+          # The heredocs are indented to match the block, so take that back off.
+          sed -i 's/^          //' /tmp/commit.txt /tmp/body.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add go.mod go.sum
+          git commit -F /tmp/commit.txt
           git push -u origin "$branch"
-          gh pr create \
-            --title "Take the corpus up to ${{ steps.bump.outputs.after }}" \
-            --body "pwrgrep-rules main moved, so pwrq follows it.
-
-          \`${{ steps.bump.outputs.before }}\` → \`${{ steps.bump.outputs.after }}\`
-
-          \`go test ./pkg/pwrgrep/...\` passed in the job that opened this — which is
-          where it had to run, since a pull request opened with \`GITHUB_TOKEN\` does
-          not start another workflow. That covers the two checks the corpus
-          repository cannot make for itself: every rule compiles against this
-          binary's cmdlet vocabulary, and every language a rule names is a grammar
-          the release build carries.
-
-          Opened by \`.github/workflows/rules.yml\`."
+          gh pr create --title "Take the corpus up to $AFTER" --body-file /tmp/body.md
