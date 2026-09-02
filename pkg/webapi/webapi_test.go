@@ -590,9 +590,18 @@ func TestExamplesAllRun(t *testing.T) {
 
 // TestExamplesDrawToo checks the other half of what an example demonstrates:
 // the diagram beside it.
+//
+// Drawn in parallel, which is not a micro-optimisation here. Laying out a
+// diagram runs d2's layout engine, and doing that for every example in the
+// gallery one at a time was most of eight minutes on a CI runner - close
+// enough to the ten `go test` allows a package that an unrelated test hogging
+// the machine was enough to push it over, which is exactly what happened. A
+// diagram is rendered from a fresh ruler against a registry built once and
+// only read afterwards, so there is nothing between two of them to serialise.
 func TestExamplesDrawToo(t *testing.T) {
 	for _, example := range Examples() {
 		t.Run(example.Title, func(t *testing.T) {
+			t.Parallel()
 			resp := call[DiagramResponse](t, "diagram", DiagramRequest{Query: example.Query})
 			if resp.Error != "" {
 				t.Errorf("%s\n\ndid not draw: %s", example.Query, resp.Error)

@@ -113,14 +113,22 @@ func TestACancelledScanIsAFailureRatherThanACleanResult(t *testing.T) {
 //
 // A cache that changes what a rule reports is worse than no cache at all, and
 // the way it would go wrong is not subtle to state: a tree held from one rule
-// and read by the next is the same tree or it is a bug. Running the same
-// corpus twice in one process is what exercises that - the second run reads
-// what the first one parsed - and the two must agree.
+// and read by the next is the same tree or it is a bug. Running the same rules
+// twice in one process is what exercises that - the second run reads what the
+// first one parsed - and the two must agree.
+//
+// Named rules rather than the whole Python corpus, because this is the one
+// test here that has to run to completion rather than stop at a deadline, and
+// the corpus is 336 rules: under -race on a CI runner, running it twice is
+// longer than `go test` allows a package. What the cache is asked to get wrong
+// needs two rules over one tree, not every rule - these four all fire on the
+// files tree writes, so each of them reads what the one before it parsed.
 func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 	dir := tree(t, 12)
-	query := `[invoke_pwrgrep("` + dir + `"; "python")] | map(.RuleId + " " + .Path + " " + (.LineNumber | tostring)) | sort | join(",")`
+	rules := `["python-weak-hash", "python-subprocess-shell-true", "insecure-hash-algorithm-md5", "subprocess-shell-true"]`
+	query := `[invoke_pwrgrep("` + dir + `"; ` + rules + `)] | map(.RuleId + " " + .Path + " " + (.LineNumber | tostring)) | sort | join(",")`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	first := runIn(ctx, query)
@@ -155,10 +163,21 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 // Measured against a deadline shorter than the full corpus takes. If the
 // search were still buffered, the deadline would arrive before the first value
 // did and this would fail with a timeout instead of a finding.
+//
+// Ninety seconds is not a claim that the first finding takes anything like
+// that long - warm, it is a tenth of a second. It is the gap between the two
+// answers this can give, and the gap is enormous: streaming puts a value in
+// hand in well under a second, and buffering would have to run 336 rules over
+// forty files first, which is minutes. What the number has to clear is the
+// cost of being first, and the first search in a process compiles the corpus's
+// tree-sitter patterns before it can match anything - four seconds here under
+// -race, and more than twenty on a CI runner, which is what a deadline of
+// twenty was failing on. A passing run still returns as soon as the finding
+// does; the ninety is only ever spent proving the failure.
 func TestTheFirstFindingArrivesBeforeTheLastRuleRuns(t *testing.T) {
 	dir := tree(t, 40)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	res := runIn(ctx, `first(invoke_pwrgrep("`+dir+`"; "python")) | .RuleId`)
