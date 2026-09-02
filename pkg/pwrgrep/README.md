@@ -123,7 +123,7 @@ Naming the id runs all three, which is what a caller asking for it meant.
 `invoke_pwrgrep(root; rules)` takes the tree and the same selector.
 
 ```console
-$ pwrq -n '[invoke_pwrgrep("pkg/pwrgrep/testdata/fixtures/go"; "go-weak-hash")]
+$ pwrq -n '[invoke_pwrgrep("../pwrgrep-rules/testdata/fixtures/go"; "go-weak-hash")]
            | map({Path, LineNumber, Match})'
 [
   {"Path":".../weak-hash.go","LineNumber":12,"Match":"md5.New()"},
@@ -335,7 +335,7 @@ are text and pwrq searches text:
 
 ```console
 $ pwrq -nc '
-  "pkg/pwrgrep/testdata/fixtures/go" as $dir | "go-weak-hash" as $rule
+  "../pwrgrep-rules/testdata/fixtures/go" as $dir | "go-weak-hash" as $rule
   | ([$dir | scan_regex("*.go"; ["ruleid:\\s*" + $rule])[] | .LineNumber + 1] | sort) as $marked
   | ([invoke_pwrgrep($dir; $rule) | .LineNumber] | unique) as $fired
   | {marked: $marked, fired: $fired, missed: ($marked - $fired), extra: ($fired - $marked)}'
@@ -422,8 +422,8 @@ search, named for the id they report under.
 ## What does not translate
 
 Some of this is pwrq's and some is the source vocabulary's, and it is worth
-knowing before writing a rule. `gen/MANIFEST.json` names every rule that was
-refused and why; this is what the reasons mean.
+knowing before writing a rule. The corpus repository's `gen/MANIFEST.json`
+names every rule that was refused and why; this is what the reasons mean.
 
 - **Join mode.** `from`/`to` composes the findings of two rules by a shared
   value, which is a query over results rather than over code. Nothing here does
@@ -482,8 +482,8 @@ says which:
 
 A text reading is looser than a parse — a `...` there crosses a boundary a
 parse would not — so it is only ever reached after the syntax reading has been
-refused, and `gen/VALIDATION.json` is what says whether the rule still finds
-what it was written to find.
+refused, and its `gen/VALIDATION.json` is what says whether the rule still
+finds what it was written to find.
 
 ## Changing a rule
 
