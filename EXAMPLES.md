@@ -746,24 +746,32 @@ $ pwrq -c '[search_censys("host.services.protocol=SSH")
           | value_counts'
 ```
 
-Tagging what a search found, which is `censys tags assign` over a result set:
+Reading the tags and what they are attached to:
 
 ```console
-$ pwrq -c '[search_censys("host.labels.value=\"c2\"")
-           | .host_v1.resource.ip
-           | add_censys_tag_assignment($tag)] | length'
-
 $ pwrq -c '[get_censys_tag] | map({name, id})'
 $ pwrq -c '[get_censys_tag_assignment($tag) | .asset_id]'
 ```
 
 CensEye is asynchronous, so starting a job and reading it are two cmdlets
-rather than one that blocks:
+rather than one that blocks. Reading needs nothing special:
 
 ```console
-$ pwrq -c 'new_censys_censeye_job("1.1.1.1") | .job_id'
 $ pwrq -c 'get_censys_censeye_job($id) | .status'
 $ pwrq -c '[get_censys_censeye_result($id)] | length'
+```
+
+The cmdlets that write are not registered unless `PWRQ_CENSYS_WRITE=1` is set,
+so these are errors — `function not defined` — in a shell that has not asked
+for them. Starting a CensEye job is here because it spends the organization's
+credits, not because it edits anything:
+
+```console
+$ PWRQ_CENSYS_WRITE=1 pwrq -c 'new_censys_censeye_job("1.1.1.1") | .job_id'
+
+$ PWRQ_CENSYS_WRITE=1 pwrq -c '[search_censys("host.labels.value=\"c2\"")
+           | .host_v1.resource.ip
+           | add_censys_tag_assignment($tag)] | length'
 ```
 
 Every cmdlet takes `{Token, OrganizationId, ServerUrl, Timeout}` as options, so

@@ -20,6 +20,8 @@ import (
 //
 // The target defaults to a host; {Type: "webproperty"} or {Type:
 // "certificate"} analyses the other two asset kinds.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterNewCenseyeJob() gojq.CompilerOption {
 	const op = "new_censys_censeye_job"
 	return common.WithFunction(op, 0, 2, func(v any, args []any) any {

@@ -101,6 +101,8 @@ func RegisterGetTag() gojq.CompilerOption {
 // Privacy is a required field of the API's body with no default, so an
 // unspecified tag is created shared — visible to the whole organization, which
 // is what a tag is usually for.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterNewTag() gojq.CompilerOption {
 	const op = "new_censys_tag"
 	return common.WithFunction(op, 0, 1, func(v any, args []any) any {
@@ -152,6 +154,8 @@ func RegisterNewTag() gojq.CompilerOption {
 
 // RegisterSetTag registers set_censys_tag, cencli's `tags update`. Every field
 // of the body is optional, so this one really is a patch.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterSetTag() gojq.CompilerOption {
 	const op = "set_censys_tag"
 	return common.WithFunction(op, 1, 2, func(v any, args []any) any {
@@ -206,6 +210,8 @@ func RegisterSetTag() gojq.CompilerOption {
 }
 
 // RegisterRemoveTag registers remove_censys_tag, cencli's `tags delete`.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterRemoveTag() gojq.CompilerOption {
 	const op = "remove_censys_tag"
 	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
@@ -321,6 +327,8 @@ func RegisterGetTagAssignment() gojq.CompilerOption {
 // hosts found by a search is the reason this cmdlet exists:
 //
 //	search_censys("...") | .host.ip | add_censys_tag_assignment("compromised")
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterAddTagAssignment() gojq.CompilerOption {
 	const op = "add_censys_tag_assignment"
 	return common.WithFunction(op, 1, 3, func(v any, args []any) any {
@@ -360,6 +368,8 @@ func RegisterAddTagAssignment() gojq.CompilerOption {
 // RegisterRemoveTagAssignment registers remove_censys_tag_assignment, cencli's
 // `tags unassign`. It takes the assignment's own ID, which
 // get_censys_tag_assignment reports — not the asset ID.
+//
+// A write: registered only when EnvWrite asks for it.
 func RegisterRemoveTagAssignment() gojq.CompilerOption {
 	const op = "remove_censys_tag_assignment"
 	return common.WithFunction(op, 1, 3, func(v any, args []any) any {
