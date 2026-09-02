@@ -55,7 +55,9 @@ func TestMain(m *testing.M) {
 	}
 	fixtureRoot = dir
 	code := m.Run()
-	os.RemoveAll(dir)
+	// Best effort: the run is over, and a temporary directory left behind is
+	// not worth changing the exit status a test produced.
+	_ = os.RemoveAll(dir)
 	os.Exit(code)
 }
 
