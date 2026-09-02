@@ -59,9 +59,13 @@ pipeline rather than an option on the call:
 
 ```console
 $ pwrq -nc '[get_pwrgrep_rule("go")] | map(select(.Fixture != "")) | map(.Path)'
-["pwrq/go-hardcoded-if-condition","pwrq/go-sql-string-concat","pwrq/go-tls-skip-verify",
- "pwrq/go-tmpfile-predictable","pwrq/go-useless-comparison","pwrq/go-weak-cipher",
- "pwrq/go-weak-hash"]
+["go/lang/correctness/go-hardcoded-if-condition",
+ "go/lang/correctness/go-useless-comparison",
+ "go/lang/security/audit/crypto/go-weak-cipher",
+ "go/lang/security/audit/crypto/go-weak-hash",
+ "go/lang/security/audit/sqli/go-sql-string-concat",
+ "go/lang/security/go-tmpfile-predictable",
+ "problem-based-packs/insecure-transport/go-stdlib/go-tls-skip-verify"]
 $ pwrq -nc '[get_pwrgrep_rule] | map(select(.Origin != "<built in>")) | map(.Path)'
 []
 ```
@@ -170,8 +174,10 @@ whole 1837.
 
 ## Where a rule of your own goes
 
-`rules/` is the corpus, built into the binary and installed to
-`/usr/share/pwrq/rules` by the package. pwrq looks for rules in, in order:
+The corpus is [pwrgrep-rules](https://github.com/xen0bit/pwrgrep-rules), a
+module this package depends on. It is built into the binary from there and
+installed to `/usr/share/pwrq/rules` by the package. pwrq looks for rules in,
+in order:
 
 1. every directory in `$PWRQ_RULES`, separated the way `PATH` is
 2. `~/.config/pwrq/rules`
@@ -367,26 +373,51 @@ wrong way round produces no findings and no error:
   guard means. A call is not inside an import statement, so `within` would find
   nothing.
 
+## Where the corpus lives
+
+In [pwrgrep-rules](https://github.com/xen0bit/pwrgrep-rules), which this
+package depends on as a Go module and embeds. A rule fix is a change there, not
+a release of the engine.
+
+It is a module rather than a git submodule for a concrete reason: a submodule's
+contents are not in the zip the module proxy serves, so `go install pwrq@latest`
+would fetch a tree with an empty rules directory and fail at the embed — as
+would any clone that forgot `--recurse-submodules`. As a dependency it is
+fetched like any other and pinned in `go.sum`.
+
+Editing a rule against a checkout is what `PWRQ_RULES` is for:
+
+    PWRQ_RULES=../pwrgrep-rules/rules pwrq -n '[invoke_pwrgrep("."; "go/lang/security")]'
+
+That repository's `tools/validate.py` runs the whole corpus against every
+fixture on every change, which is where a rule is shown to fire on the lines it
+claims. This side keeps the two checks the corpus repository cannot make:
+`TestEveryRuleCompiles`, because what compiles is decided by this binary's
+cmdlet vocabulary, and `TestEveryRuleLanguageIsInTheBuild`, because which
+grammars ship is decided by the Makefile here.
+
 ## Where the corpus came from
 
-`gen/` holds the translator and its results. `gen/port.jq` reads a YAML rule
-file and writes the .pwrq query; `gen/MANIFEST.json` accounts for every rule it
-was given — translated, or listed with the reason it was not; and
-`gen/VALIDATION.json` records how each translated rule scored against the
-annotated fixture its original was tested with. Nothing under `rules/` except
-`rules/pwrq/` is edited by hand: a fix goes in `port.jq` and the corpus is
-regenerated.
+Most of it was translated from
+[opengrep-rules](https://github.com/opengrep/opengrep-rules) by the translator
+in that repository's `gen/`, which is kept as provenance and is no longer run.
+`gen/MANIFEST.json` accounts for every rule it was given — translated, or
+listed with the reason it was not — and `gen/VALIDATION.json` records how each
+translated rule scored against the annotated fixture its original was tested
+with.
 
-1891 of the 2006 rules it was given are translated, in 26 languages, and 1442
-of those have a fixture upstream that marks a line for them. Of those, 622 find
-exactly what the fixture marks and 255 find some of it. The rest are in
+1891 of the 2006 rules it was given were translated, in 26 languages, and 1442
+of those had a fixture upstream marking a line for them. Of those, 622 found
+exactly what the fixture marks and 255 found some of it. The rest are in
 `VALIDATION.json` with their score, which is the point of the file: a rule that
 runs and finds nothing is worth knowing about, and a corpus that does not say
 so is a list of claims.
 
-`rules/pwrq/` is the eighteen written by hand, one per language family, each
-with a fixture of its own and prose saying where it departs from the rule it
-came from. They came first and are what the translator was written against.
+Eighteen were written by hand rather than translated, one per language family,
+each with a fixture of its own and prose saying where it departs from the rule
+it came from. They came first and are what the translator was written against.
+They are no longer kept in a directory apart; they sit in the category they
+search, named for the id they report under.
 
 ## What does not translate
 
@@ -436,7 +467,8 @@ written.
 
 ## What a rule is searched with
 
-A rule is one of three things, and `MANIFEST.json` says which:
+A rule is one of three things, and the corpus repository's `gen/MANIFEST.json`
+says which:
 
 - a **search over syntax**, which is most of them: `scan_ast` over the files of
   the languages the rule declares.
@@ -450,13 +482,17 @@ A rule is one of three things, and `MANIFEST.json` says which:
 
 A text reading is looser than a parse — a `...` there crosses a boundary a
 parse would not — so it is only ever reached after the syntax reading has been
-refused, and `VALIDATION.json` is what says whether the rule still finds what
-it was written to find.
+refused, and `gen/VALIDATION.json` is what says whether the rule still finds
+what it was written to find.
 
-## Regenerating
+## Changing a rule
 
-    git clone --depth 1 https://github.com/opengrep/opengrep-rules /tmp/rules-src
-    go build -o /tmp/pwrq ./cmd/pwrq
-    SRC=/tmp/rules-src PWRQ=/tmp/pwrq pkg/pwrgrep/gen/generate.sh
-    go build -o /tmp/pwrq ./cmd/pwrq   # the corpus is embedded, so rebuild
-    SRC=/tmp/rules-src PWRQ=/tmp/pwrq pkg/pwrgrep/gen/validate.sh
+In [pwrgrep-rules](https://github.com/xen0bit/pwrgrep-rules), and then here:
+
+    # in ../pwrgrep-rules
+    $EDITOR rules/go/lang/security/audit/crypto/go-weak-hash.pwrq
+    PWRQ=../pwrq/pwrq tools/validate.py
+
+    # in pwrq, once that is released
+    go get -u github.com/xen0bit/pwrgrep-rules
+    go test ./pkg/pwrgrep/

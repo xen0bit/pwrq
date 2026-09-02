@@ -3,25 +3,6 @@ module github.com/xen0bit/pwrq
 go 1.27.0
 
 require (
-	github.com/censys/censys-sdk-go v0.25.27
-	github.com/glaslos/ssdeep v0.4.0
-	github.com/google/go-cmp v0.7.0
-	github.com/google/jsonschema-go v0.4.3
-	github.com/itchyny/go-yaml v0.0.0-20251001235044-fca9a0999f15
-	github.com/itchyny/gojq v0.12.18
-	github.com/klauspost/compress v1.19.2
-	github.com/mattn/go-isatty v0.0.24
-	github.com/mattn/go-runewidth v0.0.19
-	github.com/modelcontextprotocol/go-sdk v1.7.0
-	github.com/odvcencio/gotreesitter v0.51.0
-	golang.org/x/crypto v0.51.0
-	golang.org/x/net v0.55.0
-	golang.org/x/text v0.39.0
-	modernc.org/sqlite v1.57.0
-	oss.terrastruct.com/d2 v0.7.1
-)
-
-require (
 	github.com/PuerkitoBio/goquery v1.10.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
@@ -56,4 +37,24 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	oss.terrastruct.com/util-go v0.0.0-20250213174338-243d8661088a // indirect
+)
+
+require (
+	github.com/censys/censys-sdk-go v0.25.27
+	github.com/glaslos/ssdeep v0.4.0
+	github.com/google/go-cmp v0.7.0
+	github.com/google/jsonschema-go v0.4.3
+	github.com/itchyny/go-yaml v0.0.0-20251001235044-fca9a0999f15
+	github.com/itchyny/gojq v0.12.18
+	github.com/klauspost/compress v1.19.2
+	github.com/mattn/go-isatty v0.0.24
+	github.com/mattn/go-runewidth v0.0.19
+	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/odvcencio/gotreesitter v0.51.0
+	github.com/xen0bit/pwrgrep-rules v0.0.0-20260902151232-652a73c60e8f
+	golang.org/x/crypto v0.51.0
+	golang.org/x/net v0.55.0
+	golang.org/x/text v0.39.0
+	modernc.org/sqlite v1.57.0
+	oss.terrastruct.com/d2 v0.7.1
 )

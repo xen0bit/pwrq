@@ -27,6 +27,9 @@ before:
     # The IDE is compiled into pwrq-viz below, so the page has to exist before
     # the build runs. Needs bun; release.yml installs it.
     - make web.build
+    # The corpus is a module dependency now, so there is no rules directory in
+    # the tree for the packages below to point at. This writes one.
+    - make rules.export
 
 # ---------------------------------------------------------------------------
 # Builds — two binaries, because they are two different products.
@@ -218,7 +221,7 @@ nfpms:
       # reads this directory before its own copy, so a rule changed here is the
       # one that runs, and a rule added here is found beside the ones that
       # shipped. See pkg/pwrgrep/README.md.
-      - src: pkg/pwrgrep/rules
+      - src: build/rules
         dst: /usr/share/pwrq/rules
         type: tree
 
