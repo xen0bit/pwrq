@@ -551,3 +551,31 @@ func TestAPatternsOwnBracketsAreNotScaffolding(t *testing.T) {
 		t.Errorf("matched %q, want the list itself", text)
 	}
 }
+
+// TestASubscriptWithALiteralOnTheLeftSpansTheWholeSubscript is the shape that
+// showed the scaffold test could not tell a construct from the wrapper around
+// one. `subscript_expression` appears in the scaffold chain, so `table[$I]`
+// was opened up as though it were a list of statements: the head became `_`,
+// the form lost its capture, and the span fell back to the union of the holes,
+// which stops at the index and leaves the closing bracket out.
+//
+// `$A[$I]` was always right. That is what makes it a good test - the two
+// spellings of one pattern have to agree, and the wrong one reported the same
+// line, the same captures and a span one byte short, which nothing about the
+// match said out loud.
+func TestASubscriptWithALiteralOnTheLeftSpansTheWholeSubscript(t *testing.T) {
+	dir := tree(t, map[string]string{"a.c": "int main(void) { table[3] = 1; }\n"})
+	for _, pattern := range []string{"table[$I]", "$A[$I]"} {
+		t.Run(pattern, func(t *testing.T) {
+			got := collected(t, fmt.Sprintf(`[select_ast(%q; %q)]`, dir, pattern))
+			if len(got) != 1 {
+				t.Fatalf("matched %d times, want 1", len(got))
+			}
+			if text := fmt.Sprint(field(t, got[0], "Text")); text != "table[3]" {
+				t.Errorf("matched %q, want %q - a span that stops short of the "+
+					"bracket is what within, outside and not_at then compare",
+					text, "table[3]")
+			}
+		})
+	}
+}
