@@ -3,6 +3,9 @@ VIZ_BIN := pwrq-viz
 VERSION := 0.1.0
 CURRENT_REVISION := $(shell git rev-parse --short HEAD 2>/dev/null || echo "HEAD")
 BUILD_LDFLAGS := -s -w -X github.com/xen0bit/pwrq/cli.revision=$(CURRENT_REVISION)
+# Where `rules.export` puts the corpus for the packages to pick up. Not dist/,
+# which GoReleaser empties before its hooks run.
+RULES_EXPORT := build/rules
 
 # Grammars for structural search (select_ast). gotreesitter embeds all 206 of
 # its grammars unless told otherwise, which costs 23MB of binary; naming the
@@ -27,6 +30,23 @@ SHELL := /bin/bash
 
 .PHONY: all
 all: build
+
+# The corpus is a module dependency and is embedded into the binary, so a
+# release has nothing on disk to package until it is asked for. This copies it
+# out of the module cache, which is read-only - hence the chmod, without which
+# a second run cannot overwrite the first.
+#
+# The packages install it to /usr/share/pwrq/rules. That is not what makes the
+# rules work, since they are in the binary already: it is what makes them
+# editable, because pwrq reads that directory before its own copy.
+.PHONY: rules.export
+rules.export:
+	@echo "Exporting the rule corpus to $(RULES_EXPORT)..."
+	@rm -rf $(RULES_EXPORT)
+	@mkdir -p $(RULES_EXPORT)
+	@cp -R "$$(go list -m -f '{{.Dir}}' github.com/xen0bit/pwrgrep-rules)/rules/." $(RULES_EXPORT)/
+	@chmod -R u+w $(RULES_EXPORT)
+	@echo "  $$(find $(RULES_EXPORT) -name '*.pwrq' | wc -l) rules"
 
 .PHONY: build
 build:

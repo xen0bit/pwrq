@@ -1,0 +1,158 @@
+name: rules
+
+# pwrq ships whatever is on pwrgrep-rules' main, and a Go module is pinned by
+# version — so "latest" is something this repository has to go and get. That is
+# what this does: bump the pin, prove the corpus still works against this
+# engine, and open the change as a pull request.
+#
+# It is a pull request rather than a push to main because the bump can fail
+# honestly. A rule written against a newer cmdlet vocabulary will not compile
+# here, and a rule whose language is not in GRAMMARS ships and can never fire.
+# Both are caught below, and both should be looked at rather than merged.
+#
+# The tests run in this job rather than on the pull request, because a pull
+# request opened with GITHUB_TOKEN does not start another workflow. What lands
+# in the PR body is the run that actually happened.
+
+on:
+  # Every quarter hour. The corpus repository dispatches to us the moment its
+  # main moves, so this is the fallback for when that is not set up or does
+  # not arrive - and it is frequent rather than daily because the check is
+  # cheap: resolving what main points at does not touch go.mod, so a run that
+  # finds nothing new does no module work at all and is over in seconds.
+  #
+  # GitHub runs scheduled workflows late under load and disables them on a
+  # repository with no activity for 60 days. Neither matters here: late is
+  # still minutes, and a repository nobody has touched in two months has no
+  # corpus bump to miss.
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [rules-updated]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: rules-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: bump the corpus
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27"
+          cache: true
+
+      # Asked before anything is changed, and asked of the commit rather than
+      # of the branch.
+      #
+      # `go list -m mod@main` goes through the module proxy, which caches what
+      # a branch resolves to. Right after a tag lands that cache is behind, and
+      # it will answer with the version before it - so a check written against
+      # @main reads "pinned v0.1.1, main says v0.1.0", calls that a change, and
+      # opens a pull request proposing a downgrade. Observed, not hypothesised.
+      #
+      # Asking GitHub what main points at and resolving that exact commit has
+      # no such window: the answer is a tag if the commit carries one and a
+      # pseudo-version if it does not, and equality then means what it says.
+      - name: Has the corpus moved
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mod=github.com/xen0bit/pwrgrep-rules
+          tip=$(gh api repos/xen0bit/pwrgrep-rules/commits/main -q .sha)
+          before=$(go list -m -f '{{.Version}}' "$mod")
+          after=$(go list -m -f '{{.Version}}' "$mod@$tip")
+          echo "main is at ${tip:0:8}, which is $after; pinned is $before"
+          {
+            echo "tip=$tip"
+            echo "before=$before"
+            echo "after=$after"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$before" = "$after" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # By commit, so that what is pinned is the commit that was checked
+      # rather than whatever the branch has become since.
+      - name: Bump
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          GOFLAGS=-mod=mod go get "github.com/xen0bit/pwrgrep-rules@${{ steps.check.outputs.tip }}"
+          go mod tidy
+
+      - name: Test
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          go build ./...
+          go test -race ./...
+
+      - name: Open the pull request
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE: ${{ steps.check.outputs.before }}
+          AFTER: ${{ steps.check.outputs.after }}
+        run: |
+          set -euo pipefail
+          branch="rules/bump-$AFTER"
+
+          # A re-run for a version already proposed would collide on the branch
+          # name, and there is nothing to add: the open pull request says the
+          # same thing.
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists; nothing to open"
+            exit 0
+          fi
+
+          # Written to files rather than passed inline: a multi-line argument
+          # inside a YAML block scalar carries the block's indentation into the
+          # message.
+          cat > /tmp/commit.txt <<EOF
+          Take the corpus up to $AFTER
+
+          pwrgrep-rules main moved. The rules compile against this binary's
+          cmdlet vocabulary and every language they name is in GRAMMARS, which
+          are the two things the corpus repository cannot check for itself.
+
+          $BEFORE -> $AFTER
+          EOF
+          cat > /tmp/body.md <<EOF
+          pwrgrep-rules main moved, so pwrq follows it.
+
+          \`$BEFORE\` -> \`$AFTER\`
+
+          \`go test -race ./...\` passed in the job that opened this, which is where it
+          had to run: a pull request opened with \`GITHUB_TOKEN\` does not start another
+          workflow. That covers the two checks the corpus repository cannot make for
+          itself - every rule compiles against this binary's cmdlet vocabulary, and
+          every language a rule names is a grammar the release build carries.
+
+          Opened by \`.github/workflows/rules.yml\`.
+          EOF
+          # The heredocs are indented to match the block, so take that back off.
+          sed -i 's/^          //' /tmp/commit.txt /tmp/body.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add go.mod go.sum
+          git commit -F /tmp/commit.txt
+          git push -u origin "$branch"
+          gh pr create --title "Take the corpus up to $AFTER" --body-file /tmp/body.md

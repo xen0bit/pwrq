@@ -1,6 +1,6 @@
 # Binaries. Anchored to the repository root: unanchored, `pwrq` matches a
-# directory of that name anywhere, and it silently swallowed the hand-written
-# rules under pkg/pwrgrep/rules/pwrq.
+# directory of that name anywhere, which once silently swallowed a directory
+# of rules that was called pwrq.
 /pwrq
 /pwrq-viz
 
@@ -10,6 +10,9 @@
 
 # GoReleaser output
 /dist/
+
+# `make rules.export` — the corpus copied out of the module cache for packaging
+/build/
 
 # Coverage files
 coverage.out

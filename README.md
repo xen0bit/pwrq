@@ -668,11 +668,14 @@ does not compile — because such a file does not fail to fire, it makes the
 whole catalogue unreadable.
 
 [pkg/pwrgrep](pkg/pwrgrep) is the guide to all of this: listing, reading,
-running, iterating on and writing rules, with examples. It also has the corpus,
-the translator that produced most of it, a manifest accounting for every rule
-it was given, and a validation run against the fixtures those rules are tested
-with — which is the number that matters, because a rule that runs and finds
-nothing is worth knowing about.
+running, iterating on and writing rules, with examples.
+
+The corpus itself is [pwrgrep-rules](https://github.com/xen0bit/pwrgrep-rules),
+a module pwrq depends on and embeds, so a rule fix does not need a release of
+the engine. It also carries the translator that produced most of it, a manifest
+accounting for every rule it was given, and a validation run against the
+fixtures those rules are tested with — which is the number that matters,
+because a rule that runs and finds nothing is worth knowing about.
 
 Three kinds of rule share the vocabulary. Most search syntax. Those whose
 patterns are lines rather than constructs — Dockerfile, the `regex` and

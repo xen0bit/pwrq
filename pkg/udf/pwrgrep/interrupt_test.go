@@ -119,13 +119,18 @@ func TestACancelledScanIsAFailureRatherThanACleanResult(t *testing.T) {
 //
 // Named rules rather than the whole Python corpus, because this is the one
 // test here that has to run to completion rather than stop at a deadline, and
-// the corpus is 336 rules: under -race on a CI runner, running it twice is
+// the corpus is 332 rules: under -race on a CI runner, running it twice is
 // longer than `go test` allows a package. What the cache is asked to get wrong
 // needs two rules over one tree, not every rule - these four all fire on the
 // files tree writes, so each of them reads what the one before it parsed.
+//
+// Cheap ones, deliberately. This runs its set twice under -race, so a taint
+// rule here costs the package a minute and buys nothing: what is being checked
+// is that the second run sees the same tree as the first, and a pattern rule
+// shares a parse exactly as a taint rule does.
 func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 	dir := tree(t, 12)
-	rules := `["python-weak-hash", "python-subprocess-shell-true", "insecure-hash-algorithm-md5", "subprocess-shell-true"]`
+	rules := `["python-weak-hash", "python-subprocess-shell-true", "code-after-unconditional-return", "return-not-in-function"]`
 	query := `[invoke_pwrgrep("` + dir + `"; ` + rules + `)] | map(.RuleId + " " + .Path + " " + (.LineNumber | tostring)) | sort | join(",")`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -164,23 +169,37 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 // search were still buffered, the deadline would arrive before the first value
 // did and this would fail with a timeout instead of a finding.
 //
-// Ninety seconds is not a claim that the first finding takes anything like
-// that long - warm, it is a tenth of a second. It is the gap between the two
-// answers this can give, and the gap is enormous: streaming puts a value in
-// hand in well under a second, and buffering would have to run 336 rules over
-// forty files first, which is minutes. What the number has to clear is the
-// cost of being first, and the first search in a process compiles the corpus's
-// tree-sitter patterns before it can match anything - four seconds here under
-// -race, and more than twenty on a CI runner, which is what a deadline of
-// twenty was failing on. A passing run still returns as soon as the finding
-// does; the ninety is only ever spent proving the failure.
+// Three minutes is not a claim that the first finding takes anything like that
+// long. It is a number chosen to sit between the two answers this can give,
+// and the measurements it sits between are these. Locally, first finding 2.4s
+// and all 88 rules 8.7s; -race multiplies the first of those by about twelve,
+// and a CI runner multiplies it again by about three, which puts streaming at
+// roughly ninety seconds there and buffering at roughly five and a half
+// minutes. A deadline of ninety was landing on the wrong side of the first of
+// those by a couple of seconds - it failed at 92.57s - so it is twice that
+// now, still comfortably under what buffering would cost. What the number has to clear is the
+// cost of being first, because the first search in a process compiles the
+// tree-sitter patterns of every rule it reaches before it can match anything -
+// and that cost is per rule, not per file, so a smaller tree does not reduce
+// it.
+//
+// Which is why this searches python/lang/security rather than all of python.
+// Rules run in path order and this stops at the first finding, so the cost is
+// whatever precedes the rule that fires. The hand-written rules used to sort
+// ahead of the entire generated corpus - "pwrq" sorts before "python" - and
+// one of them fired almost immediately. Moving them into the categories they
+// search put them behind python/django, whose taint rules are the most
+// expensive in the corpus, and the first finding went from 0.75s to 11.8s, or
+// from 6.9s to 160s under -race. Narrowing the selector is what keeps this
+// test measuring streaming rather than measuring where in the alphabet a
+// directory landed.
 func TestTheFirstFindingArrivesBeforeTheLastRuleRuns(t *testing.T) {
 	dir := tree(t, 40)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
-	res := runIn(ctx, `first(invoke_pwrgrep("`+dir+`"; "python")) | .RuleId`)
+	res := runIn(ctx, `first(invoke_pwrgrep("`+dir+`"; "python/lang/security")) | .RuleId`)
 	if res.Error != "" {
 		t.Fatalf("no finding arrived before the deadline, which is what a "+
 			"buffered search would do: %s", res.Error)
