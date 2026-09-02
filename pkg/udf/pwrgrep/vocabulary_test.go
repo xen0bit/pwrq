@@ -108,6 +108,54 @@ func TestAValueIsFollowedFromWhereItArrivesToWhereItIsUsed(t *testing.T) {
 	}
 }
 
+// taintedC is the same shape in C, where a value almost always arrives in a
+// declaration rather than in an assignment. `char *p = getenv("X");` is a
+// declaration with an initialiser - the grammar calls the two halves
+// declarator and value - so a build that only knew left/right, name/value and
+// target/value followed nothing at all in ordinary C.
+const taintedC = `#include <stdlib.h>
+
+void direct(void) {
+    char *name = getenv("N");
+    system(name);
+}
+
+void through_another(void) {
+    char *a = getenv("N");
+    char *b = a;
+    system(b);
+}
+
+void constant(void) {
+    char *name = "ls -la";
+    system(name);
+}
+
+void inline_(void) {
+    system(getenv("N"));
+}
+`
+
+// TestAValueIsFollowedThroughACDeclaration is the C half of the operator
+// above. It is worth its own test because C reaches a sink through a
+// different node than every other language here: an init_declarator, whose
+// halves the grammar names declarator and value.
+func TestAValueIsFollowedThroughACDeclaration(t *testing.T) {
+	dir := write(t, "app.c", taintedC)
+	got := run(t, `
+	["getenv($$$_)"] as $sources
+	| ["system($$$_)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.c"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{5.0, 11.0, 20.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  5 through a declaration, 11 through two of them,\n"+
+			"  20 written into the call; 16 is a constant", got, want)
+	}
+}
+
 // TestASanitizedValueIsNotFollowed pins the half of the previous test that is
 // easiest to lose: a rule that ignored its sanitizers would still pass on the
 // lines it does report.

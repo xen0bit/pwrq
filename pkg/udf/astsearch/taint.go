@@ -42,11 +42,18 @@ func (s Span) contains(other Span) bool { return s.Start <= other.Start && s.End
 // left/right; a declarator with an initialiser says name/value; a few say
 // target/value. A grammar that says none of them contributes no flow, which
 // costs findings rather than inventing them.
+//
+// declarator/value is C's, and C++'s, and it is the pair that carries almost
+// everything in those languages: `char *p = getenv("X");` is a declaration
+// with an initialiser and not an assignment expression, so without this pair
+// a C file's flow began at its second mention of a value and a rule about
+// tainted input found nothing in ordinary code.
 var bindingFields = [][2]string{
 	{"left", "right"},
 	{"name", "value"},
 	{"target", "value"},
 	{"pattern", "value"},
+	{"declarator", "value"},
 }
 
 // identifier is what a name looks like in the languages here, PHP's sigil
