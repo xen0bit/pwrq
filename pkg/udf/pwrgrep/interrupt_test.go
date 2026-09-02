@@ -113,14 +113,22 @@ func TestACancelledScanIsAFailureRatherThanACleanResult(t *testing.T) {
 //
 // A cache that changes what a rule reports is worse than no cache at all, and
 // the way it would go wrong is not subtle to state: a tree held from one rule
-// and read by the next is the same tree or it is a bug. Running the same
-// corpus twice in one process is what exercises that - the second run reads
-// what the first one parsed - and the two must agree.
+// and read by the next is the same tree or it is a bug. Running the same rules
+// twice in one process is what exercises that - the second run reads what the
+// first one parsed - and the two must agree.
+//
+// Named rules rather than the whole Python corpus, because this is the one
+// test here that has to run to completion rather than stop at a deadline, and
+// the corpus is 336 rules: under -race on a CI runner, running it twice is
+// longer than `go test` allows a package. What the cache is asked to get wrong
+// needs two rules over one tree, not every rule - these four all fire on the
+// files tree writes, so each of them reads what the one before it parsed.
 func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 	dir := tree(t, 12)
-	query := `[invoke_pwrgrep("` + dir + `"; "python")] | map(.RuleId + " " + .Path + " " + (.LineNumber | tostring)) | sort | join(",")`
+	rules := `["python-weak-hash", "python-subprocess-shell-true", "insecure-hash-algorithm-md5", "subprocess-shell-true"]`
+	query := `[invoke_pwrgrep("` + dir + `"; ` + rules + `)] | map(.RuleId + " " + .Path + " " + (.LineNumber | tostring)) | sort | join(",")`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	first := runIn(ctx, query)
