@@ -1,6 +1,7 @@
 package astsearch
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -79,12 +80,12 @@ var benchPatterns = []string{"md5.New()", "md5.Sum($$$A)", "fmt.Errorf($$$A)", "
 func BenchmarkSearchTree(b *testing.B) {
 	dir := benchTree(b, 24, 40)
 	// The first search decodes the grammars, which is not what this measures.
-	if _, err := SearchTree(dir, benchPatterns, "*.go"); err != nil {
+	if _, err := SearchTree(context.Background(), dir, benchPatterns, "*.go", nil); err != nil {
 		b.Fatal(err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		found, err := SearchTree(dir, benchPatterns, "*.go")
+		found, err := SearchTree(context.Background(), dir, benchPatterns, "*.go", nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -98,12 +99,12 @@ func BenchmarkSearchTree(b *testing.B) {
 // source shows up as the quadratic it is.
 func BenchmarkSearchFile(b *testing.B) {
 	dir := benchTree(b, 1, 400)
-	if _, err := SearchTree(dir, benchPatterns, "*.go"); err != nil {
+	if _, err := SearchTree(context.Background(), dir, benchPatterns, "*.go", nil); err != nil {
 		b.Fatal(err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := SearchTree(dir, benchPatterns, "*.go"); err != nil {
+		if _, err := SearchTree(context.Background(), dir, benchPatterns, "*.go", nil); err != nil {
 			b.Fatal(err)
 		}
 	}

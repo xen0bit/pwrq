@@ -1,6 +1,7 @@
 package astsearch
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -122,7 +123,7 @@ func TestSearchTreeMatchesTheSequentialWalk(t *testing.T) {
 
 	patterns := []string{"fmt.Errorf($$$A)", "if $C { $$$B }", "return $E", "def $N($$$A): $$$B"}
 
-	parallel, err := SearchTree(dir, patterns, "")
+	parallel, err := SearchTree(context.Background(), dir, patterns, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

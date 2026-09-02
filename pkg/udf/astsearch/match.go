@@ -3,6 +3,7 @@ package astsearch
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -49,15 +50,16 @@ func parseOnce(entry *grammars.LangEntry, source []byte) (*parsed, error) {
 	if lang == nil {
 		return nil, fmt.Errorf("no grammar for %s in this build", entry.Name)
 	}
-	parser := gotreesitter.NewParser(lang)
+	// From a pool rather than a fresh parser: see parserPools.
+	pool := parserFor(lang)
 	var (
 		tree *gotreesitter.Tree
 		err  error
 	)
 	if entry.TokenSourceFactory != nil {
-		tree, err = parser.ParseWithTokenSource(source, entry.TokenSourceFactory(source, lang))
+		tree, err = pool.ParseWithTokenSource(source, entry.TokenSourceFactory(source, lang))
 	} else {
-		tree, err = parser.Parse(source)
+		tree, err = pool.Parse(source)
 	}
 	if err != nil {
 		return nil, err
@@ -70,6 +72,43 @@ func parseOnce(entry *grammars.LangEntry, source []byte) (*parsed, error) {
 		return nil, nil
 	}
 	return &parsed{bound: bound, root: root, source: source}, nil
+}
+
+// parserPools holds one pool per language, for the length of the process.
+//
+// A parser is not a small object: it builds a dozen lookup tables from the
+// grammar and carries the stacks a GLR parse forks, and it costs about ten
+// megabytes whatever the size of the file it is about to read. Building one
+// per file meant a corpus of rules over a repository built one for every file
+// of every rule - a hundred thousand of them for a few hundred files - and
+// under a CPU profile the construction alone was 44% of the run.
+//
+// Pooling the file parses took a fifty-rule search over certbot from 23.6s to
+// 16.8s before the tree cache below was there to remove most of the parses
+// outright. What is left of that 44% is upstream: compiling a pattern parses
+// the pattern text through grep, which builds its own parser and is not ours
+// to pool.
+//
+// gotreesitter provides the pool for exactly this, and resets the mutable
+// state - logger, timeouts, cancellation flag, included ranges - on checkout,
+// so nothing carries from one parse to the next. A pool is safe to share
+// between goroutines, which the workers in SearchTree need.
+//
+// Keyed by the Language rather than by its name: the registry hands out one
+// Language per grammar and hands out the same one every time, and some of the
+// callers here have the Language without the entry it came from.
+var parserPools sync.Map // *gotreesitter.Language -> *gotreesitter.ParserPool
+
+// parserFor is the pool to parse this language with. Every parse in this
+// package goes through it, and a bare NewParser here is a bug.
+func parserFor(lang *gotreesitter.Language) *gotreesitter.ParserPool {
+	if p, ok := parserPools.Load(lang); ok {
+		return p.(*gotreesitter.ParserPool)
+	}
+	// Two callers racing here build two pools and one is dropped, which is
+	// cheaper than holding a lock across the construction.
+	actual, _ := parserPools.LoadOrStore(lang, gotreesitter.NewParserPool(lang))
+	return actual.(*gotreesitter.ParserPool)
 }
 
 // release gives the tree back. A parsed file is used and dropped within one

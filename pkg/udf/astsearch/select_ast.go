@@ -1,6 +1,7 @@
 package astsearch
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -11,6 +12,7 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/grep"
 	"github.com/xen0bit/pwrq/pkg/core/filewalk"
+	"github.com/xen0bit/pwrq/pkg/core/runctx"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -93,7 +95,10 @@ func RegisterSelectAst() gojq.CompilerOption {
 		if err != nil {
 			return gojq.NewIter(fmt.Errorf("select_ast: %v", err))
 		}
-		return &matchIter{patterns: patterns, opts: opts, walk: walk}
+		// No cache: the walk is lazy and stops at the first match a caller
+		// asked for, so holding what it walked past would be paying for a
+		// tree it deliberately did not read. See treecache.go.
+		return &matchIter{ctx: runctx.Current(), patterns: patterns, opts: opts, walk: walk}
 	})
 }
 
@@ -158,6 +163,14 @@ func selectAstOptions(args []any) (selectAstOpts, error) {
 
 // matchIter parses files as the caller reads matches.
 type matchIter struct {
+	// ctx is the deadline the walk runs under, checked once per file.
+	//
+	// gojq checks it between the values this yields, which covers a search
+	// that is finding things and covers nothing at all for one that is not: a
+	// pattern matching no file in a large tree yields nothing from the first
+	// file to the last, and there is no other moment to notice a deadline in.
+	// Unset when SearchTree drives this instead, which does its own checking.
+	ctx      context.Context
 	patterns []string
 	opts     selectAstOpts
 	walk     *filewalk.Walker
@@ -165,8 +178,12 @@ type matchIter struct {
 	// were written. A tree can hold five languages, and compiling per file
 	// would parse every pattern once per file rather than once per language.
 	compiled map[string][]*compiled
-	ready    []any
-	done     bool
+	// cache holds files parsed by an earlier search in the same call, and takes
+	// the ones this search parses. Nil for select_ast, which walks lazily and
+	// must not be made to hold what it walked past. See treecache.go.
+	cache *TreeCache
+	ready []any
+	done  bool
 
 	// skipped names the languages no pattern was code in, and matched counts
 	// the hits found. Together they answer the question an empty result leaves
@@ -190,6 +207,12 @@ func (it *matchIter) Next() (any, bool) {
 		}
 		if it.done {
 			return nil, false
+		}
+		if it.ctx != nil {
+			if err := it.ctx.Err(); err != nil {
+				it.done = true
+				return fmt.Errorf("select_ast: %v", err), true
+			}
 		}
 		path, ok, err := it.walk.Next()
 		if err != nil {
@@ -297,19 +320,41 @@ func (it *matchIter) searchFile(path string) ([]any, error) {
 		return nil, nil
 	}
 
-	source, err := os.ReadFile(path)
+	// Stat before read, so that what the cache remembers about a file is what
+	// was true when its text was taken.
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
+	size, modTime := info.Size(), info.ModTime().UnixNano()
 
 	// Parsed once, whatever the patterns: the tree a query runs against does
 	// not depend on which query it is, and reading the file is almost the
-	// whole cost of searching it. See match.go.
-	tree, err := parseOnce(entry, source)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %v", path, err)
+	// whole cost of searching it. See match.go. Across searches - which is
+	// what a corpus of rules is - the same holds and the cache is what keeps
+	// it. See treecache.go.
+	tree, cached := it.cache.get(path, size, modTime)
+	if !cached {
+		source, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		tree, err = parseOnce(entry, source)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", path, err)
+		}
+		// Released here only when the cache did not take it; a cached tree is
+		// the cache's to release, and releasing it now would leave every later
+		// rule reading freed memory.
+		if !it.cache.put(path, size, modTime, tree) {
+			defer tree.release()
+		}
 	}
-	defer tree.release()
+	if tree == nil {
+		// An empty file parses to nothing, which matches nothing.
+		return nil, nil
+	}
+	source := tree.source
 
 	var hits []hit
 	for i, c := range compiled {

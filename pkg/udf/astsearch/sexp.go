@@ -332,7 +332,7 @@ func scaffoldUnits(lang *gotreesitter.Language, before, closing, after, pattern 
 	}
 	doubled := before + source + closing + "\n" + source + closing + after
 	start, end := len(before), len(doubled)-len(after)
-	tree, err := gotreesitter.NewParser(lang).Parse([]byte(doubled))
+	tree, err := parserFor(lang).Parse([]byte(doubled))
 	if err != nil || tree == nil {
 		return nil
 	}

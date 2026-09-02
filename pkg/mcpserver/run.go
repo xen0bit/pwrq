@@ -19,7 +19,14 @@ const (
 	defaultMaxResults = 1000
 	maxMaxResults     = 100000
 	defaultTimeout    = 30 * time.Second
-	maxTimeout        = 10 * time.Minute
+	// maxTimeout is what a caller may ask for. An hour rather than the ten
+	// minutes it was, because the thing that needs the time is real: a corpus
+	// of rules over a repository is minutes of work even now that the files
+	// are parsed once, and a ceiling below what the work costs turns "this
+	// takes a while" into "this tool does not work". The ceiling still exists
+	// because the caller has no Ctrl-C, and a run that reaches it now stops
+	// when it is told to rather than when it happens to yield - see runctx.
+	maxTimeout = time.Hour
 	// maxOutputBytes stops a query whose *values* are enormous even though
 	// there are few of them - `[range(1e7)]` is one result.
 	maxOutputBytes = 64 << 20
@@ -41,9 +48,13 @@ const (
 // called with the engine mutex held, and installs a fresh, private session
 // state for the duration of the run: cmdlets like set_variable and set_location
 // work within a single call and never leak into the next.
-func (e *engine) execute(req runQueryArgs) runQueryResult {
+func (e *engine) execute(ctx context.Context, req runQueryArgs) runQueryResult {
 	timeout := queryrun.Clamp(time.Duration(req.TimeoutMs)*time.Millisecond, defaultTimeout, maxTimeout)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	// Derived from the call's context rather than from Background, so that a
+	// client which gives up on a call - or a transport that goes away - ends
+	// the run rather than leaving it to finish into nothing while every later
+	// call queues behind it.
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	args := make([]queryrun.Arg, len(req.Args))
