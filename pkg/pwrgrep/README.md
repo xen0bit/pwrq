@@ -24,7 +24,7 @@ all of them and a selector for some.
 
 ```console
 $ pwrq -n '[get_pwrgrep_rule] | length'
-1837
+1815
 $ pwrq -n '[get_pwrgrep_rule] | map(.Languages[]?) | unique | length'
 25
 ```
@@ -170,7 +170,7 @@ narrower selector.
 
 Naming a directory of the catalogue rather than all of it is what keeps a run
 honest. `invoke_pwrgrep("."; "go/lang/security")` over a Go repository, not the
-whole 1837.
+whole 1815.
 
 ## Where a rule of your own goes
 

@@ -119,13 +119,13 @@ func TestACancelledScanIsAFailureRatherThanACleanResult(t *testing.T) {
 //
 // Named rules rather than the whole Python corpus, because this is the one
 // test here that has to run to completion rather than stop at a deadline, and
-// the corpus is 336 rules: under -race on a CI runner, running it twice is
+// the corpus is 332 rules: under -race on a CI runner, running it twice is
 // longer than `go test` allows a package. What the cache is asked to get wrong
 // needs two rules over one tree, not every rule - these four all fire on the
 // files tree writes, so each of them reads what the one before it parsed.
 func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 	dir := tree(t, 12)
-	rules := `["python-weak-hash", "python-subprocess-shell-true", "insecure-hash-algorithm-md5", "subprocess-shell-true"]`
+	rules := `["python-weak-hash", "python-subprocess-shell-true", "dangerous-subprocess-use-audit", "subprocess-injection"]`
 	query := `[invoke_pwrgrep("` + dir + `"; ` + rules + `)] | map(.RuleId + " " + .Path + " " + (.LineNumber | tostring)) | sort | join(",")`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -167,7 +167,7 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 // Ninety seconds is not a claim that the first finding takes anything like
 // that long - warm, it is a tenth of a second. It is the gap between the two
 // answers this can give, and the gap is enormous: streaming puts a value in
-// hand in well under a second, and buffering would have to run 336 rules over
+// hand in well under a second, and buffering would have to run 332 rules over
 // forty files first, which is minutes. What the number has to clear is the
 // cost of being first, and the first search in a process compiles the corpus's
 // tree-sitter patterns before it can match anything - four seconds here under
