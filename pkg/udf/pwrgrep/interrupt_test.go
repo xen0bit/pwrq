@@ -163,10 +163,21 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 // Measured against a deadline shorter than the full corpus takes. If the
 // search were still buffered, the deadline would arrive before the first value
 // did and this would fail with a timeout instead of a finding.
+//
+// Ninety seconds is not a claim that the first finding takes anything like
+// that long - warm, it is a tenth of a second. It is the gap between the two
+// answers this can give, and the gap is enormous: streaming puts a value in
+// hand in well under a second, and buffering would have to run 336 rules over
+// forty files first, which is minutes. What the number has to clear is the
+// cost of being first, and the first search in a process compiles the corpus's
+// tree-sitter patterns before it can match anything - four seconds here under
+// -race, and more than twenty on a CI runner, which is what a deadline of
+// twenty was failing on. A passing run still returns as soon as the finding
+// does; the ninety is only ever spent proving the failure.
 func TestTheFirstFindingArrivesBeforeTheLastRuleRuns(t *testing.T) {
 	dir := tree(t, 40)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	res := runIn(ctx, `first(invoke_pwrgrep("`+dir+`"; "python")) | .RuleId`)
