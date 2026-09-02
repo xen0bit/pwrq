@@ -169,10 +169,15 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 // search were still buffered, the deadline would arrive before the first value
 // did and this would fail with a timeout instead of a finding.
 //
-// Ninety seconds is not a claim that the first finding takes anything like
-// that long. It is the gap between the two answers this can give: streaming
-// puts a value in hand in a couple of seconds, and buffering would have to run
-// all 88 rules over forty files first. What the number has to clear is the
+// Three minutes is not a claim that the first finding takes anything like that
+// long. It is a number chosen to sit between the two answers this can give,
+// and the measurements it sits between are these. Locally, first finding 2.4s
+// and all 88 rules 8.7s; -race multiplies the first of those by about twelve,
+// and a CI runner multiplies it again by about three, which puts streaming at
+// roughly ninety seconds there and buffering at roughly five and a half
+// minutes. A deadline of ninety was landing on the wrong side of the first of
+// those by a couple of seconds - it failed at 92.57s - so it is twice that
+// now, still comfortably under what buffering would cost. What the number has to clear is the
 // cost of being first, because the first search in a process compiles the
 // tree-sitter patterns of every rule it reaches before it can match anything -
 // and that cost is per rule, not per file, so a smaller tree does not reduce
@@ -191,7 +196,7 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 func TestTheFirstFindingArrivesBeforeTheLastRuleRuns(t *testing.T) {
 	dir := tree(t, 40)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	res := runIn(ctx, `first(invoke_pwrgrep("`+dir+`"; "python/lang/security")) | .RuleId`)
