@@ -71,7 +71,7 @@ func Reaches(path, language string, sources, sinks, sanitizers []Span) ([]int, e
 	if err != nil {
 		return nil, err
 	}
-	tree, err := gotreesitter.NewParser(entry.Language()).Parse(source)
+	tree, err := parserFor(entry.Language()).Parse(source)
 	if err != nil || tree == nil {
 		return nil, err
 	}

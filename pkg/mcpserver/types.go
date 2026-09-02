@@ -32,7 +32,13 @@ type runQueryArgs struct {
 	// a single fetched document is one result. Zero means the default.
 	MaxBytes int `json:"maxBytes,omitempty" jsonschema:"maximum size of any one result in bytes, default 8192, capped at 1048576; a larger value is cut with a marker saying how much was dropped, so raise this only when you mean to read the whole thing"`
 	// TimeoutMs caps how long the run may take. Zero means the default; it is clamped.
-	TimeoutMs int `json:"timeoutMs,omitempty" jsonschema:"timeout in milliseconds, default 30000"`
+	//
+	// The ceiling is named in the schema because the caller cannot discover it
+	// by hitting it: a run that needs longer than it is given comes back as a
+	// timeout, and a caller that does not know it may ask for more reads that
+	// as the tool being broken. A corpus-wide invoke_pwrgrep over a large tree
+	// is the case that needs it.
+	TimeoutMs int `json:"timeoutMs,omitempty" jsonschema:"timeout in milliseconds - default 30000, maximum 3600000; a whole-corpus invoke_pwrgrep over a large repository takes minutes and should ask for them"`
 	// Args binds named variables reachable from the query as $name, like jq --argjson.
 	Args []namedArg `json:"args,omitempty" jsonschema:"named variables bound like jq --argjson, reachable as $name"`
 }

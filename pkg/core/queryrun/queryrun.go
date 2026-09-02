@@ -23,6 +23,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/itchyny/gojq"
+
+	"github.com/xen0bit/pwrq/pkg/core/runctx"
 	"github.com/xen0bit/pwrq/pkg/core/shape"
 )
 
@@ -176,6 +178,13 @@ func Clamp[T ~int | ~int64](v, fallback, ceiling T) T {
 func (r *Runner) Run(ctx context.Context, req *Request) (result Result) {
 	started := time.Now()
 	resp := Result{Values: []string{}}
+
+	// gojq checks the deadline between the values a program yields, which is
+	// no check at all for a cmdlet that does all its work before yielding
+	// anything. Publishing the context is what lets such a cmdlet stop by
+	// itself; see runctx. Restored on the way out, so a run nested inside a
+	// cmdlet leaves the outer run's deadline in place.
+	defer runctx.Install(ctx)()
 
 	// The observer is attached on the way out rather than at each return: a
 	// run that failed halfway still produced values, and describing them is
@@ -364,13 +373,20 @@ func (r *Runner) parse(req *Request) (*gojq.Query, Result) {
 // be recovered; on a loaded machine it is easily a millisecond, which is why
 // a 50ms deadline can read back as 49ms. Close enough to tell a user which
 // limit they hit, and not something to assert an exact string against.
+//
+// It says what to do rather than what happened, because what to do is the part
+// the caller cannot work out: the values above the message are real findings
+// and reading them as the whole answer is the mistake this is here to prevent.
+// It used to say the query was still running, which was true of a cmdlet that
+// ignored the deadline and is no longer the ordinary case - see runctx.
 func timeoutMessage(ctx context.Context, started time.Time) string {
+	const advice = "any values above are what it produced before stopping, not the whole answer; raise the timeout to let it finish"
 	at, ok := ctx.Deadline()
 	if !ok {
-		return "stopped: the query is still running"
+		return "stopped early: " + advice
 	}
-	return fmt.Sprintf("stopped after %s; the query is still running",
-		at.Sub(started).Round(time.Millisecond))
+	return fmt.Sprintf("stopped after %s: %s",
+		at.Sub(started).Round(time.Millisecond), advice)
 }
 
 // haltMessage renders what a halt carried, mirroring how the CLI writes it to

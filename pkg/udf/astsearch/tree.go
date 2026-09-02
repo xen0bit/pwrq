@@ -1,6 +1,7 @@
 package astsearch
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"runtime"
@@ -23,7 +24,16 @@ import (
 // files met is ordinary here rather than the mistake it is when a person typed
 // one pattern. That is the one difference: the diagnostic select_ast ends its
 // stream with is left to select_ast. See exhausted.
-func SearchTree(root string, patterns []string, include string) ([]any, error) {
+//
+// ctx is the deadline the search runs under. It is checked once per file,
+// which is the granularity that matters: reading a file is nearly the whole
+// cost of searching it, so a search stops within one parse of being told to
+// rather than at the end of the tree. A rule set that cannot finish inside its
+// timeout now says so instead of running on unattended.
+//
+// cache, when it is not nil, holds the files this search parses so that the
+// next search in the same call finds them already read. See treecache.go.
+func SearchTree(ctx context.Context, root string, patterns []string, include string, cache *TreeCache) ([]any, error) {
 	walk, err := filewalk.New(root, include)
 	if err != nil {
 		return nil, err
@@ -40,7 +50,7 @@ func SearchTree(root string, patterns []string, include string) ([]any, error) {
 		paths = append(paths, path)
 	}
 
-	it := &matchIter{patterns: patterns, opts: selectAstOpts{include: include}, walk: walk}
+	it := &matchIter{patterns: patterns, opts: selectAstOpts{include: include}, walk: walk, cache: cache}
 	found := make([][]any, len(paths))
 	errs := make([]error, len(paths))
 
@@ -59,15 +69,31 @@ func SearchTree(root string, patterns []string, include string) ([]any, error) {
 		go func() {
 			defer wg.Done()
 			for i := range next {
+				// Checked here as well as at the feeding loop below, so that
+				// a cancelled search stops parsing rather than working
+				// through what it was already handed.
+				if ctx.Err() != nil {
+					continue
+				}
 				found[i], errs[i] = it.searchFile(paths[i])
 			}
 		}()
 	}
 	for i := range paths {
+		if ctx.Err() != nil {
+			break
+		}
 		next <- i
 	}
 	close(next)
 	wg.Wait()
+
+	// A search that was cut short has found some of what is there, and some of
+	// what is there is the one answer a rule must never give: it reads as a
+	// clean bill of health. The deadline is reported instead.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	var out []any
 	for i := range paths {
@@ -270,7 +296,7 @@ func readSource(entry *grammars.LangEntry, source string) (reading, bool) {
 
 // parses reports whether a grammar could read the whole of a piece of source.
 func parses(lang *gotreesitter.Language, source string) bool {
-	tree, err := gotreesitter.NewParser(lang).Parse([]byte(source))
+	tree, err := parserFor(lang).Parse([]byte(source))
 	if err != nil || tree == nil {
 		return false
 	}

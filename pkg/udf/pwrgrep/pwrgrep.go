@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/runctx"
 	"github.com/xen0bit/pwrq/pkg/pwrgrep"
+	"github.com/xen0bit/pwrq/pkg/udf/astsearch"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -35,17 +37,26 @@ import (
 // ~/.config/pwrq/rules and it is found beside the rules that shipped. A file
 // there with the same path as a shipped rule replaces it.
 //
-// Each rule walks the tree itself, so naming a directory of the catalogue
-// rather than all of it is what keeps a run quick: nothing outside a rule
-// knows which files it will ask for, so nothing can share a walk between two
-// of them. That is the price of a rule being a query rather than a
-// description, and it is the right way round - a rule you can read and edit is
-// worth more than one that is cheap to schedule.
+// Each rule walks the tree itself, so nothing outside a rule knows which files
+// it will ask for and nothing can share a walk between two of them. That is
+// the price of a rule being a query rather than a description, and it is the
+// right way round - a rule you can read and edit is worth more than one that
+// is cheap to schedule. What can be shared is the reading: a parse tree does
+// not depend on which rule is about to run against it, so the files one rule
+// parses are kept for the next. See astsearch/treecache.go, which is also
+// where the bound on that is.
 //
-// It streams, and a finding is an ordinary value: filtering vendored code is
-// the next stage of the pipeline rather than an option here.
+// It streams, rule by rule, and a finding is an ordinary value: filtering
+// vendored code is the next stage of the pipeline rather than an option here.
 //
 //	[invoke_pwrgrep("."; "javascript-*")] | map(select(.Path | test("min\\.js") | not))
+//
+// Streaming is not a detail of how the results are delivered. A corpus over a
+// large repository is minutes of work, and a run that is stopped - by a
+// deadline, or by a caller that wanted the first few - used to have nothing to
+// show for the rules it had already finished, because every finding was held
+// back until the last rule was done. They arrive as they are found now, so a
+// run that does not finish still reports what it saw.
 func RegisterInvokePwrgrep() gojq.CompilerOption {
 	common.DeclareInput("invoke_pwrgrep", common.InputPipeline)
 	return common.WithIterFunctionOf("invoke_pwrgrep", 1, 2, Finding, func(v any, args []any) gojq.Iter {
@@ -62,16 +73,87 @@ func RegisterInvokePwrgrep() gojq.CompilerOption {
 		if err != nil {
 			return gojq.NewIter(fmt.Errorf("invoke_pwrgrep: %v", err))
 		}
-		var out []any
-		for _, rule := range rules {
-			found, err := rule.Run(context.Background(), root)
-			if err != nil {
-				return gojq.NewIter(fmt.Errorf("invoke_pwrgrep: %v", err))
-			}
-			out = append(out, found...)
+		return &findingIter{
+			ctx:   runctx.Current(),
+			root:  root,
+			rules: rules,
+			cache: astsearch.NewTreeCache(),
 		}
-		return gojq.NewIter(out...)
 	})
+}
+
+// findingIter runs the rules one at a time and hands back what each reported
+// before starting the next.
+type findingIter struct {
+	ctx   context.Context
+	root  string
+	rules []*pwrgrep.Rule
+	// cache is the files the rules have parsed so far, shared between them and
+	// released when the last one is done.
+	cache *astsearch.TreeCache
+
+	next  int
+	ready []any
+	done  bool
+}
+
+func (it *findingIter) Next() (any, bool) {
+	for {
+		if len(it.ready) > 0 {
+			// A finding is text and numbers copied out of the file it was
+			// found in, so it outlives the tree it came from and the cache may
+			// be released with findings still queued here.
+			v := it.ready[0]
+			it.ready = it.ready[1:]
+			return v, true
+		}
+		if it.done {
+			return nil, false
+		}
+		if it.next >= len(it.rules) {
+			it.finish()
+			return nil, false
+		}
+		// Between rules as well as inside one: a rule whose glob matches
+		// nothing costs no time and reaches no deadline check of its own.
+		if err := it.ctx.Err(); err != nil {
+			it.finish()
+			return fmt.Errorf("invoke_pwrgrep: %v after %d of %d rules", err, it.next, len(it.rules)), true
+		}
+		rule := it.rules[it.next]
+		it.next++
+		found, err := it.run(rule)
+		if err != nil {
+			it.finish()
+			return fmt.Errorf("invoke_pwrgrep: %v", err), true
+		}
+		it.ready = found
+	}
+}
+
+// run evaluates one rule with the shared cache in force. scan_ast is what
+// reaches for it, and scan_ast is inside the rule's own query, so the cache is
+// installed for the length of the call rather than passed down. It is restored
+// straight afterwards, so nothing outside this run ever sees it.
+func (it *findingIter) run(rule *pwrgrep.Rule) ([]any, error) {
+	defer astsearch.InstallTreeCache(it.cache)()
+	return rule.Run(it.ctx, it.root)
+}
+
+// finish gives back the trees. It is idempotent, because it is called both
+// when the rules run out and when one of them fails.
+//
+// A caller that abandons the iterator - `first(invoke_pwrgrep(...))` - never
+// reaches this, and the trees are then collected as ordinary garbage rather
+// than returned to the parser's arena pool. That costs some recycling and
+// leaks nothing: gojq has no way to tell an iterator it is finished with, and
+// holding the arenas for the length of a run would be the worse trade.
+func (it *findingIter) finish() {
+	if it.done {
+		return
+	}
+	it.done = true
+	it.cache.Release()
 }
 
 // bindSelectors reads the rules argument, which is one name or several.

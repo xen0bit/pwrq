@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -37,7 +38,7 @@ func exercise(t *testing.T, e *engine, name, query string) {
 	}()
 	e.execMu.Lock()
 	defer e.execMu.Unlock()
-	_ = e.execute(runQueryArgs{
+	_ = e.execute(context.Background(), runQueryArgs{
 		Query:     query,
 		NullInput: true,
 		Compact:   true,
@@ -150,7 +151,7 @@ func TestKnownPanicQueries(t *testing.T) {
 func TestDeeplyNestedOutput(t *testing.T) {
 	e := getEngine()
 	e.execMu.Lock()
-	res := e.execute(runQueryArgs{
+	res := e.execute(context.Background(), runQueryArgs{
 		Query:     "reduce range(100000) as $i (null; [.])",
 		NullInput: true,
 		Compact:   true,

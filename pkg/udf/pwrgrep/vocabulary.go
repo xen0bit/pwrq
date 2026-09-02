@@ -11,6 +11,7 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/filewalk"
+	"github.com/xen0bit/pwrq/pkg/core/runctx"
 	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/astsearch"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
@@ -165,9 +166,15 @@ func RegisterScanAst() gojq.CompilerOption {
 			return common.MakeUDFErrorResult(
 				fmt.Errorf("%s: no patterns, so there is nothing to search for", op), nil)
 		}
+		// The run's deadline and the cache of files an earlier rule already
+		// parsed are both ambient: gojq hands a cmdlet its input and its
+		// arguments and nothing else, so neither can be passed in. See runctx
+		// and astsearch.InstallTreeCache for why that is the shape.
+		ctx := runctx.Current()
+		cache := astsearch.AmbientTreeCache()
 		out := []any{}
 		for _, glob := range globs {
-			found, err := astsearch.SearchTree(root, patterns, glob)
+			found, err := astsearch.SearchTree(ctx, root, patterns, glob, cache)
 			if err != nil {
 				return common.MakeUDFErrorResult(fmt.Errorf("%s: %v", op, err), nil)
 			}
