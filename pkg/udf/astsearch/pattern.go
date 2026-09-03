@@ -609,6 +609,22 @@ func unwrapTopLevel(lang *gotreesitter.Language, pattern, language string,
 		}
 		seen[read.SExpr] = true
 		inside = append(inside, read)
+		// The first reading that names a construct is the pattern. The
+		// scaffolds are ordered from the least to the most that has to be
+		// assumed about where the pattern stands, so a later one that also
+		// reads is the same construct understood somewhere the earlier one
+		// already covers - a declaration is a `variable_declaration` in a
+		// method body and in a class body alike. Trying the rest anyway cost a
+		// parse and an anchoring pass each, on every C# pattern in the corpus,
+		// and took the rules package past the timeout CI gives it.
+		//
+		// A reading of several units is not that. `public $T $M($$$_) { $$$_ }`
+		// inside a function body is a run of fragments that happens to parse,
+		// and the class body is where it is one `method_declaration`, so a
+		// headless reading is kept and the search continues.
+		if readingHead(read) != "" {
+			break
+		}
 	}
 	if len(inside) == 0 {
 		return queries

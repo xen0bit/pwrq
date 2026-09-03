@@ -55,15 +55,21 @@ jobs:
           go mod tidy
           git diff --exit-code -- go.mod go.sum
 
+      # -timeout is set because the default is per package and the rules
+      # package has outgrown it. It searches every fixture in the corpus with
+      # every rule that names one, under -race, and both halves grow every time
+      # a language is added: it was 539s on this runner before C# rules could
+      # match anything, and the 600s default left no room for the next
+      # language. 30m is not an expectation, it is headroom.
       - name: Test
-        run: go test -race ./...
+        run: go test -race -timeout 30m ./...
 
       # The viz files sit behind a build tag, so the default run never compiles
       # them. gojq's CLI corpus lives in cli/, and it is the test that enforces
       # "any valid jq program produces byte-identical output" -- running it
       # again under -tags viz is what keeps the diagram build from diverging.
       - name: Test (viz build)
-        run: go test -race -tags viz ./cli/...
+        run: go test -race -timeout 30m -tags viz ./cli/...
 
   lint:
     name: lint & vet

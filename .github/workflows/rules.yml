@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           go build ./...
-          go test -race ./...
+          go test -race -timeout 30m ./...
 
       - name: Open the pull request
         if: steps.check.outputs.changed == 'true'
@@ -138,7 +138,7 @@ jobs:
 
           \`$BEFORE\` -> \`$AFTER\`
 
-          \`go test -race ./...\` passed in the job that opened this, which is where it
+          \`go test -race -timeout 30m ./...\` passed in the job that opened this, which is where it
           had to run: a pull request opened with \`GITHUB_TOKEN\` does not start another
           workflow. That covers the two checks the corpus repository cannot make for
           itself - every rule compiles against this binary's cmdlet vocabulary, and
