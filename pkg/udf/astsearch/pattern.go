@@ -315,6 +315,16 @@ func memberReadings(lang *gotreesitter.Language, pattern, language string,
 	if !ok {
 		return nil
 	}
+	// The language-level gate, and it is what keeps this off the hot path.
+	// Compiling a corpus asks this of tens of thousands of patterns, and for
+	// all but a handful the answer is "the same thing" - so the answer is
+	// worked out once per language, from a declaration nobody wrote, and a
+	// pattern that is not a declaration in that language never reaches the
+	// parse below. Without it the whole test suite ran a tenth slower for
+	// nothing.
+	if !renamesDeclarations(lang, language, head) {
+		return nil
+	}
 	var out []*grep.CompiledPattern
 	seen := map[string]bool{head: true}
 	for _, keyword := range memberHolders {
@@ -365,6 +375,52 @@ func memberReadings(lang *gotreesitter.Language, pattern, language string,
 // keeps the strings this rule corpus most wants to find.
 var memberHolders = []string{"class", "interface"}
 
+// declarationProbe is a declaration with an initialiser, written in names no
+// program uses, for asking a grammar what it calls one.
+const declarationProbe = probePrefix + "type " + probePrefix + "name = 1;"
+
+// renamed is what one language does to a declaration: what it calls one
+// standing alone, and whether it calls it something else inside anything that
+// holds members.
+type renamed struct {
+	local string
+	elsew bool
+}
+
+// renamedIn is renamed per language, worked out once.
+var renamedIn sync.Map
+
+// renamesDeclarations reports whether this grammar gives a declaration a
+// different name inside a class or an interface, and whether the pattern in
+// hand is a declaration in the first place.
+//
+// It is a gate on cost rather than on correctness - everything it lets through
+// is still checked child by child by otherHead. What it buys is that a
+// language which names a declaration the same everywhere, or has no class at
+// all, is asked once instead of once per pattern.
+//
+// The scope it fixes is worth being explicit about: the question is asked of a
+// declaration, because a declaration is the construct grammars rename by
+// position. A grammar that renames something else - a call, a block - inside a
+// class body would not be noticed, and that is a deliberate limit rather than
+// an oversight. Java renames a declaration three ways and nothing else, which
+// is the case this exists for.
+func renamesDeclarations(lang *gotreesitter.Language, language, head string) bool {
+	cached, ok := renamedIn.Load(language)
+	if !ok {
+		r := renamed{local: memberType(lang, "", declarationProbe)}
+		for _, keyword := range memberHolders {
+			if named := memberType(lang, keyword, declarationProbe); named != "" && named != r.local {
+				r.elsew = true
+			}
+		}
+		renamedIn.Store(language, r)
+		cached = r
+	}
+	r := cached.(renamed)
+	return r.elsew && r.local != "" && head == r.local
+}
+
 // memberType is what a grammar calls this text inside something that holds
 // members, or "" when it cannot read it in there at all.
 //
@@ -373,6 +429,9 @@ var memberHolders = []string{"class", "interface"}
 // add, and that is almost every pattern in this corpus. The compiled reading is
 // only ever built for the few that come back with a different name, and it is
 // still built, because a name is not a promise that the children are the same.
+//
+// An empty keyword asks the same question of the text standing on its own,
+// which is what the language-level gate compares against.
 //
 // A wrapper the grammar cannot follow is not an answer. Java has nowhere to put
 // a bare call inside a class body, so `foo($X);` in there is an ERROR parse,
@@ -384,8 +443,11 @@ func memberType(lang *gotreesitter.Language, keyword, pattern string) string {
 	if pre, _, err := grep.Preprocess(pattern); err == nil {
 		source = strings.ReplaceAll(pre, "__GREP_", probePrefix)
 	}
-	before := keyword + " " + scaffoldName + " {\n"
-	tree, err := parserFor(lang).Parse([]byte(before + source + "\n}"))
+	before, after := "", ""
+	if keyword != "" {
+		before, after = keyword+" "+scaffoldName+" {\n", "\n}"
+	}
+	tree, err := parserFor(lang).Parse([]byte(before + source + after))
 	if err != nil || tree == nil {
 		return ""
 	}
