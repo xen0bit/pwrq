@@ -401,3 +401,85 @@ func equal(a, b any) bool {
 	y, _ := json.Marshal(b)
 	return string(x) == string(y)
 }
+
+// boundWithoutAFieldName is the shape C# makes of a declaration: the
+// declarator gives its name a field and leaves the initialiser an ordinary
+// child, so none of the field pairs in bindingFields match and a declaration -
+// which is how nearly every value in a C# program is introduced - carried no
+// flow at all. Every rule in the corpus that follows a value through C# found
+// nothing, silently.
+const boundWithoutAFieldName = `using System.Data.SqlClient;
+
+namespace Demo {
+    public class Api {
+        public void Read() {
+            string name = Request.Query["name"];
+            var cmd = new SqlCommand("SELECT * FROM t WHERE n = '" + name + "'", _c);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void Fixed() {
+            string name = "constant";
+            var cmd = new SqlCommand("SELECT * FROM t WHERE n = '" + name + "'", _c);
+            cmd.ExecuteNonQuery();
+        }
+    }
+}
+`
+
+func TestAValueIsFollowedThroughADeclarationWithNoValueField(t *testing.T) {
+	dir := write(t, "Api.cs", boundWithoutAFieldName)
+	got := run(t, `
+	["$T $V = $S;"] as $assigned
+	| ["new SqlCommand($Q, $$$_)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.cs"; $assigned + $sinks)) as $all
+	| ($all | of($assigned) | where_capture("S"; "Request\\.Query") | focus("S")) as $untrusted
+	| ($all | of($sinks) | focus("Q") | reaching($untrusted; []))
+	| map(.LineNumber)`)
+
+	want := []any{7.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  7 is the query built from the request;\n"+
+			"  13 builds the same string from a constant", got, want)
+	}
+}
+
+// arrivingAsAParameter is the other half, and it is how every C# web framework
+// written since about 2016 spells a request. ASP.NET binds a controller
+// action's arguments from the query string, the route and the body, so the
+// parameter *is* the untrusted value and there is no accessor in the method to
+// point at instead. A source that is a name was given to nothing, so the walk
+// up from it found no flow and the sink two lines later went unreported.
+const arrivingAsAParameter = `using System.Data.SqlClient;
+
+namespace Demo {
+    public class Api {
+        public void ByCity(string city) {
+            var cmd = new SqlCommand("SELECT * FROM t WHERE c = '" + city + "'", _c);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void Elsewhere() {
+            var cmd = new SqlCommand("SELECT * FROM t WHERE c = '" + city + "'", _c);
+            cmd.ExecuteNonQuery();
+        }
+    }
+}
+`
+
+func TestAValueIsFollowedFromTheParameterItArrivesIn(t *testing.T) {
+	dir := write(t, "Api.cs", arrivingAsAParameter)
+	got := run(t, `
+	["public $T $M(string $P) { $$$_ }"] as $bound
+	| ["new SqlCommand($Q, $$$_)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.cs"; $bound + $sinks)) as $all
+	| ($all | of($bound) | focus("P")) as $untrusted
+	| ($all | of($sinks) | focus("Q") | reaching($untrusted; []))
+	| map(.LineNumber)`)
+
+	want := []any{6.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  6 uses the parameter it was given;\n"+
+			"  11 spells a name the same way in a method that has no such parameter", got, want)
+	}
+}
