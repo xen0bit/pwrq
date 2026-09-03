@@ -579,3 +579,97 @@ func TestASubscriptWithALiteralOnTheLeftSpansTheWholeSubscript(t *testing.T) {
 		})
 	}
 }
+
+// TestAJavaDeclarationIsReadWhereverOneCanStand is the Java half of what
+// TestACPatternIsReadAsAStatement is for C: the same characters mean two things
+// and the grammar names them differently.
+//
+// `String $F = $E;` parses standing alone, because tree-sitter-java takes a
+// bare statement at the top of a file, so it compiles cleanly on the first
+// reading to a local_variable_declaration and no scaffolded reading is ever
+// reached for. The identical text inside a class is a field_declaration and
+// inside an interface a constant_declaration - three node types, one construct
+// - and a query for one matches neither of the others.
+//
+// The cost was not a rule that fired in the wrong place. It was a rule nobody
+// could write: `private static final String PASSWORD = "hunter2";` is the shape
+// every hardcoded-credential rule is about, and no pattern could name it.
+func TestAJavaDeclarationIsReadWhereverOneCanStand(t *testing.T) {
+	const source = `package t;
+
+class Secrets {
+    private static final String PASSWORD = "hunter2";
+    String instance = "b";
+
+    void run() {
+        String local = "c";
+        System.out.println(local);
+    }
+}
+
+interface Names {
+    String CONSTANT = "d";
+}
+`
+	dir := tree(t, map[string]string{"Secrets.java": source})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .Captures.F]`, dir, "$T $F = $E;"))
+	want := []string{"PASSWORD", "instance", "local", "CONSTANT"}
+	if len(got) != len(want) {
+		t.Fatalf("matched %d declarations %v, want %d %v", len(got), got, len(want), want)
+	}
+	for i, name := range want {
+		if fmt.Sprint(got[i]) != name {
+			t.Errorf("match %d bound %v, want %q", i, got[i], name)
+		}
+	}
+}
+
+// TestAModifiedJavaFieldKeepsItsTextComparison is the half that the capture
+// numbering could quietly break. The second reading takes only the node type
+// from the grammar and every other part of the query from the first reading,
+// so a pattern that compares text has to still compare it - and has to compare
+// the right text, not the text some other reading of it counted from.
+func TestAModifiedJavaFieldKeepsItsTextComparison(t *testing.T) {
+	const source = `package t;
+
+class Secrets {
+    private static final String PASSWORD = "hunter2";
+    public String other = "b";
+}
+`
+	dir := tree(t, map[string]string{"Secrets.java": source})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .Captures.F]`,
+		dir, "private static final $T $F = $E;"))
+	if len(got) != 1 || fmt.Sprint(got[0]) != "PASSWORD" {
+		t.Fatalf("matched %v, want [PASSWORD] - the modifiers are compared as text and only one "+
+			"field has those", got)
+	}
+}
+
+// TestAJavaCallIsNotReadAsAMember is the control. A grammar that cannot read
+// the pattern inside a class has not given it a second name, and the reading
+// that comes back from a failed parse - an ERROR node, whose type is a name
+// like any other - must not be taken for one.
+func TestAJavaCallIsNotReadAsAMember(t *testing.T) {
+	c, err := compilePattern("foo($X);", "java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.queries) != 1 {
+		t.Errorf("a call compiled to %d readings, want 1:\n%v", len(c.queries), readingHeads(c))
+	}
+}
+
+// readingHeads is the node type each reading is rooted at, for a failure
+// message that says which readings were made rather than how many.
+func readingHeads(c *compiled) []string {
+	var out []string
+	for _, q := range c.queries {
+		head, _, ok := splitHead(q.SExpr)
+		if !ok {
+			head = q.SExpr
+		}
+		out = append(out, head)
+	}
+	return out
+}
