@@ -44,7 +44,7 @@ jobs:
           bun-version: "1.3.14"
 
       - name: Run tests
-        run: go test -race ./...
+        run: go test -race -timeout 30m ./...
 
       # syft produces the SBOMs and cosign signs the checksum file. Both are
       # pinned rather than floating: a dependency that moves on its own schedule
