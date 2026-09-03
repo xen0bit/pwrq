@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // A pattern is a claim about a node's children, and the query the engine
@@ -672,4 +674,132 @@ func readingHeads(c *compiled) []string {
 		out = append(out, head)
 	}
 	return out
+}
+
+// The C# grammar wraps every statement that stands at the top of a file in a
+// node of its own, so a pattern read there anchors to something no file with a
+// class in it contains. See bodyReadings.
+func TestACSharpStatementIsReadInsideAMethod(t *testing.T) {
+	const source = `using System;
+
+namespace Demo {
+    public class Greeter {
+        public void Run(string who) {
+            Console.WriteLine(who);
+        }
+    }
+}
+`
+	dir := tree(t, map[string]string{"Greeter.cs": source})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .LineNumber]`, dir, "Console.WriteLine($X);"))
+	if len(got) != 1 {
+		t.Fatalf("a call inside a method: got %v, want the one on line 6", got)
+	}
+}
+
+// And the reading it had before is still one of its readings: a file that is
+// nothing but statements is C# too, and the rule should still find it.
+func TestACSharpStatementIsStillReadAtTheTopOfAFile(t *testing.T) {
+	dir := tree(t, map[string]string{"Program.cs": "using System;\nConsole.WriteLine(who);\n"})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .LineNumber]`, dir, "Console.WriteLine($X);"))
+	if len(got) != 1 {
+		t.Fatalf("a top-level statement: got %v, want the one on line 2", got)
+	}
+}
+
+// A declaration is reached wherever one can stand, which in C# is the same
+// reading in both places - a field and a local both hold a variable_declaration
+// - rather than the three node types Java has. See TestAJavaDeclarationIsRead.
+func TestACSharpDeclarationIsReadWhereverOneCanStand(t *testing.T) {
+	const source = `class Secrets {
+    private const string PASSWORD = "hunter2";
+
+    void Run() {
+        string local = "c";
+        Use(local);
+    }
+}
+`
+	dir := tree(t, map[string]string{"Secrets.cs": source})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .Captures.V]`, dir, "$T $V = $E;"))
+	want := []string{"PASSWORD", "local"}
+	if len(got) != len(want) {
+		t.Fatalf("declarations: got %v, want %v", got, want)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Fatalf("declaration %d: got %v, want %q", i, got[i], w)
+		}
+	}
+}
+
+// The gate is the whole reason this is affordable, and the reason it is safe:
+// every other grammar in the build reads a statement standing alone as the same
+// thing it reads one inside a body, and must be left alone. JavaScript is the
+// one that a containment test rather than an exact-wrapper test got wrong.
+func TestOnlyCSharpWrapsAStatementThatStandsAlone(t *testing.T) {
+	var wrapped []string
+	for _, name := range []string{
+		"csharp", "java", "python", "go", "ruby", "javascript", "typescript",
+		"c", "cpp", "php", "kotlin", "scala", "rust", "swift", "solidity",
+	} {
+		entry := grammars.DetectLanguageByName(name)
+		if entry == nil {
+			continue
+		}
+		if wrapsTopLevelStatements(entry.Language(), name) != "" {
+			wrapped = append(wrapped, name)
+		}
+	}
+	if len(wrapped) != 1 || wrapped[0] != "csharp" {
+		t.Fatalf("grammars that wrap a top-level statement: got %v, want [csharp]", wrapped)
+	}
+}
+
+// A pattern the grammar did not wrap is left alone, which is what keeps this
+// off every C# pattern that is already a declaration. The reading it does have
+// besides the class one is statementReading's and predates this.
+func TestACSharpClassIsNotReadAsAStatement(t *testing.T) {
+	c, err := compilePattern("class $C { $$$B }", "csharp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, head := range readingHeads(c) {
+		if head == "global_statement" {
+			t.Fatalf("a class declaration was read as a top-level statement: %v", readingHeads(c))
+		}
+	}
+	dir := tree(t, map[string]string{"C.cs": "namespace N {\n  class Greeter { void Run() {} }\n}\n"})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .Captures.C]`, dir, "class $C { $$$B }"))
+	if len(got) != 1 || got[0] != "Greeter" {
+		t.Fatalf("the class: got %v, want [Greeter]", got)
+	}
+}
+
+// Anchoring descends past the nodes a grammar wraps a construct in, and it has
+// no way to tell those from the nodes that say something. In C# it descended
+// past two that do, turning a pattern about a `throw` into one about every
+// `new` in the program - a wrong answer, where the reading it replaced merely
+// found nothing. See startsWhereThePatternDoes.
+func TestACSharpKeywordIsNotDroppedFromAReading(t *testing.T) {
+	const source = `class T {
+    void Run(string q) {
+        var made = new Widget(q);
+        using (var s = Open(q)) { Use(s); }
+    }
+}
+`
+	dir := tree(t, map[string]string{"T.cs": source})
+	// The throw matches nothing here, and the point is that it matches nothing
+	// rather than every `new` in the file.
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .LineNumber]`, dir, "throw new $E($$$_);"))
+	if len(got) != 0 {
+		t.Fatalf("throw: got %v, want nothing - the keyword was dropped", got)
+	}
+	// The using does match, and on the using rather than on the declaration
+	// inside it, which is the same mistake the other way round.
+	got = collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .Text]`, dir, "using ($T $V = $E) { $$$_ }"))
+	if len(got) != 1 || !strings.HasPrefix(fmt.Sprint(got[0]), "using (") {
+		t.Fatalf("using: got %v, want the one using statement", got)
+	}
 }

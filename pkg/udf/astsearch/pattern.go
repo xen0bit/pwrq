@@ -243,6 +243,7 @@ func finish(c *compiled, lang *gotreesitter.Language, pattern string) *compiled 
 		}
 	}
 	c.queries = append(c.queries, memberReadings(lang, pattern, c.language, c.query())...)
+	c.queries = unwrapTopLevel(lang, pattern, c.language, c.queries)
 	// Two readings that compiled to the same query are one reading. They
 	// happen where a difference the grammar made before anchoring is gone
 	// after it - Java reads `new C($X)` and `new C($X);` differently and
@@ -419,6 +420,315 @@ func renamesDeclarations(lang *gotreesitter.Language, language, head string) boo
 	}
 	r := cached.(renamed)
 	return r.elsew && r.local != "" && head == r.local
+}
+
+// bodyScaffolds are the places a pattern is normally written that are not the
+// top of a file: inside a function, and inside something that holds members.
+// Each carries the skeleton of its own wrapper, for holderType.
+//
+// The terminated variant of the function body earns its place on its own: C#
+// takes `new SqlCommand($Q, $C)` as a whole statement at file scope but not
+// inside a block, where an expression needs its semicolon, so without it every
+// bare-expression pattern in the corpus loses the only reading that could
+// match.
+//
+// The class body is there for the patterns that are a member rather than a
+// statement - `public $T $M($$$_, string $ARG, $$$_) { $$$_ }`, which a rule
+// writes to say "a method taking a string" - because a method declaration has
+// nowhere to stand inside a function.
+var bodyScaffolds = []struct {
+	sc       scaffold
+	skeleton string
+}{
+	{scaffold{before: "void " + scaffoldFunc + "() {\n", after: "\n}"},
+		"void " + scaffoldFunc + "() {}"},
+	{scaffold{before: "void " + scaffoldFunc + "() {\n", closing: ";", after: "\n}"},
+		"void " + scaffoldFunc + "() {}"},
+	{scaffold{before: "class " + scaffoldName + " {\n", after: "\n}"},
+		"class " + scaffoldName + " {}"},
+}
+
+// startsWhereThePatternDoes reports whether a reading anchors to something that
+// begins where the pattern begins.
+//
+// Anchoring descends past the nodes a grammar wraps a construct in, which is
+// what makes `Console.WriteLine($X);` a query about the call rather than about
+// a statement. It has no way to tell those apart from the nodes that *say*
+// something, and in C# it descended past two that do:
+//
+//	throw new $E($$$_);          ->  (object_creation_expression ...)
+//	using ($T $V = $E) { $$$_ }  ->  (variable_declaration ...)
+//
+// The first is a search for every `new` in the program and the second for every
+// declaration, both reported as valid. That is worse than the reading they
+// replaced, which merely matched nothing.
+//
+// What the two have in common is a keyword the reading dropped, and a keyword
+// is text at the front of the pattern. So the test is where the node starts:
+// `throw_statement` begins where the pattern does and `object_creation_expression`
+// begins six characters later, while `expression_statement` and the
+// `invocation_expression` inside it begin in the same place, which is why
+// descending past the one is right and past the other is not.
+func startsWhereThePatternDoes(lang *gotreesitter.Language, sc scaffold, pattern, head string) bool {
+	source := pattern
+	if pre, _, err := grep.Preprocess(pattern); err == nil {
+		source = strings.ReplaceAll(pre, "__GREP_", probePrefix)
+	}
+	tree, err := parserFor(lang).Parse([]byte(sc.before + source + sc.closing + sc.after))
+	if err != nil || tree == nil {
+		return false
+	}
+	bound := gotreesitter.Bind(tree)
+	defer bound.Release()
+	// A tree with an error in it is still asked, deliberately. The reading has
+	// already been vetted by scaffold.read; the only question left is where it
+	// begins, and the terminated scaffold puts a stray `;` after a block that
+	// the grammar flags while still parsing the construct correctly.
+	root := bound.RootNode()
+	if root == nil {
+		return false
+	}
+	start, end := len(sc.before), len(sc.before)+len(source)
+	node := root.NamedDescendantForByteRange(uint32(start), uint32(end))
+	// The smallest node holding the whole pattern, the way memberType walks
+	// back up when a grammar hands back something narrower.
+	for node != nil && (int(node.StartByte()) > start || int(node.EndByte()) < end) {
+		node = node.Parent()
+	}
+	// Then down the front of it. These are the nodes anchoring may descend to
+	// without losing anything the pattern wrote: each begins where the pattern
+	// begins, so nothing has been left in front of it. A zero-width lookup at
+	// the pattern's first byte would be the shorter way to ask and is not
+	// reliable - on a node boundary a grammar may answer with either side.
+	for node != nil && int(node.StartByte()) == start {
+		if node.Type(lang) == head {
+			return true
+		}
+		node = node.NamedChild(0)
+	}
+	return false
+}
+
+// holderTypes is the node each body scaffold's own text makes, per language.
+var holderTypes sync.Map
+
+// holderType is what the grammar calls the wrapper a scaffold writes, so that a
+// reading anchored to the wrapper can be told from one anchored to the pattern.
+//
+// A reading that anchors to the wrapper is one where stripping the scaffold
+// failed and nothing said so. `Console.WriteLine($X);` inside a class body gave
+// `(class_declaration (_) @_ body: (declaration_list . (method_declaration ...
+// (expression_statement . INNER .) ...) .))` - a search for a class whose only
+// member is the pattern, which no file has. The wrapper's own name is the tell,
+// and it is the only one: everything else about that reading looks like a
+// reading that worked.
+func holderType(lang *gotreesitter.Language, language, skeleton string) string {
+	key := language + "\x00" + skeleton
+	if cached, ok := holderTypes.Load(key); ok {
+		return cached.(string)
+	}
+	got := memberType(lang, "", skeleton)
+	holderTypes.Store(key, got)
+	return got
+}
+
+// unwrapTopLevel replaces a reading that anchors to a top-level wrapper with
+// the same pattern read inside a function body, for a grammar that gives a
+// statement standing at the top of a file a node of its own.
+//
+// C# is that grammar, and it is the only one of the twenty in this build. Since
+// C# 9 a file may be nothing but statements, so `Console.WriteLine($X);`
+// parses standing alone - cleanly, with no error and no complaint - and the
+// least invasive scaffold is therefore the one that wins. But the grammar wraps
+// each of those statements in a `global_statement`, and that node exists
+// nowhere else. The query is `(global_statement . (expression_statement . ...))`
+// and it can only ever match a file with no class in it:
+//
+//	class T { void f() { Console.WriteLine(q); } }   // no match
+//	Console.WriteLine(q);                            // match
+//
+// Ninety-four of the hundred and sixty-nine C# patterns in this rule corpus -
+// every call, every assignment, every `using` - compiled to exactly that and
+// found nothing in twenty-two thousand files. Nothing said so. `ast_pattern`
+// reported `Valid: true`, the rule ran, and the answer was a clean bill of
+// health.
+//
+// This is the same failure statementReading exists for and the opposite shape.
+// There the plain reading was wrong because the grammar had no context for the
+// pattern; here it is wrong because the grammar had too much - it understood
+// the pattern as a whole program, which is a thing the pattern was not.
+//
+// The wrapped reading is replaced rather than kept beside the new one, which is
+// the part worth being careful about. It looks like a loss - a file of nothing
+// but statements is still C# - and it is not, because the inner reading matches
+// there too: a query matches anywhere in a tree, and the statement is still
+// inside the wrapper. Keeping both instead reported such a file twice, once per
+// reading, since the two anchor to spans that differ by a semicolon and so
+// survive the deduplication in select_ast.
+//
+// A pattern that produced no body reading keeps the one it had. That is a
+// refusal rather than a wrong answer, and it is what multi-statement patterns
+// get: C# reads `$A = 1;\n$$$_\n$B = 2;` inside a block with `$B` for a type
+// and the assignment for a declarator, which is not what it says.
+func unwrapTopLevel(lang *gotreesitter.Language, pattern, language string,
+	queries []*grep.CompiledPattern) []*grep.CompiledPattern {
+	wrapper := wrapsTopLevelStatements(lang, language)
+	if wrapper == "" {
+		return queries
+	}
+	// The whole gate, and it costs nothing: the head is already computed. A
+	// pattern the grammar did not wrap is a pattern this has nothing to say
+	// about - a C# `class $C { $$$B }` is a declaration wherever it stands -
+	// and asking anyway would put two parses on every pattern in the language
+	// for the answer "the same thing".
+	wrapped := false
+	for _, q := range queries {
+		if q == nil {
+			continue
+		}
+		if head, _, ok := splitHead(q.SExpr); ok && head == wrapper {
+			wrapped = true
+		}
+	}
+	if !wrapped {
+		return queries
+	}
+	seen := map[string]bool{}
+	var inside []*grep.CompiledPattern
+	for _, body := range bodyScaffolds {
+		read := body.sc.read(lang, pattern, pattern, language)
+		if read == nil || seen[read.SExpr] {
+			continue
+		}
+		// A reading with no single head is a reading of several units - a
+		// try/catch is one - and it anchors to no wrapper, so it is kept.
+		if head := readingHead(read); head != "" &&
+			(head == holderType(lang, language, body.skeleton) ||
+				!startsWhereThePatternDoes(lang, body.sc, pattern, head)) {
+			continue
+		}
+		seen[read.SExpr] = true
+		inside = append(inside, read)
+	}
+	if len(inside) == 0 {
+		return queries
+	}
+	out := inside
+	for _, q := range queries {
+		if q == nil {
+			continue
+		}
+		if head, _, ok := splitHead(q.SExpr); ok && head == wrapper {
+			continue
+		}
+		if seen[q.SExpr] {
+			continue
+		}
+		seen[q.SExpr] = true
+		out = append(out, q)
+	}
+	return out
+}
+
+// statementProbe is a call statement written in names no program uses, for
+// asking a grammar what it makes of one standing at the top of a file.
+const statementProbe = probePrefix + "name(1);"
+
+// wrappedIn is the wrapper node one language puts around a top-level
+// statement, worked out once. An empty string means it puts none.
+var wrappedIn sync.Map
+
+// wrapsTopLevelStatements is what this grammar calls a statement that stands
+// at the top of a file, when that is not what it calls the same statement
+// inside a body - and "" when the two are the same thing, which is every
+// grammar here but C#.
+//
+// The question is asked of a call, because a call is the one construct every
+// language in this corpus has and spells as a statement. A grammar that wraps
+// only some other kind of top-level item would not be noticed; that is a limit
+// rather than an oversight, and the same one memberReadings draws.
+//
+// It is asked of the compiled readings rather than of the parse tree, and that
+// is the whole of why it works. A wrapper covers exactly the bytes it wraps, so
+// "the smallest node holding all of it" - the question memberType asks - walks
+// straight past a `global_statement` to the `expression_statement` inside it
+// and reports that the two are the same. What tells them apart is what the
+// query anchors to, which is the thing that decides whether a rule matches.
+//
+// A grammar that cannot read the probe in one of the two places answers "" and
+// never reaches the readings below: for Go and Rust, which insist on a
+// declaration at file scope, the plain reading was already the scaffolded one.
+func wrapsTopLevelStatements(lang *gotreesitter.Language, language string) string {
+	if cached, ok := wrappedIn.Load(language); ok {
+		return cached.(string)
+	}
+	wrapper := ""
+	alone := (scaffold{}).read(lang, statementProbe, statementProbe, language)
+	inside := bodyScaffolds[0].sc.read(lang, statementProbe, statementProbe, language)
+	if alone != nil && inside != nil && wrapsExactly(alone.SExpr, inside.SExpr) {
+		wrapper = readingHead(alone)
+	}
+	wrappedIn.Store(language, wrapper)
+	return wrapper
+}
+
+// wrapsExactly reports whether the first reading is the second one with a
+// wrapper around it and nothing else added.
+//
+// Containment on its own is not the test, and getting that wrong is what this
+// exists to say. JavaScript reads the probe as a `call_expression` standing
+// alone and as a `call_expression` inside the scaffold too, and the shorter of
+// the two turns up inside the longer, so a `strings.Contains` said yes and
+// would have put two extra readings on every JavaScript pattern in the corpus.
+// What tells a wrapper from a coincidence is that there is nothing *after* the
+// inner reading but the punctuation that closes the wrapper: C# has
+//
+//	(global_statement . (expression_statement . INNER .) .)
+//
+// where the tail is ` .) .)` and nothing else. Anything with a sibling, a
+// field name or another node after the inner reading is a different shape
+// rather than the same shape wrapped.
+func wrapsExactly(alone, inside string) bool {
+	a, b := litless(headLine(alone)), litless(headLine(inside))
+	at := strings.Index(a, b)
+	// Strictly wrapped: at 0 the two readings begin alike, which is the same
+	// reading rather than one inside the other.
+	if b == "" || at <= 0 {
+		return false
+	}
+	return strings.Trim(a[at+len(b):], " .)") == ""
+}
+
+// headLine is a reading's shape without its predicates: the query itself, with
+// the capture that names the whole match taken off the end so that it can be
+// looked for inside another reading, where it is not the whole match.
+func headLine(sexp string) string {
+	if i := strings.IndexByte(sexp, '\n'); i >= 0 {
+		sexp = sexp[:i]
+	}
+	return strings.TrimSuffix(sexp, " @"+rootCapture)
+}
+
+// litless is a reading with its literal-comparison capture names taken out, so
+// that two readings of the same text compare equal wherever they differ only in
+// how many numbers the wrapper around one of them used up. Renumbering would do
+// as well when the wrapper contributes none of its own, which is not something
+// this can assume of a grammar it has not met.
+func litless(sexp string) string {
+	return litNumber.ReplaceAllString(sexp, "")
+}
+
+// readingHead is the node type a compiled reading anchors to, or "" when there
+// is no reading or it anchors to no named type.
+func readingHead(query *grep.CompiledPattern) string {
+	if query == nil {
+		return ""
+	}
+	head, _, ok := splitHead(query.SExpr)
+	if !ok {
+		return ""
+	}
+	return head
 }
 
 // memberType is what a grammar calls this text inside something that holds
