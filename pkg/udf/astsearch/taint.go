@@ -280,21 +280,56 @@ func (f *flow) nestedInAFunction(at Span, within Span) bool {
 // it is written.
 func (f *flow) bindings(src Span) []taint {
 	node := f.root.NamedDescendantForByteRange(uint32(src.Start), uint32(src.End))
-	for ; node != nil; node = node.Parent() {
-		if f.leavesFunction(node, src) {
-			return nil
+	for n := node; n != nil; n = n.Parent() {
+		if f.leavesFunction(n, src) {
+			break
 		}
-		left, right := f.sides(node)
+		left, right := f.sides(n)
 		if left == nil || right == nil || !f.span(right).contains(src) {
 			continue
 		}
 		var out []taint
 		for _, name := range f.namesIn(f.span(left)) {
-			out = append(out, taint{name: name.text, at: int(right.EndByte()), scope: f.scopeOf(node)})
+			out = append(out, taint{name: name.text, at: int(right.EndByte()), scope: f.scopeOf(n)})
 		}
 		return out
 	}
-	return nil
+	return f.arrivesUnderItsOwnName(src, node)
+}
+
+// arrivesUnderItsOwnName is the taint a source carries when the source is a
+// name rather than something a name was given.
+//
+// A rule points at a parameter when the parameter is the untrusted thing.
+// ASP.NET binds a controller action's arguments from the query string, the
+// route and the body, so
+//
+//	public IActionResult ByCity(string city)
+//
+// says `city` came from the caller, and there is no accessor anywhere in the
+// method to point at instead - which is how every C# web framework written
+// since about 2016 spells it. The walk above asks what the source was *given
+// to* and a parameter was given to nothing, so it found no flow and the sink
+// two lines later went unreported.
+//
+// The name is scoped to the body it belongs to and dated to where it is
+// written, so it behaves exactly like a name that was assigned there: a use
+// before it, or in another method that happens to spell a local the same way,
+// is not a use of this.
+//
+// It is asked only of a source whose text is a single name, which is what
+// keeps it from turning an expression the walk declined to follow - a read
+// inside a closure, the case leavesFunction exists for - into a taint on
+// whatever it was written next to.
+func (f *flow) arrivesUnderItsOwnName(src Span, node *gotreesitter.Node) []taint {
+	if src.Start < 0 || src.End > len(f.source) || src.Start >= src.End {
+		return nil
+	}
+	text := strings.TrimSpace(string(f.source[src.Start:src.End]))
+	if !identifier.MatchString(text) || node == nil {
+		return nil
+	}
+	return []taint{{name: text, at: src.End, scope: f.scopeOf(node)}}
 }
 
 // leavesFunction reports whether walking past this node would carry a source
@@ -354,7 +389,43 @@ func (f *flow) sides(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter
 			return left, right
 		}
 	}
-	return nil, nil
+	return f.namedAndUnnamed(node)
+}
+
+// namedAndUnnamed is the binding a grammar spells with a name on one side and
+// nothing at all on the other.
+//
+// C# is that grammar. Its `variable_declarator` gives the name a field and
+// leaves the initialiser an ordinary child:
+//
+//	variable_declarator [name=identifier] "name = Request.Query[\"n\"]"
+//	  identifier                          "name"
+//	  element_access_expression           "Request.Query[\"n\"]"
+//
+// so none of the pairs above match, and a declaration - which is how nearly
+// every value in a C# program is introduced - carried no flow. Every rule in
+// the corpus that follows a value through C# found nothing, for the same
+// reason `declarator`/`value` had to be added for C.
+//
+// Three things keep it from binding anything else. There must be exactly two
+// named children, so a declaration with a type and a name and an initialiser -
+// which is what C# calls a `variable_declaration`, one level up - is not this.
+// The name must be the first of them, which is what a `parameter` fails: it is
+// spelled type-then-name, and reading it this way would say a parameter's name
+// is given the value of its type. And a node with a body or a parameter list
+// is a function, whose name is not given the value of anything.
+func (f *flow) namedAndUnnamed(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter.Node) {
+	left := node.ChildByFieldName("name", f.lang)
+	if left == nil || node.NamedChildCount() != 2 ||
+		node.ChildByFieldName("body", f.lang) != nil ||
+		node.ChildByFieldName("parameters", f.lang) != nil {
+		return nil, nil
+	}
+	first, second := node.NamedChild(0), node.NamedChild(1)
+	if first == nil || second == nil || first.StartByte() != left.StartByte() {
+		return nil, nil
+	}
+	return left, second
 }
 
 // scopeOf is the body an assignment happens in, so that a name in one function
