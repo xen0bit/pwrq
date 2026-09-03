@@ -511,6 +511,7 @@ func RegisterAstPattern() gojq.CompilerOption {
 			"Problem":       c.problem,
 			"MetaVariables": c.metaVariables(),
 			"Query":         queryText(c),
+			"Queries":       queryTexts(c),
 			"PwrqValue":     c.pattern,
 		})
 	})
@@ -574,4 +575,22 @@ func queryText(c *compiled) string {
 		return ""
 	}
 	return c.query().SExpr
+}
+
+// queryTexts is every reading that runs, not just the one shown as Query.
+//
+// A pattern the grammar takes more than one way is searched under each of them
+// - see statementReading and memberReadings - and a caller reading only the
+// first would draw the conclusion this cmdlet exists to prevent. `$T $F = $E;`
+// in Java shows a local_variable_declaration and also matches a field and an
+// interface constant, and someone told only the first would decide, wrongly,
+// that a field cannot be matched.
+func queryTexts(c *compiled) []any {
+	out := []any{}
+	for _, q := range c.queries {
+		if q != nil {
+			out = append(out, q.SExpr)
+		}
+	}
+	return out
 }

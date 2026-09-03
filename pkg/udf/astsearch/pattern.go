@@ -242,7 +242,244 @@ func finish(c *compiled, lang *gotreesitter.Language, pattern string) *compiled 
 			c.queries = append([]*grep.CompiledPattern{stmt}, c.queries...)
 		}
 	}
+	c.queries = append(c.queries, memberReadings(lang, pattern, c.language, c.query())...)
+	// Two readings that compiled to the same query are one reading. They
+	// happen where a difference the grammar made before anchoring is gone
+	// after it - Java reads `new C($X)` and `new C($X);` differently and
+	// anchors them to the same thing - and matching under both costs a pass
+	// over the tree to find what the first pass found. See select_ast, which
+	// takes the same span twice as one finding.
+	c.queries = distinctReadings(c.queries)
 	return c
+}
+
+// distinctReadings drops the readings that are the same query as an earlier
+// one, keeping the order they were offered in.
+func distinctReadings(queries []*grep.CompiledPattern) []*grep.CompiledPattern {
+	seen := map[string]bool{}
+	out := queries[:0]
+	for _, q := range queries {
+		if q == nil || seen[q.SExpr] {
+			continue
+		}
+		seen[q.SExpr] = true
+		out = append(out, q)
+	}
+	return out
+}
+
+// memberReadings are the pattern read as a member of a type rather than as a
+// statement - one reading per name a grammar has for it - and empty where a
+// grammar spells them all the same way.
+//
+// Java spells them differently and gives no sign of it. `String $F = $E;`
+// parses standing alone, because tree-sitter-java takes a bare statement at the
+// top of a file, so it compiles cleanly on the first reading to a
+// `local_variable_declaration` and no scaffold is ever reached for. The
+// identical text inside a class body is a `field_declaration`: a different node
+// type with the same children, and a query for one does not match the other.
+//
+// The cost of that was not a rule that fired in the wrong place, it was a rule
+// that could not be written.
+//
+//	private static final String PASSWORD = "hunter2";
+//
+// is the shape every hardcoded-credential rule in the world is about, and no
+// pattern in this engine could name it. Two rules in the Java corpus said so in
+// their headers instead, which is the right thing to do about a limit and a bad
+// thing to leave standing.
+//
+// The other names are measured rather than listed. The pattern is read again
+// inside each of memberHolders, and where the same children come back under a
+// different node type, that type is another spelling of the same construct. A grammar
+// that calls it the same thing in both places produces the same head and gets
+// no second reading, which is what every language here that is not shaped like
+// Java does - and it is why this needs no table of the 206 grammars in this
+// build, in keeping with unitTypes.
+//
+// Only the head is taken from the second reading. Everything after it - the
+// children, the captures, the text comparisons - comes from the first, because
+// the two are the same by construction and the first one's capture numbering is
+// what its own predicates already refer to.
+//
+// A pattern of more than one statement is not read this way. A class body holds
+// members and a member is one item, so the question does not arise, and asking
+// it anyway would compile every multi-statement pattern in the corpus a second
+// time for nothing.
+func memberReadings(lang *gotreesitter.Language, pattern, language string,
+	query *grep.CompiledPattern) []*grep.CompiledPattern {
+	if query == nil || strings.Contains(strings.TrimSpace(pattern), "\n") {
+		return nil
+	}
+	head, rest, ok := splitHead(query.SExpr)
+	if !ok {
+		return nil
+	}
+	var out []*grep.CompiledPattern
+	seen := map[string]bool{head: true}
+	for _, keyword := range memberHolders {
+		// The cheap question first. Compiling a reading costs a parse, an
+		// anchoring pass and half a dozen checks, and asking it of every
+		// pattern in a corpus for the answer "the same thing" made a run of
+		// the whole corpus a third slower. Parsing the pattern inside the
+		// keyword answers "does this grammar call it something else in here"
+		// on its own, in microseconds, and is the only question that decides
+		// whether the rest of this is worth doing.
+		if named := memberType(lang, keyword, pattern); named == "" || seen[named] {
+			continue
+		}
+		inside := (scaffold{before: keyword + " " + scaffoldName + " {\n", after: "\n}"}).
+			read(lang, pattern, pattern, language)
+		if inside == nil {
+			continue
+		}
+		other := otherHead(inside.SExpr, seen, rest)
+		if other == "" {
+			continue
+		}
+		seen[other] = true
+		sexp := "(" + other + strings.TrimPrefix(query.SExpr, "("+head)
+		q, err := gotreesitter.NewQuery(sexp, lang)
+		if err != nil {
+			continue
+		}
+		out = append(out, &grep.CompiledPattern{
+			Query: q, MetaVars: query.MetaVars, Lang: lang, SExpr: sexp,
+		})
+	}
+	return out
+}
+
+// memberHolders are the things that hold members rather than statements.
+//
+// They are not in the scaffolds table, and must not be: that table decides
+// which reading a pattern that would not otherwise parse *becomes*, and adding
+// to it would change patterns in every language. These are asked a narrower
+// question - what does this grammar call the same text in here - and the answer
+// is only ever used to swap a node type onto children that already matched.
+//
+// A grammar with no such keyword produces no reading for either and is
+// unaffected. `interface` earns its place beside `class` because a constant in
+// an interface is a third node type again - Java calls it a
+// constant_declaration - and it is where a certain vintage of Java program
+// keeps the strings this rule corpus most wants to find.
+var memberHolders = []string{"class", "interface"}
+
+// memberType is what a grammar calls this text inside something that holds
+// members, or "" when it cannot read it in there at all.
+//
+// It is the fast half of memberReadings and it decides the whole question: a
+// grammar that gives the text the same node type in both places has nothing to
+// add, and that is almost every pattern in this corpus. The compiled reading is
+// only ever built for the few that come back with a different name, and it is
+// still built, because a name is not a promise that the children are the same.
+//
+// A wrapper the grammar cannot follow is not an answer. Java has nowhere to put
+// a bare call inside a class body, so `foo($X);` in there is an ERROR parse,
+// and an ERROR node's type is a name like any other - it would compare unequal
+// to the plain reading's head and send every call in the corpus down the slow
+// path to be refused. So a tree with an error in it is no reading at all.
+func memberType(lang *gotreesitter.Language, keyword, pattern string) string {
+	source := pattern
+	if pre, _, err := grep.Preprocess(pattern); err == nil {
+		source = strings.ReplaceAll(pre, "__GREP_", probePrefix)
+	}
+	before := keyword + " " + scaffoldName + " {\n"
+	tree, err := parserFor(lang).Parse([]byte(before + source + "\n}"))
+	if err != nil || tree == nil {
+		return ""
+	}
+	bound := gotreesitter.Bind(tree)
+	defer bound.Release()
+	root := bound.RootNode()
+	if root == nil || root.HasErrorOrMissing() {
+		return ""
+	}
+	start, end := len(before), len(before)+len(source)
+	node := root.NamedDescendantForByteRange(uint32(start), uint32(end))
+	// The smallest node holding the whole of it, the way scaffoldUnits walks
+	// back up when a grammar hands back something narrower.
+	for node != nil && (int(node.StartByte()) > start || int(node.EndByte()) < end) {
+		node = node.Parent()
+	}
+	if node == nil {
+		return ""
+	}
+	return strings.Clone(node.Type(lang))
+}
+
+// splitHead takes a query apart into the name of its outermost node and
+// everything after that name. A query rooted at a wildcard has no name to
+// swap - `(_ ...)` is already "some node holds this" - and is left alone.
+func splitHead(sexp string) (head, rest string, ok bool) {
+	line := sexp
+	if i := strings.IndexByte(line, '\n'); i >= 0 {
+		line = line[:i]
+	}
+	if !strings.HasPrefix(line, "(") {
+		return "", "", false
+	}
+	end := 1
+	for end < len(line) && (line[end] == '_' || line[end] >= 'a' && line[end] <= 'z' ||
+		line[end] >= 'A' && line[end] <= 'Z' || line[end] >= '0' && line[end] <= '9') {
+		end++
+	}
+	head = line[1:end]
+	if head == "" || !(head[0] >= 'a' && head[0] <= 'z' || head[0] >= 'A' && head[0] <= 'Z') {
+		return "", "", false
+	}
+	return head, line[end:], true
+}
+
+// otherHead is the node type the second reading gave the same children, or ""
+// when it gave them the one they already had.
+//
+// The comparison is the first reading's children as text, matched against what
+// follows each node type in the second. It is deliberately exact: two readings
+// that differ anywhere but the head are two different readings, and swapping a
+// head onto children that are not the same children would produce a query for a
+// shape no file has - which is the silent-empty-result failure this package
+// exists to prevent, arrived at from the inside.
+//
+// The trailing capture comes off the first reading's children because the
+// second reading has the pattern nested inside a class, so what follows there
+// is the class closing rather than the end of the query. Nothing else is
+// trimmed: the space in front of the first child is part of what is being
+// compared, and taking it off makes the two never line up. And `_lit` captures
+// are renumbered in both, because the second reading counted its own text
+// comparisons from wherever the wrapper left off. Renumbering keeps them
+// distinct rather than collapsing them to one name, so two different literals
+// still have to be two different literals.
+func otherHead(sexp string, seen map[string]bool, rest string) string {
+	want := renumberLits(strings.TrimSuffix(rest, " @"+rootCapture))
+	for _, at := range namedHead.FindAllStringIndex(sexp, -1) {
+		name := sexp[at[0]+1 : at[1]]
+		if seen[name] {
+			continue
+		}
+		if strings.HasPrefix(renumberLits(sexp[at[1]:]), want) {
+			return name
+		}
+	}
+	return ""
+}
+
+// litNumber matches the capture a text comparison is written on.
+var litNumber = regexp.MustCompile(`@_lit_[0-9]+`)
+
+// renumberLits counts a query's text comparisons from one, so that two readings
+// of the same pattern can be compared when one of them was compiled inside a
+// wrapper that used up some of the numbers.
+func renumberLits(sexp string) string {
+	seen := map[string]string{}
+	return litNumber.ReplaceAllStringFunc(sexp, func(name string) string {
+		if to, ok := seen[name]; ok {
+			return to
+		}
+		to := fmt.Sprintf("@_lit_%d", len(seen)+1)
+		seen[name] = to
+		return to
+	})
 }
 
 // statementReading is the pattern read as a statement rather than as whatever

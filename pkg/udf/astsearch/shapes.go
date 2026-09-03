@@ -49,6 +49,7 @@ var PatternInfo = shape.Fixed("Pwrq.AstPattern",
 	shape.Prop("Problem", shape.String, "why it is not code in that language, or empty when it is"),
 	shape.Prop("MetaVariables", shape.Array, "the names the pattern captures, without their dollar signs"),
 	shape.Prop("Query", shape.String, "the tree-sitter S-expression the pattern compiled to, or empty when it would not compile for this language at all"),
+	shape.Prop("Queries", shape.Array, "every reading that runs, most likely first - a grammar that takes the same text two ways gives a pattern two of these, and a match under either is a match"),
 	shape.Prop("PwrqValue", shape.String, "the pattern, as the bindable value"),
 )
 
