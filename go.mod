@@ -51,7 +51,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.19
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/odvcencio/gotreesitter v0.51.0
-	github.com/xen0bit/pwrgrep-rules v0.1.2-0.20260903040529-9bbe29688d98
+	github.com/xen0bit/pwrgrep-rules v0.1.2-0.20260903145556-492bca444d2a
 	golang.org/x/crypto v0.51.0
 	golang.org/x/net v0.55.0
 	golang.org/x/text v0.39.0
