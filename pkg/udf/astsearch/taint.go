@@ -166,6 +166,19 @@ func (f *flow) reaches(tainted []taint, sources []Span, sink Span) bool {
 }
 
 // propagate adds the names that a tainted name was assigned to.
+//
+// A tainted name mentioned inside a function on the right-hand side does not
+// feed the assignment, because what the assignment gives away is the function
+// and not anything the function reads.
+//
+// This is the other half of the closure leak, and it survives the fix to
+// bindings on its own. The right-hand side of
+// `srv := httptest.NewServer(http.HandlerFunc(func(w, r) { ... }))` contains
+// every identifier in the handler, so a value the handler read from the
+// request fed `srv`, and then everything built from `srv`. Fixing only the
+// walk up from the source makes this worse rather than better: the bogus
+// binding used to shadow the name, and removing it let propagation reach
+// further than before.
 func (f *flow) propagate(tainted []taint) []taint {
 	out := append([]taint(nil), tainted...)
 	known := map[string]bool{}
@@ -179,10 +192,11 @@ func (f *flow) propagate(tainted []taint) []taint {
 		}
 		fed := false
 		for _, name := range f.namesIn(f.span(right)) {
-			if known[name.text] {
-				fed = true
-				break
+			if !known[name.text] || f.nestedInAFunction(name.span, f.span(right)) {
+				continue
 			}
+			fed = true
+			break
 		}
 		if !fed || f.sanitized(f.span(right)) {
 			return
@@ -197,11 +211,35 @@ func (f *flow) propagate(tainted []taint) []taint {
 	return out
 }
 
+// nestedInAFunction reports whether a name sits inside a function that is
+// itself inside the span being read.
+//
+// The span is a right-hand side, so a function inside it is a value being
+// assigned rather than code being run here, and the names it reads are its
+// own. The walk stops at the span rather than at the root, so the function
+// the assignment is written in does not count as nested inside it.
+func (f *flow) nestedInAFunction(at Span, within Span) bool {
+	node := f.root.NamedDescendantForByteRange(uint32(at.Start), uint32(at.End))
+	for ; node != nil; node = node.Parent() {
+		span := f.span(node)
+		if !within.contains(span) {
+			return false
+		}
+		if f.leavesFunction(node, at) {
+			return true
+		}
+	}
+	return false
+}
+
 // bindings are the names a source is given to, or none when it is used where
 // it is written.
 func (f *flow) bindings(src Span) []taint {
 	node := f.root.NamedDescendantForByteRange(uint32(src.Start), uint32(src.End))
 	for ; node != nil; node = node.Parent() {
+		if f.leavesFunction(node, src) {
+			return nil
+		}
 		left, right := f.sides(node)
 		if left == nil || right == nil || !f.span(right).contains(src) {
 			continue
@@ -213,6 +251,54 @@ func (f *flow) bindings(src Span) []taint {
 		return out
 	}
 	return nil
+}
+
+// leavesFunction reports whether walking past this node would carry a source
+// out of the function it was written in.
+//
+// The walk up from a source asks what the source was given to, and it used to
+// ask it of every ancestor. A closure assigned to a name is an ancestor with
+// two halves, so a source read anywhere inside a handler was reported as
+// having been given to whatever that handler was assigned to:
+//
+//	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+//	        if r.Header.Get("X-Fail") != "" { ... }
+//	})
+//	ts := httptest.NewServer(inner)
+//	http.Get(ts.URL)
+//
+// `inner` was tainted by the header, `ts` by `inner`, and an SSRF rule
+// reported a test server's own address. What `inner` was given is a function,
+// and the header's value never left the closure.
+//
+// A function is recognised as a node with both parameters and a body, which
+// is what separates it from the other things a grammar gives a body to. A
+// `for` has a body and no parameters, and so does a Python comprehension -
+// and the comprehension is the reason this is not simply "any node with a
+// body": `x = [request.args.get(n) for n in names]` is a real path from the
+// source to `x`, and cutting it would cost findings rather than noise.
+//
+// The source has to be inside the body rather than be the whole node, so that
+// a rule that names a closure as its source still binds the name the closure
+// is given to.
+//
+// A Ruby block written without parameters has a body and no parameter list,
+// so it is not recognised and the old behaviour survives there. That is a gap
+// rather than a decision, and it is the direction that costs noise rather
+// than findings.
+func (f *flow) leavesFunction(node *gotreesitter.Node, src Span) bool {
+	body := node.ChildByFieldName("body", f.lang)
+	if body == nil {
+		return false
+	}
+	params := node.ChildByFieldName("parameters", f.lang)
+	if params == nil {
+		params = node.ChildByFieldName("parameter", f.lang)
+	}
+	if params == nil {
+		return false
+	}
+	return f.span(body).contains(src)
 }
 
 // sides are the two halves of an assignment, or nil when the node is not one.

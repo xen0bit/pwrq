@@ -156,6 +156,107 @@ func TestAValueIsFollowedThroughACDeclaration(t *testing.T) {
 	}
 }
 
+// taintedThroughAClosure is the shape that made an SSRF rule report a test
+// server's own address.
+//
+// The source sits inside a handler written as a closure, and the closure is
+// the right-hand side of an assignment. Walking up from the source to find
+// what it was given to used to walk straight out of the function and find
+// that assignment, so `inner` was tainted - and then `ts`, which is built
+// from it, and then `ts.URL`, which mentions `ts`. None of those holds the
+// header's value. What `inner` was given is a function.
+const taintedThroughAClosure = `package main
+
+import (
+	"net/http"
+	"net/http/httptest"
+)
+
+func serve() {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Fail") != "" {
+			w.WriteHeader(500)
+		}
+	})
+	ts := httptest.NewServer(inner)
+	http.Get(ts.URL)
+}
+
+func leaks(r *http.Request) {
+	u := r.Header.Get("X-Target")
+	http.Get(u)
+}
+`
+
+// TestAValueDoesNotEscapeTheClosureItIsReadIn is the boundary the walk up from
+// a source has to respect. A source inside a function body is not what an
+// assignment outside that function gives away, whatever the spans say.
+func TestAValueDoesNotEscapeTheClosureItIsReadIn(t *testing.T) {
+	dir := write(t, "app.go", taintedThroughAClosure)
+	got := run(t, `
+	["$R.Header.Get($_)"] as $sources
+	| ["http.Get($U)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.go"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{20.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  20 is the header read into a name and fetched;\n"+
+			"  15 fetches a test server's own address and the header never reached it", got, want)
+	}
+}
+
+// taintedThroughAClosureLocal is the second half of the same leak, and it
+// survives the first fix on its own.
+//
+// Here the source is assigned, so it binds a name correctly - `hdr`, scoped to
+// the handler. What went wrong next was propagation: the right-hand side of
+// `srv := httptest.NewServer(http.HandlerFunc(func(w, r) { ... }))` contains
+// every identifier in the handler, `hdr` among them, so `srv` was fed by a
+// value that only exists inside the closure. `hdr` is not in scope where
+// `srv` is declared, and that is what makes it not a path.
+const taintedThroughAClosureLocal = `package main
+
+import (
+	"net/http"
+	"net/http/httptest"
+)
+
+func serve() {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hdr := r.Header.Get("X-Fail")
+		_ = hdr
+	}))
+	http.Get(srv.URL)
+}
+
+func fetches(r *http.Request) {
+	u := r.Header.Get("X-Target")
+	http.Get(u)
+}
+`
+
+// TestAValueDoesNotFeedANameDeclaredOutsideItsScope is the propagation half.
+// Fixing only the walk up from the source makes this worse rather than better:
+// the bogus early binding used to shadow the name, and removing it let
+// propagation reach further.
+func TestAValueDoesNotFeedANameDeclaredOutsideItsScope(t *testing.T) {
+	dir := write(t, "app.go", taintedThroughAClosureLocal)
+	got := run(t, `
+	["$R.Header.Get($_)"] as $sources
+	| ["http.Get($U)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.go"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{18.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  18 is the header read into a name and fetched;\n"+
+			"  13 fetches the test server's own address, which no header decided", got, want)
+	}
+}
+
 // TestASanitizedValueIsNotFollowed pins the half of the previous test that is
 // easiest to lose: a rule that ignored its sanitizers would still pass on the
 // lines it does report.
