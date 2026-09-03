@@ -108,7 +108,7 @@ func anchorQuery(sexp string, folded map[string][]int, units map[string]bool, dr
 	}
 	// The first form is the pattern; the rest are (#eq? ...) predicates.
 	root := forms[0]
-	if units[root.head] {
+	if units[root.head] && !labelled(root) {
 		// Walk down the scaffolding a reading added. Every node a wrapper
 		// contributed is in units, so the descent stops of its own accord at
 		// the first node the caller wrote - and everything the wrapper carried
@@ -131,6 +131,29 @@ func anchorQuery(sexp string, folded map[string][]int, units map[string]bool, dr
 		parts[i] = form.render()
 	}
 	return strings.Join(parts, "\n")
+}
+
+// labelled reports whether a form's children carry `name:` labels, which says
+// the form is a construct the caller wrote and not scaffolding around one.
+//
+// The two are otherwise hard to tell apart. Scaffolding is whatever holds a
+// list of items - a file, a block - and its children are the items, unlabelled
+// because a list does not name its places. A construct names them: a subscript
+// has an `argument:` and an `index:`, an assignment a `left:` and a `right:`.
+//
+// Without this, a pattern whose type happens to appear in the scaffold chain -
+// `table[$I]` does, where `$A[$I]` does not - is opened up as though it were a
+// list of statements. The head becomes `_`, the whole form loses its capture,
+// and the match's span is then the union of the holes: `table[3` for
+// `table[3]`, one byte short, with nothing to say it went wrong. Everything
+// downstream that compares spans - within, outside, not_at - compares that.
+func labelled(s *sexpr) bool {
+	for _, c := range s.children {
+		if c.isForm() && !c.isEllipsis() && c.field != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // lone is the one child of a form that is not an ellipsis, or nil when the
