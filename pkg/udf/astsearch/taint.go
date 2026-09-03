@@ -102,6 +102,20 @@ type flow struct {
 
 // a taint is a name that holds a value from a source, the place it was given
 // that value, and the body it is a name in.
+//
+// `at` is the end of the value, not the end of the statement that assigned
+// it, and the difference is the whole of loop binding. A `for` is an
+// assignment whose node encloses the body it assigns for, so measured at the
+// node every use of the loop variable happens *before* the variable was given
+// its value, and none of them was ever reached:
+//
+//	for (ZipEntry entry : zip.entries()) {
+//	        new File(dir, entry.getName());   // never reported
+//	}
+//
+// Measured at the value there is nothing between the two but the tokens that
+// close the binding, so no use of a name can fall in the gap and an ordinary
+// assignment reads exactly as it did.
 type taint struct {
 	name  string
 	at    int
@@ -149,18 +163,36 @@ func (f *flow) reaches(tainted []taint, sources []Span, sink Span) bool {
 		}
 	}
 	for _, name := range f.namesIn(sink) {
-		for _, t := range tainted {
-			if t.name != name.text || t.at >= name.span.Start {
-				continue
-			}
-			if t.scope != (Span{}) && !t.scope.contains(name.span) {
-				continue
-			}
-			if f.sanitized(name.span) {
-				continue
-			}
+		if f.holds(tainted, name) {
 			return true
 		}
+	}
+	return false
+}
+
+// holds reports whether one mention of a name is a mention of a tainted value.
+//
+// Three questions, and a rule needs all three. Is it that name; was it given
+// its value before this, rather than after; and is this the same name - the
+// same body, so that a `path` in one method is not a `path` in the next.
+//
+// The third is the one that is easy to leave out and expensive to leave out.
+// Local names in one file repeat: `name`, `path`, `url`, `value`, `result`.
+// Without the scope test any file with two methods that both spell a local
+// `name` has one method's taint answering for the other's, and the finding
+// lands on a line that was careful.
+func (f *flow) holds(tainted []taint, use name) bool {
+	for _, t := range tainted {
+		if t.name != use.text || t.at >= use.span.Start {
+			continue
+		}
+		if t.scope != (Span{}) && !t.scope.contains(use.span) {
+			continue
+		}
+		if f.sanitized(use.span) {
+			continue
+		}
+		return true
 	}
 	return false
 }
@@ -181,34 +213,46 @@ func (f *flow) reaches(tainted []taint, sources []Span, sink Span) bool {
 // further than before.
 func (f *flow) propagate(tainted []taint) []taint {
 	out := append([]taint(nil), tainted...)
-	known := map[string]bool{}
-	for _, t := range tainted {
-		known[t.name] = true
-	}
 	f.walk(f.root, func(node *gotreesitter.Node) {
 		left, right := f.sides(node)
 		if left == nil || right == nil {
 			return
 		}
 		fed := false
-		for _, name := range f.namesIn(f.span(right)) {
-			if !known[name.text] || f.nestedInAFunction(name.span, f.span(right)) {
+		for _, use := range f.namesIn(f.span(right)) {
+			if f.nestedInAFunction(use.span, f.span(right)) {
 				continue
 			}
-			fed = true
-			break
+			if f.holds(tainted, use) {
+				fed = true
+				break
+			}
 		}
 		if !fed || f.sanitized(f.span(right)) {
 			return
 		}
+		scope := f.scopeOf(node)
 		for _, name := range f.namesIn(f.span(left)) {
-			if known[name.text] {
-				continue
+			grown := taint{name: name.text, at: int(right.EndByte()), scope: scope}
+			if !contains(out, grown) {
+				out = append(out, grown)
 			}
-			out = append(out, taint{name: name.text, at: int(node.EndByte()), scope: f.scopeOf(node)})
 		}
 	})
 	return out
+}
+
+// contains reports whether this exact binding is already known, which is what
+// stops a round of propagation from re-adding what the last one found and
+// keeps the loop in reached from running until it hits its limit every time.
+// One assignment yields one binding, so the set is bounded by the file.
+func contains(tainted []taint, want taint) bool {
+	for _, t := range tainted {
+		if t == want {
+			return true
+		}
+	}
+	return false
 }
 
 // nestedInAFunction reports whether a name sits inside a function that is
@@ -246,7 +290,7 @@ func (f *flow) bindings(src Span) []taint {
 		}
 		var out []taint
 		for _, name := range f.namesIn(f.span(left)) {
-			out = append(out, taint{name: name.text, at: int(node.EndByte()), scope: f.scopeOf(node)})
+			out = append(out, taint{name: name.text, at: int(right.EndByte()), scope: f.scopeOf(node)})
 		}
 		return out
 	}

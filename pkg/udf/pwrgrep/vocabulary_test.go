@@ -257,6 +257,51 @@ func TestAValueDoesNotFeedANameDeclaredOutsideItsScope(t *testing.T) {
 	}
 }
 
+// boundByALoop is the shape a loop binding makes, in the two languages whose
+// grammars spell it most differently.
+//
+// A `for` is an assignment - `name` is given `value` - and its node encloses
+// the body that uses the name. Recording the binding at the end of the node
+// therefore put it after every use of the loop variable, and a value that
+// arrived through a loop was never followed anywhere. Both halves of every
+// zip-extraction and every multi-valued parameter read like this.
+const boundByALoop = `import os
+import subprocess
+
+
+def each(request):
+    for name in request.args.getlist("f"):
+        subprocess.run(name, shell=True)
+
+
+def once(request):
+    name = request.args.get("f")
+    subprocess.run(name, shell=True)
+
+
+def never(request):
+    subprocess.run("ls", shell=True)
+`
+
+// TestAValueFollowedIntoALoopBody is the fix for that: the binding is recorded
+// at the end of the value, and between the value and the body there is nothing
+// a name can be used in.
+func TestAValueFollowedIntoALoopBody(t *testing.T) {
+	dir := write(t, "app.py", boundByALoop)
+	got := run(t, `
+	["request.args.getlist($$$_)", "request.args.get($$$_)"] as $sources
+	| ["subprocess.run($C, $$$_)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.py"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | focus("C") | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{7.0, 12.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  7 is fed by the loop variable, 12 by the plain\n"+
+			"  assignment; 16 runs a constant", got, want)
+	}
+}
+
 // TestASanitizedValueIsNotFollowed pins the half of the previous test that is
 // easiest to lose: a rule that ignored its sanitizers would still pass on the
 // lines it does report.
