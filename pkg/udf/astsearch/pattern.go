@@ -151,12 +151,28 @@ func compilePatternUncached(pattern, language string) (*compiled, error) {
 	// the statement with nowhere to stand, are between them two thirds of what
 	// a rule corpus writes that no grammar would take.
 	if misread {
-		if scaffolded := scaffoldReading(entry.Language(), pattern, entry.Name); scaffolded != nil {
-			return finish(&compiled{
+		scaffolded, isThePattern := scaffoldReading(entry.Language(), pattern, entry.Name)
+		if scaffolded != nil {
+			read := finish(&compiled{
 				pattern:  pattern,
 				language: entry.Name,
 				queries:  []*grep.CompiledPattern{scaffolded},
-			}, entry.Language(), pattern), nil
+			}, entry.Language(), pattern)
+			// A reading anchored to the scaffold's own brackets is kept for
+			// the sake of the readings grown from it and refused when it is
+			// the only one there is. See scaffoldReading.
+			if isThePattern || len(read.queries) > 1 || read.problem != "" {
+				return read, nil
+			}
+			// Only when nothing above has already said something more exact.
+			// A pattern refused for taking the item below an ellipsis has a
+			// diagnosis of its own and it is the better one.
+			if misreason == "" {
+				misreason = fmt.Sprintf("pattern %q is not code in %s and the only reading of it "+
+					"is anchored to the scaffolding rather than to anything the pattern wrote, so "+
+					"the query is well-formed and searches for something else; ast_pattern shows "+
+					"what it compiled to", pattern, entry.Name)
+			}
 		}
 		if word := wordReading(entry.Language(), pattern); word != nil {
 			return &compiled{
@@ -653,8 +669,14 @@ var bodyScaffolds = []struct {
 // `invocation_expression` inside it begin in the same place, which is why
 // descending past the one is right and past the other is not.
 func startsWhereThePatternDoes(lang *gotreesitter.Language, sc scaffold, pattern, head string) bool {
+	// The same text scaffold.read compiles, in the same order: PHP's reading
+	// puts a sigil in front of every hole, and without it `$V = $CMD;` is a
+	// run of bare names that the grammar takes for the page's own text.
 	source := pattern
-	if pre, _, err := grep.Preprocess(pattern); err == nil {
+	if sc.sigil {
+		source = sigilHoles(source)
+	}
+	if pre, _, err := grep.Preprocess(source); err == nil {
 		source = strings.ReplaceAll(pre, "__GREP_", probePrefix)
 	}
 	tree, err := parserFor(lang).Parse([]byte(sc.before + source + sc.closing + sc.after))
@@ -688,6 +710,91 @@ func startsWhereThePatternDoes(lang *gotreesitter.Language, sc scaffold, pattern
 			return true
 		}
 		node = node.NamedChild(0)
+	}
+	return false
+}
+
+// readsInsideThePattern reports whether a reading is anchored to something the
+// pattern wrote, rather than to the scaffolding written around it.
+//
+// A scaffold's own brackets are code too, so a pattern the grammar cannot read
+// at all can still come back inside them as something well-formed and wrong.
+// Swift is where this was found:
+//
+//	func $F($$$_) { $BODY }
+//	  -> (array_literal element: (call_expression . (call_expression .
+//	       (simple_identifier) @_lit_1 . (_) @F) . (_) @BODY .))
+//	     (#eq? @_lit_1 "func")
+//
+// A Swift parameter is `name: Type` and nothing else, so `func f(<hole>)` is
+// not Swift. What parsed was the list scaffold's `[ ... ]` holding two calls,
+// with the keyword `func` read as the name of the outer one - and the query is
+// a search for an array whose element is a call to a function called `func`,
+// which no Swift program contains because the grammar reserves the word. It
+// reported itself valid and matched nothing, in silence, and `func $F($$$_) {
+// $BODY }` is the spelling every other language in this corpus writes.
+//
+// The tell is that `array_literal` is the *parent* of everything the pattern
+// wrote: its span begins at the scaffold's `[`, two bytes before the pattern
+// does. So the question is not where the reading starts but whether it is
+// inside the pattern at all - which is what separates it from the readings
+// that legitimately descend past a word. PHP anchors `const $LHS = $VALUE;` to
+// a `const_element`, which begins six characters in, after the `const` the
+// reading dropped; that node is inside the pattern's own span and occurs
+// nowhere but in a const declaration, so nothing is lost by naming it.
+func readsInsideThePattern(lang *gotreesitter.Language, sc scaffold, pattern, head string) bool {
+	// The same text scaffold.read compiles, in the same order: PHP's reading
+	// puts a sigil in front of every hole, and without it `$V = $CMD;` is a
+	// run of bare names that the grammar takes for the page's own text.
+	source := pattern
+	if sc.sigil {
+		source = sigilHoles(source)
+	}
+	if pre, _, err := grep.Preprocess(source); err == nil {
+		source = strings.ReplaceAll(pre, "__GREP_", probePrefix)
+	}
+	tree, err := parserFor(lang).Parse([]byte(sc.before + source + sc.closing + sc.after))
+	if err != nil || tree == nil {
+		return true
+	}
+	bound := gotreesitter.Bind(tree)
+	defer bound.Release()
+	// A tree with an error in it is still asked, deliberately: the reading has
+	// already been vetted by scaffold.read, and the terminated scaffold puts a
+	// stray `;` after a block that the grammar flags while parsing the
+	// construct correctly.
+	root := bound.RootNode()
+	if root == nil {
+		return true
+	}
+	start, end := len(sc.before), len(sc.before)+len(source)
+	node := root.NamedDescendantForByteRange(uint32(start), uint32(end))
+	// The smallest node holding the whole pattern, the way memberType walks
+	// back up when a grammar hands back something narrower. Everything the
+	// pattern wrote is at or below it; everything above it is scaffolding.
+	for node != nil && (int(node.StartByte()) > start || int(node.EndByte()) < end) {
+		node = node.Parent()
+	}
+	if node == nil {
+		// Nothing spans the pattern, so there is no reading to place and no
+		// grounds to refuse one.
+		return true
+	}
+	return holdsType(node, lang, head)
+}
+
+// holdsType reports whether a node or anything under it is of the named type.
+func holdsType(node *gotreesitter.Node, lang *gotreesitter.Language, head string) bool {
+	if node == nil {
+		return false
+	}
+	if node.Type(lang) == head {
+		return true
+	}
+	for i := 0; i < node.NamedChildCount(); i++ {
+		if holdsType(node.NamedChild(i), lang, head) {
+			return true
+		}
 	}
 	return false
 }
@@ -1132,7 +1239,24 @@ func statementReading(lang *gotreesitter.Language, pattern string, query *grep.C
 // rather than nothing - see specificity. The first that does is the reading,
 // because the list is ordered least invasive first: a pattern that needs only
 // a semicolon must not end up with a class around it.
-func scaffoldReading(lang *gotreesitter.Language, pattern, language string) *grep.CompiledPattern {
+//
+// The second return says whether the reading is anchored to something the
+// pattern wrote rather than to the scaffolding written around it, which is the
+// question readsInsideThePattern answers and which this path did not ask until
+// Swift. A scaffold's own brackets are code too, so a pattern the grammar
+// cannot read at all can come back inside them as something well-formed and
+// wrong - `func $F($$$_) { $BODY }` read as an array holding a call to a
+// function named `func`. See readsInsideThePattern for that case in full.
+//
+// Such a reading is reported rather than dropped, because it is not always the
+// whole answer. C# reads `class $C { $$$B }` inside a function body as a
+// `variable_declaration` whose type is called `class` - junk by the same
+// measure - and that junk is the seed memberReadings then grows the real
+// `class_declaration` from. So the caller keeps a wrapper-anchored reading
+// that found company and refuses one that stands alone, which is the
+// difference between a pattern the grammar can read somewhere and one it
+// cannot read at all.
+func scaffoldReading(lang *gotreesitter.Language, pattern, language string) (*grep.CompiledPattern, bool) {
 	spots := bodyEllipses(pattern)
 	for _, sc := range scaffolds {
 		for _, spell := range append([]string{""}, itemSpellings...) {
@@ -1150,10 +1274,13 @@ func scaffoldReading(lang *gotreesitter.Language, pattern, language string) *gre
 			if len(spots) > 0 && !sc.standsForNothing(lang, pattern, spots, language, reading) {
 				continue
 			}
-			return reading
+			// A reading with no single head is a reading of several units and
+			// anchors to no wrapper, so there is nothing to ask about it.
+			head := readingHead(reading)
+			return reading, head == "" || readsInsideThePattern(lang, sc, text, head)
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // standsForNothing checks that a spelling put the placeholder where the
