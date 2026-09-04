@@ -803,3 +803,58 @@ func TestACSharpKeywordIsNotDroppedFromAReading(t *testing.T) {
 		t.Fatalf("using: got %v, want the one using statement", got)
 	}
 }
+
+// A scaffold's own brackets are code too, so a pattern the grammar cannot read
+// at all can still come back inside them as something well-formed and wrong.
+// `func $F($$$_) { $BODY }` is the spelling every other language in this
+// corpus writes for "any method", and it is not Swift - a parameter there is
+// `name: Type` and a hole is neither. What compiled was the list scaffold's
+// `[ ... ]` holding two calls, with the keyword `func` read as the name of the
+// outer one: a valid query for an array whose element calls a function named
+// `func`, which no Swift program contains because the grammar reserves the
+// word. See readsInsideThePattern.
+func TestASwiftFunctionPatternIsNotReadAsAnArray(t *testing.T) {
+	c, err := compilePattern("func $F($$$_) { $BODY }", "swift")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.problem == "" {
+		t.Fatalf("a pattern that is not Swift compiled without complaint, to %v", readingHeads(c))
+	}
+	// The spelling that is Swift still works, and the empty parentheses stand
+	// for any arity rather than for none.
+	const source = `import Foundation
+
+class Api {
+    func one() { work() }
+    func two(_ a: Int, b: String) -> Int { return a }
+}
+`
+	dir := tree(t, map[string]string{"Api.swift": source})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .Captures.F]`, dir, "func $F() { $$$BODY }"))
+	if len(got) != 2 || got[0] != "one" || got[1] != "two" {
+		t.Fatalf("methods: got %v, want [one two]", got)
+	}
+}
+
+// The refusal must not take the readings that are grown from a wrapper-anchored
+// seed with it: C# reads `class $C { $$$B }` inside a function body as a
+// variable declaration whose type is called `class`, junk by the same measure,
+// and that junk is what memberReadings grows the real class declaration from.
+// PHP is the other side - `const $LHS = $VALUE;` anchors to a `const_element`
+// that begins after the `const` the reading dropped, which is inside the
+// pattern and so is kept.
+func TestAWrapperAnchoredSeedIsStillGrownFrom(t *testing.T) {
+	c, err := compilePattern("class $C { $$$B }", "csharp")
+	if err != nil {
+		t.Fatalf("a C# class declaration was refused: %v", err)
+	}
+	if c.problem != "" {
+		t.Fatalf("a C# class declaration was refused: %s", c.problem)
+	}
+	dir := tree(t, map[string]string{"c.php": "<?php\nconst TOKEN = \"abc\";\n"})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; %q) | .Captures.LHS]`, dir, "const $LHS = $VALUE;"))
+	if len(got) != 1 || got[0] != "TOKEN" {
+		t.Fatalf("php const: got %v, want [TOKEN]", got)
+	}
+}
