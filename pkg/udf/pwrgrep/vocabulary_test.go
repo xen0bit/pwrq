@@ -483,3 +483,92 @@ func TestAValueIsFollowedFromTheParameterItArrivesIn(t *testing.T) {
 			"  11 spells a name the same way in a method that has no such parameter", got, want)
 	}
 }
+
+// boundPositionally is Kotlin, and it is the grammar that names none of the
+// three children a binding has.
+//
+// A property, an assignment and a `for` are all written positionally there, so
+// none of the field-name pairs the taint engine knows matched anything and no
+// Kotlin file carried any flow at all - in the language whose whole security
+// literature is "an intent's extra reaches a sink". What makes it readable is
+// that a grammar with no fields still marks the target by wrapping it in a
+// node of its own.
+//
+// The second method is the scope test and it is the one that used to fail
+// loudly: `name` there is a constant, and without a scope every Kotlin file
+// with two methods that spell a local the same way reported the careful one.
+const boundPositionally = `package app
+
+class Sink {
+    fun tainted(intent: Intent) {
+        val name = intent.getStringExtra("n")
+        exec(name)
+    }
+
+    fun clean() {
+        val name = "constant"
+        exec(name)
+    }
+
+    fun each(intent: Intent) {
+        for (e in intent.getStringArrayListExtra("f")) {
+            exec(e)
+        }
+    }
+}
+`
+
+// TestAValueIsFollowedThroughAPositionalBinding is the fix: the wrapper the
+// grammar puts round the target is the mark, measured from a probe rather than
+// listed per language.
+func TestAValueIsFollowedThroughAPositionalBinding(t *testing.T) {
+	dir := write(t, "Sink.kt", boundPositionally)
+	got := run(t, `
+	["$I.getStringExtra($_)", "$I.getStringArrayListExtra($_)"] as $sources
+	| ["exec($C)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.kt"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{6.0, 16.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  6 is the extra read into a name and run,\n"+
+			"  16 the same through a loop variable;\n"+
+			"  11 spells the name the same way in a method that reads no intent", got, want)
+	}
+}
+
+// closedOverInKotlin is the other half, and it is the boundary a grammar with
+// no `body` field could not draw. A value read inside a lambda is not what the
+// assignment outside it gives away.
+const closedOverInKotlin = `package app
+
+class Handler {
+    fun serve(intent: Intent) {
+        val inner = Runnable { tag -> val hdr = intent.getStringExtra("X"); use(hdr) }
+        val started = wrap(inner)
+        exec(started)
+    }
+
+    fun direct(intent: Intent) {
+        val hdr = intent.getStringExtra("X")
+        exec(hdr)
+    }
+}
+`
+
+func TestAValueDoesNotEscapeAKotlinLambda(t *testing.T) {
+	dir := write(t, "Handler.kt", closedOverInKotlin)
+	got := run(t, `
+	["$I.getStringExtra($_)"] as $sources
+	| ["exec($C)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.kt"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{12.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  12 is the extra read into a name and run;\n"+
+			"  7 runs what a lambda was wrapped into, and the extra never left it", got, want)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -88,13 +89,17 @@ func Reaches(path, language string, sources, sinks, sanitizers []Span) ([]int, e
 	if root == nil {
 		return nil, nil
 	}
-	f := &flow{lang: entry.Language(), source: source, root: root, sanitizers: sanitizers}
+	f := &flow{lang: entry.Language(), language: entry.Name, source: source, root: root,
+		sanitizers: sanitizers}
 	return f.reached(sources, sinks), nil
 }
 
 // flow is one file being followed.
 type flow struct {
-	lang       *gotreesitter.Language
+	lang *gotreesitter.Language
+	// language is the registry's name for it, which is the key the per-language
+	// measurements below are cached under.
+	language   string
 	source     []byte
 	root       *gotreesitter.Node
 	sanitizers []Span
@@ -366,19 +371,74 @@ func (f *flow) arrivesUnderItsOwnName(src Span, node *gotreesitter.Node) []taint
 // rather than a decision, and it is the direction that costs noise rather
 // than findings.
 func (f *flow) leavesFunction(node *gotreesitter.Node, src Span) bool {
-	body := node.ChildByFieldName("body", f.lang)
-	if body == nil {
-		return false
-	}
-	params := node.ChildByFieldName("parameters", f.lang)
-	if params == nil {
-		params = node.ChildByFieldName("parameter", f.lang)
-	}
-	if params == nil {
+	params, body := f.functionParts(node)
+	if params == nil || body == nil {
 		return false
 	}
 	return f.span(body).contains(src)
 }
+
+// functionParts are the parameter list and the body of a function, or nils
+// where the node is not one.
+//
+// The labelled reading is first and is every grammar here but one. Kotlin
+// labels nothing on a function or on a lambda:
+//
+//	function_declaration  "fun f(a: String) { ... }"
+//	  simple_identifier          "f"
+//	  function_value_parameters  "(a: String)"
+//	  function_body              "{ ... }"
+//
+// so no Kotlin taint was ever scoped to the method it was written in - a
+// `name` in one method answered for a `name` in the next, which is the bug the
+// Java pass fixed everywhere a grammar says `body` - and no closure was ever a
+// boundary.
+//
+// A grammar with no fields still says which child is the parameter list: it
+// names the node for it, and the plural is the whole of the tell.
+// `function_value_parameters` and `lambda_parameters` are lists; `parameter`
+// is one item and is not this, which is what keeps a parameter list from
+// reading its own last parameter as a body. The body is then the last child,
+// rather than a child named for it, because a Kotlin lambda's body is
+// `statements` and a function's is `function_body` and there is nothing in
+// common between the two but their position.
+//
+// A lambda written without parameters is not recognised, and in Kotlin that is
+// `Thread { ... }` and every listener in Android. It is the same gap a Ruby
+// block has and the same direction: a value read inside such a lambda still
+// escapes it, which costs noise rather than findings, and a rule that reports
+// something built from a listener rather than from an intent is a rule that
+// should be reading a narrower source.
+func (f *flow) functionParts(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter.Node) {
+	body := node.ChildByFieldName("body", f.lang)
+	params := node.ChildByFieldName("parameters", f.lang)
+	if params == nil {
+		params = node.ChildByFieldName("parameter", f.lang)
+	}
+	if body != nil || params != nil {
+		// A grammar that labels one of the two has said what it calls them,
+		// and a node missing the other is not a function in it.
+		if body == nil || params == nil {
+			return nil, nil
+		}
+		return params, body
+	}
+	count := node.NamedChildCount()
+	if count < 2 {
+		return nil, nil
+	}
+	for i := 0; i+1 < count; i++ {
+		child := node.NamedChild(i)
+		if child != nil && parameterList.MatchString(child.Type(f.lang)) {
+			return child, node.NamedChild(count - 1)
+		}
+	}
+	return nil, nil
+}
+
+// parameterList is what a grammar that labels nothing calls the node holding a
+// function's parameters. The plural is deliberate: `parameter` is one of them.
+var parameterList = regexp.MustCompile(`(?:^|_)(?:parameters|parameter_list|params)$`)
 
 // sides are the two halves of an assignment, or nil when the node is not one.
 func (f *flow) sides(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter.Node) {
@@ -389,7 +449,10 @@ func (f *flow) sides(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter
 			return left, right
 		}
 	}
-	return f.namedAndUnnamed(node)
+	if left, right := f.namedAndUnnamed(node); left != nil {
+		return left, right
+	}
+	return f.positional(node)
 }
 
 // namedAndUnnamed is the binding a grammar spells with a name on one side and
@@ -434,6 +497,14 @@ func (f *flow) namedAndUnnamed(node *gotreesitter.Node) (*gotreesitter.Node, *go
 func (f *flow) scopeOf(node *gotreesitter.Node) Span {
 	for n := node.Parent(); n != nil; n = n.Parent() {
 		if body := n.ChildByFieldName("body", f.lang); body != nil {
+			return f.span(body)
+		}
+		// A grammar that labels nothing is asked the narrower question, and
+		// only a function answers it: `body` in a labelled grammar covers a
+		// loop as well as a function, but the unlabelled reading has no way to
+		// tell a loop's body from an `if`'s, and scoping a name to the branch
+		// it was assigned in would lose every use after the branch.
+		if _, body := f.functionParts(n); body != nil {
 			return f.span(body)
 		}
 	}
@@ -493,4 +564,198 @@ func (f *flow) walk(node *gotreesitter.Node, visit func(*gotreesitter.Node)) {
 	for i := 0; i < node.NamedChildCount(); i++ {
 		f.walk(node.NamedChild(i), visit)
 	}
+}
+
+// positional is the binding a grammar spells with no field names at all.
+//
+// Kotlin is that grammar, and it is the one that has none of the pairs above
+// and nothing for namedAndUnnamed to find either. A property, an assignment
+// and a `for` are all written positionally:
+//
+//	property_declaration  "val name = intent.getStringExtra(\"n\")"
+//	  binding_pattern_kind      "val"
+//	  variable_declaration      "name"
+//	  call_expression           "intent.getStringExtra(\"n\")"
+//
+//	assignment            "other = name"
+//	  directly_assignable_expression  "other"
+//	  simple_identifier               "name"
+//
+//	for_statement         "for (e in list) { use(e) }"
+//	  variable_declaration      "e"
+//	  simple_identifier         "list"
+//	  control_structure_body    "{ use(e) }"
+//
+// so no Kotlin file carried any flow at all, and `reaching` - which is what a
+// quarter of any corpus is built on - returned nothing for the language whose
+// security literature is almost entirely "an intent's extra reaches a sink".
+//
+// What makes it readable anyway is that a grammar with no fields still says
+// which child is the target: it wraps it in a node of its own.
+// `variable_declaration` and `directly_assignable_expression` exist for no
+// other reason, and an expression's operand is never wrapped that way - the
+// left of `name + "x"` is a bare `simple_identifier`, and the receiver of
+// `intent.getStringExtra` is a `navigation_expression` holding two names
+// rather than one. So the wrapper is the mark, it is measured rather than
+// listed, and a grammar that does not wrap contributes nothing here and keeps
+// the reading it had.
+//
+// The child after the target is the value, rather than the last child, and
+// that is what makes a `for` read correctly: the body is the third child and
+// the thing iterated is the second, so "the next one" is the value and "the
+// last one" would have been the body.
+//
+// A target followed by another target is a parameter list rather than a
+// binding - Kotlin writes `{ a, b -> ... }` as two `variable_declaration`s
+// side by side - and is refused, because neither of them is given the other.
+func (f *flow) positional(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter.Node) {
+	wrappers := bindingWrappers(f.lang, f.language)
+	if len(wrappers) == 0 {
+		return nil, nil
+	}
+	for i := 0; i+1 < node.NamedChildCount(); i++ {
+		child, next := node.NamedChild(i), node.NamedChild(i+1)
+		if child == nil || next == nil || !wrappers[child.Type(f.lang)] {
+			continue
+		}
+		if wrappers[next.Type(f.lang)] {
+			return nil, nil
+		}
+		return child, next
+	}
+	return nil, nil
+}
+
+// bindingProbes are the spellings a name being given a value is written in.
+//
+// It is a list of syntaxes rather than a list of languages, in keeping with
+// memberHolders: whichever of them a grammar reads without complaint is the
+// one it is asked about, and a grammar that reads none is not asked. Two of
+// them are wanted even where both parse, because a language may wrap a
+// declaration's name and an assignment's target in two different nodes, which
+// is exactly what Kotlin does.
+var bindingProbes = []string{
+	probePrefix + "name = 1",
+	"val " + probePrefix + "name = 1",
+	"var " + probePrefix + "name = 1",
+	"let " + probePrefix + "name = 1",
+}
+
+// bindingWrapperTypes is the answer per language, worked out once.
+var bindingWrapperTypes sync.Map
+
+// bindingWrappers are the node types this grammar wraps a binding target in,
+// and empty for every grammar that labels its children instead.
+//
+// The measurement is the probe parsed, the leaf holding the probe's name
+// found, and the walk back up to the child of the binding stopped one short:
+// where that child is the leaf itself the grammar wrapped nothing and there is
+// nothing here to use, and where it is a node of its own that node's type is
+// the mark. A tree with an error in it is not measured, which is how a
+// grammar that cannot read a spelling declines it rather than answering from
+// wreckage.
+func bindingWrappers(lang *gotreesitter.Language, language string) map[string]bool {
+	if cached, ok := bindingWrapperTypes.Load(language); ok {
+		return cached.(map[string]bool)
+	}
+	found := map[string]bool{}
+	for _, probe := range bindingProbes {
+		if wrapper := bindingWrapper(lang, probe); wrapper != "" {
+			found[wrapper] = true
+		}
+	}
+	bindingWrapperTypes.Store(language, found)
+	return found
+}
+
+// bindingWrapper is one probe measured, and the three things it refuses are
+// what keep the reading off the grammars it is not for.
+//
+// The probe has to be the whole file's one construct, or a grammar that could
+// not read it answers from what it made of the words instead: Clojure takes
+// `pwrqProbe_name = 1` for three symbols in a row and would have offered
+// `sym_lit`.
+//
+// The construct has to label none of its children, because a grammar that
+// labels them has already said which side is which and the pairs above are
+// reading it correctly. This is what keeps Go's `expression_list` out - `x = 1`
+// there is an `assignment_statement` with `left` and `right` - and Bash's
+// `command_name`, and it is the whole justification for the reading: it exists
+// for the grammars that say nothing, and where anything is said it is not
+// wanted.
+//
+// And the child after the target has to be the value the probe wrote. OCaml's
+// `x = 1` is a comparison rather than a binding and its left side is wrapped in
+// a `value_path`, so without this every application and every equality in an
+// OCaml file would have read as a name being given a value.
+func bindingWrapper(lang *gotreesitter.Language, probe string) string {
+	tree, err := parserFor(lang).Parse([]byte(probe))
+	if err != nil || tree == nil {
+		return ""
+	}
+	bound := gotreesitter.Bind(tree)
+	defer bound.Release()
+	root := bound.RootNode()
+	if root == nil || root.HasErrorOrMissing() || root.NamedChildCount() != 1 {
+		return ""
+	}
+	at := strings.Index(probe, probePrefix+"name")
+	if at < 0 {
+		return ""
+	}
+	leaf := root.NamedDescendantForByteRange(uint32(at), uint32(at+len(probePrefix)+4))
+	if leaf == nil || leaf.NamedChildCount() != 0 {
+		return ""
+	}
+	// Up from the name to the child of the node that binds it. The parent of
+	// that child is the binding, and one step short of it is the target: for
+	// `val x = 1` the walk passes `simple_identifier` and stops on
+	// `variable_declaration`, whose parent is the `property_declaration`.
+	target, parent := leaf, leaf.Parent()
+	for parent != nil && parent.NamedChildCount() < 2 {
+		target, parent = parent, parent.Parent()
+	}
+	if parent == nil || target == leaf || labelsAChild(parent, lang) {
+		// Either the name stands alone in the binding, which is what every
+		// grammar that labels its children does, or the grammar labelled the
+		// binding and is already read correctly, or there is no binding here at
+		// all. All three are "nothing to measure".
+		return ""
+	}
+	for i := 0; i+1 < parent.NamedChildCount(); i++ {
+		if parent.NamedChild(i) != target {
+			continue
+		}
+		value := parent.NamedChild(i + 1)
+		if value == nil || string(bytesOf(probe, value)) != probeValue {
+			return ""
+		}
+		return strings.Clone(target.Type(lang))
+	}
+	return ""
+}
+
+// probeValue is what every binding probe gives the name, so that the child
+// after the target can be checked for being the value rather than a piece of
+// punctuation the grammar happened to name.
+const probeValue = "1"
+
+// bytesOf is a node's own text out of the source it was parsed from.
+func bytesOf(source string, node *gotreesitter.Node) []byte {
+	start, end := int(node.StartByte()), int(node.EndByte())
+	if start < 0 || end > len(source) || start > end {
+		return nil
+	}
+	return []byte(source[start:end])
+}
+
+// labelsAChild reports whether the grammar gave any of this node's children a
+// field name.
+func labelsAChild(node *gotreesitter.Node, lang *gotreesitter.Language) bool {
+	for i := 0; i < node.ChildCount(); i++ {
+		if node.FieldNameForChild(i, lang) != "" {
+			return true
+		}
+	}
+	return false
 }

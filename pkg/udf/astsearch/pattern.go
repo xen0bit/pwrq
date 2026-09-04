@@ -250,8 +250,191 @@ func finish(c *compiled, lang *gotreesitter.Language, pattern string) *compiled 
 	// anchors them to the same thing - and matching under both costs a pass
 	// over the tree to find what the first pass found. See select_ast, which
 	// takes the same span twice as one finding.
+	c.queries = allowModifiers(lang, c.language, c.queries)
 	c.queries = distinctReadings(c.queries)
 	return c
+}
+
+// allowModifiers lets a leading modifier list stand where a pattern wrote
+// none.
+//
+// A grammar that collects `private`, `const` and `@JvmField` into one node puts
+// that node at the head of the declaration, and a pattern that did not write it
+// anchors its first child past it. Kotlin is the grammar this was found in, and
+// it fails both ways at once:
+//
+//	val $N = $V            ->  (property_declaration . (binding_pattern_kind) ...)
+//	                           misses `private val secret = "hunter2"`, silently
+//	fun $F($$$_) { $BODY } ->  (function_declaration . (_) @F (_) @BODY .)
+//	                           matches `private fun f(...)`, with $F bound to
+//	                           "private"
+//
+// The first is the shape every hardcoded-credential rule is about and the
+// second is worse than a miss: the rule runs, reports the right line, and every
+// guard on the function's name is asked about a keyword. Real Kotlin writes
+// almost nothing without a modifier - `private`, `internal`, `override`,
+// `suspend`, `const`, an annotation - so between them the two cover most of the
+// language.
+//
+// The fix is one optional node in front, which the query engine takes as a
+// quantifier and which pins the anchor to what follows it. It replaces the
+// reading rather than joining it, because it matches everywhere the reading did
+// and a second matching reading would report the same span twice with different
+// captures.
+//
+// Only the outermost form is opened up. A pattern that writes a member inside a
+// class body says where the modifiers go itself, and reaching into every nested
+// form would be a change to every language for a case no rule in this corpus
+// has.
+func allowModifiers(lang *gotreesitter.Language, language string,
+	queries []*grep.CompiledPattern) []*grep.CompiledPattern {
+	wrapper := modifierWrapper(lang, language)
+	if wrapper == "" {
+		return queries
+	}
+	out := make([]*grep.CompiledPattern, 0, len(queries))
+	for _, q := range queries {
+		out = append(out, withModifiers(lang, wrapper, q))
+	}
+	return out
+}
+
+// withModifiers is one reading opened up, or the reading unchanged where there
+// is nothing to open.
+//
+// The anchor is the whole of the question. `(head . (x) ...)` says the first
+// child is an `x`, which is what a modifier list defeats; `(head (x) ...)`
+// says an `x` is in there somewhere and already matches. So a form with no
+// leading anchor is left exactly as it is, which is every Java declaration -
+// tree-sitter-java labels its children, the compiler emits `type:` and
+// `declarator:` rather than positions, and there is no anchor for a modifier
+// to fall foul of.
+func withModifiers(lang *gotreesitter.Language, wrapper string,
+	q *grep.CompiledPattern) *grep.CompiledPattern {
+	if q == nil {
+		return q
+	}
+	head, rest, ok := splitHead(q.SExpr)
+	if !ok || !strings.HasPrefix(rest, " . ") {
+		return q
+	}
+	sexp := "(" + head + " (" + wrapper + ")?" + strings.TrimPrefix(q.SExpr, "("+head)
+	opened, err := gotreesitter.NewQuery(sexp, lang)
+	if err != nil {
+		return q
+	}
+	return &grep.CompiledPattern{Query: opened, MetaVars: q.MetaVars, Lang: lang, SExpr: sexp}
+}
+
+// modifierProbes are the declarations a modifier is written in front of.
+//
+// A list of syntaxes rather than of languages, the way memberHolders is:
+// whichever of them a grammar reads is the one it is asked about, and one that
+// reads none is not asked.
+var modifierProbes = []string{
+	declarationProbe,
+	"val " + probePrefix + "name = 1",
+	"var " + probePrefix + "name = 1",
+}
+
+// modifierRuns are one modifier and then more than one, because the difference
+// between the two is the whole measurement. See modifierWrapper.
+var modifierRuns = [][]string{
+	{"private"},
+	{"private", "static"},
+	{"private", "final"},
+	{"private", "const"},
+}
+
+// modifierWrappers is the answer per language, worked out once.
+var modifierWrappers sync.Map
+
+// modifierWrapper is what this grammar collects a declaration's modifiers into,
+// and "" where it collects them into nothing.
+//
+// The measurement is a declaration parsed three ways - bare, with one modifier
+// and with two - and the answer is a grammar that gave the same construct one
+// extra child both times. One extra child for one modifier and two for two is a
+// grammar that writes each modifier as a node of its own, which C and C# do:
+//
+//	static const char x = 1;   ->  storage_class_specifier type_qualifier ...
+//
+// and an optional single node in front of those would be a half-truth. So they
+// are measured out rather than listed out, and they keep the reading they had.
+//
+// The probe has to be the whole of what was parsed, which is what keeps a
+// grammar that cannot read it at all from answering from wreckage: Python takes
+// `private val x = 1` as two statements, an expression and an assignment, and
+// "one extra child" is true of it for a reason that has nothing to do with
+// modifiers.
+func modifierWrapper(lang *gotreesitter.Language, language string) string {
+	if cached, ok := modifierWrappers.Load(language); ok {
+		return cached.(string)
+	}
+	wrapper := ""
+	for _, probe := range modifierProbes {
+		if found := modifierWrapperFor(lang, probe); found != "" {
+			wrapper = found
+			break
+		}
+	}
+	modifierWrappers.Store(language, wrapper)
+	return wrapper
+}
+
+// modifierWrapperFor is one probe measured.
+func modifierWrapperFor(lang *gotreesitter.Language, probe string) string {
+	bare, ok := probeChildren(lang, probe)
+	if !ok {
+		return ""
+	}
+	one, many := "", ""
+	for _, run := range modifierRuns {
+		kids, ok := probeChildren(lang, strings.Join(run, " ")+" "+probe)
+		if !ok || len(kids) != len(bare)+1 || kids[0] == bare[0] {
+			continue
+		}
+		if len(run) == 1 {
+			one = kids[0]
+		} else if many == "" {
+			many = kids[0]
+		}
+	}
+	if one == "" || one != many {
+		return ""
+	}
+	return one
+}
+
+// probeChildren are the node types under the construct a probe is, and false
+// where the grammar could not read the probe as one construct.
+func probeChildren(lang *gotreesitter.Language, probe string) ([]string, bool) {
+	tree, err := parserFor(lang).Parse([]byte(probe))
+	if err != nil || tree == nil {
+		return nil, false
+	}
+	bound := gotreesitter.Bind(tree)
+	defer bound.Release()
+	root := bound.RootNode()
+	if root == nil || root.HasErrorOrMissing() || root.NamedChildCount() != 1 {
+		return nil, false
+	}
+	node := root.NamedChild(0)
+	// Down through the wrappers a grammar puts round a top-level statement -
+	// C# has one - to the construct the probe is.
+	for node != nil && node.NamedChildCount() == 1 &&
+		node.NamedChild(0).StartByte() == node.StartByte() &&
+		node.NamedChild(0).EndByte() == node.EndByte() {
+		node = node.NamedChild(0)
+	}
+	if node == nil || node.NamedChildCount() == 0 {
+		return nil, false
+	}
+	kinds := make([]string, 0, node.NamedChildCount())
+	for i := 0; i < node.NamedChildCount(); i++ {
+		kinds = append(kinds, strings.Clone(node.NamedChild(i).Type(lang)))
+	}
+	return kinds, true
 }
 
 // distinctReadings drops the readings that are the same query as an earlier

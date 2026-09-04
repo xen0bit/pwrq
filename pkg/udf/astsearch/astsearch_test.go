@@ -461,3 +461,61 @@ func TestAPatternThatWillNotCompileForOneLanguageIsSkipped(t *testing.T) {
 		t.Fatalf("matched %d times, want the one constant assignment", len(got))
 	}
 }
+
+// ktModifiers is what real Kotlin looks like: almost nothing is written
+// without a `private`, an `override`, a `const` or an annotation in front of
+// it, and the grammar collects them into one node at the head of the
+// declaration.
+const ktModifiers = `class Store {
+    val plain = "a"
+    private val secret = "hunter2"
+    const val KEY = "k"
+    private const val TOKEN = "t"
+
+    fun open(p: String) { use(p) }
+    private fun close(p: String) { use(p) }
+    override fun toString(): String { return "x" }
+    @JvmStatic fun helper(p: String) { use(p) }
+}
+`
+
+// TestALeadingModifierListDoesNotDefeatAPattern is the miss half. A pattern
+// that writes no modifiers anchors its first child past the list, so every
+// declaration a Kotlin program actually writes went unreported - including the
+// shape every hardcoded-credential rule is about.
+func TestALeadingModifierListDoesNotDefeatAPattern(t *testing.T) {
+	dir := tree(t, map[string]string{"Store.kt": ktModifiers})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; "val $N = $V") | .Captures.N]`, dir))
+	names := map[string]bool{}
+	for _, v := range got {
+		names[fmt.Sprint(v)] = true
+	}
+	for _, want := range []string{"plain", "secret", "KEY", "TOKEN"} {
+		if !names[want] {
+			t.Errorf("did not find %s; found %v", want, names)
+		}
+	}
+}
+
+// TestAModifierIsNotMistakenForTheNameItPrecedes is the worse half, and the
+// reason the reading is replaced rather than added to. `fun $F($$$_) { $BODY }`
+// matched a modified function all along - the first child is an anonymous hole
+// - and bound $F to "private", so every guard on a function's name was asked
+// about a keyword and the rule reported the right line for the wrong reason.
+func TestAModifierIsNotMistakenForTheNameItPrecedes(t *testing.T) {
+	dir := tree(t, map[string]string{"Store.kt": ktModifiers})
+	got := collected(t, fmt.Sprintf(`[select_ast(%q; "fun $F($$$_) { $BODY }") | .Captures.F]`, dir))
+	var names []string
+	for _, v := range got {
+		names = append(names, fmt.Sprint(v))
+	}
+	want := []string{"open", "close", "toString", "helper"}
+	if len(names) != len(want) {
+		t.Fatalf("bound %v, want %v", names, want)
+	}
+	for i, w := range want {
+		if names[i] != w {
+			t.Errorf("bound %q where the function is named %q; the whole list was %v", names[i], w, names)
+		}
+	}
+}
