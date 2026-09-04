@@ -49,12 +49,28 @@ func (s Span) contains(other Span) bool { return s.Start <= other.Start && s.End
 // with an initialiser and not an assignment expression, so without this pair
 // a C file's flow began at its second mention of a value and a rule about
 // tainted input found nothing in ordinary code.
+//
+// target/result is Swift's assignment. Every other grammar here calls the
+// right-hand side a value or a right; Swift calls it the result, so `s = x`
+// carried nothing while `let s = x` - which is `name`/`value` - carried
+// everything. A rule following a value through anything reassigned found the
+// first hop and lost the second.
+//
+// item/collection is Swift's `for`, and it is the only pair here that is not
+// an assignment written with an `=`. It is one all the same: `for part in
+// url.pathComponents` gives `part` each of the collection's values, which is
+// exactly what the Java pass had to teach this engine about
+// `for (ZipEntry entry : zip.entries())`. Swift labels that pair and nothing
+// else does, so a Swift `for` carried no flow at all - in the language whose
+// idiom for walking anything untrusted is a `for` over it.
 var bindingFields = [][2]string{
 	{"left", "right"},
 	{"name", "value"},
 	{"target", "value"},
 	{"pattern", "value"},
 	{"declarator", "value"},
+	{"target", "result"},
+	{"item", "collection"},
 }
 
 // identifier is what a name looks like in the languages here, PHP's sigil
@@ -409,36 +425,91 @@ func (f *flow) leavesFunction(node *gotreesitter.Node, src Span) bool {
 // escapes it, which costs noise rather than findings, and a rule that reports
 // something built from a listener rather than from an intent is a rule that
 // should be reading a narrower source.
+//
+// Swift says half of it, and it is the third shape. A function declaration
+// labels its body and says nothing about its parameters, because it writes
+// each of them as a child of its own with no list around them:
+//
+//	function_declaration  "func f(a: Int, b: String) -> Int { ... }"
+//	  simple_identifier [name]  "f"
+//	  parameter                 "a: Int"
+//	  parameter                 "b: String"
+//	  user_type [name]          "Int"
+//	  function_body [body]      "{ ... }"
+//
+// and a closure puts the list one level down, inside the node that holds the
+// signature:
+//
+//	lambda_literal        "{ (r: URL) in sink(r) }"
+//	  lambda_function_type [type]         "(r: URL)"
+//	    lambda_function_type_parameters   "r: URL"
+//	  statements                          "sink(r)"
+//
+// So the parameters are measured wherever the grammar did not label them: a
+// child, or a grandchild, whose type is named for parameters. The singular is
+// admitted for the run Swift writes, and what keeps a parameter list from
+// reading its own last parameter as its body is that a body may not itself be
+// parameter-shaped and must begin after the parameters end.
 func (f *flow) functionParts(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter.Node) {
 	body := node.ChildByFieldName("body", f.lang)
 	params := node.ChildByFieldName("parameters", f.lang)
 	if params == nil {
 		params = node.ChildByFieldName("parameter", f.lang)
 	}
-	if body != nil || params != nil {
-		// A grammar that labels one of the two has said what it calls them,
-		// and a node missing the other is not a function in it.
-		if body == nil || params == nil {
+	if params == nil {
+		params = f.parametersOf(node)
+	}
+	if body != nil {
+		// A grammar that labelled the body has said what it calls it, and a
+		// node with no parameters anywhere is not a function in it.
+		if params == nil {
 			return nil, nil
 		}
 		return params, body
 	}
-	count := node.NamedChildCount()
-	if count < 2 {
+	if params == nil {
 		return nil, nil
 	}
-	for i := 0; i+1 < count; i++ {
-		child := node.NamedChild(i)
-		if child != nil && parameterList.MatchString(child.Type(f.lang)) {
-			return child, node.NamedChild(count - 1)
-		}
+	// Nothing labelled, so the body is the last child - a Kotlin lambda's is
+	// `statements` and a function's is `function_body` and they have nothing
+	// in common but their position.
+	last := node.NamedChild(node.NamedChildCount() - 1)
+	if last == nil || parameterNode.MatchString(last.Type(f.lang)) ||
+		last.StartByte() < params.EndByte() {
+		return nil, nil
 	}
-	return nil, nil
+	return params, last
 }
 
-// parameterList is what a grammar that labels nothing calls the node holding a
-// function's parameters. The plural is deliberate: `parameter` is one of them.
-var parameterList = regexp.MustCompile(`(?:^|_)(?:parameters|parameter_list|params)$`)
+// parametersOf is the parameter list a grammar did not label: a child of the
+// node, or a child of one of its children, whose type says it holds
+// parameters. One level down is as far as it looks, because that is where a
+// grammar that wraps the signature puts it and any further is a guess.
+func (f *flow) parametersOf(node *gotreesitter.Node) *gotreesitter.Node {
+	for i := 0; i < node.NamedChildCount(); i++ {
+		child := node.NamedChild(i)
+		if child == nil {
+			continue
+		}
+		if parameterNode.MatchString(child.Type(f.lang)) {
+			return child
+		}
+		for j := 0; j < child.NamedChildCount(); j++ {
+			if inner := child.NamedChild(j); inner != nil &&
+				parameterNode.MatchString(inner.Type(f.lang)) {
+				return inner
+			}
+		}
+	}
+	return nil
+}
+
+// parameterNode is what a grammar calls a function's parameters, whether it
+// writes them as one list or as a run of single ones. The plural was the whole
+// of the tell until Swift, which writes `parameter` repeated and no list at
+// all; the singular is admitted for that, and functionParts carries the guard
+// that keeps a list from reading its own last parameter as a body.
+var parameterNode = regexp.MustCompile(`(?:^|_)(?:parameters|parameter_list|params|parameter)$`)
 
 // sides are the two halves of an assignment, or nil when the node is not one.
 func (f *flow) sides(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter.Node) {
@@ -452,7 +523,193 @@ func (f *flow) sides(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter
 	if left, right := f.namedAndUnnamed(node); left != nil {
 		return left, right
 	}
+	if left, right := f.boundIdentifier(node); left != nil {
+		return left, right
+	}
 	return f.positional(node)
+}
+
+// boundIdentifier is the binding a grammar spells by labelling the name and
+// nothing else.
+//
+// Swift is that grammar and `guard let` is where it matters. Every value worth
+// following in Swift is an optional - `url.fragment`, `queryItems`,
+// `UIPasteboard.general.string`, `textField.text` are all `String?` - and the
+// language has exactly two idioms for unwrapping one:
+//
+//	guard_statement       "guard let t = url.fragment else { return }"
+//	  value_binding_pattern [condition]  "let"
+//	  simple_identifier [bound_identifier]  "t"
+//	  navigation_expression                 "url.fragment"
+//	  else                                  "else"
+//	  statements                            "return"
+//
+// None of the pairs above matches that. `namedAndUnnamed` wants a `name`
+// field, and there is none. `positional` wants the target wrapped in a node of
+// its own, and it is a bare leaf - Swift wraps the target of a *property*
+// declaration in a `pattern` and wraps nothing here. So `guard let` and
+// `if let` carried no flow, in the language where reading an untrusted value
+// and unwrapping it are the same statement.
+//
+// What the grammar does say is the whole of the fix: it puts a field name on
+// the leaf, and the word it chose - `bound_identifier` - exists for nothing
+// else. The word is measured rather than listed, from the same probes
+// bindingWrappers uses, and a field the pairs above already know is refused:
+// a grammar that calls it `name` has been read correctly by those, and
+// treating every labelled `name` as a binding would make a function
+// declaration one.
+//
+// The value is the child after the target, for the reason it is there: between
+// the name and the value there is nothing a name can be used in, and in a
+// `for` the body is the child after that.
+func (f *flow) boundIdentifier(node *gotreesitter.Node) (*gotreesitter.Node, *gotreesitter.Node) {
+	field := boundIdentifierFields(f.lang, f.language)
+	if field == "" {
+		return nil, nil
+	}
+	for i := 0; i+1 < node.NamedChildCount(); i++ {
+		child := node.NamedChild(i)
+		// The target is a name, so a node with children of its own is not it.
+		if child == nil || child.NamedChildCount() != 0 ||
+			f.fieldOf(node, child) != field {
+			continue
+		}
+		next := node.NamedChild(i + 1)
+		// A target followed by another target is a list of them rather than a
+		// binding, and neither is given the other.
+		if next == nil || f.fieldOf(node, next) == field {
+			return nil, nil
+		}
+		return child, next
+	}
+	return nil, nil
+}
+
+// fieldOf is the field name a node's parent gave it, or "" for a child a
+// grammar left unlabelled.
+func (f *flow) fieldOf(parent, child *gotreesitter.Node) string {
+	for i := 0; i < parent.ChildCount(); i++ {
+		at := parent.Child(i)
+		if at == nil || at.StartByte() != child.StartByte() || at.EndByte() != child.EndByte() {
+			continue
+		}
+		return parent.FieldNameForChild(i, f.lang)
+	}
+	return ""
+}
+
+// boundIdentifierFieldTypes is the answer per language, worked out once.
+var boundIdentifierFieldTypes sync.Map
+
+// boundIdentifierFields is the field name this grammar puts on the leaf that a
+// binding gives a value to, and "" for every grammar that says nothing there
+// or says something the pairs above already read.
+func boundIdentifierFields(lang *gotreesitter.Language, language string) string {
+	if cached, ok := boundIdentifierFieldTypes.Load(language); ok {
+		return cached.(string)
+	}
+	found := ""
+	for _, probe := range bindingProbes {
+		if field := boundIdentifierField(lang, probe); field != "" {
+			found = field
+			break
+		}
+	}
+	boundIdentifierFieldTypes.Store(language, found)
+	return found
+}
+
+// knownBindingField is a field name one of the pairs above already reads, so a
+// grammar answering with it is being read correctly and must not be read twice.
+func knownBindingField(field string) bool {
+	for _, pair := range bindingFields {
+		if pair[0] == field || pair[1] == field {
+			return true
+		}
+	}
+	return field == "" || field == "body" || field == "parameters"
+}
+
+// boundIdentifierField is one probe measured: the leaf holding the probe's
+// name, and the word its parent labelled it with.
+//
+// Three things are refused, and the last of them is the whole of what keeps
+// this off the grammars it is not for.
+//
+// The probe has to be the whole file's one construct, the same refusal
+// bindingWrapper makes and for the same reason - a grammar that could not read
+// it would otherwise answer from what it made of the words.
+//
+// The word has to be one none of the pairs above already reads. A grammar that
+// calls it `name` is read correctly by those, and taking every labelled `name`
+// for a binding would make a function declaration one.
+//
+// And the child after the target has to be the value the probe wrote. This is
+// the one that matters: bash reads `pwrqProbe_name = 1` as a command with two
+// arguments and labels the leaf `argument`, and PowerShell does the same and
+// labels it `command_name`. Both are real field names on a real node and
+// neither is a binding - the child after the name is the `=`, not the `1`, and
+// that is what says so.
+func boundIdentifierField(lang *gotreesitter.Language, probe string) string {
+	tree, err := parserFor(lang).Parse([]byte(probe))
+	if err != nil || tree == nil {
+		return ""
+	}
+	bound := gotreesitter.Bind(tree)
+	defer bound.Release()
+	root := bound.RootNode()
+	if root == nil || root.HasErrorOrMissing() || root.NamedChildCount() != 1 {
+		return ""
+	}
+	at := strings.Index(probe, probePrefix+"name")
+	if at < 0 {
+		return ""
+	}
+	leaf := root.NamedDescendantForByteRange(uint32(at), uint32(at+len(probePrefix)+4))
+	if leaf == nil || leaf.NamedChildCount() != 0 {
+		return ""
+	}
+	parent := leaf.Parent()
+	if parent == nil {
+		return ""
+	}
+	field := ""
+	for i := 0; i < parent.ChildCount(); i++ {
+		child := parent.Child(i)
+		if child != nil && child.StartByte() == leaf.StartByte() &&
+			child.EndByte() == leaf.EndByte() {
+			field = parent.FieldNameForChild(i, lang)
+			break
+		}
+	}
+	if knownBindingField(field) {
+		return ""
+	}
+	// Up from the name to the child of the node that binds it, the same walk
+	// bindingWrapper makes: Swift labels the leaf `bound_identifier` in both
+	// places the word appears, but in a property declaration the leaf sits
+	// inside a `pattern` and in a `guard` it is a child of the binding itself.
+	// The value is asked of the binding either way.
+	target, holder := leaf, parent
+	for holder != nil && holder.NamedChildCount() < 2 {
+		target, holder = holder, holder.Parent()
+	}
+	if holder == nil {
+		return ""
+	}
+	for i := 0; i+1 < holder.NamedChildCount(); i++ {
+		at := holder.NamedChild(i)
+		if at == nil || at.StartByte() != target.StartByte() ||
+			at.EndByte() != target.EndByte() {
+			continue
+		}
+		value := holder.NamedChild(i + 1)
+		if value == nil || string(bytesOf(probe, value)) != probeValue {
+			return ""
+		}
+		return strings.Clone(field)
+	}
+	return ""
 }
 
 // namedAndUnnamed is the binding a grammar spells with a name on one side and

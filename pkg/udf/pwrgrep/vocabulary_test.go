@@ -572,3 +572,100 @@ func TestAValueDoesNotEscapeAKotlinLambda(t *testing.T) {
 			"  7 runs what a lambda was wrapped into, and the extra never left it", got, want)
 	}
 }
+
+// boundInSwift is the language where a value worth following is an optional
+// and every idiom for unwrapping one was a dead end.
+//
+// `guard let` labels the name it binds and nothing else, so none of the
+// field-name pairs matched and the positional reading found no wrapper round
+// the target; a bare `s = x` is `target`/`result`, a spelling no other grammar
+// here uses; and a `for` is `item`/`collection`, likewise. Three shapes, three
+// misses, and between them every way Swift moves a value that is not the
+// declaration it was first read into - so this file carried no flow at all.
+//
+// The last method is the scope test: `frag` there is a literal in a function
+// that reads nothing, and it must not be reported because another function
+// spells a local the same way.
+const boundInSwift = `import Foundation
+
+func fromGuard(_ url: URL) {
+    guard let frag = url.fragment else { return }
+    exec(frag)
+}
+
+func fromAssignment(_ url: URL) {
+    var s = "safe"
+    s = url.absoluteString
+    exec(s)
+}
+
+func fromLoop(_ url: URL) {
+    for part in url.pathComponents {
+        exec(part)
+    }
+}
+
+func clean() {
+    let frag = "constant"
+    exec(frag)
+}
+`
+
+// TestAValueIsFollowedThroughASwiftBinding is the three fixes together: the
+// field name a grammar puts on the leaf it binds, measured rather than listed,
+// and the two pairs Swift spells its own way.
+func TestAValueIsFollowedThroughASwiftBinding(t *testing.T) {
+	dir := write(t, "Sink.swift", boundInSwift)
+	got := run(t, `
+	["$$$U.fragment", "$$$U.absoluteString", "$$$U.pathComponents"] as $sources
+	| ["exec($C)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.swift"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{5.0, 11.0, 16.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n"+
+			"  5 is a guard let, 11 a plain assignment, 16 a for loop;\n"+
+			"  22 spells the same name over a literal in a function that reads no URL", got, want)
+	}
+}
+
+// closedOverInSwift is the boundary, and Swift draws half of it. A function
+// declaration labels its body and writes its parameters as loose children with
+// no list around them; a closure labels neither and puts the list a level down
+// inside the node holding its signature. Neither was a function to the engine,
+// so a value read inside a closure escaped it - in a language that writes a
+// closure for every callback there is.
+const closedOverInSwift = `import Foundation
+
+func serve(_ url: URL) {
+    let inner = { (r: URL) in
+        let hdr = r.fragment
+        use(hdr)
+    }
+    let started = wrap(inner)
+    exec(started)
+}
+
+func direct(_ url: URL) {
+    guard let hdr = url.fragment else { return }
+    exec(hdr)
+}
+`
+
+func TestAValueDoesNotEscapeASwiftClosure(t *testing.T) {
+	dir := write(t, "Handler.swift", closedOverInSwift)
+	got := run(t, `
+	["$$$U.fragment"] as $sources
+	| ["exec($C)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.swift"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{14.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n  14 is the fragment read into a name and run;\n"+
+			"  9 runs what a closure was wrapped into, and the fragment never left it", got, want)
+	}
+}
