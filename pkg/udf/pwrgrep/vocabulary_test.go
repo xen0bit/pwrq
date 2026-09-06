@@ -669,3 +669,139 @@ func TestAValueDoesNotEscapeASwiftClosure(t *testing.T) {
 			"  9 runs what a closure was wrapped into, and the fragment never left it", got, want)
 	}
 }
+
+// reassignedInABranch is the shape a name is given a tainted value in a place
+// narrower than the one it is used from. `param` is declared at the top of the
+// method, given the cookie's value inside a loop and inside an `if`, and read
+// after both have closed.
+//
+// The scope a taint is remembered in used to be the nearest body, which here
+// is the `for`'s, so the read two lines later was outside the taint's own
+// scope and the path was lost - a whole family of Benchmark path-traversal
+// cases reported nothing. A method's body is the scope, and a `for`'s is not.
+const reassignedInABranch = `package sink;
+
+public class Reader {
+    public void read(HttpServletRequest req, Cookie[] cookies) {
+        String param = "";
+        for (Cookie c : cookies) {
+            if (c.getName().equals("id")) {
+                param = c.getValue();
+            }
+        }
+        exec(param);
+    }
+
+    public void other(Cookie[] cookies) {
+        String param = "safe";
+        exec(param);
+    }
+}
+`
+
+func TestAValueSurvivesTheBranchItWasAssignedIn(t *testing.T) {
+	dir := write(t, "Reader.java", reassignedInABranch)
+	got := run(t, `
+	["$$$C.getValue()"] as $sources
+	| ["exec($V)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.java"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{11.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n"+
+			"  11 reads a name assigned the cookie's value two blocks in;\n"+
+			"  16 spells the same name over a literal in a method that reads no cookie", got, want)
+	}
+}
+
+// methodsOfAClass is the check that the walk looking for that method body does
+// not walk past it. Swift labels a function's body and says nothing about its
+// parameters, so a function written with none is not function-shaped and the
+// walk carries on into the class - where the first method's `parameter` and
+// the last method's body would answer for the class itself if a node with a
+// body of its own were allowed to lend its parameters to its parent.
+//
+// The name would then be scoped to whichever method happened to be written
+// last, and every flow in every other method in the class would be lost.
+const methodsOfAClass = `import Foundation
+
+final class Tools {
+
+    func fromURL(_ url: URL) {
+        let name = url.lastPathComponent
+        exec(name)
+    }
+
+    func fromPasteboard() {
+        let target = UIPasteboard.general.string ?? ""
+        exec(target)
+    }
+
+    func describe(_ what: String) {
+        print(what)
+    }
+}
+`
+
+func TestAClassIsNotReadAsTheFunctionItsMethodsAreIn(t *testing.T) {
+	dir := write(t, "Tools.swift", methodsOfAClass)
+	got := run(t, `
+	["UIPasteboard.general.string", "$$$U.lastPathComponent"] as $sources
+	| ["exec($V)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.swift"; $sources + $sinks)) as $all
+	| ($all | of($sinks) | reaching($all | of($sources); []))
+	| map(.LineNumber)`)
+
+	want := []any{7.0, 12.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n"+
+			"  7 is in a method with a parameter and 12 in one with none;\n"+
+			"  a class read as a function scopes 12 to the method written last", got, want)
+	}
+}
+
+// handlerAsAValue is the shape a function is written as a value and its
+// parameter is the untrusted thing. Every AWS Lambda in JavaScript is this,
+// and so is every Express route handler passed to `app.get`.
+//
+// The walk asking what a source was given to used to run past the function,
+// because a parameter is not inside the body and nothing else stopped it; the
+// first thing above with two sides is the assignment, so `event` was read as
+// having been given to `exports.handler` and the query below - which reads
+// `event` - reached nothing.
+const handlerAsAValue = `const db = require('db');
+
+exports.handler = function (event, context) {
+    return db.query("SELECT * FROM users WHERE name = '" + event.name + "'");
+};
+
+function named(event, context) {
+    return db.query("SELECT * FROM users WHERE id = " + event.id);
+}
+
+exports.fixed = function (event, context) {
+    return db.query("SELECT count(*) FROM users");
+};
+`
+
+func TestAHandlerParameterIsASourceWhereverTheHandlerIsWritten(t *testing.T) {
+	dir := write(t, "handler.js", handlerAsAValue)
+	got := run(t, `
+	["exports.handler = function ($EVENT, $$$_) { $$$BODY }",
+	 "exports.$NAME = function ($EVENT, $$$_) { $$$BODY }",
+	 "function $FUNC ($EVENT, $$$_) { $$$BODY }"] as $handlers
+	| ["db.query($Q)"] as $sinks
+	| (`+quoted(dir)+` | scan_ast("*.js"; $handlers + $sinks)) as $all
+	| ($all | of($sinks) | focus("Q")
+	   | reaching($all | of($handlers) | focus("EVENT"); []))
+	| map(.LineNumber)`)
+
+	want := []any{4.0, 8.0}
+	if !equal(got, want) {
+		t.Errorf("reached lines %v, want %v\n"+
+			"  4 is a handler written as a value and 8 one written as a declaration;\n"+
+			"  12 is a handler that reads its event nowhere", got, want)
+	}
+}

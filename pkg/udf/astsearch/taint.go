@@ -38,6 +38,16 @@ func (s Span) contains(other Span) bool { return s.Start <= other.Start && s.End
 // bindingFields are the field-name pairs a grammar uses to say "this side is
 // given the value of that side".
 //
+// The table has not needed a new pair since Swift, and the languages added
+// after it are the reason to say so rather than to keep trying. Every grammar
+// that carries flow at all spells a binding one of these ways - Scala's and
+// Rust's `let` are pattern/value, which Kotlin already asked for; TypeScript
+// is JavaScript's name/value - and the ones that were added and carry none
+// carry none because there is nothing to carry: Terraform, YAML, Dockerfile
+// and the RE2 rules describe configuration, where a value is not given to a
+// name and then used somewhere else. A rule over those asks what a field is
+// set to, not where it came from.
+//
 // Every grammar in this build spells assignment with one of these, because
 // there are only so many ways: Python, Go, JavaScript and Ruby all say
 // left/right; a declarator with an initialiser says name/value; a few say
@@ -386,12 +396,27 @@ func (f *flow) arrivesUnderItsOwnName(src Span, node *gotreesitter.Node) []taint
 // so it is not recognised and the old behaviour survives there. That is a gap
 // rather than a decision, and it is the direction that costs noise rather
 // than findings.
+//
+// A source in the parameter list is inside the function too, and saying so is
+// what makes a rule that points at a parameter work when the function is a
+// value:
+//
+//	exports.handler = function (event, context) { db.query("..." + event.x) }
+//
+// A rule naming `event` as untrusted gets the parameter, and the walk asking
+// what that was given used to answer `exports.handler` - because a parameter
+// is not in the body, so nothing stopped it at the function, and the
+// assignment above it was the first thing with two sides. The taint went onto
+// the name the handler was stored under and the query two lines down, which
+// reads `event`, reached nothing. A parameter is given its value by the
+// caller and by nothing in the file, which is exactly what
+// arrivesUnderItsOwnName is for.
 func (f *flow) leavesFunction(node *gotreesitter.Node, src Span) bool {
 	params, body := f.functionParts(node)
 	if params == nil || body == nil {
 		return false
 	}
-	return f.span(body).contains(src)
+	return f.span(body).contains(src) || f.span(params).contains(src)
 }
 
 // functionParts are the parameter list and the body of a function, or nils
@@ -485,6 +510,16 @@ func (f *flow) functionParts(node *gotreesitter.Node) (*gotreesitter.Node, *gotr
 // node, or a child of one of its children, whose type says it holds
 // parameters. One level down is as far as it looks, because that is where a
 // grammar that wraps the signature puts it and any further is a guess.
+//
+// The descent skips a child that has a body of its own, and that guard is
+// what keeps a class from being read as a function. Swift's `class_body`
+// labels nothing and its last child is a method, so without the guard its
+// first method's `parameter` answered for the class and the class's last
+// method answered for the body - and every name in the class was then scoped
+// to whichever method happened to be written last. A wrapper that really does
+// hold a signature - C's `function_declarator`, Swift's `lambda_function_type`
+// - has no body; the thing that has one is a declaration in its own right and
+// its parameters are its own.
 func (f *flow) parametersOf(node *gotreesitter.Node) *gotreesitter.Node {
 	for i := 0; i < node.NamedChildCount(); i++ {
 		child := node.NamedChild(i)
@@ -493,6 +528,9 @@ func (f *flow) parametersOf(node *gotreesitter.Node) *gotreesitter.Node {
 		}
 		if parameterNode.MatchString(child.Type(f.lang)) {
 			return child
+		}
+		if child.ChildByFieldName("body", f.lang) != nil {
+			continue
 		}
 		for j := 0; j < child.NamedChildCount(); j++ {
 			if inner := child.NamedChild(j); inner != nil &&
@@ -749,21 +787,40 @@ func (f *flow) namedAndUnnamed(node *gotreesitter.Node) (*gotreesitter.Node, *go
 }
 
 // scopeOf is the body an assignment happens in, so that a name in one function
-// is not read as the same name in another. A grammar names that child `body`;
-// an assignment with no such ancestor is at file scope and is not narrowed.
+// is not read as the same name in another.
+//
+// The function is asked for first, because `body` in a labelled grammar covers
+// a loop and a branch as well as a function and the innermost one is usually
+// not the one a name lives in:
+//
+//	String param = "";
+//	for (Cookie c : cookies) {
+//	        if (c.getName().equals("id")) { param = decode(c.getValue()); }
+//	}
+//	new File(TESTFILES_DIR + param);
+//
+// The nearest `body` there is the `for`'s, so `param` was scoped to the loop
+// and the sink written after it was outside its own taint's scope - a whole
+// shape of Benchmark path-traversal case reported nothing. Java labels a
+// method's parameters and its body, so the method answers functionParts and
+// the walk carries on past the loop to reach it.
+//
+// The nearest `body` is still the answer when nothing above it is a function,
+// which is a loop or a branch at file scope; and an assignment with no `body`
+// ancestor at all is at file scope and is not narrowed.
 func (f *flow) scopeOf(node *gotreesitter.Node) Span {
+	var nearest Span
+	var found bool
 	for n := node.Parent(); n != nil; n = n.Parent() {
-		if body := n.ChildByFieldName("body", f.lang); body != nil {
-			return f.span(body)
-		}
-		// A grammar that labels nothing is asked the narrower question, and
-		// only a function answers it: `body` in a labelled grammar covers a
-		// loop as well as a function, but the unlabelled reading has no way to
-		// tell a loop's body from an `if`'s, and scoping a name to the branch
-		// it was assigned in would lose every use after the branch.
 		if _, body := f.functionParts(n); body != nil {
 			return f.span(body)
 		}
+		if body := n.ChildByFieldName("body", f.lang); body != nil && !found {
+			nearest, found = f.span(body), true
+		}
+	}
+	if found {
+		return nearest
 	}
 	return Span{}
 }
