@@ -78,6 +78,13 @@ jobs:
       - name: Test (viz build)
         run: go test -race -timeout 30m -tags viz ./cli/...
 
+      # The native IDE sits behind a second tag, ide_native, for the same
+      # reason: a binary without it must not contain the server that evaluates
+      # queries. Its tests only compile with the tag, so they run here and
+      # nowhere else.
+      - name: Test (native IDE build)
+        run: go test -race -timeout 30m -tags "viz ide_native" ./cli/... ./pkg/webnative/
+
   lint:
     name: lint & vet
     runs-on: ubuntu-latest
@@ -108,6 +115,7 @@ jobs:
         run: |
           go vet ./...
           go vet -tags viz ./...
+          go vet -tags "viz ide_native" ./...
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -197,6 +205,12 @@ jobs:
       # before-hook, so if it fails the release fails after the tag exists.
       - name: Build the page
         run: make web.build
+
+      # The native page is derived from the WASM sources by build-native.mjs,
+      # which fails when its anchors are gone. Building it here is what stops
+      # that derivation from rotting between native deploys.
+      - name: Build the native page
+        run: make web.build-native
 
   govulncheck:
     name: govulncheck

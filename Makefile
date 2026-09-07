@@ -123,7 +123,8 @@ lint:
 	@# The viz files sit behind a build tag, so a default run never sees them.
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run ./... && \
-		golangci-lint run --build-tags viz ./...; \
+		golangci-lint run --build-tags viz ./... && \
+		golangci-lint run --build-tags "viz ide_native" ./...; \
 	else \
 		echo "golangci-lint not found, skipping..."; \
 	fi
