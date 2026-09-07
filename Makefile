@@ -186,8 +186,24 @@ web.build-native:
 	@cd pkg/web/src && bun install --no-save 2>/dev/null || true
 	@cd pkg/web/src && bun build-native.mjs
 	@cd pkg/web/src && bun run build-native
+	@# Serve the bundled page at the root too, so the bare address lands on
+	@# it. This must be the BUNDLED html (bun rewrote its asset references to
+	@# the hashed outputs), never the pre-bundle source - copying the source
+	@# here once shipped a page pointing at js/main-native.js and css/app.css,
+	@# which do not exist in dist-native, so every asset 404'd as text/plain.
 	@echo "Serving the native page at the root too, so the bare address lands on it..."
-	@cp pkg/web/src/index-native.html pkg/web/dist-native/index.html
+	@cp pkg/web/dist-native/index-native.html pkg/web/dist-native/index.html
+	@# Every local asset the served page references must exist in dist-native,
+	@# or the page loads unstyled and scriptless behind MIME-type errors.
+	@echo "Checking the served page's asset references resolve..."
+	@missing=0; \
+	for ref in $$(grep -o -E '(src|href)="[^"]+"' pkg/web/dist-native/index.html | sed -E 's/^(src|href)="([^"]+)"/\2/' | grep -v -E '^(https?:|data:|#)'); do \
+		if [ ! -e "pkg/web/dist-native/$$ref" ]; then \
+			echo "Error: pkg/web/dist-native/index.html references '$$ref', which is not in dist-native"; \
+			missing=1; \
+		fi; \
+	done; \
+	if [ "$$missing" -ne 0 ]; then exit 1; fi
 	@ls -lh pkg/web/dist-native/index.html 2>/dev/null | awk '{print "  " $$9 " " $$5}'
 
 .PHONY: clean
