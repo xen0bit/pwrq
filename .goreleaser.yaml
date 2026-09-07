@@ -27,16 +27,23 @@ before:
     # The IDE is compiled into pwrq-viz below, so the page has to exist before
     # the build runs. Needs bun; release.yml installs it.
     - make web.build
+    # The native IDE is compiled into pwrq-viz-native the same way, from its
+    # own page build. The two pages are separate targets so rebuilding one can
+    # never smuggle anything into the other.
+    - make web.build-native
     # The corpus is a module dependency now, so there is no rules directory in
     # the tree for the packages below to point at. This writes one.
     - make rules.export
 
 # ---------------------------------------------------------------------------
-# Builds — two binaries, because they are two different products.
+# Builds — three binaries, because they are three different products.
 #
 # pwrq is the everyday CLI. pwrq-viz adds query diagramming and the browser
 # IDE, which pull in d2, a JavaScript engine, a syntax highlighter and a PDF
 # writer — the Makefile keeps them apart for the same reason, and so does this.
+# pwrq-viz-native is the browser IDE backed by this machine instead of the
+# tab: the full cmdlet vocabulary over HTTP, behind its own flag (--ide-native)
+# and build tag (ide_native), so the WASM-only pwrq-viz can never serve it.
 # ---------------------------------------------------------------------------
 builds:
   - id: pwrq
@@ -167,6 +174,74 @@ builds:
       # behaviour can be traced back to a commit.
       - -X github.com/xen0bit/pwrq/pkg/webapi.Version={{ .Version }}-{{ .ShortCommit }}
 
+  # pwrq-viz-native serves the native IDE: the browser editor backed by the
+  # machine it runs on, with the full cmdlet vocabulary. Separate binary,
+  # separate page (embed_web_native embeds dist-native, never dist), separate
+  # flag (--ide-native) — a pwrq-viz install can never serve this.
+  - id: pwrq-viz-native
+    binary: pwrq-viz-native
+    main: ./cmd/pwrq-viz
+    # viz for the diagram engine and the static server, ide_native for the
+    # native API (without it --ide-native is a stub error), embed_web_native
+    # for the native page baked in — same packaging reasoning as pwrq-viz.
+    tags:
+      - viz
+      - ide_native
+      - embed_web_native
+      - grammar_subset
+      - grammar_subset_go
+      - grammar_subset_python
+      - grammar_subset_javascript
+      - grammar_subset_typescript
+      - grammar_subset_tsx
+      - grammar_subset_rust
+      - grammar_subset_java
+      - grammar_subset_c
+      - grammar_subset_cpp
+      - grammar_subset_c_sharp
+      - grammar_subset_ruby
+      - grammar_subset_php
+      - grammar_subset_bash
+      - grammar_subset_powershell
+      - grammar_subset_sql
+      - grammar_subset_json
+      - grammar_subset_yaml
+      - grammar_subset_toml
+      - grammar_subset_hcl
+      - grammar_subset_xml
+      - grammar_subset_html
+      - grammar_subset_css
+      - grammar_subset_markdown
+      - grammar_subset_dockerfile
+      # The languages the rule corpus needs. A rule for a grammar this build
+      # has not is a rule that ships and can never fire; see
+      # TestEveryRuleLanguageIsInTheBuild.
+      - grammar_subset_apex
+      - grammar_subset_clojure
+      - grammar_subset_dart
+      - grammar_subset_elixir
+      - grammar_subset_kotlin
+      - grammar_subset_lua
+      - grammar_subset_ocaml
+      - grammar_subset_scala
+      - grammar_subset_solidity
+      - grammar_subset_swift
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64, arm, "386", ppc64le, riscv64, s390x]
+    goarm: ["5", "7"]
+    go386: [softfloat]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/xen0bit/pwrq/cli.revision={{ .ShortCommit }}
+      # The native page reports the same version the WASM page does, so a
+      # shared link's behaviour can be traced back to a commit either way.
+      - -X github.com/xen0bit/pwrq/pkg/webapi.Version={{ .Version }}-{{ .ShortCommit }}
+
 # ---------------------------------------------------------------------------
 # Archives — one tar.gz per binary per architecture, for people who do not
 # want the apt repository.
@@ -192,9 +267,21 @@ archives:
       - README.md
       - EXAMPLES.md
 
+  - id: pwrq-viz-native
+    ids: [pwrq-viz-native]
+    formats: [tar.gz]
+    name_template: >-
+      pwrq-viz-native_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - EXAMPLES.md
+
 # ---------------------------------------------------------------------------
-# Linux packages. Two of them, matching the two binaries: `apt install pwrq`
-# gets the CLI, `apt install pwrq-viz` adds the diagram tool and the IDE.
+# Linux packages. Three of them, matching the three binaries: `apt install pwrq`
+# gets the CLI, `apt install pwrq-viz` adds the diagram tool and the browser
+# IDE, and `apt install pwrq-viz-native` adds the IDE backed by the machine
+# itself (--ide-native) instead of the tab.
 # ---------------------------------------------------------------------------
 nfpms:
   - id: pwrq
@@ -247,6 +334,29 @@ nfpms:
       # inside the binary, and shipping the directory in both packages would
       # make them conflict over every file in it. Installing pwrq alongside is
       # what puts the editable copy on disk.
+
+  - id: pwrq-viz-native
+    package_name: pwrq-viz-native
+    ids: [pwrq-viz-native]
+    vendor: pwrq
+    homepage: https://github.com/xen0bit/pwrq
+    maintainer: Remy <21974988+xen0bit@users.noreply.github.com>
+    description: |-
+      The native browser IDE for pwrq.
+      pwrq-viz-native serves the browser editor backed by this machine's full
+      cmdlet vocabulary (--ide-native): files, processes, services, the
+      network and shell commands. A query typed here runs here, as the user
+      serving the page, so a non-loopback bind requires PWRQ_IDE_TOKEN. It
+      installs alongside pwrq and pwrq-viz under its own binary name.
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/pwrq-viz-native/README.md
+      - src: EXAMPLES.md
+        dst: /usr/share/doc/pwrq-viz-native/EXAMPLES.md
+      # No rules tree here, for the same reason as pwrq-viz: the binary
+      # carries the rules, and the editable copy comes from installing pwrq.
 
 # ---------------------------------------------------------------------------
 # Checksums, signing, SBOMs, changelog.

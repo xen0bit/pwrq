@@ -53,7 +53,7 @@ func TestEveryRuleLanguageIsInTheBuild(t *testing.T) {
 	for _, language := range names {
 		t.Errorf("%d rule(s) are written for %s, which the release build does not carry, "+
 			"so they ship and can never fire - add it to GRAMMARS in the Makefile and to "+
-			"both build stanzas in .goreleaser.yaml, or drop the rules (e.g. %s)",
+			"every build stanza in .goreleaser.yaml, or drop the rules (e.g. %s)",
 			len(missing[language]), language, missing[language][0])
 	}
 }
