@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "bun build index.html --outdir ../dist --target browser --minify",
+    "build-native": "bun build index-native.html --outdir ../dist-native --target browser --minify",
     "test": "bun test"
   }
 }

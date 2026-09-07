@@ -3,6 +3,7 @@
 # of rules that was called pwrq.
 /pwrq
 /pwrq-viz
+/pwrq-viz-native
 
 # Compiled test binaries. `go test -c` and a `-o` build drop these next to the
 # package; pwrgrep.test was committed by accident once already.
@@ -20,7 +21,10 @@ coverage.html
 
 # Web build artifacts
 pkg/web/dist/
+pkg/web/dist-native/
 pkg/web/src/wasm/
+pkg/web/src/index-native.html
+pkg/web/src/js/main-native.js
 pkg/web/src/js/wasm_exec.js
 pkg/web/src/node_modules/
 

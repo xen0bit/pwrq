@@ -732,6 +732,35 @@ make web.build          # build the page (needs bun)
 make build-viz-with-ide # or bake the page into the binary
 ```
 
+The WASM page above is deliberately capability-free: it evaluates in the tab
+against the pure in-memory cmdlets, and the server behind it is a static file
+server with no API. Rebuilding it can never expose anything, which is what
+makes it safe to deploy as a static site.
+
+### Native IDE
+
+The same editor backed by this machine instead of the tab: every cmdlet runs,
+including `get_childitem`, `get_process`, `sh` and the network cmdlets. It is
+a separate page, flag and build, so the WASM deployment above is unaffected.
+
+```bash
+make web.build-native          # build the native page (needs bun)
+make build-viz-native          # pwrq-viz-native serving dist-native from the tree
+./pwrq-viz-native --ide-native # then open http://localhost:8080/tools/pwrq/
+make build-viz-native-with-ide # or bake the native page into the binary
+```
+
+A query typed here runs here, as the user serving the page, in its working
+directory. Who can reach the port can act as you: loopback binds need nothing
+more, and any other bind is refused unless `PWRQ_IDE_TOKEN` is set (sent as
+`Authorization: Bearer`, with `PWRQ_MCP_TOKEN` as a fallback). `PWRQ_HOST`
+overrides the bind, which defaults to loopback. There is no TLS of its own.
+
+Functionally it matches the WASM page — run-as-you-type, format/minify/inline,
+diagrams, catalog, examples, palette, history and share links — with two
+deliberate differences: validation also compiles (unknown names fail before
+the run), and the catalog lists everything as runnable, because it is.
+
 What it does:
 
 - **Runs as you type**, against sample JSON you paste, drop or open. The input

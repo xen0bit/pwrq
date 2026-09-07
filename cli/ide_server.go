@@ -33,15 +33,7 @@ const routePrefix = "/tools/pwrq"
 //   - the hashed bundle files are immutable and the rest is not, so they are
 //     cached differently.
 func serveIDE(cli *cli, dist fs.FS) error {
-	mux := http.NewServeMux()
-	files := http.FileServer(http.FS(dist))
-
-	handler := http.StripPrefix(routePrefix, assetHandler(dist, files))
-	mux.Handle(routePrefix+"/", handler)
-	mux.Handle(routePrefix, http.RedirectHandler(routePrefix+"/", http.StatusMovedPermanently))
-	// Someone who opens the bare address should land on the editor rather than
-	// on a 404 that makes the server look broken.
-	mux.Handle("/", http.RedirectHandler(routePrefix+"/", http.StatusFound))
+	mux := newIDEMux(dist)
 
 	port := os.Getenv("PWRQ_PORT")
 	if port == "" {
@@ -73,6 +65,24 @@ func serveIDE(cli *cli, dist fs.FS) error {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 	return nil
+}
+
+// newIDEMux serves the WASM-only editor: static assets and nothing else. It
+// deliberately has no API routes - a query typed here evaluates inside the
+// browser tab, and this function is where that guarantee lives. The native
+// IDE mounts its own mux elsewhere (see ide_native.go); asserting that this
+// one answers 404 under /api is TestWASMServerHasNoAPI.
+func newIDEMux(dist fs.FS) *http.ServeMux {
+	mux := http.NewServeMux()
+	files := http.FileServer(http.FS(dist))
+
+	handler := http.StripPrefix(routePrefix, assetHandler(dist, files))
+	mux.Handle(routePrefix+"/", handler)
+	mux.Handle(routePrefix, http.RedirectHandler(routePrefix+"/", http.StatusMovedPermanently))
+	// Someone who opens the bare address should land on the editor rather than
+	// on a 404 that makes the server look broken.
+	mux.Handle("/", http.RedirectHandler(routePrefix+"/", http.StatusFound))
+	return mux
 }
 
 func assetHandler(dist fs.FS, files http.Handler) http.Handler {
