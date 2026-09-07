@@ -102,6 +102,11 @@ jobs:
           set -euo pipefail
           go build ./...
           go test -race -timeout 30m ./...
+          # The corpus check is skipped under -race, where it costs sixteen
+          # times the CPU and more than the timeout above; rules_test.go says
+          # what that trades away. It is the check this job exists for, so it
+          # runs here rather than being left to the pull request.
+          go test -count=1 -timeout 20m -run TestEveryRuleWithAFixtureFindsExactlyWhatItMarks ./pkg/pwrgrep/
 
       - name: Open the pull request
         if: steps.check.outputs.changed == 'true'
@@ -138,11 +143,13 @@ jobs:
 
           \`$BEFORE\` -> \`$AFTER\`
 
-          \`go test -race -timeout 30m ./...\` passed in the job that opened this, which is where it
-          had to run: a pull request opened with \`GITHUB_TOKEN\` does not start another
-          workflow. That covers the two checks the corpus repository cannot make for
-          itself - every rule compiles against this binary's cmdlet vocabulary, and
-          every language a rule names is a grammar the release build carries.
+          \`go test -race -timeout 30m ./...\` and the corpus check that runs beside it passed
+          in the job that opened this, which is where they had to run: a pull request opened
+          with \`GITHUB_TOKEN\` does not start another workflow. Between them that covers the
+          three checks the corpus repository cannot make for itself - every rule compiles
+          against this binary's cmdlet vocabulary, every language a rule names is a grammar
+          the release build carries, and every rule still fires exactly where its fixture
+          marks when it is the embedded copy being searched.
 
           Opened by \`.github/workflows/rules.yml\`.
           EOF

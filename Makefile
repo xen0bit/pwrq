@@ -78,6 +78,8 @@ install:
 test:
 	@echo "Running tests..."
 	go test -race -timeout 30m ./...
+	@echo "Running the corpus check (without -race; see rules_test.go)..."
+	go test -count=1 -timeout 20m -run TestEveryRuleWithAFixtureFindsExactlyWhatItMarks ./pkg/pwrgrep/
 	@echo "Running tests for the viz build..."
 	go test -race -timeout 30m -tags viz ./cli/...
 	@echo "Running the editor's browser-side tests..."

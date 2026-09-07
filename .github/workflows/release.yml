@@ -46,6 +46,13 @@ jobs:
       - name: Run tests
         run: go test -race -timeout 30m ./...
 
+      # Every rule in the corpus carries a fixture, so this searches 2177 files
+      # with 2177 rules. It is skipped in the run above because the race
+      # detector costs it sixteen times the CPU, which is more than that job's
+      # timeout; rules_test.go says what that trades away.
+      - name: The corpus fires where its fixtures mark
+        run: go test -count=1 -timeout 20m -run TestEveryRuleWithAFixtureFindsExactlyWhatItMarks ./pkg/pwrgrep/
+
       # syft produces the SBOMs and cosign signs the checksum file. Both are
       # pinned rather than floating: a dependency that moves on its own schedule
       # turns a green release red without a change on our side, and a release is

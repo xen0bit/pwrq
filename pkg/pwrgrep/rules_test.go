@@ -178,9 +178,29 @@ func expectations(t *testing.T, path, id string) (want []int, ok []int) {
 }
 
 // TestEveryRuleWithAFixtureFindsExactlyWhatItMarks is the corpus test.
+//
+// The subtests run in parallel because there is one per rule and every rule in
+// the corpus now carries a fixture. Each reads one fixture file and shares
+// nothing with the others; the only state between them is fixtureRoot, which
+// TestMain writes before m.Run and removes after it returns.
+//
+// It does not run under the race detector, which is a trade and worth stating.
+// The detector costs this test sixteen times the CPU - 8 minutes of it becomes
+// 130 - and at 2177 rules that is more than the half-hour timeout on a runner
+// with four cores. What the detector would be watching is astsearch's
+// goroutines, which the engine's own tests exercise under it directly; running
+// them again once per rule buys the same coverage 2177 times over. So the
+// corpus check runs in a step of its own without -race, where it takes about
+// twenty seconds, and skipping is loud rather than silent because a check that
+// quietly stops running is worse than one that is slow.
 func TestEveryRuleWithAFixtureFindsExactlyWhatItMarks(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the corpus check runs without -race, in its own step: " +
+			"go test -timeout 20m -run TestEveryRuleWithAFixtureFindsExactlyWhatItMarks ./pkg/pwrgrep/")
+	}
 	for _, rule := range withFixtures(t) {
 		t.Run(rule.Id(), func(t *testing.T) {
+			t.Parallel()
 			id := rule.Id()
 			fixture := filepath.Join(fixtureRoot, filepath.FromSlash(rule.Fixture))
 			want, permitted := expectations(t, fixture, id)

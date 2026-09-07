@@ -64,6 +64,13 @@ jobs:
       - name: Test
         run: go test -race -timeout 30m ./...
 
+      # Every rule in the corpus carries a fixture, so this searches 2177 files
+      # with 2177 rules. It is skipped in the run above because the race
+      # detector costs it sixteen times the CPU, which is more than that job's
+      # timeout; rules_test.go says what that trades away.
+      - name: The corpus fires where its fixtures mark
+        run: go test -count=1 -timeout 20m -run TestEveryRuleWithAFixtureFindsExactlyWhatItMarks ./pkg/pwrgrep/
+
       # The viz files sit behind a build tag, so the default run never compiles
       # them. gojq's CLI corpus lives in cli/, and it is the test that enforces
       # "any valid jq program produces byte-identical output" -- running it
