@@ -87,7 +87,7 @@ func TestGrammarTagsMatchTheReleaseBuild(t *testing.T) {
 	fromMake := makefileLanguages(t)
 	builds := releaseBuilds(t)
 
-	for _, id := range []string{"pwrq", "pwrq-viz"} {
+	for _, id := range []string{"pwrq", "pwrq-viz", "pwrq-viz-native"} {
 		t.Run(id, func(t *testing.T) {
 			stanza, ok := builds[id]
 			if !ok {

@@ -65,6 +65,14 @@ so install it instead of `pwrq` or alongside it:
 sudo apt install pwrq-viz
 ```
 
+`pwrq-viz-native` is the same editor backed by the machine instead of the tab
+(`--ide-native`, with the full cmdlet vocabulary). It is a separate package
+under its own binary name, so installing it changes nothing about the others:
+
+```bash
+sudo apt install pwrq-viz-native
+```
+
 The repository tracks the latest release only; older versions stay on
 [GitHub Releases](https://github.com/xen0bit/pwrq/releases), which also carries
 `.rpm` and `.apk` packages and plain tarballs.

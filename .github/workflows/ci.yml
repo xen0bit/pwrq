@@ -163,15 +163,21 @@ jobs:
           fail=0
           for t in "${targets[@]}"; do
             IFS=: read -r debarch goarch extra <<< "$t"
-            for target in ./cmd/pwrq ./cmd/pwrq-viz; do
-              tags=""
-              [ "$target" = "./cmd/pwrq-viz" ] && tags="-tags viz"
-              # shellcheck disable=SC2086
+            # target and comma-separated tags. pwrq-viz builds twice: the
+            # WASM-only IDE and the native one. Both must cross-compile
+            # everywhere the release ships.
+            for spec in "./cmd/pwrq:" "./cmd/pwrq-viz:viz" "./cmd/pwrq-viz:viz,ide_native"; do
+              target="${spec%%:*}"
+              tagargs=()
+              if [ -n "${spec#*:}" ]; then
+                tagargs=(-tags "${spec#*:}")
+                tagargs[1]="${tagargs[1]//,/ }"
+              fi
               if env CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" $extra \
-                   go build $tags -o /dev/null "$target"; then
-                echo "ok    $debarch $target"
+                   go build "${tagargs[@]}" -o /dev/null "$target"; then
+                echo "ok    $debarch $target ${tagargs[*]}"
               else
-                echo "::error::$debarch ($goarch $extra) failed to build $target"
+                echo "::error::$debarch ($goarch $extra) failed to build $target ${tagargs[*]}"
                 fail=1
               fi
             done
@@ -315,9 +321,9 @@ jobs:
                 -o "Dir::Etc::sourceparts=-"
                 -o "Dir::Etc::trusted.gpg.d=$A/etc/apt/trusted.gpg.d"
                 -o "APT::Architecture=riscv64")
-          apt-get "${opts[@]}" update
-          apt-cache "${opts[@]}" policy pwrq pwrq-viz
-          cd "$A" && apt-get "${opts[@]}" download pwrq pwrq-viz
+           apt-get "${opts[@]}" update
+           apt-cache "${opts[@]}" policy pwrq pwrq-viz pwrq-viz-native
+           cd "$A" && apt-get "${opts[@]}" download pwrq pwrq-viz pwrq-viz-native
           for d in *.deb; do
             echo "--- $d"
             dpkg-deb -f "$d" Package Version Architecture
