@@ -89,6 +89,7 @@ type flagopts struct {
 	UDFList       bool              `short:"u" long:"udf-list" description:"list all available user-defined functions"`
 	Graph         string            `short:"g" long:"graph" args:"output.svg" description:"render the query structure as a diagram (.svg or .d2)"`
 	IDE           bool              `short:"i" long:"ide" description:"launch IDE web interface"`
+	IDENative     bool              `long:"ide-native" description:"serve the native IDE: the browser editor backed by this machine's full cmdlet vocabulary (queries run here as you; loopback only unless PWRQ_IDE_TOKEN is set)"`
 	MCP           bool              `long:"mcp" description:"serve as an MCP server over stdio"`
 	MCPHTTP       string            `long:"mcp-http" args:"addr" description:"serve as an MCP server over streamable HTTP on the given address (a non-loopback bind requires PWRQ_MCP_TOKEN)"`
 }
@@ -138,8 +139,14 @@ Usage:
 		cli.printUDFList()
 		return nil
 	}
+	if opts.IDE && opts.IDENative {
+		return errors.New("flags `--ide' and `--ide-native' are mutually exclusive")
+	}
 	if opts.IDE {
 		return cli.launchIDE()
+	}
+	if opts.IDENative {
+		return cli.launchNativeIDE()
 	}
 	if opts.MCP && opts.MCPHTTP != "" {
 		return errors.New("flags `--mcp' and `--mcp-http' are mutually exclusive")

@@ -66,6 +66,23 @@ build-viz-with-ide: web.build
 	@echo "Building $(VIZ_BIN) with embedded web assets..."
 	go build -tags "viz embed_web $(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" -o $(VIZ_BIN) ./cmd/$(VIZ_BIN)
 
+# The native IDE is a separate product from the WASM-only one above, with its
+# own page (dist-native, no WebAssembly), its own flag (--ide-native) and its
+# own build tag (ide_native). None of the targets below touch the WASM-only
+# artifacts, so rebuilding them can never smuggle a server-side shell into a
+# static deployment.
+NATIVE_BIN := pwrq-viz-native
+
+.PHONY: build-viz-native
+build-viz-native:
+	@echo "Building $(NATIVE_BIN) (dev: serves pkg/web/dist-native from the tree)..."
+	go build -tags "viz ide_native $(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" -o $(NATIVE_BIN) ./cmd/$(VIZ_BIN)
+
+.PHONY: build-viz-native-with-ide
+build-viz-native-with-ide: web.build-native
+	@echo "Building $(NATIVE_BIN) with embedded native web assets..."
+	go build -tags "viz ide_native embed_web_native $(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" -o $(NATIVE_BIN) ./cmd/$(VIZ_BIN)
+
 .PHONY: build-all
 build-all: build build-viz
 
@@ -153,13 +170,34 @@ web.test:
 	fi
 	@cd pkg/web/src && bun test
 
+# The native page is derived from the WASM page's sources (never the reverse),
+# then bundled on its own: dist-native carries no WebAssembly module and the
+# WASM dist carries no native transport. build-native.mjs fails if any anchor
+# it derives from is gone.
+.PHONY: web.build-native
+web.build-native:
+	@echo "Deriving the native editor page..."
+	@if ! command -v bun >/dev/null 2>&1; then \
+		echo "Error: bun is not installed. Please install it from https://bun.sh"; \
+		exit 1; \
+	fi
+	@mkdir -p pkg/web/dist-native
+	@cd pkg/web/src && bun install --no-save 2>/dev/null || true
+	@cd pkg/web/src && bun build-native.mjs
+	@cd pkg/web/src && bun run build-native
+	@echo "Serving the native page at the root too, so the bare address lands on it..."
+	@cp pkg/web/src/index-native.html pkg/web/dist-native/index.html
+	@ls -lh pkg/web/dist-native/index.html 2>/dev/null | awk '{print "  " $$9 " " $$5}'
+
 .PHONY: clean
 clean:
 	@echo "Cleaning..."
-	rm -f $(BIN) $(VIZ_BIN)
+	rm -f $(BIN) $(VIZ_BIN) $(NATIVE_BIN)
 	rm -f web.wasm
 	rm -rf pkg/web/src/wasm
 	rm -rf pkg/web/dist
+	rm -rf pkg/web/dist-native
+	rm -f pkg/web/src/index-native.html pkg/web/src/js/main-native.js
 	rm -f pkg/web/src/js/wasm_exec.js
 	rm -f coverage.out coverage.html
 	go clean ./...
@@ -203,8 +241,11 @@ help:
 	@echo "  make examples       - Run multiple examples"
 	@echo "  make web.wasm       - Build web.wasm into pkg/web/src/wasm/"
 	@echo "  make web.build      - Build the browser editor into pkg/web/dist/"
+	@echo "  make web.build-native - Build the native editor into pkg/web/dist-native/"
 	@echo "  make web.test       - Run the editor's browser-side tests (needs bun)"
 	@echo "  make build-viz-with-ide - Build $(VIZ_BIN) with embedded web assets"
+	@echo "  make build-viz-native - Build $(NATIVE_BIN) (native IDE, serves dist-native from the tree)"
+	@echo "  make build-viz-native-with-ide - Build $(NATIVE_BIN) with embedded native web assets"
 	@echo "  make help           - Show this help message"
 
 .PHONY: version
