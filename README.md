@@ -616,7 +616,7 @@ $ pwrq -c '[select_ast("."; "$D = request.args\n$$$_\nrender($D)")]'
 
 A search is not a finding. "MD5" is a search; "MD5, in a file that imports
 crypto/md5, and not the one call that says it is not a signature" is a rule,
-and pwrq ships eighteen hundred of them, in 26 languages:
+and pwrq ships seventeen hundred of them, in 24 languages:
 
 ```console
 $ echo src | pwrq -R 'invoke_pwrgrep("go-weak-hash")'
@@ -627,8 +627,8 @@ $ pwrq -n '[get_pwrgrep_rule("python")] | map(.Id)'
 A rule is named by its finding id, by a glob over ids, by a path into the
 catalogue — or by a language, which is how you ask for all of them. Name the
 language rather than reaching for a glob: ids are not prefixed with it, so
-`"python-*"` is a glob matching the handful that happen to begin that way
-rather than the Python corpus, and it comes back with six rules and no
+`"python-*"` is a glob matching the few that happen to begin that way rather
+than the Python corpus, and it comes back with 26 rules of the 264 and no
 complaint. The catalogue path is where a rule was ported from rather than what
 it is about, and for TypeScript the two are far apart — most of its rules sit
 under `javascript/` because that is the pack they came from. So the language is
@@ -636,7 +636,7 @@ what a rule declares, not where it is filed:
 
 ```console
 $ pwrq -n '[get_pwrgrep_rule("typescript")] | length'
-176
+161
 $ pwrq -n '[invoke_pwrgrep("src"; ["typescript", "javascript"])] | length'
 ```
 

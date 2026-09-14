@@ -24,9 +24,9 @@ all of them and a selector for some.
 
 ```console
 $ pwrq -n '[get_pwrgrep_rule] | length'
-1815
+1767
 $ pwrq -n '[get_pwrgrep_rule] | map(.Languages[]?) | unique | length'
-25
+24
 ```
 
 A selector is a finding id, a glob over ids, a path into the catalogue — a rule
@@ -35,19 +35,19 @@ usually what you want, and it is not the same as any of the others:
 
 ```console
 $ pwrq -n '[get_pwrgrep_rule("go")] | length'
-82
+99
 $ pwrq -n '[get_pwrgrep_rule("typescript")] | length'
-176
+161
 $ pwrq -n '[get_pwrgrep_rule("go/lang/security/audit/crypto")] | map(.Path)'
 ```
 
 Reach for the language rather than a glob over ids. Ids are not prefixed with
-the language they are about, so `"python-*"` is a glob matching the handful
-that happen to begin that way — it returns six rules of the 336 and no
-complaint, which looks exactly like a clean answer. And the directory a rule
+the language they are about, so `"python-*"` is a glob matching the few that
+happen to begin that way — it returns 26 rules of the 264 and no complaint,
+which looks exactly like a clean answer. And the directory a rule
 sits in is where it was ported from rather than what it is about: most of the
 TypeScript rules are under `javascript/`, because that is the pack they came
-from, so `"typescript/"` as a path finds 28 of the 176 and says nothing about
+from, so `"typescript/"` as a path finds 32 of the 161 and says nothing about
 the rest. The language is what the rule declares in its header.
 
 A selector that matches nothing is an error rather than an empty list. "No rule
@@ -58,23 +58,18 @@ The catalogue is a value, so narrowing it further is the next stage of the
 pipeline rather than an option on the call:
 
 ```console
-$ pwrq -nc '[get_pwrgrep_rule("go")] | map(select(.Fixture != "")) | map(.Path)'
-["go/lang/correctness/go-hardcoded-if-condition",
- "go/lang/correctness/go-useless-comparison",
- "go/lang/security/audit/crypto/go-weak-cipher",
- "go/lang/security/audit/crypto/go-weak-hash",
- "go/lang/security/audit/sqli/go-sql-string-concat",
- "go/lang/security/go-tmpfile-predictable",
- "problem-based-packs/insecure-transport/go-stdlib/go-tls-skip-verify"]
+$ pwrq -nc '[get_pwrgrep_rule("typescript")] | map(.Path | split("/")[0])
+            | group_by(.) | map({(.[0]): length}) | add'
+{"javascript":125,"problem-based-packs":4,"typescript":32}
 $ pwrq -nc '[get_pwrgrep_rule] | map(select(.Origin != "<built in>")) | map(.Path)'
 []
 ```
 
-The first is the Go rules that carry a fixture, which are the ones to read
-first: each was written by hand against an annotated file, and the prose in the
-header says where it departs from the rule it was modelled on. The second is
-the rules on this machine that did not ship with pwrq — yours, and anything you
-have overridden. Empty, until you write one.
+The first counts the TypeScript rules by the directory they sit in, which is
+the paragraph above as a number: 32 of the 161 are under `typescript/`, so a
+path is the wrong way to ask for a language. The second is the rules on this
+machine that did not ship with pwrq — yours, and anything you have overridden.
+Empty, until you write one.
 
 ## Reading one
 
@@ -141,10 +136,10 @@ code, is the next stage of the pipeline:
 $ pwrq -n '[invoke_pwrgrep("/tmp/gin"; "go")]
            | group_by(.RuleId) | map({rule: .[0].RuleId, hits: length}) | sort_by(-.hits)'
 [
-  {"rule":"go-tls-skip-verify","hits":4},
-  {"rule":"missing-ssl-minversion","hits":4},
-  {"rule":"use-of-unsafe-block","hits":4},
-  {"rule":"cookie-missing-httponly","hits":1},
+  {"rule":"http-customized-request","hits":15},
+  {"rule":"go-server-without-timeouts","hits":5},
+  {"rule":"go-unbounded-request-body-read","hits":5},
+  {"rule":"go-tls-insecure","hits":4},
   ...
 ]
 $ pwrq -n '[invoke_pwrgrep("."; "javascript")]
@@ -162,7 +157,7 @@ each file once however many patterns it is given, so a rule with seven
 alternatives costs what a rule with one costs. That is why rules are written
 with one `scan_ast` and several patterns rather than the other way round.
 
-In practice the 82 Go rules over gin — about 30k lines — take some fifty
+In practice the 99 Go rules over gin — about 30k lines — take some fifty
 seconds. A whole-language run over a large Python or JavaScript tree runs to
 minutes. **Over MCP this matters**, because `run_query` defaults to a 30-second
 timeout: pass `timeoutMs` for anything wider than a directory, or name a
@@ -170,7 +165,7 @@ narrower selector.
 
 Naming a directory of the catalogue rather than all of it is what keeps a run
 honest. `invoke_pwrgrep("."; "go/lang/security")` over a Go repository, not the
-whole 1815.
+whole 1767.
 
 ## Where a rule of your own goes
 
@@ -335,15 +330,20 @@ are text and pwrq searches text:
 
 ```console
 $ pwrq -nc '
-  "../pwrgrep-rules/testdata/fixtures/go" as $dir | "go-weak-hash" as $rule
-  | ([$dir | scan_regex("*.go"; ["ruleid:\\s*" + $rule])[] | .LineNumber + 1] | sort) as $marked
-  | ([invoke_pwrgrep($dir; $rule) | .LineNumber] | unique) as $fired
+  "../pwrgrep-rules/testdata/fixtures/go/weak-hash.go" as $file | "go-weak-hash" as $rule
+  | ([$file | scan_regex("*.go"; ["ruleid:\\s*" + $rule])[] | .LineNumber + 1] | sort) as $marked
+  | ([invoke_pwrgrep($file; $rule) | .LineNumber] | unique) as $fired
   | {marked: $marked, fired: $fired, missed: ($marked - $fired), extra: ($fired - $marked)}'
 {"marked":[12,15,20],"fired":[12,15,20],"missed":[],"extra":[]}
 ```
 
 `missed` is what the rule should have found and did not; `extra` is what it
 found that nobody marked. Both empty is the rule passing.
+
+The rule's own fixture rather than the directory of them, because a rule is
+entitled to fire in somebody else's fixture — `go-weak-hash` also matches four
+lines of `md5-used-as-password.go`, and those are nobody's mistake. `# fixture:`
+names the one file the rule is answerable for.
 
 ## The vocabulary
 
