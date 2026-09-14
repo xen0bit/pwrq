@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -24,20 +25,42 @@ import (
 // seconds under the race detector. Left where it falls it is charged to
 // whichever test runs first, which then times out on a slower machine for a
 // reason that has nothing to do with what it is testing.
+//
+// Decoding them is not all of it. Each language is then set up once more the
+// first time a pattern is actually compiled for it - several seconds under
+// the race detector - and that lands on the first test to name the language
+// rather than on the first test of all. It is how TestAValueIsFollowedThrough
+// ASwiftBinding came to spend 6.4s where the swift test after it spends 0.02s,
+// and it timed out on CI at the 30s run() allows a query. So every language
+// the tests here search is compiled for, not just one of them: the same work,
+// charged where no test is timing it.
 func TestMain(m *testing.M) {
 	runner := &queryrun.Runner{Options: udf.DefaultRegistry().Options()}
-	runner.Run(context.Background(), &queryrun.Request{
-		Query: `"f($X)" | ast_pattern("python") | .Valid`, NullInput: true, MaxResults: 1,
-	})
+	for _, language := range []string{
+		"c", "c_sharp", "go", "html", "java", "javascript", "kotlin", "python", "swift",
+	} {
+		runner.Run(context.Background(), &queryrun.Request{
+			Query:     `"f($X)" | ast_pattern(` + strconv.Quote(language) + `) | .Valid`,
+			NullInput: true, MaxResults: 1,
+		})
+	}
 	os.Exit(m.Run())
 }
 
 // run evaluates a query against the cmdlet vocabulary and decodes its one
 // result.
+//
+// The deadline is a hang detector rather than a measurement: none of these
+// queries searches more than one small file, and the slowest of them is a
+// couple of seconds under the race detector. It was thirty seconds, which is
+// what a taint test costs on a loaded four-core runner once the race detector
+// has multiplied it - close enough that TestAValueIsFollowedThroughASwiftBinding
+// failed on CI against it. Ninety is far enough from what these cost to stop
+// being a second, worse `go test -timeout`.
 func run(t *testing.T, query string) any {
 	t.Helper()
 	runner := &queryrun.Runner{Options: udf.DefaultRegistry().Options()}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	res := runner.Run(ctx, &queryrun.Request{Query: query, NullInput: true, Compact: true, MaxResults: 4})
 	if res.Error != "" {
