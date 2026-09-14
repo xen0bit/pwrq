@@ -23,6 +23,12 @@ import (
 // tree writes a few files a rule can be run over. Small, because none of these
 // tests is about how much there is to find - only about whether the search
 // stops when it is told to and agrees with itself when it does not.
+//
+// The recv call is here for one reason, and it is a property of the corpus
+// rather than of this file: conn_recv is the rule that sorts first under
+// python/lang/security, and TestTheFirstFindingArrivesBeforeTheLastRuleRuns
+// needs the first rule in path order to be one that fires. Its comment says
+// what that buys.
 func tree(t *testing.T, files int) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -30,10 +36,14 @@ func tree(t *testing.T, files int) string {
 		name := filepath.Join(dir, "mod"+string(rune('a'+i%26))+string(rune('a'+i/26))+".py")
 		source := strings.Join([]string{
 			"import hashlib",
+			"import multiprocessing.connection",
 			"import subprocess",
 			"",
 			"def digest(data):",
 			"    return hashlib.md5(data).hexdigest()",
+			"",
+			"def receive(conn):",
+			"    return multiprocessing.connection.Connection.recv(conn)",
 			"",
 			"def run(cmd):",
 			"    return subprocess.call(cmd, shell=True)",
@@ -173,28 +183,34 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 //
 // Three minutes is not a claim that the first finding takes anything like that
 // long. It is a number chosen to sit between the two answers this can give,
-// and the measurements it sits between are these. Locally, first finding 2.4s
-// and all 88 rules 8.7s; -race multiplies the first of those by about twelve,
+// and the measurements it sits between are these. Locally, first finding 1.1s
+// and all 107 rules 9.6s; -race multiplies the first of those by about twelve,
 // and a CI runner multiplies it again by about three, which puts streaming at
-// roughly ninety seconds there and buffering at roughly five and a half
-// minutes. A deadline of ninety was landing on the wrong side of the first of
-// those by a couple of seconds - it failed at 92.57s - so it is twice that
-// now, still comfortably under what buffering would cost. What the number has to clear is the
-// cost of being first, because the first search in a process compiles the
-// tree-sitter patterns of every rule it reaches before it can match anything -
-// and that cost is per rule, not per file, so a smaller tree does not reduce
-// it.
+// roughly forty seconds there and buffering at roughly five and a half
+// minutes. What the number has to clear is the cost of being first, because
+// the first search in a process compiles the tree-sitter patterns of every
+// rule it reaches before it can match anything - and that cost is per rule,
+// not per file, so a smaller tree does not reduce it.
 //
-// Which is why this searches python/lang/security rather than all of python.
-// Rules run in path order and this stops at the first finding, so the cost is
-// whatever precedes the rule that fires. The hand-written rules used to sort
-// ahead of the entire generated corpus - "pwrq" sorts before "python" - and
-// one of them fired almost immediately. Moving them into the categories they
-// search put them behind python/django, whose taint rules are the most
-// expensive in the corpus, and the first finding went from 0.75s to 11.8s, or
-// from 6.9s to 160s under -race. Narrowing the selector is what keeps this
-// test measuring streaming rather than measuring where in the alphabet a
-// directory landed.
+// Which is why this searches python/lang/security rather than all of python,
+// and why tree() writes a Connection.recv call. Rules run in path order and
+// this stops at the first finding, so what it costs is whatever precedes the
+// rule that fires - and the cheapest version of that is a rule that fires
+// first. conn_recv sorts first under python/lang/security, and the recv call
+// is there to make it fire.
+//
+// Both halves of that have been learned the hard way. The hand-written rules
+// used to sort ahead of the entire generated corpus - "pwrq" sorts before
+// "python" - and one of them fired almost immediately; moving them into the
+// categories they search put them behind python/django, whose taint rules are
+// the most expensive in the corpus, and the first finding went from 0.75s to
+// 11.8s. Narrowing the selector fixed that until the corpus dropped its
+// non-security rules, which left python-subprocess-shell-true as the first to
+// fire with 56 rules ahead of it, most of a directory of taint rules among
+// them: 5.0s locally, which is 180s on a CI runner under -race. That is the
+// deadline itself, and it failed there at 180.54s. Naming the rules the search
+// reaches is not something this test can control; what it can control is
+// whether the first one it reaches has something to find.
 func TestTheFirstFindingArrivesBeforeTheLastRuleRuns(t *testing.T) {
 	dir := tree(t, 40)
 
