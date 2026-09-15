@@ -40,7 +40,7 @@ require (
 )
 
 require (
-	github.com/censys/censys-sdk-go v0.25.27
+	github.com/censys/censys-sdk-go v0.25.30
 	github.com/glaslos/ssdeep v0.4.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/jsonschema-go v0.4.3

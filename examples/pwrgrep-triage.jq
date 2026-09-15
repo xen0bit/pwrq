@@ -47,7 +47,7 @@
 # arguments at all. Numbers want --argjson; --arg would make them strings.
 def opt($name; $default): ($ARGS.named[$name] // $default);
 
-def repo:          (opt("repo"; "/tmp/getssl") | normalize_path);
+def repo:          (opt("repo"; "/tmp/acme.sh") | normalize_path);
 def parallel:      opt("parallel"; 4);        # concurrent verification calls
 def explore_steps: opt("explore_steps"; 6);   # tool calls the explorer may make
 def verify_steps:  opt("verify_steps"; 3);    # tool calls per finding
@@ -58,7 +58,7 @@ def max_findings:  opt("max_findings"; 0);    # 0 is all of them
 # The per-process call ceiling is lifted for the same reason the batch exists:
 # one run is hundreds of calls by design, and 100 is the accident ceiling.
 def llm:
-  { Model:     opt("model"; "openai-compatible/lfm2.5-2.6b"),
+  { Model:     opt("model"; "openai-compatible/minicpm5-2b"),
     BaseUrl:   opt("base"; "http://127.0.0.1:1234/v1"),
     MaxTokens: opt("tokens"; 16000),
     MaxCalls:  1000000 };
