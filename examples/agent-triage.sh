@@ -2,17 +2,19 @@
 #
 # An end-to-end run: logs on disk, in, and an answer out.
 #
-# Four stages, each one a pwrq query, and each one handing JSON to the next:
+# Five stages, each one a pwrq query, and each one handing JSON to the next:
 #
 #   1. find the errors          filesystem and search cmdlets
 #   2. classify them            invoke_llm_batch with a Schema, so the answers
 #                               are rows rather than prose
-#   3. summarise                ordinary jq over those rows
-#   4. ask about them           invoke_agent, which writes its own queries
+#   3. score them               invoke_systemone, which answers typed questions
+#                               with probabilities instead of generated text
+#   4. summarise                ordinary jq over those rows
+#   5. ask about them           invoke_agent, which writes its own queries
 #                               against the data it is given
 #
-# Nothing here is LLM-specific except stages 2 and 4, which is the point: the
-# model is a stage in a pipeline, not a thing you build a pipeline around.
+# Nothing here is LLM-specific except stages 2, 3 and 5, which is the point:
+# the model is a stage in a pipeline, not a thing you build a pipeline around.
 #
 # Usage:
 #   export PWRQ_LLM_MODEL=anthropic/claude-sonnet-4-5   # or any provider/model
@@ -23,7 +25,12 @@
 #   export PWRQ_LLM_MODEL=openai-compatible/your-model
 #   export OPENAI_BASE_URL=http://127.0.0.1:1234/v1
 #
-# Stage 4 asks more of the model than stages 1-3 do: classifying one line is a
+# Stage 3 needs a System One endpoint: TypeSafe's, or llama.cpp's /v1/systemone
+# serving a local GGUF. Without one it is skipped and the run goes on:
+#   export PWRQ_SYSTEMONE_MODEL=systemone/your-model
+#   export TYPESAFE_BASE_URL=http://127.0.0.1:8080      # and TYPESAFE_API_KEY if hosted
+#
+# Stage 5 asks more of the model than stages 1-4 do: classifying one line is a
 # single judgement, while writing a query, reading its result and deciding what
 # to do next is a loop. A small local model does the first well and the second
 # badly, so PWRQ_AGENT_MODEL runs that stage on a bigger one:
@@ -97,17 +104,44 @@ echo "== 2. classified, one call per line, in parallel =========================
 "$PWRQ" -r 'map({File, Line, category, severity}) | format_table(.)' < "$logs/triaged.json"
 
 echo
-echo "== 3. summarised with plain jq ==========================================="
+echo "== 3. scored by System One ==============================================="
+# Stage 2 asked a model to write an enum; this asks one to weigh options. Each
+# question's options get single-token labels and one forward pass reads how
+# likely each is, so page is a probability, urgency a weighted position on its
+# scale and owner the likeliest team — never a word outside the list. All three
+# questions about a line are one request.
+if [ -n "${PWRQ_SYSTEMONE_MODEL:-}" ]; then
+  "$PWRQ" -c '
+    {page:    {type: "noul", instructions: "Should this error wake the on-call engineer?"},
+     urgency: {type: "score", instructions: "How urgent is fixing this error?",
+               criteria: ["can wait for the next working day", "fix today", "fix now"]},
+     owner:   {type: "choice", instructions: "Which team owns this error?",
+               criteria: {platform: "databases, networks and calls to other services",
+                          backend:  "application code and the bugs in it",
+                          security: "authentication, tokens and signatures"}}} as $q
+    | map(. + ({Text, category, severity} | invoke_systemone($q)
+               | {page: .page.noul, urgency: .urgency.score, owner: .owner.choice}))
+  ' < "$logs/triaged.json" > "$logs/scored.json"
+  "$PWRQ" -r 'map({File, Line, owner, urgency: (.urgency * 100 | round / 100),
+                   page: (.page * 100 | round / 100)}) | format_table(.)' < "$logs/scored.json"
+else
+  echo "skipped: set PWRQ_SYSTEMONE_MODEL and TYPESAFE_BASE_URL to score with System One"
+  "$PWRQ" -c 'map(. + {page: null, urgency: null, owner: null})' < "$logs/triaged.json" > "$logs/scored.json"
+fi
+
+echo
+echo "== 4. summarised with plain jq ==========================================="
 # No cmdlet at all: once the model's answers are values, the rest is jq.
 "$PWRQ" -r '
   group_by(.category)
   | map({category: .[0].category, count: length,
+         pages: (map(select((.page // 0) > 0.5)) | length),
          files: (map(.File) | unique | join(", "))})
   | sort_by(-.count) | format_table(.)
-' < "$logs/triaged.json"
+' < "$logs/scored.json"
 
 echo
-echo "== 4. the agent, asked about the same data ==============================="
+echo "== 5. the agent, asked about the same data ==============================="
 # The data is piped in, so `.` is the triaged rows inside every query the agent
 # writes. Its vocabulary is the read-only default: it can look, and that is all.
 "$PWRQ" -c --arg model "${PWRQ_AGENT_MODEL:-$PWRQ_LLM_MODEL}" '
@@ -121,8 +155,10 @@ echo
 echo "== what the run cost ====================================================="
 # get_llm_usage counts one process, and every stage above is its own pwrq
 # invocation — so it is asked from inside a query rather than after the fact.
-# Stage 4 reported its own total on .Tokens for the same reason.
-"$PWRQ" -c '
+# Stage 5 reported its own total on .Tokens for the same reason.
+# -n, because nothing is piped in: without it pwrq reads an empty stdin, has no
+# input to run the query on, and prints nothing at all.
+"$PWRQ" -nc '
   [invoke_llm_batch(["Reply with only: done"])] | .[0].Content as $reply
   | {Reply: $reply, Usage: get_llm_usage}
 '

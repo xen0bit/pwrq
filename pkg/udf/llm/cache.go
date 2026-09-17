@@ -91,6 +91,27 @@ func (c *cache) key(o options, messages []message) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// systemOneKey is key for a System One request. Kind keeps the two key spaces
+// apart, so no chat request can ever hash to a System One answer.
+func (c *cache) systemOneKey(o options, state, questions any) string {
+	if c == nil {
+		return ""
+	}
+	identity := struct {
+		Kind      string `json:"kind"`
+		Model     string `json:"model"`
+		BaseURL   string `json:"base_url"`
+		State     any    `json:"state"`
+		Questions any    `json:"questions"`
+	}{Kind: dialectSystemOne, Model: o.Model, BaseURL: o.BaseUrl, State: state, Questions: questions}
+	encoded, err := json.Marshal(identity)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(encoded)
+	return hex.EncodeToString(sum[:])
+}
+
 func (c *cache) path(key string) string { return filepath.Join(c.dir, key+".json") }
 
 // get reads a stored answer. A cache that cannot be read is a cache miss: a

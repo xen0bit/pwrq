@@ -48,7 +48,7 @@ var unsafeToRun = regexp.MustCompile(`^(` + strings.Join([]string{
 	// Network and paid APIs.
 	"http", "http_serve", "invoke_web_request", "censys_.*", "get_censys_.*",
 	"set_censys_.*", "add_censys_.*", "remove_censys_.*",
-	"invoke_llm.*", "invoke_agent.*", "get_llm_.*",
+	"invoke_llm.*", "invoke_systemone.*", "invoke_agent.*", "get_llm_.*",
 	// Mutates the session other tests share.
 	"set_variable", "set_location", "set_path", "set_alias",
 }, "|") + `)$`)

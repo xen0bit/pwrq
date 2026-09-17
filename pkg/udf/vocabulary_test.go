@@ -48,6 +48,7 @@ func TestVocabularyDeniesStructurally(t *testing.T) {
 		`out_file("/tmp/x")`,
 		`http("GET"; "https://example.com")`,
 		`invoke_llm("hi")`,
+		`invoke_systemone({q: {type: "noul"}})`,
 		`get_process`,
 	} {
 		res := evaluate(t, []string{"basename", "cat"}, denied)

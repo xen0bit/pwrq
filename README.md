@@ -461,6 +461,46 @@ answer that does not satisfy it goes back to the model once with the validation
 error, and then fails as a jq error rather than reaching your pipeline as
 something almost right.
 
+#### Typed questions, and probabilities instead of words
+
+A schema makes a model write an answer from a list. `invoke_systemone` asks a
+[System One](https://docs.typesafe.ai/api) model to *weigh* the list instead: it
+gives each option a single-token label and reads how likely each one is in a
+single forward pass, so nothing is generated, nothing can come back outside the
+options, and the answer carries how sure it is. A question is `noul` (how likely
+is this true), `choice` (which of these) or `score` (where on this scale), and
+every question about one state is one request:
+
+```console
+$ export PWRQ_SYSTEMONE_MODEL=systemone/gemma TYPESAFE_BASE_URL=http://127.0.0.1:8080
+$ pwrq -nc '"Help! My payouts have been failing for 3 days." | invoke_systemone({
+    is_urgent:   {type: "noul", instructions: "Does this convey urgency?"},
+    department:  {type: "choice", instructions: "Which team should handle this?",
+                  criteria: {billing: "Payments, invoicing, refunds",
+                             technical: "Bugs, outages, integrations"}},
+    frustration: {type: "score", instructions: "How frustrated is the customer?",
+                  criteria: ["Calm", "Frustrated", "Very angry"]}})
+  | {urgent: .is_urgent.noul, team: .department.choice, frustration: .frustration.score}'
+{"frustration":1.0379815361395628,"team":"billing","urgent":0.9999965076688166}
+```
+
+A `score` is the weighted position on its own scale, so 1.04 is "frustrated,
+edging towards angry" rather than a bucket. `.probabilities` and `.confidence`
+carry the rest, and `invoke_systemone_request` reports the tokens and the model
+the server actually loaded.
+
+The endpoint is TypeSafe's hosted API — `TYPESAFE_API_KEY`, as the SDK spells
+it — or [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `/v1/systemone`
+serving a local GGUF, where no key is needed. `PWRQ_SYSTEMONE_MODEL` is separate
+from `PWRQ_LLM_MODEL` so one shell can hold both; a chat model given to
+`invoke_systemone`, or a System One model given to `invoke_llm`, is refused
+before anything is sent.
+
+A question costs one forward pass and generates no tokens, so it is fast enough
+to sit inside a `map`. Options are labelled in the order they encode, and gojq
+sorts object keys — run llama.cpp with `--systemone-permute` to average each
+question with its options reversed, which is what small models need most.
+
 #### Many prompts at once
 
 gojq evaluates synchronously, so `map(invoke_llm(...))` over five hundred rows
@@ -543,8 +583,9 @@ $ pwrq -nc 'invoke_agent("count the TODOs"; {Allow: ["select_string", "get_child
 
 [`examples/agent-triage.sh`](examples/agent-triage.sh) runs the whole shape end
 to end: cmdlets find the errors in a log corpus, `invoke_llm_batch` classifies
-them against a schema, jq summarises the rows, and an agent answers a question
-about the result. See [EXAMPLES.md](EXAMPLES.md) for its output.
+them against a schema, `invoke_systemone` scores each one for urgency and
+ownership, jq summarises the rows, and an agent answers a question about the
+result. See [EXAMPLES.md](EXAMPLES.md) for its output.
 
 Naming an object cmdlet that takes a script block — `where_object`,
 `select_object` — hands the agent a whole query inside `{script: "..."}`; pwrq

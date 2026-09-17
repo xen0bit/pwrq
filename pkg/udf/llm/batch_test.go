@@ -265,7 +265,10 @@ func TestContextNeverPrintsTheKey(t *testing.T) {
 
 func TestContextExplainsAMissingModel(t *testing.T) {
 	newServer(t, openAIReply("ok"))
+	// Both, because a shell with only a System One model set is configured —
+	// for that one — and get_llm_context reports it rather than a problem.
 	t.Setenv(EnvModel, "")
+	t.Setenv(EnvSystemOneModel, "")
 
 	got, err := run(t, `get_llm_context`, nil)
 	if err != nil {

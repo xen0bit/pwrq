@@ -106,6 +106,9 @@ func runAgent(op string, v any, args []any) (*agentRun, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := requireChat(op, p); err != nil {
+		return nil, err
+	}
 
 	allow, err := resolveAllow(op, o.Allow)
 	if err != nil {

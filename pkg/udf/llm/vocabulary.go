@@ -120,7 +120,7 @@ var defaultAllow = []string{
 // An agent that could call invoke_llm could spend the budget in a loop no
 // ceiling anticipates, and one that could call invoke_agent could nest until
 // something ran out. The ceiling is a backstop; this is the actual answer.
-var forbiddenPrefixes = []string{"invoke_llm", "invoke_agent", "get_llm_"}
+var forbiddenPrefixes = []string{"invoke_llm", "invoke_agent", "invoke_systemone", "get_llm_"}
 
 // resolveAllow checks the requested vocabulary and returns it sorted.
 func resolveAllow(op string, requested []string) ([]string, error) {

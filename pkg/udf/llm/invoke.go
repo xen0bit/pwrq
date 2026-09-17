@@ -116,6 +116,9 @@ func runInvoke(op string, v any, args []any) (*response, options, error) {
 	if err != nil {
 		return nil, options{}, err
 	}
+	if err := requireChat(op, p); err != nil {
+		return nil, options{}, err
+	}
 	resp, err := complete(context.Background(), op, prompt, c.options, p)
 	return resp, c.options, err
 }

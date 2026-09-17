@@ -134,7 +134,7 @@ func TestAgentRefusesModelCmdletsInAllow(t *testing.T) {
 	newServer(t, step("x", "answer", "y"))
 	installVocabulary(t, "test_rows")
 
-	for _, name := range []string{"invoke_llm", "invoke_agent", "get_llm_usage"} {
+	for _, name := range []string{"invoke_llm", "invoke_agent", "invoke_systemone", "get_llm_usage"} {
 		_, err := run(t, fmt.Sprintf(`invoke_agent("x"; {Allow: [%q]})`, name), nil)
 		if err == nil {
 			t.Errorf("%s was allowed into an agent's vocabulary", name)
