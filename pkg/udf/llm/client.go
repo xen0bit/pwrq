@@ -49,6 +49,14 @@ const (
 	EnvOpenAIBase    = "OPENAI_BASE_URL"
 	EnvOllamaBase    = "OLLAMA_BASE_URL"
 
+	// The TypeSafe SDK's own names, so a shell set up for it works here.
+	EnvTypeSafeKey  = "TYPESAFE_API_KEY"
+	EnvTypeSafeBase = "TYPESAFE_BASE_URL"
+	// EnvSystemOneModel is separate from EnvModel because a System One model
+	// answers typed questions rather than prompts, and a pipeline that does
+	// both needs to name one of each.
+	EnvSystemOneModel = "PWRQ_SYSTEMONE_MODEL"
+
 	// EnvMaxCalls raises or removes the per-process call ceiling.
 	EnvMaxCalls = "PWRQ_LLM_MAX_CALLS"
 	// EnvCache turns the response cache on without editing the query.
@@ -72,6 +80,10 @@ func debugf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "pwrq llm: "+format+"\n", args...)
 }
 
+// groupSystemOne selects the options the System One cmdlets accept: the ones
+// about reaching and paying for the endpoint, and none about generating text.
+const groupSystemOne = "systemone"
+
 // defaultTimeout matches the http cmdlet's, doubled: a model that is thinking
 // is not a model that has hung, and 30s times out ordinary work.
 const defaultTimeout = 120 * time.Second
@@ -94,6 +106,9 @@ type provider struct {
 	// keyOptional marks a provider that needs no credential, which local
 	// servers do not.
 	keyOptional bool
+	// keyRequiredAtDefault marks a provider whose default endpoint is hosted
+	// and billed, while the same API served locally needs no key.
+	keyRequiredAtDefault bool
 	// dialect selects the request and response encoding.
 	dialect string
 }
@@ -101,6 +116,9 @@ type provider struct {
 const (
 	dialectAnthropic = "anthropic"
 	dialectOpenAI    = "openai"
+	// dialectSystemOne asks typed questions about a state and reads back
+	// probabilities; it has no prompt and generates no text.
+	dialectSystemOne = "systemone"
 )
 
 var providers = map[string]provider{
@@ -122,6 +140,13 @@ var providers = map[string]provider{
 		name: "openai-compatible", keyEnv: EnvOpenAIKey, baseEnv: EnvOpenAIBase,
 		defaultBase: "", keyOptional: true, dialect: dialectOpenAI,
 	},
+	// systemone is TypeSafe's System One API, hosted or served by a local
+	// llama.cpp. The base is the host without /v1, as the SDK spells it.
+	"systemone": {
+		name: "systemone", keyEnv: EnvTypeSafeKey, baseEnv: EnvTypeSafeBase,
+		defaultBase: "https://api.typesafe.ai", keyOptional: true, keyRequiredAtDefault: true,
+		dialect: dialectSystemOne,
+	},
 }
 
 func providerNames() []string {
@@ -141,19 +166,21 @@ func providerNames() []string {
 // would leave the caller believing they had asked for something.
 type options struct {
 	Model       string   `param:"Model"`
-	System      string   `param:"System"`
-	Temperature float64  `param:"Temperature"`
-	MaxTokens   int      `param:"MaxTokens"`
-	TopP        float64  `param:"TopP"`
-	StopAt      []string `param:"StopAt"`
+	System      string   `param:"System" only:"chat"`
+	Temperature float64  `param:"Temperature" only:"chat"`
+	MaxTokens   int      `param:"MaxTokens" only:"chat"`
+	TopP        float64  `param:"TopP" only:"chat"`
+	StopAt      []string `param:"StopAt" only:"chat"`
 
 	ApiKey  string `param:"ApiKey"`
 	BaseUrl string `param:"BaseUrl"`
 	Timeout int    `param:"Timeout"`
 	Retries int    `param:"Retries"`
 
-	Schema map[string]any `param:"Schema"`
-	Repair int            `param:"Repair"`
+	// The fields tagged only:"chat" shape a generated reply. System One
+	// generates nothing, so its cmdlets reject them rather than ignore them.
+	Schema map[string]any `param:"Schema" only:"chat"`
+	Repair int            `param:"Repair" only:"chat"`
 
 	Cache    bool   `param:"Cache"`
 	CacheDir string `param:"CacheDir"`
@@ -242,8 +269,10 @@ func bindOptions(op string, opts map[string]any, target *options, groups ...stri
 // which is the one an error message should suggest.
 func paramNames(target any, groups ...string) map[string]string {
 	permitted := map[string]bool{"": true}
+	systemOne := false
 	for _, g := range groups {
 		permitted[g] = true
+		systemOne = systemOne || g == groupSystemOne
 	}
 	names := make(map[string]string)
 	t := reflect.TypeOf(target)
@@ -256,6 +285,9 @@ func paramNames(target any, groups ...string) map[string]string {
 	for i := range t.NumField() {
 		tag := t.Field(i).Tag.Get("param")
 		if tag == "" || !permitted[t.Field(i).Tag.Get("group")] {
+			continue
+		}
+		if systemOne && t.Field(i).Tag.Get("only") == "chat" {
 			continue
 		}
 		declared := strings.TrimSpace(strings.Split(tag, ",")[0])
@@ -312,6 +344,39 @@ func (o *options) resolve(op string) (provider, error) {
 	if o.Model == "" {
 		return provider{}, fmt.Errorf("%s: no model; set %s or pass {Model: \"provider/model\"}, e.g. {Model: \"anthropic/claude-sonnet-4-5\"}", op, EnvModel)
 	}
+	return o.resolveProvider(op)
+}
+
+// resolveSystemOne is resolve for the System One cmdlets. Their model comes
+// from PWRQ_SYSTEMONE_MODEL, and from PWRQ_LLM_MODEL only when that names a
+// System One model, so one shell can hold a chat model and a System One model
+// at once.
+func (o *options) resolveSystemOne(op string) (provider, error) {
+	o.modelSource = "Model option"
+	if o.Model == "" {
+		o.Model, o.modelSource = os.Getenv(EnvSystemOneModel), EnvSystemOneModel
+	}
+	if o.Model == "" {
+		if m := os.Getenv(EnvModel); strings.HasPrefix(m, "systemone/") {
+			o.Model, o.modelSource = m, EnvModel
+		}
+	}
+	if o.Model == "" {
+		return provider{}, fmt.Errorf("%s: no model; set %s or pass {Model: \"systemone/model\"}, e.g. {Model: \"systemone/jev-latest\"}", op, EnvSystemOneModel)
+	}
+	p, err := o.resolveProvider(op)
+	if err != nil {
+		return provider{}, err
+	}
+	if p.dialect != dialectSystemOne {
+		return provider{}, fmt.Errorf("%s: model %q is provider %s; %s needs a System One model, e.g. {Model: \"systemone/jev-latest\"}", op, o.Model, p.name, op)
+	}
+	return p, nil
+}
+
+// resolveProvider does the part of resolution that follows the model: the
+// provider it names, its credential and its endpoint.
+func (o *options) resolveProvider(op string) (provider, error) {
 
 	providerID, modelID, found := strings.Cut(o.Model, "/")
 	if !found || modelID == "" {
@@ -380,10 +445,29 @@ func (o options) timeout() time.Duration {
 // becomes a 401 from the API. "ANTHROPIC_API_KEY is not set" is the actionable
 // version of that message.
 func (o options) requireKey(op string, p provider) error {
-	if o.ApiKey != "" || p.keyOptional {
+	if o.ApiKey != "" || !o.keyRequired(p) {
 		return nil
 	}
 	return fmt.Errorf("%s: no API key for provider %q; set %s or pass {ApiKey: \"...\"}", op, p.name, p.keyEnv)
+}
+
+// keyRequired reports whether a call to this provider, at this endpoint, has
+// to carry a credential.
+func (o options) keyRequired(p provider) bool {
+	if !p.keyOptional {
+		return true
+	}
+	return p.keyRequiredAtDefault && strings.TrimRight(o.BaseUrl, "/") == strings.TrimRight(p.defaultBase, "/")
+}
+
+// requireChat refuses a System One model in a cmdlet that sends a prompt.
+// Checked before anything is charged or cached, because the request could
+// only ever fail.
+func requireChat(op string, p provider) error {
+	if p.dialect == dialectSystemOne {
+		return fmt.Errorf("%s: provider %q answers typed questions, not prompts; use invoke_systemone", op, p.name)
+	}
+	return nil
 }
 
 // response is one completed call, in the shape the object-producing cmdlets
@@ -400,6 +484,11 @@ type response struct {
 	OutputTokens int
 	// Structured is the decoded value when a Schema was asked for.
 	Structured any
+	// Answers is a System One reply, keyed by question id, and ServedModel
+	// the name the server reported for itself — for a local server, the file
+	// it loaded rather than whatever the caller called it.
+	Answers     map[string]any `json:",omitempty"`
+	ServedModel string         `json:",omitempty"`
 	// Cached records that this came back without a request being made.
 	Cached bool
 }
@@ -417,6 +506,9 @@ func complete(ctx context.Context, op string, prompt string, o options, p provid
 // which is what the agent loop needs: each step sends everything that has
 // happened so far.
 func completeMessages(ctx context.Context, op string, conversation []message, o options, p provider) (*response, error) {
+	if err := requireChat(op, p); err != nil {
+		return nil, err
+	}
 	if err := o.requireKey(op, p); err != nil {
 		return nil, err
 	}
@@ -512,26 +604,35 @@ type message struct {
 
 // send performs one HTTP round trip, retrying what is worth retrying.
 func send(ctx context.Context, op string, messages []message, o options, p provider, validator *schemaValidator) (*response, error) {
-	var lastErr error
-	for attempt := 0; ; attempt++ {
-		resp, retryAfter, err := attemptSend(ctx, op, messages, o, p, validator)
+	return withRetries(ctx, op, o.Retries, func() (*response, time.Duration, error) {
+		return attemptSend(ctx, op, messages, o, p, validator)
+	})
+}
+
+// withRetries runs attempt until it succeeds, fails for a reason another
+// attempt would not fix, or has been retried as often as the caller allowed.
+// It is shared by every dialect, since how often to try again and how long to
+// wait in between have nothing to do with what was sent.
+func withRetries[T any](ctx context.Context, op string, retries int, attempt func() (T, time.Duration, error)) (T, error) {
+	var zero T
+	for n := 0; ; n++ {
+		result, retryAfter, err := attempt()
 		if err == nil {
-			return resp, nil
+			return result, nil
 		}
-		lastErr = err
 		var retriable *retriableError
-		if !asRetriable(err, &retriable) || attempt >= o.Retries {
-			return nil, lastErr
+		if !asRetriable(err, &retriable) || n >= retries {
+			return zero, err
 		}
 		// A server that said how long to wait knows better than a backoff
 		// curve does.
 		wait := retryAfter
 		if wait <= 0 {
-			wait = time.Duration(1<<attempt) * time.Second
+			wait = time.Duration(1<<n) * time.Second
 		}
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("%s: %w", op, ctx.Err())
+			return zero, fmt.Errorf("%s: %w", op, ctx.Err())
 		case <-time.After(wait):
 		}
 	}
@@ -577,25 +678,48 @@ func attemptSend(ctx context.Context, op string, messages []message, o options, 
 		return nil, 0, fmt.Errorf("%s: %w", op, err)
 	}
 
+	payload, wait, err := postJSON(ctx, op, o, p, o.BaseUrl+url, body)
+	if err != nil {
+		return nil, wait, err
+	}
+
+	var resp *response
+	switch p.dialect {
+	case dialectAnthropic:
+		resp, err = anthropicResponse(payload, validator != nil)
+	case dialectOpenAI:
+		resp, err = openAIResponse(payload)
+	}
+	if err != nil {
+		if errors.Is(err, errTruncatedReply) {
+			return nil, 0, fmt.Errorf("%s: the reply hit the token cap (MaxTokens: %d) before producing any content; raise it with {MaxTokens: n}", op, o.MaxTokens)
+		}
+		return nil, 0, fmt.Errorf("%s: %w", op, err)
+	}
+	resp.Model = o.Model
+	resp.Provider = p.name
+	debugf("reply (%d in, %d out, %s) %s", resp.InputTokens, resp.OutputTokens, resp.StopReason, truncateForDebug(resp.Content))
+	return resp, 0, nil
+}
+
+// postJSON sends one request body and returns the reply body of a 200.
+//
+// Everything that is the same whatever the dialect lives here: the deadline,
+// the trace, and deciding which failures are worth another attempt. A 429 and
+// most of the 5xx range are; a 501 is not, because "this server does not do
+// that" is as true on the second attempt as the first.
+func postJSON(ctx context.Context, op string, o options, p provider, url string, body []byte) ([]byte, time.Duration, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, o.timeout())
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, o.BaseUrl+url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, 0, fmt.Errorf("%s: %w", op, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	switch p.dialect {
-	case dialectAnthropic:
-		req.Header.Set("x-api-key", o.ApiKey)
-		req.Header.Set("anthropic-version", anthropicVersion)
-	case dialectOpenAI:
-		if o.ApiKey != "" {
-			req.Header.Set("Authorization", "Bearer "+o.ApiKey)
-		}
-	}
+	setAuth(req, o, p)
 
-	debugf("POST %s%s %s", o.BaseUrl, url, truncateForDebug(string(body)))
+	debugf("POST %s %s", url, truncateForDebug(string(body)))
 
 	httpResp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -616,29 +740,26 @@ func attemptSend(ctx context.Context, op string, messages []message, o options, 
 	if httpResp.StatusCode != http.StatusOK {
 		wait := retryAfter(httpResp.Header.Get("Retry-After"))
 		err := fmt.Errorf("%s: %s returned %s: %s", op, p.name, httpResp.Status, apiErrorMessage(payload))
-		if httpResp.StatusCode == http.StatusTooManyRequests || httpResp.StatusCode >= 500 {
+		if httpResp.StatusCode == http.StatusTooManyRequests ||
+			(httpResp.StatusCode >= 500 && httpResp.StatusCode != http.StatusNotImplemented) {
 			return nil, wait, &retriableError{err}
 		}
 		return nil, 0, err
 	}
+	return payload, 0, nil
+}
 
-	var resp *response
+// setAuth attaches the credential the way the dialect expects it.
+func setAuth(req *http.Request, o options, p provider) {
 	switch p.dialect {
 	case dialectAnthropic:
-		resp, err = anthropicResponse(payload, validator != nil)
-	case dialectOpenAI:
-		resp, err = openAIResponse(payload)
-	}
-	if err != nil {
-		if errors.Is(err, errTruncatedReply) {
-			return nil, 0, fmt.Errorf("%s: the reply hit the token cap (MaxTokens: %d) before producing any content; raise it with {MaxTokens: n}", op, o.MaxTokens)
+		req.Header.Set("x-api-key", o.ApiKey)
+		req.Header.Set("anthropic-version", anthropicVersion)
+	case dialectOpenAI, dialectSystemOne:
+		if o.ApiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+o.ApiKey)
 		}
-		return nil, 0, fmt.Errorf("%s: %w", op, err)
 	}
-	resp.Model = o.Model
-	resp.Provider = p.name
-	debugf("reply (%d in, %d out, %s) %s", resp.InputTokens, resp.OutputTokens, resp.StopReason, truncateForDebug(resp.Content))
-	return resp, 0, nil
 }
 
 // truncateForDebug keeps a trace line readable. A prompt can be a whole file.
@@ -667,16 +788,24 @@ func retryAfter(header string) time.Duration {
 }
 
 // apiErrorMessage digs the human-readable part out of an error body, falling
-// back to the body itself. Both dialects nest it under "error".
+// back to the body itself. Both chat dialects nest it under "error"; System One
+// servers answer a malformed request the FastAPI way, with a "detail" list that
+// says which field was wrong.
 func apiErrorMessage(payload []byte) string {
 	var envelope struct {
 		Error struct {
 			Message string `json:"message"`
 			Type    string `json:"type"`
 		} `json:"error"`
+		Detail json.RawMessage `json:"detail"`
 	}
-	if err := json.Unmarshal(payload, &envelope); err == nil && envelope.Error.Message != "" {
-		return envelope.Error.Message
+	if err := json.Unmarshal(payload, &envelope); err == nil {
+		if envelope.Error.Message != "" {
+			return envelope.Error.Message
+		}
+		if msg := detailMessage(envelope.Detail); msg != "" {
+			return msg
+		}
 	}
 	trimmed := strings.TrimSpace(string(payload))
 	if len(trimmed) > 400 {
@@ -686,4 +815,41 @@ func apiErrorMessage(payload []byte) string {
 		return "(no response body)"
 	}
 	return trimmed
+}
+
+// detailMessage renders a FastAPI validation error as "questions.q.criteria:
+// Field required". The leading "body" in each location is dropped, because
+// every field a caller can get wrong is in the body.
+func detailMessage(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return text
+	}
+	var entries []struct {
+		Loc []any  `json:"loc"`
+		Msg string `json:"msg"`
+	}
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return ""
+	}
+	parts := make([]string, 0, len(entries))
+	for _, e := range entries {
+		loc := e.Loc
+		if len(loc) > 0 && loc[0] == "body" {
+			loc = loc[1:]
+		}
+		path := make([]string, len(loc))
+		for i, part := range loc {
+			path[i] = fmt.Sprint(part)
+		}
+		if len(path) == 0 {
+			parts = append(parts, e.Msg)
+			continue
+		}
+		parts = append(parts, strings.Join(path, ".")+": "+e.Msg)
+	}
+	return strings.Join(parts, "; ")
 }

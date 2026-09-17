@@ -84,26 +84,23 @@ func listingModel(model string) string {
 
 func listModels(ctx context.Context, op string, o options, p provider) ([]any, error) {
 	path := "/v1/models"
-	if p.dialect == dialectOpenAI {
+	base := o.BaseUrl
+	switch p.dialect {
+	case dialectOpenAI:
 		path = "/models"
+	case dialectSystemOne:
+		// The same base forms systemOneURL accepts.
+		base = strings.TrimSuffix(base, "/v1")
 	}
 
 	reqCtx, cancel := context.WithTimeout(ctx, o.timeout())
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, o.BaseUrl+path, nil)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, base+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	switch p.dialect {
-	case dialectAnthropic:
-		req.Header.Set("x-api-key", o.ApiKey)
-		req.Header.Set("anthropic-version", anthropicVersion)
-	case dialectOpenAI:
-		if o.ApiKey != "" {
-			req.Header.Set("Authorization", "Bearer "+o.ApiKey)
-		}
-	}
+	setAuth(req, o, p)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -126,9 +123,27 @@ func listModels(ctx context.Context, op string, o options, p provider) ([]any, e
 			Created     int64  `json:"created"`
 			CreatedAt   string `json:"created_at"`
 		} `json:"data"`
+		// Models is TypeSafe's listing, which names models rather than
+		// giving them ids. llama.cpp sends both.
+		Models []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			ReleaseDate string `json:"release_date"`
+		} `json:"models"`
 	}
 	if err := json.Unmarshal(payload, &decoded); err != nil {
 		return nil, fmt.Errorf("%s: decoding response: %w", op, err)
+	}
+	if len(decoded.Data) == 0 {
+		for _, m := range decoded.Models {
+			decoded.Data = append(decoded.Data, struct {
+				ID          string `json:"id"`
+				OwnedBy     string `json:"owned_by"`
+				DisplayName string `json:"display_name"`
+				Created     int64  `json:"created"`
+				CreatedAt   string `json:"created_at"`
+			}{ID: m.Name, DisplayName: m.Description, CreatedAt: m.ReleaseDate})
+		}
 	}
 
 	models := make([]any, 0, len(decoded.Data))

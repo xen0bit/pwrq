@@ -1,6 +1,9 @@
 package llm
 
 import (
+	"os"
+	"strings"
+
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/typed"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
@@ -30,7 +33,17 @@ func RegisterGetContext() gojq.CompilerOption {
 
 		// A missing model is the most common misconfiguration, and it is one
 		// this cmdlet exists to explain rather than fail on.
-		p, err := o.resolve(op)
+		//
+		// Which kind of model to report is the caller's when they name one. A
+		// shell with only System One configured gets that, since answering
+		// "set PWRQ_LLM_MODEL" to someone whose System One calls work is the
+		// misconfiguration this cmdlet would be inventing.
+		resolve := o.resolve
+		if strings.HasPrefix(o.Model, "systemone/") ||
+			(o.Model == "" && os.Getenv(EnvModel) == "" && os.Getenv(EnvSystemOneModel) != "") {
+			resolve = o.resolveSystemOne
+		}
+		p, err := resolve(op)
 		if err != nil {
 			return map[string]any{
 				"Model":        o.Model,
@@ -54,7 +67,7 @@ func RegisterGetContext() gojq.CompilerOption {
 			"BaseUrlSource":  o.baseSource,
 			"HasApiKey":      o.ApiKey != "",
 			"ApiKeySource":   o.keySource,
-			"ApiKeyRequired": !p.keyOptional,
+			"ApiKeyRequired": o.keyRequired(p),
 			"TimeoutSeconds": int(o.timeout().Seconds()),
 			"MaxTokens":      o.MaxTokens,
 			"Temperature":    o.Temperature,
@@ -63,6 +76,13 @@ func RegisterGetContext() gojq.CompilerOption {
 			"Problem":        nil,
 
 			typed.TypeKey: "Pwrq.LLM.Context",
+		}
+		if p.dialect == dialectSystemOne {
+			// Nothing is generated, so there is no token cap or temperature
+			// to report — only where the questions go.
+			context["MaxTokens"] = nil
+			context["Temperature"] = nil
+			context["Endpoint"] = systemOneURL(o.BaseUrl)
 		}
 		if limitErr != nil {
 			context["MaxCalls"] = nil

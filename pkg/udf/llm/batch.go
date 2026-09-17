@@ -41,6 +41,9 @@ func RegisterInvokeLLMBatch() gojq.CompilerOption {
 		if err != nil {
 			return gojq.NewIter(err)
 		}
+		if err := requireChat(op, p); err != nil {
+			return gojq.NewIter(err)
+		}
 
 		texts := make([]string, len(prompts))
 		for i, raw := range prompts {

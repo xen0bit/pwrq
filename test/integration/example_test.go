@@ -20,7 +20,7 @@ import (
 // nothing runs is documentation that rots — this one already shipped two bugs
 // past review (a jq scoping mistake in its rejoin stage, and a stage that
 // printed zeros because usage is per process). The provider here is a stub, so
-// the test asserts the *plumbing*: that four stages hand JSON to each other and
+// the test asserts the *plumbing*: that five stages hand JSON to each other and
 // that the agent loop reaches an answer.
 func TestAgentTriageExampleRuns(t *testing.T) {
 	if runtime.GOOS == "windows" {
@@ -33,6 +33,12 @@ func TestAgentTriageExampleRuns(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/systemone" {
+			status, answer := systemOneReply(body)
+			w.WriteHeader(status)
+			_, _ = io.WriteString(w, answer)
+			return
+		}
 		_, _ = io.WriteString(w, reply(string(body)))
 	}))
 	defer server.Close()
@@ -48,6 +54,9 @@ func TestAgentTriageExampleRuns(t *testing.T) {
 		"PWRQ_LLM_MODEL=openai-compatible/fake",
 		"OPENAI_BASE_URL="+server.URL,
 		"PWRQ_AGENT_MODEL=",
+		"PWRQ_SYSTEMONE_MODEL=systemone/fake",
+		"TYPESAFE_BASE_URL="+server.URL,
+		"TYPESAFE_API_KEY=",
 		"NO_COLOR=1",
 	)
 	out, err := cmd.CombinedOutput()
@@ -58,17 +67,21 @@ func TestAgentTriageExampleRuns(t *testing.T) {
 
 	// Each stage has to reach the next one, so each stage's output is checked.
 	for _, want := range []string{
-		"6 error lines",           // stage 1 found the lines
-		"worker.log",              // stage 2 joined classifications back to them
-		"crash",                   // the schema's enum survived into the rows
-		"== 3. summarised",        // stage 3 grouped them
-		"worker.log has the most", // stage 4's agent reached an answer
+		"6 error lines",              // stage 1 found the lines
+		"worker.log",                 // stage 2 joined classifications back to them
+		"crash",                      // the schema's enum survived into the rows
+		"== 3. scored by System One", // stage 3 asked its typed questions
+		"backend",                    // and a choice's answer reached the table
+		"security",                   //
+		"== 4. summarised",           // stage 4 grouped them
+		"worker.log has the most",    // stage 5's agent reached an answer
+		`"Pwrq.LLM.Usage"`,           // and the cost stage ran on no input
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the run does not contain %q:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "error:") || strings.Contains(got, "pwrq:") {
+	if strings.Contains(got, "error:") || strings.Contains(got, "pwrq:") || strings.Contains(got, "skipped") {
 		t.Errorf("the run reported an error:\n%s", got)
 	}
 }
@@ -115,6 +128,51 @@ func reply(request string) string {
 	default:
 		return completion(`{"category":"data","severity":"low"}`)
 	}
+}
+
+// systemOneReply answers stage 3's typed questions from keywords in the state,
+// the way reply answers stage 2's prompts. A model id that still carries its
+// provider prefix gets the 422 a real server would give an unroutable request.
+func systemOneReply(body []byte) (int, string) {
+	var req struct {
+		State     map[string]any            `json:"state"`
+		Model     string                    `json:"model"`
+		Questions map[string]map[string]any `json:"questions"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil || req.Model != "fake" {
+		return http.StatusUnprocessableEntity, `{"detail":[{"loc":["body","model"],"msg":"unexpected model","type":"value_error"}]}`
+	}
+	text, _ := req.State["Text"].(string)
+
+	page, urgency, owner := 0.2, 1.0, "platform"
+	switch {
+	case strings.Contains(text, "panic"):
+		page, urgency, owner = 0.9, 2.0, "backend"
+	case strings.Contains(text, "unmarshal"):
+		owner = "backend"
+	case strings.Contains(text, "signature"):
+		page, owner = 0.7, "security"
+	}
+
+	answers := map[string]any{}
+	for id, q := range req.Questions {
+		switch q["type"] {
+		case "noul":
+			answers[id] = map[string]any{"type": "noul", "noul": page}
+		case "score":
+			answers[id] = map[string]any{"type": "score", "score": urgency, "confidence": 0.5,
+				"legend": map[string]any{}, "probabilities": map[string]any{}}
+		case "choice":
+			answers[id] = map[string]any{"type": "choice", "choice": owner, "confidence": 0.5,
+				"probabilities": map[string]any{owner: 1.0}}
+		}
+	}
+	encoded, _ := json.Marshal(map[string]any{
+		"model":   "fake.gguf",
+		"answers": answers,
+		"usage":   map[string]any{"input_tokens": 30, "output_tokens": len(answers)},
+	})
+	return http.StatusOK, string(encoded)
 }
 
 func completion(content string) string {

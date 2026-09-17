@@ -834,6 +834,74 @@ $ pwrq -c '[.[] | invoke_llm("Extract {name, org} from: \(.)"; {Schema: $S})]
            | group_by(.org) | map({org: .[0].org, people: map(.name)})'
 ```
 
+### Typed questions with System One
+
+A schema makes a model *write* one of the answers. System One makes it *weigh*
+them: each option gets a single-token label, one forward pass reads how likely
+each label is, and the answer comes back as a probability. Nothing is generated,
+so no answer can fall outside the options — and every question about the same
+state travels in one request:
+
+```console
+$ export PWRQ_SYSTEMONE_MODEL=systemone/gemma TYPESAFE_BASE_URL=http://127.0.0.1:8080
+$ pwrq -c '"Help! My payouts have been failing for 3 days." | invoke_systemone({
+    is_urgent:   {type: "noul", instructions: "Does this convey urgency?"},
+    department:  {type: "choice", instructions: "Which team should handle this?",
+                  criteria: {billing: "Payments, invoicing, refunds",
+                             technical: "Bugs, outages, integrations"}},
+    frustration: {type: "score", instructions: "How frustrated is the customer?",
+                  criteria: ["Calm", "Frustrated", "Very angry"]}})'
+{"department":{"choice":"billing","confidence":0.9999299964319213,
+               "probabilities":{"billing":0.9999649982159606,"technical":0.000035001784039255326},
+               "type":"choice"},
+ "frustration":{"confidence":0.941065122450111,
+                "legend":{"0":"Calm","1":"Frustrated","2":"Very angry"},
+                "probabilities":{"0":0.0006541911135148554,"1":0.9607100816334073,"2":0.0386357272530777},
+                "score":1.0379815361395628,"type":"score"},
+ "is_urgent":{"noul":0.9999965076688166,"type":"noul"}}
+```
+
+Three questions, one request, three forward passes and no generated tokens:
+
+```console
+$ pwrq -nc 'invoke_systemone_request($state; $questions) | {InputTokens, OutputTokens, ServedModel}'
+{"InputTokens":186,"OutputTokens":3,"ServedModel":".../gemma-4-12B-it-QAT-Q4_0.gguf"}
+```
+
+The state may be an object, which is usually what a pipeline has:
+
+```console
+$ pwrq -c 'map(. + ({Text, severity} | invoke_systemone({
+    page: {type: "noul", instructions: "Should this wake the on-call engineer?"}})
+    | {page: .page.noul}))
+  | map(select(.page > 0.5)) | length'
+```
+
+Because a probability is a number, thresholds belong to the query rather than to
+the model: `select(.page > 0.9)` is a decision you can move without re-prompting
+anything.
+
+The endpoint is TypeSafe's, or llama.cpp's `/v1/systemone` in front of a local
+GGUF. `TYPESAFE_BASE_URL` and `TYPESAFE_API_KEY` are the SDK's own variables,
+and a local server needs no key:
+
+```console
+$ pwrq -nc 'get_llm_context({Model: "systemone/gemma"}) | {Endpoint, ApiKeyRequired}'
+{"ApiKeyRequired":false,"Endpoint":"http://127.0.0.1:8080/v1/systemone"}
+```
+
+A malformed question is refused before the request, and the server's own field
+errors survive:
+
+```console
+$ pwrq -nc '"x" | invoke_systemone({q: {type: "choice"}})'
+pwrq: invoke_systemone: question "q": a choice needs criteria, an object of option name to description
+```
+
+Options are labelled in the order they encode and gojq sorts object keys, so
+`--systemone-permute` on llama.cpp averages each question with its options
+reversed — small models show the most position bias, and are helped most.
+
 ### Many prompts at once
 
 `map(invoke_llm(...))` is one round trip per row, in sequence. Batching runs a
@@ -937,21 +1005,28 @@ converge, `PWRQ_LLM_DEBUG=1` prints every request and reply to stderr.
 
 ### A whole run, end to end
 
-[`examples/agent-triage.sh`](examples/agent-triage.sh) is the four stages
+[`examples/agent-triage.sh`](examples/agent-triage.sh) is the five stages
 together, over a corpus it writes itself so the run is reproducible:
 
 1. **Find the errors** — `select_string` over the log files. No model involved;
    finding lines is a job the cmdlets already do.
 2. **Classify them** — `invoke_llm_batch` with a `Schema`, one call per line, in
    parallel. This is the stage that turns text into rows.
-3. **Summarise** — `group_by`, `map`, `sort_by`. Plain jq, because by now the
+3. **Score them** — `invoke_systemone`, three typed questions per line in one
+   request. Where stage 2 asked for a word from a list, this weighs the list:
+   `page` is a probability, `urgency` a position on its own scale.
+4. **Summarise** — `group_by`, `map`, `sort_by`. Plain jq, because by now the
    model's answers are values.
-4. **Ask about them** — `invoke_agent_request`, with the triaged rows piped in,
+5. **Ask about them** — `invoke_agent_request`, with the triaged rows piped in,
    writing its own queries against them.
 
+Stage 3 is skipped with a message if no System One endpoint is configured, so
+the run still works with a chat model alone.
+
 ```console
-$ export PWRQ_LLM_MODEL=openai-compatible/gemma-4-e2b-it-qat
-$ export OPENAI_BASE_URL=http://127.0.0.1:1234/v1
+$ export PWRQ_LLM_MODEL=openai-compatible/gemma-4-12b
+$ export OPENAI_BASE_URL=http://127.0.0.1:8080/v1
+$ export PWRQ_SYSTEMONE_MODEL=systemone/gemma-4-12b TYPESAFE_BASE_URL=http://127.0.0.1:8080
 $ examples/agent-triage.sh
 == 1. the errors on disk ==================================================
 6 error lines
@@ -959,42 +1034,62 @@ $ examples/agent-triage.sh
 == 2. classified, one call per line, in parallel ==========================
   File       Line category severity
   ---------- ---- -------- --------
-  api.log    2    data     high
+  api.log    2    crash    high
   api.log    4    timeout  high
   auth.log   2    auth     high
   worker.log 2    crash    high
   worker.log 3    data     high
   worker.log 4    crash    high
 
-== 3. summarised with plain jq ===========================================
-  category count files
-  -------- ----- -------------------
-  crash    2     worker.log
-  data     2     api.log, worker.log
-  auth     1     auth.log
-  timeout  1     api.log
+== 3. scored by System One ===============================================
+  File       Line owner    page urgency
+  ---------- ---- -------- ---- -------
+  api.log    2    platform 1    2
+  api.log    4    platform 0.97 1.98
+  auth.log   2    security 0.99 1.99
+  worker.log 2    backend  1    2
+  worker.log 3    backend  0.85 1.84
+  worker.log 4    backend  1    2
 
-== 4. the agent, asked about the same data ===============================
-{"Answer":"The file with the most high-severity errors is worker.log, which
- contains panics due to index out of range and nil pointer dereferences, as well
- as JSON unmarshalling errors.",
- "Queries":["[.[] | select(.severity == \"high\")] | group_by(.File) | map({File: .[0].File, count: length}) | sort_by(-.count) | .[0] | .File",
-            "[.[] | select(.File == \"worker.log\" and .severity == \"high\")] | .Text | unique",
-            "[.[] | select(.File == \"worker.log\" and .severity == \"high\")] | map(.Text) | unique | join(\", \")"],
- "Tokens":13212}
+== 4. summarised with plain jq ===========================================
+  category count files               pages
+  -------- ----- ------------------- -----
+  crash    3     api.log, worker.log 3
+  auth     1     auth.log            1
+  data     1     worker.log          1
+  timeout  1     api.log             1
+
+== 5. the agent, asked about the same data ===============================
+{"Answer":"The file with the most high-severity errors is worker.log, and the
+ types of errors are crash and data.",
+ "Queries":["[.[] | select(.severity == \"high\")] | group_by(.File) | map({File: .[0].File, Count: length}) | sort_by(-.Count) | .[0] | .File",
+            "[.[] | select(.File == \"worker.log\" and .severity == \"high\")] | .category | unique",
+            "[.[] | select(.File == \"worker.log\" and .severity == \"high\")] | map(.category) | unique"],
+ "Tokens":15619}
+
+== what the run cost =====================================================
+{"Reply":"done","Usage":{"CacheHits":0,"Calls":1,"Cost":null,"InputTokens":21,
+ "OutputTokens":38,"PwrqType":"Pwrq.LLM.Usage","TotalTokens":59}}
 ```
 
-The middle query is the loop earning its keep: `.Text` on an array is an error,
-the agent read the message and rewrote it as `map(.Text)`. That is what `.Steps`
-is for — the answer above rests on three queries, and all three are here to be
-checked.
+The middle query in stage 5 is the loop earning its keep: `.category` on an
+array is an error, the agent read the message and rewrote it as `map(.category)`.
+That is what `.Steps` is for — the answer above rests on three queries, and all
+three are here to be checked.
 
-Stage 4 asks more of a model than stages 2 and 3 do: classifying one line is a
-single judgement, while writing a query, reading its result and deciding what to
-do next is a loop. `gemma-4-e2b` does the first well and the second badly — it
-writes queries that paste the data in as a literal instead of using `.` — so the
-script takes `PWRQ_AGENT_MODEL` to run that stage on a larger model. The output
-above is the 12B one; the classification is the 2B one.
+Stage 3 is the one that costs almost nothing: three questions per line, one
+forward pass each, no generated tokens at all. It is also the one whose answers
+a query can threshold — `select(.page > 0.9)` — without going back to a model.
+Every team assignment above is right, and the one line that is not really an
+outage (a payload that failed to parse) has the lowest `page` and `urgency` of
+the six.
+
+Stage 5 asks more of a model than the others do: classifying or weighing one
+line is a single judgement, while writing a query, reading its result and
+deciding what to do next is a loop. `gemma-4-e2b` does the first well and the
+second badly — it writes queries that paste the data in as a literal instead of
+using `.` — so the script takes `PWRQ_AGENT_MODEL` to run that stage on a larger
+model. The run above is a 12B one throughout.
 
 ## Aliases
 

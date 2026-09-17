@@ -33,6 +33,9 @@ type server struct {
 
 	mu       sync.Mutex
 	requests []map[string]any
+	// paths and reqHeaders are what each request was sent to and with.
+	paths      []string
+	reqHeaders []http.Header
 	// inFlight and peak record concurrency, which is what invoke_llm_batch's
 	// Parallel option is for.
 	inFlight int32
@@ -71,6 +74,8 @@ func newServer(t *testing.T, replies ...string) *server {
 		s.mu.Lock()
 		n := len(s.requests)
 		s.requests = append(s.requests, decoded)
+		s.paths = append(s.paths, r.URL.Path)
+		s.reqHeaders = append(s.reqHeaders, r.Header.Clone())
 		s.mu.Unlock()
 
 		// release holds every request until the test lets it go, which is how
@@ -110,6 +115,11 @@ func newServer(t *testing.T, replies ...string) *server {
 	t.Setenv(EnvOpenAIBase, httpSrv.URL)
 	t.Setenv(EnvAnthropicKey, "test-key")
 	t.Setenv(EnvAnthropicBase, httpSrv.URL)
+	// Pinned even for tests that never ask a typed question: a shell with
+	// TYPESAFE_BASE_URL set must not turn a test into a real request.
+	t.Setenv(EnvSystemOneModel, "systemone/test-model")
+	t.Setenv(EnvTypeSafeKey, "test-key")
+	t.Setenv(EnvTypeSafeBase, httpSrv.URL)
 	t.Setenv(EnvCache, "")
 	t.Setenv(EnvMaxCalls, "0")
 	resetUsage()

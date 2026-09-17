@@ -12,6 +12,8 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterInvokeLLM(),
 		RegisterInvokeLLMRequest(),
 		RegisterInvokeLLMBatch(),
+		RegisterInvokeSystemOne(),
+		RegisterInvokeSystemOneRequest(),
 		RegisterInvokeAgent(),
 		RegisterInvokeAgentRequest(),
 		RegisterInvokeEmbedding(),
