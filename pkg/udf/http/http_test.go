@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/runctx"
 )
 
 // Helper to compile and run a gojq query
@@ -65,6 +67,53 @@ func runGojqQueryErr(t *testing.T, query string, input any, options ...gojq.Comp
 	}
 	t.Fatalf("expected query %q to fail, but it succeeded", query)
 	return nil
+}
+
+// TestHTTPServeStopsOnCancellation is the regression for http_serve holding
+// the caller for ever: with the run context cancelled it must stop serving and
+// return rather than blocking in its select.
+func TestHTTPServeStopsOnCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	restore := runctx.Install(ctx)
+	defer restore()
+
+	q, err := gojq.Parse(`http_serve("127.0.0.1"; 0)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, err := gojq.Compile(q, RegisterHTTPServe())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		iter := code.Run(nil)
+		for {
+			v, ok := iter.Next()
+			if !ok {
+				done <- nil
+				return
+			}
+			if e, ok := v.(error); ok {
+				done <- e
+				return
+			}
+		}
+	}()
+
+	// Let the listener come up, then cancel the run.
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected http_serve to fail after cancellation")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("http_serve did not stop after cancellation")
+	}
 }
 
 func TestHTTPGet(t *testing.T) {

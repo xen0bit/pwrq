@@ -67,8 +67,8 @@ func registerTools(server *mcp.Server, logger *slog.Logger) {
 
 		e := getEngine()
 		e.execMu.Lock()
+		defer e.execMu.Unlock()
 		res := e.execute(ctx, args)
-		e.execMu.Unlock()
 
 		// A run that produced nothing and failed is a genuine tool error. One
 		// that produced partial output or was cut off by a limit is still a

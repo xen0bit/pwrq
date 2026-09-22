@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/runctx"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
@@ -282,8 +283,11 @@ func RegisterHTTPServe() gojq.CompilerOption {
 		// Create listener with SO_REUSEADDR where the platform has it.
 		lc := reuseAddrConfig()
 
-		// Listen on the address
-		listener, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf("%s:%d", host, port))
+		// Listen on the address. Binding to the ambient run context means a
+		// run that is cancelled stops accepting, and the select below stops
+		// waiting, instead of holding the caller for ever.
+		runCtx := runctx.Current()
+		listener, err := lc.Listen(runCtx, "tcp", fmt.Sprintf("%s:%d", host, port))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: failed to listen on %s:%d: %v", host, port, err), nil)
 		}
@@ -405,6 +409,19 @@ func RegisterHTTPServe() gojq.CompilerOption {
 				"url":       serverURL,
 			}
 			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: server error: %v", err), meta)
+		case <-runCtx.Done():
+			// The run was cancelled (for example a deadline inside run_query).
+			// Stop serving and surface the cancellation; without this a query
+			// that waits for a request holds the MCP engine's mutex until the
+			// process dies.
+			shutdownServe(server, listener)
+			meta := map[string]any{
+				"operation": "http_serve",
+				"host":      host,
+				"port":      actualPort,
+				"url":       serverURL,
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: run cancelled: %v", runCtx.Err()), meta)
 		}
 	})
 }

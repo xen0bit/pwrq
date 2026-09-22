@@ -367,7 +367,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"keccak_256", 0, 2, "Legacy Keccak-256 hash", "Checksum", []string{`"hello" | keccak_256`}},
 		{"crc16", 0, 2, "CRC-16/CCITT-FALSE checksum", "Checksum", []string{`"hello" | crc16`}},
 		{"pbkdf2_sha256", 1, 3, "PBKDF2-SHA256 derived key as hex (salt, [iterations], [keyLen])", "Checksum", []string{`"password" | pbkdf2_sha256("salt"; 100000; 32)`}},
-		{"argon2id_hash", 1, 3, "Argon2id derived key as hex (salt, [time], [memoryMiB])", "Checksum", []string{`"password" | argon2id_hash("salt"; 1; 8)`}},
+		{"argon2id_hash", 1, 4, "Argon2id derived key as hex (salt, [time], [memoryMiB], [keyLen])", "Checksum", []string{`"password" | argon2id_hash("salt"; 1; 8)`, `"password" | argon2id_hash("salt"; 1; 8; 64)`}},
 		{"random_hex", 0, 1, "n cryptographically random bytes as hex", "Checksum", []string{`random_hex(16)`}},
 
 		// IDs and tokens extras
