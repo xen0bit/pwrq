@@ -317,12 +317,14 @@ $ pwrq -nc 'compare_object(["a","b"]; ["b","c"]) | map({v: .InputObject, s: .Sid
 ### Object cmdlets
 
 `select_object`, `where_object`, `sort_object`, `group_object` and
-`measure_object` take either a jq script block or the PowerShell
-property/operator/value form:
+`measure_object` read the objects from the pipeline or as the leading
+argument, and take their options in a trailing object:
 
 ```console
-$ pwrq -c 'where_object(.; {script: ".Age > 26 and (.Name | startswith(\"A\"))"})'
-$ pwrq -c 'where_object(.; {property: "Name", operator: "like", value: "A*"})'
+$ pwrq -c '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}] | where_object({script: ".Age > 26"})'
+$ pwrq -c 'where_object([{"Name":"Alice","Age":30}]; {property: "Name", operator: "like", value: "A*"})'
+$ pwrq -c '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}] | sort_object({property: "Age", descending: true}) | select_object("Name")'
+$ pwrq -c '[{"Dept":"Eng"},{"Dept":"Ops"}] | group_object({property: "Dept"})'
 ```
 
 A script block is jq — any expression, not a subset. Note that jq's own `select`

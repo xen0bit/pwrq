@@ -170,6 +170,21 @@ $ echo '[{"Name":"Alice"},{"Name":"Bob"}]' \
 ["Alice"]
 ```
 
+The objects come from the pipeline or the leading argument, and the options
+travel in an object, so the same work reads either way:
+
+```console
+$ echo '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}]' \
+    | pwrq -c 'where_object({script: ".Age > 26"}) | map(.Name)'
+["Alice"]
+
+$ pwrq -nc '[{"Name":"b"},{"Name":"a"}] | sort_object({property: "Name"}) | map(.Name)'
+["a","b"]
+
+$ pwrq -nc '[{"Dept":"Eng"},{"Dept":"Ops"},{"Dept":"Eng"}] | group_object({property: "Dept"}) | map({Name, Count})'
+[{"Count":2,"Name":"Eng"},{"Count":1,"Name":"Ops"}]
+```
+
 For plain filtering jq's own `select` is shorter, and pwrq does not get in its
 way: `map(select(.Age > 26))`.
 
@@ -237,7 +252,7 @@ $ pwrq -n -c 'future_value(100; 0.05; 10)'
 162.8894626777442
 
 $ pwrq -n -c 'monthly_payment(20000; 0.06; 60)'
-386.6560318950375
+386.6560305885685
 ```
 
 ## Time series and statistics
@@ -416,7 +431,8 @@ $ pwrq -nc 'first(select_string("src"; "TODO")) | .Path'
 "src/main.go"
 ```
 
-`add_content` appends where `set_content` truncates:
+`add_content` appends where `set_content` truncates, and both take the value
+from the pipeline or as an argument:
 
 ```console
 $ pwrq -nc '"first" | add_content("run.log") | .Length'
