@@ -39,6 +39,17 @@ func rowsInput(v any, args []any, operands int) (rows []any, rest []any) {
 	return common.NormalizeToSlice(common.BindValue(in)), rest
 }
 
+// The grouping cmdlets take their rows from the pipeline or the leading
+// argument; declare it once here, since rowsInput runs inside each closure.
+func init() {
+	for _, name := range []string{
+		"group_by_key", "count_by", "sum_by", "avg_by", "index_by",
+		"value_counts", "summarize_by", "pivot", "unpivot", "top_by", "bottom_by",
+	} {
+		common.DeclareInput(name, common.InputPipeline)
+	}
+}
+
 // keyArg reads operand i as a property name.
 func keyArg(fn string, args []any, i int) (string, error) {
 	if i >= len(args) {
