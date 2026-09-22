@@ -8835,7 +8835,7 @@
 
 - name: select_object with pipe and multiple positional properties
   args:
-    - '.[] | select_object("Name"; "Age")'
+    - '.[] | select_object(.; "Name"; "Age")'
   input: '[{"Name":"Alice","Age":30,"City":"NYC"},{"Name":"Bob","Age":25,"City":"LA"}]'
   expected: |
     {

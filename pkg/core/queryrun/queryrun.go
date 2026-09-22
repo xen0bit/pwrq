@@ -19,6 +19,7 @@ package queryrun
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -54,6 +55,14 @@ type Request struct {
 	// Args are values bound to named variables, the equivalent of jq's
 	// --argjson.
 	Args []Arg
+
+	// Positional are jq's --args/--jsonargs positional values, reported
+	// through $ARGS.positional. A text-only host leaves it empty.
+	Positional []any
+
+	// InputName is what input_filename reports; empty means null. The CLI
+	// passes the file it is reading, a host with string input has none.
+	InputName string
 
 	// MaxResults caps how many values the run may emit and MaxOutputBytes how
 	// large they may be in total. A host with no user to interrupt it needs
@@ -219,14 +228,40 @@ func (r *Runner) Run(ctx context.Context, req *Request) (result Result) {
 		return resp
 	}
 
+	// $ARGS is jq's own variable and is always defined there, so a program
+	// that reads it behaves the same however it is run. A caller that bound
+	// ARGS itself keeps its value under $ARGS.named.ARGS.
+	named := make(map[string]any, len(names))
+	filteredNames := make([]string, 0, len(names)+1)
+	filteredValues := make([]any, 0, len(values)+1)
+	for i, n := range names {
+		named[strings.TrimPrefix(n, "$")] = values[i]
+		if n != "$ARGS" {
+			filteredNames = append(filteredNames, n)
+			filteredValues = append(filteredValues, values[i])
+		}
+	}
+	positional := req.Positional
+	if positional == nil {
+		positional = []any{}
+	}
+	names = append(filteredNames, "$ARGS")
+	values = append(filteredValues, map[string]any{"named": named, "positional": positional})
+
 	// remaining is the input cursor. `input` and `inputs` read from it, and so
 	// does the program itself once it is filled in below.
 	remaining := &sliceIter{}
 	options := append([]gojq.CompilerOption{}, r.Options...)
 	options = append(options, gojq.WithInputIter(remaining))
-	if len(names) > 0 {
-		options = append(options, gojq.WithVariables(names))
-	}
+	options = append(options, gojq.WithVariables(names))
+	// input_filename is part of jq's vocabulary. A host with string input
+	// reports null rather than leaving the name undefined.
+	options = append(options, gojq.WithFunction("input_filename", 0, 0, func(any, []any) any {
+		if req.InputName == "" {
+			return nil
+		}
+		return req.InputName
+	}))
 
 	code, err := gojq.Compile(query, options...)
 	if err != nil {

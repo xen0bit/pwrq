@@ -165,7 +165,10 @@ func formatFlags(opts any) string {
 	sb.WriteString("Command Options:\n")
 	for i := range typ.NumField() {
 		tag := typ.Field(i).Tag
-		if i == typ.NumField()-1 {
+		// The header belongs before the help flag itself, wherever it sits in
+		// the struct. Keying it to the final field broke when a flag was
+		// appended after Help.
+		if tag.Get("long") == "help" {
 			sb.WriteString("\nHelp Option:\n")
 		}
 		sb.WriteString("  ")

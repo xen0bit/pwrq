@@ -158,21 +158,17 @@ func TestHTTPGet(t *testing.T) {
 	}
 }
 
-func TestHTTPPostDefault(t *testing.T) {
-	// Create a test HTTP server
+func TestHTTPGetDefaultFromPipeline(t *testing.T) {
+	// A URL piped with no body is a GET, matching every other HTTP client.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST, got %s", r.Method)
+		if r.Method != "GET" {
+			t.Errorf("Expected GET, got %s", r.Method)
 		}
-		// Read request body
-		body := make([]byte, r.ContentLength)
-		_, _ = r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintf(w, "Received: %s", string(body))
+		_, _ = w.Write([]byte("ok"))
 	}))
 	defer server.Close()
 
-	// Test POST request (default method) with URL from pipeline
 	result := runGojqQuery(t, fmt.Sprintf(`"%s" | http`, server.URL), nil, RegisterHTTP())
 
 	resultMap, ok := result.(map[string]any)
@@ -180,9 +176,30 @@ func TestHTTPPostDefault(t *testing.T) {
 		t.Fatalf("Expected response object, got %T", result)
 	}
 
-	meta := resultMap
-	if meta["Method"] != "POST" {
-		t.Errorf("Expected method POST (default), got %v", meta["Method"])
+	if resultMap["Method"] != "GET" {
+		t.Errorf("Expected method GET (default), got %v", resultMap["Method"])
+	}
+}
+
+// TestHTTPPostWhenPipedBody covers the other half: a piped value alongside the
+// URL is a body, and a body means POST.
+func TestHTTPPostWhenPipedBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer server.Close()
+
+	result := runGojqQuery(t, fmt.Sprintf(`{"a": 1} | http("%s")`, server.URL), nil, RegisterHTTP())
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected response object, got %T", result)
+	}
+	if resultMap["Method"] != "POST" {
+		t.Errorf("Expected method POST for a piped body, got %v", resultMap["Method"])
 	}
 }
 
@@ -288,7 +305,7 @@ func TestHTTPWithURLFromArg(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Test with URL as single argument (default POST)
+	// Test with URL as single argument and no body: GET.
 	result := runGojqQuery(t, fmt.Sprintf(`http("%s")`, server.URL), nil, RegisterHTTP())
 
 	resultMap, ok := result.(map[string]any)
@@ -297,8 +314,8 @@ func TestHTTPWithURLFromArg(t *testing.T) {
 	}
 
 	meta := resultMap
-	if meta["Method"] != "POST" {
-		t.Errorf("Expected method POST (default), got %v", meta["Method"])
+	if meta["Method"] != "GET" {
+		t.Errorf("Expected method GET (default), got %v", meta["Method"])
 	}
 	if meta["Url"] != server.URL {
 		t.Errorf("Expected URL %s, got %v", server.URL, meta["Url"])

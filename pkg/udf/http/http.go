@@ -19,12 +19,14 @@ import (
 // RegisterHTTP registers the http function with gojq
 func RegisterHTTP() gojq.CompilerOption {
 	return common.WithFunctionOf("http", 0, 2, ResponseShape, func(v any, args []any) any {
-		var method = "POST" // default method
+		// GET by default, as every other HTTP client does. A piped value
+		// alongside an argument URL is a body, and a body means POST.
+		method := "GET"
 		var url string
 
 		// Parse arguments
 		if len(args) == 0 {
-			// No arguments: URL from pipeline, method = POST
+			// No arguments: URL from pipeline
 			inputVal := common.BindValue(v)
 			if urlStr, ok := inputVal.(string); ok {
 				url = urlStr
@@ -32,13 +34,13 @@ func RegisterHTTP() gojq.CompilerOption {
 				return common.MakeUDFErrorResult(fmt.Errorf("http: URL must be provided as argument or from pipeline, got %T", inputVal), nil)
 			}
 		} else if len(args) == 1 {
-			// One argument: could be method or URL
-			// If it's a string, treat it as URL (method = POST)
-			// If it's a method name, we'd need URL from pipeline
+			// One argument: the URL; a piped value is the body.
 			argVal := common.BindValue(args[0])
 			if urlStr, ok := argVal.(string); ok {
 				url = urlStr
-				// Method stays as default POST
+				if common.BindValue(v) != nil {
+					method = "POST"
+				}
 			} else {
 				return common.MakeUDFErrorResult(fmt.Errorf("http: URL argument must be a string, got %T", argVal), nil)
 			}
