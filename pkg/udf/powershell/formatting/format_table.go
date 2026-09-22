@@ -156,9 +156,20 @@ func ParseFormatTableArgs(args []any) ([]any, FormatTableOptions, error) {
 		objects = []any{inputVal}
 	}
 
-	// Parse options if present
+	// Parse options if present. A bare string or array is the property list
+	// the synopsis prints as [properties]; a map is options.
 	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
+		switch arg := common.BindValue(args[1]).(type) {
+		case string:
+			opts.Property = []string{arg}
+		case []any:
+			for _, item := range arg {
+				if str, ok := item.(string); ok {
+					opts.Property = append(opts.Property, str)
+				}
+			}
+		}
+		if optsMap, ok := common.BindValue(args[1]).(map[string]any); ok {
 			if propVal, exists := optsMap["property"]; exists {
 				switch p := propVal.(type) {
 				case string:

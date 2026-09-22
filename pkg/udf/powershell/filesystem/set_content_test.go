@@ -201,7 +201,7 @@ func TestGetEncoding_Valid(t *testing.T) {
 
 func TestParseSetContentArgs_Basic(t *testing.T) {
 	args := []any{"test.txt", "content"}
-	opts, err := parseSetContentArgs(args)
+	opts, err := parseSetContentArgs(nil, args)
 	if err != nil {
 		t.Fatalf("parseSetContentArgs failed: %v", err)
 	}
@@ -219,14 +219,14 @@ func TestParseSetContentArgs_Basic(t *testing.T) {
 
 func TestParseSetContentArgs_WithOptions(t *testing.T) {
 	args := []any{
+		"test.txt",
 		map[string]any{
-			"Path":     "test.txt",
 			"Value":    "content",
 			"Encoding": "utf16le",
 			"Force":    true,
 		},
 	}
-	opts, err := parseSetContentArgs(args)
+	opts, err := parseSetContentArgs(nil, args)
 	if err != nil {
 		t.Fatalf("parseSetContentArgs failed: %v", err)
 	}
@@ -246,8 +246,8 @@ func TestParseSetContentArgs_WithOptions(t *testing.T) {
 }
 
 func TestParseSetContentArgs_MissingPath(t *testing.T) {
-	args := []any{"", "content"}
-	_, err := parseSetContentArgs(args)
+	args := []any{123, "content"}
+	_, err := parseSetContentArgs(nil, args)
 	if err == nil {
 		t.Fatal("expected error for missing path, got nil")
 	}
@@ -255,7 +255,7 @@ func TestParseSetContentArgs_MissingPath(t *testing.T) {
 
 func TestParseSetContentArgs_MissingValue(t *testing.T) {
 	args := []any{"test.txt"}
-	_, err := parseSetContentArgs(args)
+	_, err := parseSetContentArgs(nil, args)
 	if err == nil {
 		t.Fatal("expected error for missing value, got nil")
 	}

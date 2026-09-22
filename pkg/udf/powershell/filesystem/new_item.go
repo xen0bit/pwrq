@@ -41,6 +41,11 @@ func parseNewItemArgs(args []any) (NewItemOptions, error) {
 		case string:
 			if i == 0 {
 				opts.Path = v
+			} else if isItemType(v) {
+				// PowerShell's New-Item takes the type as the second
+				// positional, so "file"/"directory" there is the type, not a
+				// name.
+				opts.ItemType = strings.ToLower(v)
 			} else if opts.Name == "" {
 				opts.Name = v
 			}
@@ -70,6 +75,16 @@ func parseNewItemArgs(args []any) (NewItemOptions, error) {
 	}
 
 	return opts, nil
+}
+
+// isItemType reports whether a positional string names an item type rather
+// than a name. The two roles are disjoint, so the check is total.
+func isItemType(s string) bool {
+	switch strings.ToLower(s) {
+	case "file", "f", "directory", "dir", "d":
+		return true
+	}
+	return false
 }
 
 // newItem creates a new file or directory

@@ -99,6 +99,23 @@ var documentedOptionKeys = map[string][]discovery.Option{
 		{Name: "Force", Type: "boolean", Description: "write even when the file is read-only"},
 		{Name: "Value", Type: "any", Description: "what to append, if not taken from the pipeline"},
 	},
+	"set_content": {
+		{Name: "Encoding", Type: "string", Description: "the text encoding to write in; utf8 by default"},
+		{Name: "Force", Type: "boolean", Description: "create parent directories and write even when the file is read-only"},
+		{Name: "Value", Type: "any", Description: "what to write, if not taken from the pipeline"},
+	},
+	"format_table": {
+		{Name: "property", Type: "array", Description: "the properties to show, as an array of names or a bare name"},
+		{Name: "casesensitive", Type: "boolean", Description: "match property names case-sensitively"},
+		{Name: "autosize", Type: "boolean", Description: "size every column to its contents"},
+		{Name: "hidetableheaders", Type: "boolean", Description: "omit the header row"},
+		{Name: "depth", Type: "number", Description: "how deep to expand nested objects"},
+	},
+	"format_list": {
+		{Name: "property", Type: "array", Description: "the properties to show, as an array of names or a bare name"},
+		{Name: "casesensitive", Type: "boolean", Description: "match property names case-sensitively"},
+		{Name: "depth", Type: "number", Description: "how deep to expand nested objects"},
+	},
 	"out_sqlite": {
 		{Name: "Create", Type: "boolean", Description: "create the table when it does not exist"},
 		{Name: "Truncate", Type: "boolean", Description: "empty the table before writing"},

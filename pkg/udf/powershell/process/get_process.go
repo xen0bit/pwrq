@@ -639,7 +639,7 @@ func stopProcesses(opts StopProcessOptions) (stopped []int, failed []map[string]
 //   - start_process("cmd"; {"/c"; "echo hello"})
 //   - start_process({"FilePath": "python"; "ArgumentList": ["script.py"]; "PassThru": true})
 func RegisterStartProcess() gojq.CompilerOption {
-	return common.WithFunction("start_process", 0, 2, func(v any, args []any) any {
+	return common.WithFunctionOf("start_process", 1, 2, StartedProcessShape, func(v any, args []any) any {
 		opts := StartProcessOptions{}
 
 		// Parse arguments
@@ -653,12 +653,15 @@ func RegisterStartProcess() gojq.CompilerOption {
 			}
 		}
 
-		// Second argument could be argument list
+		// The second argument is an options object, or an argument list.
 		if len(args) > 1 {
-			if opts.ArgumentList == nil {
-				if argList, ok := args[1].([]any); ok {
+			second := common.BindValue(args[1])
+			if optsMap, ok := second.(map[string]any); ok {
+				parseStartProcessOptions(&opts, optsMap)
+			} else if opts.ArgumentList == nil {
+				if argList, ok := second.([]any); ok {
 					opts.ArgumentList = argList
-				} else if argStr, ok := args[1].(string); ok {
+				} else if argStr, ok := second.(string); ok {
 					opts.ArgumentList = []any{argStr}
 				}
 			}
@@ -682,7 +685,7 @@ func RegisterStartProcess() gojq.CompilerOption {
 		}
 
 		if opts.PassThru {
-			return common.MakeUDFSuccessResult(result, map[string]any{
+			return common.MakeUDFSuccessResult(StartedProcessShape.Build(result), map[string]any{
 				"operation": "start_process",
 			})
 		}
@@ -784,9 +787,9 @@ func startProcess(opts StartProcessOptions) (map[string]any, error) {
 	result := map[string]any{
 		"Id":        cmd.Process.Pid,
 		"Name":      opts.FilePath,
-		"HasExited": false,
+		"HasExited": cmd.ProcessState != nil,
 		"StartTime": time.Now().Format(time.RFC3339),
-		"Process":   cmd.Process,
+		"PwrqValue": fmt.Sprintf("%d", cmd.Process.Pid),
 	}
 
 	if opts.WindowStyle != "" {

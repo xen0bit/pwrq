@@ -451,7 +451,7 @@ func allFunctionMetadata() []FunctionMetadata {
 
 		// PowerShell - File System
 		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
-		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},
+		{"set_content", 1, 3, "Set a file's content, replacing what was there (path, [value], [options])", "PowerShell", []string{`"content" | set_content("file.txt")`, `set_content("file.txt"; "content")`}},
 		{"add_content", 1, 3, "Append a value to a file, creating it if absent (path, [value], [options])", "PowerShell", []string{`"a line" | add_content("out.log")`, `add_content("out.log"; "a line")`}},
 		{"out_file", 1, 3, "Write a value to a file and pass it on (path, [value], [options])", "PowerShell", []string{`"a line" | out_file("report.txt")`, `"a line" | out_file("run.log"; {Append: true})`}},
 		{"test_path", 1, 1, "Test if a path exists", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp")`}},
@@ -466,8 +466,8 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"measure_object", 0, 2, "Measure object properties (objects, [options])", "PowerShell", []string{`[1,2,3] | measure_object`, `measure_object([{v:1},{v:2}]; {property: "v", sum: true})`}},
 
 		// PowerShell - Formatting
-		{"format_list", 1, 2, "Format output as a list (objects, [properties])", "PowerShell", []string{`format_list(.)`, `format_list({Name: "test"})`}},
-		{"format_table", 1, 2, "Format output as a table (objects, [properties])", "PowerShell", []string{`format_table(.)`, `format_table([{Name: "a"}, {Name: "b"}])`}},
+		{"format_list", 1, 2, "Format output as a list (objects, [properties])", "PowerShell", []string{`format_list(.)`, `format_list([{Name: "a", Age: 1}]; "Name")`}},
+		{"format_table", 1, 2, "Format output as a table (objects, [properties])", "PowerShell", []string{`format_table(.)`, `format_table([{Name: "a", Age: 1}]; ["Name"])`}},
 
 		// PowerShell - Variables
 		{"set_variable", 1, 3, "Set a variable (name, [value], [options])", "PowerShell", []string{`set_variable("count"; 42)`, `set_variable("name"; "test"; {"Scope": "global"})`}},
@@ -487,7 +487,7 @@ func allFunctionMetadata() []FunctionMetadata {
 
 		// PowerShell - Processes
 		{"get_process", 0, 2, "List running processes ([name], [options])", "PowerShell", []string{`get_process`, `[get_process | select(.Name == "go")]`}},
-		{"start_process", 1, 2, "Start a process (path, [options])", "PowerShell", []string{`start_process("echo"; {"ArgumentList": ["hi"]})`}},
+		{"start_process", 1, 2, "Start a process (path, [options])", "PowerShell", []string{`start_process("echo"; {"ArgumentList": ["hi"], "PassThru": true})`}},
 		{"stop_process", 1, 2, "Stop a process (id or name, [options])", "PowerShell", []string{`stop_process(1234)`}},
 
 		// PowerShell - Services
