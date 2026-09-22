@@ -43,9 +43,10 @@ type SortObjectOptions struct {
 //
 // Usage: sort_object(objects) or sort_object(objects; options)
 func RegisterSortObject() gojq.CompilerOption {
-	return common.WithFunction("sort_object", 1, 2, func(input any, args []any) any {
+	common.DeclareInput("sort_object", common.InputPipeline)
+	return common.WithFunction("sort_object", 0, 2, func(input any, args []any) any {
 		// Parse arguments
-		objects, opts, err := ParseSortObjectArgs(args)
+		objects, opts, err := ParseSortObjectArgs(input, args)
 		if err != nil {
 			return newSortErrorObject(err.Error())
 		}
@@ -164,25 +165,23 @@ func parseSortProperty(v any) ([]SortProperty, error) {
 	return properties, nil
 }
 
-// ParseSortObjectArgs parses arguments for testing
-func ParseSortObjectArgs(args []any) ([]any, SortObjectOptions, error) {
+// ParseSortObjectArgs parses arguments for testing. The input is either the
+// pipeline value or the leading argument (common.ObjectInput).
+func ParseSortObjectArgs(v any, args []any) ([]any, SortObjectOptions, error) {
 	opts := SortObjectOptions{
 		CaseSensitive: false,
 		Unique:        false,
 	}
 
-	if len(args) == 0 {
+	if len(args) == 0 && v == nil {
 		return []any{}, opts, fmt.Errorf("sort_object: requires objects argument")
 	}
 
-	// First argument is objects
-	var objects []any
-	inputVal := common.BindValue(args[0])
-	objects = common.NormalizeToSlice(inputVal)
+	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
-	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
+	if len(rest) > 0 {
+		if optsMap, ok := common.BindValue(rest[0]).(map[string]any); ok {
 			if propVal, exists := optsMap["property"]; exists {
 				props, err := parseSortProperty(propVal)
 				if err != nil {

@@ -344,7 +344,7 @@ func TestParseGroupObjectArgs(t *testing.T) {
 		},
 	}
 
-	objects, opts, err := ParseGroupObjectArgs(args)
+	objects, opts, err := ParseGroupObjectArgs(nil, args)
 	if err != nil {
 		t.Fatalf("ParseGroupObjectArgs failed: %v", err)
 	}

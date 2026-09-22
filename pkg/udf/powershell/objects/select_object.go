@@ -31,8 +31,8 @@ type SelectObjectOptions struct {
 //   - select_object(objects, "Name", "Length") - positional property args
 //   - select_object(objects; {first: n, last: n, skip: n, property: ["Name", "Value"]}) - options map
 func RegisterSelectObject() gojq.CompilerOption {
-	return common.WithFunction("select_object", 0, 20, func(v any, args []any) any {
-		var objects []any
+	common.DeclareInput("select_object", common.InputPipeline)
+	return common.WithFunctionOf("select_object", 0, 20, SelectedProperties, func(v any, args []any) any {
 		opts := SelectObjectOptions{
 			First:      -1,
 			Last:       -1,
@@ -40,67 +40,36 @@ func RegisterSelectObject() gojq.CompilerOption {
 			Properties: nil, // nil means select all
 		}
 
-		// Parse arguments
-		if len(args) > 0 {
-			// First argument: objects (or could be property names if objects from pipe)
-			firstArg := common.BindValue(args[0])
-
-			// Check if first arg is a property name (string) - means objects from pipe
-			if propStr, isString := firstArg.(string); isString {
-				// Objects from pipe, first arg is a property name
-				inputVal := common.BindValue(v)
-				objects = common.NormalizeToSlice(inputVal)
-				opts.Properties = []string{propStr}
-
-				// Remaining args are additional property names
-				for i := 1; i < len(args); i++ {
-					if pStr, ok := args[i].(string); ok {
-						opts.Properties = append(opts.Properties, pStr)
-					}
+		// The input is the pipeline value, or the leading argument when the
+		// call supplies one explicitly. Properties are strings (or a bare
+		// array of them); a map is options. Binding is positional: the input
+		// is never guessed from the argument types.
+		objects, rest := common.ObjectInput(v, args, 1)
+		for _, a := range rest {
+			argVal := common.BindValue(a)
+			switch av := argVal.(type) {
+			case string:
+				opts.Properties = append(opts.Properties, av)
+			case []any:
+				if allStrings(av) {
+					opts.Properties = append(opts.Properties, arrToStrings(av)...)
 				}
-			} else if arr, isArray := firstArg.([]any); isArray && allStrings(arr) && len(args) == 1 {
-				// First arg is an array of all strings and no other args - treat as property names from pipe
-				inputVal := common.BindValue(v)
-				objects = common.NormalizeToSlice(inputVal)
-				opts.Properties = arrToStrings(arr)
-			} else {
-				// First arg is objects
-				objects = common.NormalizeToSlice(firstArg)
-
-				// Parse remaining arguments
-				for i := 1; i < len(args); i++ {
-					argVal := common.BindValue(args[i])
-
-					// Check if it's a string (positional property name)
-					if propStr, ok := argVal.(string); ok {
-						if opts.Properties == nil {
-							opts.Properties = []string{propStr}
-						} else {
-							opts.Properties = append(opts.Properties, propStr)
-						}
-					} else if optsMap, ok := argVal.(map[string]any); ok {
-						// It's an options map
-						// gojq represents an integral literal as int, not
-						// float64, so {first: 2} was never read at all.
-						if n, ok := common.ToInt(optsMap["first"]); ok {
-							opts.First = n
-						}
-						if n, ok := common.ToInt(optsMap["last"]); ok {
-							opts.Last = n
-						}
-						if n, ok := common.ToInt(optsMap["skip"]); ok {
-							opts.Skip = n
-						}
-						if propVal, exists := optsMap["property"]; exists {
-							opts.Properties = parseProperties(propVal)
-						}
-					}
+			case map[string]any:
+				// gojq represents an integral literal as int, not float64,
+				// so {first: 2} was never read at all.
+				if n, ok := common.ToInt(av["first"]); ok {
+					opts.First = n
+				}
+				if n, ok := common.ToInt(av["last"]); ok {
+					opts.Last = n
+				}
+				if n, ok := common.ToInt(av["skip"]); ok {
+					opts.Skip = n
+				}
+				if propVal, exists := av["property"]; exists {
+					opts.Properties = parseProperties(propVal)
 				}
 			}
-		} else {
-			// Objects from pipe
-			inputVal := common.BindValue(v)
-			objects = common.NormalizeToSlice(inputVal)
 		}
 
 		// Validate options

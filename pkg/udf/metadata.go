@@ -459,11 +459,11 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"split_path", 1, 1, "Split a path into components", "PowerShell", []string{`split_path("/tmp/file.txt")`}},
 
 		// PowerShell - Objects
-		{"select_object", 1, 2, "Select object properties (properties, [input])", "PowerShell", []string{`select_object("Name")`, `{"Name":"test"} | select_object("Name")`}},
-		{"where_object", 1, 2, "Filter objects by condition (objects, [options])", "PowerShell", []string{`where_object([1,5,10,15]; {script: ". > 10"})`, `where_object(.; {property: "Age", operator: "gt", value: 26})`}},
-		{"sort_object", 1, 2, "Sort objects by property (property, [input])", "PowerShell", []string{`sort_object("Name")`, `[{"Name":"b"},{"Name":"a"}] | sort_object("Name")`}},
-		{"group_object", 1, 2, "Group objects by property (property, [input])", "PowerShell", []string{`group_object("Category")`}},
-		{"measure_object", 1, 2, "Measure object properties (objects, [options])", "PowerShell", []string{`measure_object([1,2,3])`, `measure_object(.)`}},
+		{"select_object", 0, 20, "Select object properties (objects, [properties...], [options])", "PowerShell", []string{`{"Name":"test","Age":1} | select_object("Name")`, `select_object([{Name: "a"}, {Name: "b"}]; "Name")`}},
+		{"where_object", 0, 2, "Filter objects by condition (objects, [options])", "PowerShell", []string{`[1,5,10,15] | where_object({script: ". > 10"})`, `where_object([{Age: 30}]; {property: "Age", operator: "gt", value: 26})`}},
+		{"sort_object", 0, 2, "Sort objects by property (objects, [options])", "PowerShell", []string{`[{"Name":"b"},{"Name":"a"}] | sort_object({property: "Name"})`, `sort_object([{"Name":"b"},{"Name":"a"}]; {property: "Name"})`}},
+		{"group_object", 0, 2, "Group objects by property (objects, [options])", "PowerShell", []string{`[{"Category":"a"},{"Category":"b"},{"Category":"a"}] | group_object({property: "Category"})`}},
+		{"measure_object", 0, 2, "Measure object properties (objects, [options])", "PowerShell", []string{`[1,2,3] | measure_object`, `measure_object([{v:1},{v:2}]; {property: "v", sum: true})`}},
 
 		// PowerShell - Formatting
 		{"format_list", 1, 2, "Format output as a list (objects, [properties])", "PowerShell", []string{`format_list(.)`, `format_list({Name: "test"})`}},

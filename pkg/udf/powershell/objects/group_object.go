@@ -44,9 +44,10 @@ type GroupedObject struct {
 //
 // Usage: group_object(objects) or group_object(objects; options)
 func RegisterGroupObject() gojq.CompilerOption {
-	return common.WithFunctionOf("group_object", 1, 2, GroupInfoShape.Each(), func(input any, args []any) any {
+	common.DeclareInput("group_object", common.InputPipeline)
+	return common.WithFunctionOf("group_object", 0, 2, GroupInfoShape.Each(), func(input any, args []any) any {
 		// Parse arguments
-		objects, opts, err := ParseGroupObjectArgs(args)
+		objects, opts, err := ParseGroupObjectArgs(input, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
@@ -319,8 +320,9 @@ func createGroupObject(group *GroupedObject) map[string]any {
 	return GroupInfoShape.Build(obj.ToMap())
 }
 
-// ParseGroupObjectArgs parses arguments for testing
-func ParseGroupObjectArgs(args []any) ([]any, GroupObjectOptions, error) {
+// ParseGroupObjectArgs parses arguments for testing. The input is either the
+// pipeline value or the leading argument (common.ObjectInput).
+func ParseGroupObjectArgs(v any, args []any) ([]any, GroupObjectOptions, error) {
 	opts := GroupObjectOptions{
 		CaseSensitive: false,
 		NoElement:     false,
@@ -328,23 +330,15 @@ func ParseGroupObjectArgs(args []any) ([]any, GroupObjectOptions, error) {
 		AsHashTable:   false,
 	}
 
-	if len(args) == 0 {
+	if len(args) == 0 && v == nil {
 		return []any{}, opts, fmt.Errorf("group_object: requires objects argument")
 	}
 
-	// Input validation - explicit nil check
-	if args[0] == nil {
-		return []any{}, opts, fmt.Errorf("group_object: objects argument is nil")
-	}
-
-	// First argument is objects
-	var objects []any
-	inputVal := common.BindValue(args[0])
-	objects = common.NormalizeToSlice(inputVal)
+	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
-	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
+	if len(rest) > 0 {
+		if optsMap, ok := common.BindValue(rest[0]).(map[string]any); ok {
 			if propVal, exists := optsMap["property"]; exists {
 				if propStr, ok := propVal.(string); ok {
 					opts.Property = propStr

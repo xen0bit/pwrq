@@ -108,16 +108,36 @@ var documentedOptionKeys = map[string][]discovery.Option{
 		{Name: "ExcludeDifferent", Type: "boolean", Description: "report only what both sides share"},
 		{Name: "Property", Type: "string", Description: "compare objects by this property rather than whole"},
 	},
-	// where_object and measure_object read their keys in lower case only,
-	// where most of the cmdlets around them accept either case. Writing
-	// {Sum: true} to measure_object is not an error: it returns a measurement
-	// with no Sum in it, which is the failure this whole table exists to stop.
+	// where_object, measure_object, select_object, sort_object and
+	// group_object read their keys in lower case only, where most of the
+	// cmdlets around them accept either case. Writing {Sum: true} to
+	// measure_object is not an error: it returns a measurement with no Sum in
+	// it, which is the failure this whole table exists to stop.
+	"select_object": {
+		{Name: "property", Type: "array", Description: "the properties to keep, as an array of names; lower case only"},
+		{Name: "first", Type: "number", Description: "keep only the first n objects; lower case only"},
+		{Name: "last", Type: "number", Description: "keep only the last n objects; lower case only"},
+		{Name: "skip", Type: "number", Description: "drop the first n objects; lower case only"},
+	},
 	"where_object": {
 		{Name: "property", Type: "string", Description: "the property to test; lower case only"},
 		{Name: "operator", Type: "string", Description: "eq, ne, gt, ge, lt, le, like, notlike, match, notmatch, contains or notcontains; lower case only"},
 		{Name: "value", Type: "any", Description: "what to compare the property against; lower case only"},
 		{Name: "script", Type: "string", Description: "a pwrq expression to filter by, instead of property and operator; lower case only"},
 		{Name: "casesensitive", Type: "boolean", Description: "compare case exactly; lower case only"},
+	},
+	"sort_object": {
+		{Name: "property", Type: "string", Description: "the property to sort by, or a name plus \" desc\"; lower case only"},
+		{Name: "descending", Type: "boolean", Description: "sort descending; lower case only"},
+		{Name: "casesensitive", Type: "boolean", Description: "compare case exactly; lower case only"},
+		{Name: "unique", Type: "boolean", Description: "drop duplicate objects; lower case only"},
+	},
+	"group_object": {
+		{Name: "property", Type: "string", Description: "the property to group by; lower case only"},
+		{Name: "casesensitive", Type: "boolean", Description: "compare case exactly; lower case only"},
+		{Name: "noelement", Type: "boolean", Description: "omit the grouped rows, keeping only the counts; lower case only"},
+		{Name: "nogroup", Type: "boolean", Description: "emit the distinct values rather than the groups; lower case only"},
+		{Name: "ashashtable", Type: "boolean", Description: "return one object keyed by grouping value instead of an array; lower case only"},
 	},
 	"measure_object": {
 		{Name: "property", Type: "string", Description: "the property to measure; lower case only, and required before any of the statistics below"},

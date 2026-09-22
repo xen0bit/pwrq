@@ -39,9 +39,10 @@ type MeasurementResult struct {
 //
 // Usage: measure_object(objects) or measure_object(objects; options)
 func RegisterMeasureObject() gojq.CompilerOption {
-	return common.WithFunctionOf("measure_object", 1, 2, MeasureInfoShape, func(input any, args []any) any {
+	common.DeclareInput("measure_object", common.InputPipeline)
+	return common.WithFunctionOf("measure_object", 0, 2, MeasureInfoShape, func(input any, args []any) any {
 		// Parse arguments
-		objects, opts, err := ParseMeasureObjectArgs(args)
+		objects, opts, err := ParseMeasureObjectArgs(input, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
@@ -250,24 +251,23 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 	return MeasureInfoShape.Build(obj.ToMap())
 }
 
-// ParseMeasureObjectArgs parses arguments for the measure_object function
-func ParseMeasureObjectArgs(args []any) ([]any, MeasureObjectOptions, error) {
+// ParseMeasureObjectArgs parses arguments for the measure_object function.
+// The input is either the pipeline value or the leading argument
+// (common.ObjectInput).
+func ParseMeasureObjectArgs(v any, args []any) ([]any, MeasureObjectOptions, error) {
 	opts := MeasureObjectOptions{
 		CaseSensitive: false,
 	}
 
-	if len(args) == 0 {
+	if len(args) == 0 && v == nil {
 		return []any{}, opts, fmt.Errorf("measure_object: requires objects argument")
 	}
 
-	// First argument is objects
-	var objects []any
-	inputVal := common.BindValue(args[0])
-	objects = common.NormalizeToSlice(inputVal)
+	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
-	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
+	if len(rest) > 0 {
+		if optsMap, ok := common.BindValue(rest[0]).(map[string]any); ok {
 			if propVal, exists := optsMap["property"]; exists {
 				if propStr, ok := propVal.(string); ok {
 					opts.Property = propStr

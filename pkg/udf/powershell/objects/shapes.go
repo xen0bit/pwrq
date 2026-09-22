@@ -27,3 +27,8 @@ var GroupInfoShape = shape.Fixed("Pwrq.Group",
 	shape.OptProp("Group", shape.Array, "the rows themselves, unchanged; absent when only the counts were asked for"),
 ).Note("the ashashtable option returns something else entirely: a single " +
 	"Pwrq.GroupTable whose keys are the grouping values")
+
+// SelectedProperties is select_object's output. The keys are the properties the
+// caller asked for, so no fixed field list can describe it - only the rule -
+// and the result is one object per input, or an array when several came in.
+var SelectedProperties = shape.Derived("the selected properties, in the order given")
