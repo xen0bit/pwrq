@@ -143,6 +143,47 @@ func TestMetadataArityMatches(t *testing.T) {
 			}
 		}
 	}
+
+	// And the reverse: every registered arity must be documented, so a cmdlet
+	// cannot carry a calling convention the catalogue never describes. This is
+	// the direction that catches a registration wider than its synopsis
+	// (set_content registered 0-5 while documented as 2-2, for instance).
+	registered := make(map[string][2]int)
+	for sig := range sigs {
+		r, ok := registered[sig.Name]
+		if !ok {
+			registered[sig.Name] = [2]int{sig.Arity, sig.Arity}
+			continue
+		}
+		if sig.Arity < r[0] {
+			r[0] = sig.Arity
+		}
+		if sig.Arity > r[1] {
+			r[1] = sig.Arity
+		}
+		registered[sig.Name] = r
+	}
+	documented := make(map[string]FunctionMetadata, len(GetFunctionMetadata()))
+	for _, meta := range GetFunctionMetadata() {
+		documented[meta.Name] = meta
+	}
+	for name, r := range registered {
+		meta, ok := documented[name]
+		if !ok {
+			// TestUDFListMatchesRegistry reports names with no entry.
+			continue
+		}
+		if r[1] != meta.MaxArgs {
+			t.Errorf("%s is registered up to %d arguments but documented up to %d",
+				name, r[1], meta.MaxArgs)
+		}
+		// A lower registered minimum is allowed: it is the pipeline allowance
+		// for cmdlets whose first argument can arrive down the pipe.
+		if r[0] > meta.MinArgs {
+			t.Errorf("%s is registered from %d arguments but documented from %d",
+				name, r[0], meta.MinArgs)
+		}
+	}
 }
 
 // TestMetadataExamplesCompile runs every documented example through the

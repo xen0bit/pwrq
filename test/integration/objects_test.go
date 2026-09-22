@@ -137,3 +137,65 @@ func TestObjectCmdletsCompose(t *testing.T) {
 		t.Errorf("got %s, want [\"Carol\",\"Alice\"]", got)
 	}
 }
+
+// TestObjectCmdletsReadThePipeline covers the piped calling convention, which
+// the cmdlets documented but did not implement: the pipeline value is the
+// objects and the argument is the options.
+func TestObjectCmdletsReadThePipeline(t *testing.T) {
+	cases := []struct{ name, query, want string }{
+		{"sort pipe", `sort_object({property: "Age"}) | map(.Name)`,
+			`["Bob","Alice","Carol"]`},
+		{"group pipe", `group_object({property: "Dept"}) | map({Name, Count})`,
+			`[{"Count":2,"Name":"Eng"},{"Count":1,"Name":"Sales"}]`},
+		{"where pipe", `where_object({script: ".Dept == \"Eng\""}) | map(.Name)`,
+			`["Alice","Carol"]`},
+		{"measure pipe", `measure_object({property: "Age", sum: true}) | .Sum`,
+			`90`},
+		{"select pipe", `select_object("Name") | map(.Name)`,
+			`["Alice","Bob","Carol"]`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := strings.TrimSpace(mustRun(t, people, "-c", tc.query))
+			if got != tc.want {
+				t.Errorf("%s\n got %s\nwant %s", tc.query, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestObjectCmdletsOnCmdletOutput is the regression for BindValue collapsing a
+// cmdlet object: a FileInfo carries PwrqValue (its path as a string), and the
+// object cmdlets used to unwrap it to that scalar, so selecting Name returned
+// "base64.go" ... as the whole result, and where_object could not see Name at
+// all.
+func TestObjectCmdletsOnCmdletOutput(t *testing.T) {
+	dir := t.TempDir()
+	mustRunDir(t, dir, "", "-n", "-c",
+		`set_content("a.txt"; "x") | set_content("bb.txt"; "longer")`)
+
+	cases := []struct{ name, query, want string }{
+		{"select on a FileInfo",
+			`first(get_childitem("."; {Filter: "a.txt"})) | select_object("Name") | .Name`,
+			`"a.txt"`},
+		{"where on a FileInfo",
+			`first(get_childitem("."; {Filter: "a.txt"}))
+			 | where_object(.; {property: "Name", operator: "eq", value: "a.txt"}) | length`,
+			`1`},
+		{"measure on a FileInfo",
+			`first(get_childitem("."; {Filter: "a.txt"}))
+			 | measure_object(.; {property: "Length", sum: true}) | .Sum`,
+			`1`},
+		{"sort an array of FileInfo",
+			`[get_childitem("."; {Filter: "*.txt"})] | sort_object(.; {property: "Length"}) | .[0].Name`,
+			`"a.txt"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := strings.TrimSpace(mustRunDir(t, dir, "", "-n", "-c", tc.query))
+			if got != tc.want {
+				t.Errorf("%s\n got %s\nwant %s", tc.query, got, tc.want)
+			}
+		})
+	}
+}

@@ -139,7 +139,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 
 	for _, obj := range objects {
 		// Use the entire object as the key
-		keyStr := fmt.Sprintf("%v", common.BindValue(obj))
+		keyStr := fmt.Sprintf("%v", common.BindObjectInput(obj))
 		if !opts.CaseSensitive {
 			keyStr = strings.ToLower(keyStr)
 		}
@@ -147,7 +147,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 		group, exists := groupMap[keyStr]
 		if !exists {
 			group = &GroupedObject{
-				Name:  fmt.Sprintf("%v", common.BindValue(obj)),
+				Name:  fmt.Sprintf("%v", common.BindObjectInput(obj)),
 				Count: 0,
 				Group: make([]any, 0),
 			}
@@ -190,7 +190,7 @@ func extractPropertyByWildcard(obj any, pattern string) (any, error) {
 	hasWildcard := strings.ContainsAny(pattern, "*?")
 
 	// Extract the underlying value from object if present
-	value := common.BindValue(obj)
+	value := common.BindObjectInput(obj)
 
 	if !hasWildcard {
 		// Direct property access - use local implementation to avoid cross-file dependency

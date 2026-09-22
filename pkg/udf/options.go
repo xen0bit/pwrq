@@ -116,6 +116,11 @@ var documentedOptionKeys = map[string][]discovery.Option{
 		{Name: "casesensitive", Type: "boolean", Description: "match property names case-sensitively"},
 		{Name: "depth", Type: "number", Description: "how deep to expand nested objects"},
 	},
+	"find": {
+		{Name: "type", Type: "string", Description: "\"file\" or \"dir\" to keep only that kind; lower case only"},
+		{Name: "maxdepth", Type: "number", Description: "how deep to descend; lower case only"},
+		{Name: "mindepth", Type: "number", Description: "how deep a match must be before it counts; lower case only"},
+	},
 	"out_sqlite": {
 		{Name: "Create", Type: "boolean", Description: "create the table when it does not exist"},
 		{Name: "Truncate", Type: "boolean", Description: "empty the table before writing"},

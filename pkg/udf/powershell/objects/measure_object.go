@@ -172,7 +172,7 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 // extractPropertyForMeasurement extracts a property value from an object for measurement
 func extractPropertyForMeasurement(obj any, property string) (any, error) {
 	// Extract the underlying value from object if present
-	value := common.BindValue(obj)
+	value := common.BindObjectInput(obj)
 
 	return common.ExtractPropertyByPath(value, property)
 }

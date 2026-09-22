@@ -42,7 +42,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 func allFunctionMetadata() []FunctionMetadata {
 	return []FunctionMetadata{
 		// File operations
-		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("src"; "file")`, `find("."; "dir")`}},
+		{"find", 1, 4, "Find files/directories matching criteria (path, [type], [maxdepth], [options])", "File Operations", []string{`find("src"; "file")`, `find("."; "dir"; 2)`}},
 		{"cat", 0, 2, "Read and return contents of a file, decoded as text (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`, `cat("app.log"; {tail: 20})`}},
 		{"read_bytes", 0, 1, "Read a file's bytes verbatim, with no text decoding (use utf8bytelength, not length, to count them)", "File Operations", []string{`read_bytes("a.bin") | sha256`, `"a.bin" | read_bytes | utf8bytelength`}},
 		{"mkdir", 1, 1, "Create a directory (creates parent directories if needed)", "File Operations", []string{`mkdir("/tmp/mydir")`, `mkdir("nested/path/to/dir")`}},
@@ -454,8 +454,8 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"set_content", 1, 3, "Set a file's content, replacing what was there (path, [value], [options])", "PowerShell", []string{`"content" | set_content("file.txt")`, `set_content("file.txt"; "content")`}},
 		{"add_content", 1, 3, "Append a value to a file, creating it if absent (path, [value], [options])", "PowerShell", []string{`"a line" | add_content("out.log")`, `add_content("out.log"; "a line")`}},
 		{"out_file", 1, 3, "Write a value to a file and pass it on (path, [value], [options])", "PowerShell", []string{`"a line" | out_file("report.txt")`, `"a line" | out_file("run.log"; {Append: true})`}},
-		{"test_path", 1, 1, "Test if a path exists", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp")`}},
-		{"join_path", 2, 2, "Join path segments", "PowerShell", []string{`join_path("/tmp"; "file.txt")`}},
+		{"test_path", 1, 2, "Test if a path exists (path, [PathType or options])", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp"; "Container")`}},
+		{"join_path", 1, 10, "Join path segments (segment, ...)", "PowerShell", []string{`join_path("/tmp"; "file.txt")`, `join_path("a"; "b"; "c")`}},
 		{"split_path", 1, 1, "Split a path into components", "PowerShell", []string{`split_path("/tmp/file.txt")`}},
 
 		// PowerShell - Objects

@@ -449,7 +449,7 @@ func deduplicateByValue(objects []any) []any {
 	seen := make(map[string]bool)
 
 	for _, obj := range objects {
-		key := fmt.Sprintf("%v", common.BindValue(obj))
+		key := fmt.Sprintf("%v", common.BindObjectInput(obj))
 		if !seen[key] {
 			seen[key] = true
 			result = append(result, obj)
@@ -462,7 +462,7 @@ func deduplicateByValue(objects []any) []any {
 // buildDedupKey creates a unique key for an object based on its sort properties
 func buildDedupKey(obj any, properties []SortProperty) string {
 	if len(properties) == 0 {
-		return fmt.Sprintf("%v", common.BindValue(obj))
+		return fmt.Sprintf("%v", common.BindObjectInput(obj))
 	}
 
 	parts := make([]string, 0, len(properties))
