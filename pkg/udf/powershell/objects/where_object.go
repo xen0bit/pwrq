@@ -500,29 +500,31 @@ func ParseWhereObjectArgs(v any, args []any) ([]any, WhereObjectOptions, error) 
 
 	// Parse options if present
 	if len(rest) > 0 {
-		if optsMap, ok := common.BindValue(rest[0]).(map[string]any); ok {
-			if script, exists := optsMap["script"]; exists {
-				if s, ok := script.(string); ok {
-					opts.ScriptBlock = s
-				}
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			return nil, opts, fmt.Errorf("where_object: options must be an object, e.g. {script: \".Age > 26\"}; got %T", common.BindValue(rest[0]))
+		}
+		if script, exists := optsMap["script"]; exists {
+			if s, ok := script.(string); ok {
+				opts.ScriptBlock = s
 			}
-			if prop, exists := optsMap["property"]; exists {
-				if p, ok := prop.(string); ok {
-					opts.Property = p
-				}
+		}
+		if prop, exists := optsMap["property"]; exists {
+			if p, ok := prop.(string); ok {
+				opts.Property = p
 			}
-			if op, exists := optsMap["operator"]; exists {
-				if s, ok := op.(string); ok {
-					opts.Operator = parseOperator(s)
-				}
+		}
+		if op, exists := optsMap["operator"]; exists {
+			if s, ok := op.(string); ok {
+				opts.Operator = parseOperator(s)
 			}
-			if val, exists := optsMap["value"]; exists {
-				opts.Value = val
-			}
-			if cs, exists := optsMap["casesensitive"]; exists {
-				if b, ok := cs.(bool); ok {
-					opts.CaseSensitive = b
-				}
+		}
+		if val, exists := optsMap["value"]; exists {
+			opts.Value = val
+		}
+		if cs, exists := optsMap["casesensitive"]; exists {
+			if b, ok := cs.(bool); ok {
+				opts.CaseSensitive = b
 			}
 		}
 	}

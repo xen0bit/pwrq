@@ -174,42 +174,45 @@ func ParseSortObjectArgs(v any, args []any) ([]any, SortObjectOptions, error) {
 	}
 
 	if len(args) == 0 && v == nil {
-		return []any{}, opts, fmt.Errorf("sort_object: requires objects argument")
+		return []any{}, opts, fmt.Errorf("requires objects argument")
 	}
 
 	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
 	if len(rest) > 0 {
-		if optsMap, ok := common.BindValue(rest[0]).(map[string]any); ok {
-			if propVal, exists := optsMap["property"]; exists {
-				props, err := parseSortProperty(propVal)
-				if err != nil {
-					return nil, opts, fmt.Errorf("invalid property specification: %w", err)
-				}
-				opts.Properties = props
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			// newSortErrorObject supplies the "sort_object:" prefix.
+			return nil, opts, fmt.Errorf("options must be an object, e.g. {property: \"Name\"}; got %T", common.BindValue(rest[0]))
+		}
+		if propVal, exists := optsMap["property"]; exists {
+			props, err := parseSortProperty(propVal)
+			if err != nil {
+				return nil, opts, fmt.Errorf("invalid property specification: %w", err)
 			}
-			// PowerShell spells this `Sort-Object Age -Descending`, so a
-			// top-level flag is the form users reach for first; without it the
-			// only way to sort descending was the "Age desc" property suffix,
-			// and {property: "Age", descending: true} silently sorted ascending.
-			if descVal, exists := optsMap["descending"]; exists {
-				if descBool, ok := descVal.(bool); ok && descBool {
-					opts.Descending = true
-					for i := range opts.Properties {
-						opts.Properties[i].Direction = SortDirectionDescending
-					}
-				}
-			}
-			if csVal, exists := optsMap["casesensitive"]; exists {
-				if csBool, ok := csVal.(bool); ok {
-					opts.CaseSensitive = csBool
+			opts.Properties = props
+		}
+		// PowerShell spells this `Sort-Object Age -Descending`, so a
+		// top-level flag is the form users reach for first; without it the
+		// only way to sort descending was the "Age desc" property suffix,
+		// and {property: "Age", descending: true} silently sorted ascending.
+		if descVal, exists := optsMap["descending"]; exists {
+			if descBool, ok := descVal.(bool); ok && descBool {
+				opts.Descending = true
+				for i := range opts.Properties {
+					opts.Properties[i].Direction = SortDirectionDescending
 				}
 			}
-			if uniqueVal, exists := optsMap["unique"]; exists {
-				if uniqueBool, ok := uniqueVal.(bool); ok {
-					opts.Unique = uniqueBool
-				}
+		}
+		if csVal, exists := optsMap["casesensitive"]; exists {
+			if csBool, ok := csVal.(bool); ok {
+				opts.CaseSensitive = csBool
+			}
+		}
+		if uniqueVal, exists := optsMap["unique"]; exists {
+			if uniqueBool, ok := uniqueVal.(bool); ok {
+				opts.Unique = uniqueBool
 			}
 		}
 	}

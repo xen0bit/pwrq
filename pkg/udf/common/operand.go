@@ -55,22 +55,16 @@ func ArrayInput(v any, args []any, operands int, fn string) ([]any, []any, error
 // for the object cmdlets that accept one object or an array of them and must
 // not collapse a cmdlet's scalar-valued object to that scalar.
 //
-// One allowance beyond SplitInput: a single trailing argument that is the data
-// rather than an operand - a non-nil array or object, but never a string (that
-// is a property name) or a map (that is options) - becomes the input when the
-// pipeline supplied none. That is what keeps the explicit one-argument form
-// (`measure_object(ROWS)`) working now that the cmdlets also read the pipeline.
+// One allowance beyond SplitInput: the single operand these cmdlets take is an
+// options object, so a lone array argument is the input rather than an operand,
+// whether or not the pipeline also carried objects. That is what keeps the
+// explicit one-argument form (`measure_object(ROWS)`) working now that the
+// cmdlets read the pipeline as well.
 func ObjectInput(v any, args []any, operands int) ([]any, []any) {
 	in, rest := SplitInput(v, args, operands)
-	if len(rest) == 1 && rest[0] != nil {
-		objects := NormalizeToSlice(BindObjectInput(in))
-		switch rest[0].(type) {
-		case map[string]any, string:
-			// options, or a property name: not the data
-		default:
-			if len(objects) == 0 {
-				in, rest = rest[0], nil
-			}
+	if len(rest) == 1 {
+		if _, isInput := BindValue(rest[0]).([]any); isInput {
+			in, rest = rest[0], nil
 		}
 	}
 	return NormalizeToSlice(BindObjectInput(in)), rest

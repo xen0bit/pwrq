@@ -338,31 +338,33 @@ func ParseGroupObjectArgs(v any, args []any) ([]any, GroupObjectOptions, error) 
 
 	// Parse options if present
 	if len(rest) > 0 {
-		if optsMap, ok := common.BindValue(rest[0]).(map[string]any); ok {
-			if propVal, exists := optsMap["property"]; exists {
-				if propStr, ok := propVal.(string); ok {
-					opts.Property = propStr
-				}
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			return nil, opts, fmt.Errorf("group_object: options must be an object, e.g. {property: \"Name\"}; got %T", common.BindValue(rest[0]))
+		}
+		if propVal, exists := optsMap["property"]; exists {
+			if propStr, ok := propVal.(string); ok {
+				opts.Property = propStr
 			}
-			if csVal, exists := optsMap["casesensitive"]; exists {
-				if csBool, ok := csVal.(bool); ok {
-					opts.CaseSensitive = csBool
-				}
+		}
+		if csVal, exists := optsMap["casesensitive"]; exists {
+			if csBool, ok := csVal.(bool); ok {
+				opts.CaseSensitive = csBool
 			}
-			if noElemVal, exists := optsMap["noelement"]; exists {
-				if noElemBool, ok := noElemVal.(bool); ok {
-					opts.NoElement = noElemBool
-				}
+		}
+		if noElemVal, exists := optsMap["noelement"]; exists {
+			if noElemBool, ok := noElemVal.(bool); ok {
+				opts.NoElement = noElemBool
 			}
-			if noGroupVal, exists := optsMap["nogroup"]; exists {
-				if noGroupBool, ok := noGroupVal.(bool); ok {
-					opts.NoGroup = noGroupBool
-				}
+		}
+		if noGroupVal, exists := optsMap["nogroup"]; exists {
+			if noGroupBool, ok := noGroupVal.(bool); ok {
+				opts.NoGroup = noGroupBool
 			}
-			if hashVal, exists := optsMap["ashashtable"]; exists {
-				if hashBool, ok := hashVal.(bool); ok {
-					opts.AsHashTable = hashBool
-				}
+		}
+		if hashVal, exists := optsMap["ashashtable"]; exists {
+			if hashBool, ok := hashVal.(bool); ok {
+				opts.AsHashTable = hashBool
 			}
 		}
 	}

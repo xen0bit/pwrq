@@ -267,36 +267,38 @@ func ParseMeasureObjectArgs(v any, args []any) ([]any, MeasureObjectOptions, err
 
 	// Parse options if present
 	if len(rest) > 0 {
-		if optsMap, ok := common.BindValue(rest[0]).(map[string]any); ok {
-			if propVal, exists := optsMap["property"]; exists {
-				if propStr, ok := propVal.(string); ok {
-					opts.Property = propStr
-				}
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			return nil, opts, fmt.Errorf("measure_object: options must be an object, e.g. {property: \"Length\", sum: true}; got %T", common.BindValue(rest[0]))
+		}
+		if propVal, exists := optsMap["property"]; exists {
+			if propStr, ok := propVal.(string); ok {
+				opts.Property = propStr
 			}
-			if sumVal, exists := optsMap["sum"]; exists {
-				if sumBool, ok := sumVal.(bool); ok {
-					opts.Sum = sumBool
-				}
+		}
+		if sumVal, exists := optsMap["sum"]; exists {
+			if sumBool, ok := sumVal.(bool); ok {
+				opts.Sum = sumBool
 			}
-			if avgVal, exists := optsMap["average"]; exists {
-				if avgBool, ok := avgVal.(bool); ok {
-					opts.Average = avgBool
-				}
+		}
+		if avgVal, exists := optsMap["average"]; exists {
+			if avgBool, ok := avgVal.(bool); ok {
+				opts.Average = avgBool
 			}
-			if minVal, exists := optsMap["minimum"]; exists {
-				if minBool, ok := minVal.(bool); ok {
-					opts.Minimum = minBool
-				}
+		}
+		if minVal, exists := optsMap["minimum"]; exists {
+			if minBool, ok := minVal.(bool); ok {
+				opts.Minimum = minBool
 			}
-			if maxVal, exists := optsMap["maximum"]; exists {
-				if maxBool, ok := maxVal.(bool); ok {
-					opts.Maximum = maxBool
-				}
+		}
+		if maxVal, exists := optsMap["maximum"]; exists {
+			if maxBool, ok := maxVal.(bool); ok {
+				opts.Maximum = maxBool
 			}
-			if csVal, exists := optsMap["casesensitive"]; exists {
-				if csBool, ok := csVal.(bool); ok {
-					opts.CaseSensitive = csBool
-				}
+		}
+		if csVal, exists := optsMap["casesensitive"]; exists {
+			if csBool, ok := csVal.(bool); ok {
+				opts.CaseSensitive = csBool
 			}
 		}
 	}

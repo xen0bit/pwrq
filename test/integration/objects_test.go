@@ -224,3 +224,27 @@ func TestSelectObjectArgumentRoles(t *testing.T) {
 		})
 	}
 }
+
+// TestObjectCmdletsRejectABareProperty covers the operand that used to be
+// dropped in silence: `sort_object(.; "Age")` is the form a PowerShell user
+// reaches for, and it returned the objects unsorted rather than saying that
+// the property belongs in an options object.
+func TestObjectCmdletsRejectABareProperty(t *testing.T) {
+	for _, query := range []string{
+		`sort_object(.; "Age")`,
+		`group_object(.; "Dept")`,
+		`measure_object(.; "Age")`,
+		`where_object(.; "Age")`,
+		`select_object(.; 5)`,
+	} {
+		t.Run(query, func(t *testing.T) {
+			_, stderr, code := run(t, people, "-c", query)
+			if code == 0 {
+				t.Errorf("%s was accepted; it should name the options object", query)
+			}
+			if !strings.Contains(stderr, "object") {
+				t.Errorf("%s: the error does not mention the options object: %s", query, stderr)
+			}
+		})
+	}
+}
