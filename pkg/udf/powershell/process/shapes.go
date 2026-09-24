@@ -23,3 +23,16 @@ var ProcessInfoShape = shape.Fixed("Pwrq.Process",
 	shape.Prop("UserProcessorTime", shape.String, "CPU time used in user mode, as a Go duration string"),
 	shape.OptProp("UserName", shape.String, "owner; present only when the IncludeUserName option is set"),
 )
+
+// StartedProcessShape is what start_process returns with PassThru.
+//
+// It carries the pid and how to find the process again; the live handle itself
+// is not a JSON value and is not put on the wire.
+var StartedProcessShape = shape.Fixed("Pwrq.Process.Started",
+	shape.Prop("Id", shape.Number, "process id"),
+	shape.Prop("Name", shape.String, "the executable that was started"),
+	shape.Prop("HasExited", shape.Boolean, "whether it had already exited when the call returned"),
+	shape.Prop("StartTime", shape.String, "RFC 3339 timestamp"),
+	shape.OptProp("WindowStyle", shape.String, "the window style requested, when one was"),
+	shape.OptProp("PwrqValue", shape.String, "the process id as a string, so downstream cmdlets bind to it"),
+)

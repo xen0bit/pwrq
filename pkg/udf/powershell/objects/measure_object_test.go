@@ -311,7 +311,7 @@ func TestParseMeasureObjectArgs(t *testing.T) {
 		},
 	}
 
-	objects, opts, err := ParseMeasureObjectArgs(args)
+	objects, opts, err := ParseMeasureObjectArgs(nil, args)
 	if err != nil {
 		t.Fatalf("ParseMeasureObjectArgs failed: %v", err)
 	}

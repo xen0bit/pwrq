@@ -417,7 +417,8 @@ func RegisterAESDecrypt() gojq.CompilerOption {
 
 // RegisterXOR registers XOR encryption/decryption function
 func RegisterXOR() gojq.CompilerOption {
-	common.DeclareEncoding("xor", common.EncodingHex, "xor")
+	common.DeclareEncoding("xor", common.EncodingHex, "xor, with dataFormat \"hex\", then hex_decode")
+	common.DeclareConsumes("xor", common.EncodingHex, common.EncodingBytesAsText)
 	return common.WithFunction("xor", 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("xor: requires at least 1 argument (key)"), nil)
@@ -475,7 +476,8 @@ func RegisterXOR() gojq.CompilerOption {
 
 // RegisterRC4 registers RC4 encryption/decryption function
 func RegisterRC4() gojq.CompilerOption {
-	common.DeclareEncoding("rc4", common.EncodingBase64, "rc4")
+	common.DeclareEncoding("rc4", common.EncodingBase64, "rc4, with dataFormat \"base64\", then base64_decode")
+	common.DeclareConsumes("rc4", common.EncodingBase64, common.EncodingBytesAsText)
 	return common.WithFunction("rc4", 1, 3, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("rc4: requires at least 1 argument (key)"), nil)
@@ -531,7 +533,8 @@ func RegisterRC4() gojq.CompilerOption {
 
 // RegisterChaCha20 registers ChaCha20 encryption/decryption function
 func RegisterChaCha20() gojq.CompilerOption {
-	common.DeclareEncoding("chacha20", common.EncodingBase64, "chacha20")
+	common.DeclareEncoding("chacha20", common.EncodingBase64, "chacha20, with dataFormat \"base64\", then base64_decode")
+	common.DeclareConsumes("chacha20", common.EncodingBase64, common.EncodingBytesAsText)
 	return common.WithFunction("chacha20", 1, 4, func(v any, args []any) any {
 		if len(args) < 1 {
 			return common.MakeUDFErrorResult(fmt.Errorf("chacha20: requires at least 1 argument (key)"), nil)

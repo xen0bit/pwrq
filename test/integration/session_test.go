@@ -83,6 +83,40 @@ func mustRun(t *testing.T, input string, args ...string) string {
 	return stdout
 }
 
+// runDir is run with the binary's working directory set, for the tests that
+// create files.
+func runDir(t *testing.T, dir, input string, args ...string) (string, string, int) {
+	t.Helper()
+	cmd := exec.Command(pwrq(t), args...)
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader(input)
+	cmd.Env = append(os.Environ(), "NO_COLOR=1", "PWRQ_COLORS=", "GOJQ_COLORS=")
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	code := 0
+	if err := cmd.Run(); err != nil {
+		exitErr, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatalf("running pwrq %v: %v", args, err)
+		}
+		code = exitErr.ExitCode()
+	}
+	return stdout.String(), stderr.String(), code
+}
+
+// mustRunDir is runDir for a query that is expected to succeed.
+func mustRunDir(t *testing.T, dir, input string, args ...string) string {
+	t.Helper()
+	stdout, stderr, code := runDir(t, dir, input, args...)
+	if code != 0 {
+		t.Fatalf("pwrq %v exited %d: %s", args, code, stderr)
+	}
+	return stdout
+}
+
 // writeFile creates a file under dir for a test that needs something on disk.
 func writeFile(t *testing.T, dir, name, content string) string {
 	t.Helper()

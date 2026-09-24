@@ -12,18 +12,21 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/runctx"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
 // RegisterHTTP registers the http function with gojq
 func RegisterHTTP() gojq.CompilerOption {
 	return common.WithFunctionOf("http", 0, 2, ResponseShape, func(v any, args []any) any {
-		var method = "POST" // default method
+		// GET by default, as every other HTTP client does. A piped value
+		// alongside an argument URL is a body, and a body means POST.
+		method := "GET"
 		var url string
 
 		// Parse arguments
 		if len(args) == 0 {
-			// No arguments: URL from pipeline, method = POST
+			// No arguments: URL from pipeline
 			inputVal := common.BindValue(v)
 			if urlStr, ok := inputVal.(string); ok {
 				url = urlStr
@@ -31,13 +34,13 @@ func RegisterHTTP() gojq.CompilerOption {
 				return common.MakeUDFErrorResult(fmt.Errorf("http: URL must be provided as argument or from pipeline, got %T", inputVal), nil)
 			}
 		} else if len(args) == 1 {
-			// One argument: could be method or URL
-			// If it's a string, treat it as URL (method = POST)
-			// If it's a method name, we'd need URL from pipeline
+			// One argument: the URL; a piped value is the body.
 			argVal := common.BindValue(args[0])
 			if urlStr, ok := argVal.(string); ok {
 				url = urlStr
-				// Method stays as default POST
+				if common.BindValue(v) != nil {
+					method = "POST"
+				}
 			} else {
 				return common.MakeUDFErrorResult(fmt.Errorf("http: URL argument must be a string, got %T", argVal), nil)
 			}
@@ -282,8 +285,11 @@ func RegisterHTTPServe() gojq.CompilerOption {
 		// Create listener with SO_REUSEADDR where the platform has it.
 		lc := reuseAddrConfig()
 
-		// Listen on the address
-		listener, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf("%s:%d", host, port))
+		// Listen on the address. Binding to the ambient run context means a
+		// run that is cancelled stops accepting, and the select below stops
+		// waiting, instead of holding the caller for ever.
+		runCtx := runctx.Current()
+		listener, err := lc.Listen(runCtx, "tcp", fmt.Sprintf("%s:%d", host, port))
 		if err != nil {
 			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: failed to listen on %s:%d: %v", host, port, err), nil)
 		}
@@ -405,6 +411,19 @@ func RegisterHTTPServe() gojq.CompilerOption {
 				"url":       serverURL,
 			}
 			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: server error: %v", err), meta)
+		case <-runCtx.Done():
+			// The run was cancelled (for example a deadline inside run_query).
+			// Stop serving and surface the cancellation; without this a query
+			// that waits for a request holds the MCP engine's mutex until the
+			// process dies.
+			shutdownServe(server, listener)
+			meta := map[string]any{
+				"operation": "http_serve",
+				"host":      host,
+				"port":      actualPort,
+				"url":       serverURL,
+			}
+			return common.MakeUDFErrorResult(fmt.Errorf("http_serve: run cancelled: %v", runCtx.Err()), meta)
 		}
 	})
 }

@@ -436,7 +436,7 @@ func TestParseWhereObjectArgs(t *testing.T) {
 		},
 	}
 
-	objects, opts, err := ParseWhereObjectArgs(args)
+	objects, opts, err := ParseWhereObjectArgs(nil, args)
 	if err != nil {
 		t.Fatalf("ParseWhereObjectArgs failed: %v", err)
 	}

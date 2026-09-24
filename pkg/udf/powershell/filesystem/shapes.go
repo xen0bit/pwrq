@@ -110,8 +110,10 @@ var (
 		shape.OptProp("Moved", shape.Boolean, "present and true when the item was moved rather than created"),
 	)
 
-	// CopiedItem is what copy_item reports per file copied.
-	CopiedItem = shape.Plain(
+	// CopiedItem is what copy_item reports per file copied. It carries its own
+	// type name so a caller can tell a copy result from the item move_item and
+	// new_item return.
+	CopiedItem = shape.Fixed("Pwrq.FileSystem.CopyResult",
 		shape.Prop("Source", shape.String, "path the file was copied from"),
 		shape.Prop("Destination", shape.String, "path it was copied to"),
 		shape.Prop("Success", shape.Boolean, "whether the copy succeeded"),

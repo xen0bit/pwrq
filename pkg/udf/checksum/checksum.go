@@ -4,6 +4,7 @@ package checksum
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	sha3std "crypto/sha3"
 	"fmt"
 	"hash"
@@ -285,7 +286,7 @@ func RegisterPBKDF2SHA256() gojq.CompilerOption {
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("pbkdf2_sha256: password must be a string, got %T", v), nil)
 		}
-		key := pbkdf2.Key([]byte(password), []byte(salt), iterations, keyLen, func() hash.Hash { return sha3std.New256() })
+		key := pbkdf2.Key([]byte(password), []byte(salt), iterations, keyLen, sha256.New)
 		return common.MakeUDFSuccessResult(fmt.Sprintf("%x", key), nil)
 	})
 }
@@ -294,7 +295,7 @@ func RegisterPBKDF2SHA256() gojq.CompilerOption {
 // Argon2id memory-hard function, as hex.
 func RegisterArgon2ID() gojq.CompilerOption {
 	common.DeclareEncoding("argon2id_hash", common.EncodingHex, "")
-	return common.WithFunction("argon2id_hash", 1, 3, func(v any, args []any) any {
+	return common.WithFunction("argon2id_hash", 1, 4, func(v any, args []any) any {
 		salt, ok := common.BindValue(args[0]).(string)
 		if !ok {
 			return common.MakeUDFErrorResult(fmt.Errorf("argon2id_hash: salt must be a string, got %T", args[0]), nil)

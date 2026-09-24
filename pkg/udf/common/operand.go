@@ -50,3 +50,22 @@ func ArrayInput(v any, args []any, operands int, fn string) ([]any, []any, error
 	}
 	return arr, rest, nil
 }
+
+// ObjectInput is SplitInput followed by NormalizeToSlice over BindObjectInput,
+// for the object cmdlets that accept one object or an array of them and must
+// not collapse a cmdlet's scalar-valued object to that scalar.
+//
+// One allowance beyond SplitInput: the single operand these cmdlets take is an
+// options object, so a lone array argument is the input rather than an operand,
+// whether or not the pipeline also carried objects. That is what keeps the
+// explicit one-argument form (`measure_object(ROWS)`) working now that the
+// cmdlets read the pipeline as well.
+func ObjectInput(v any, args []any, operands int) ([]any, []any) {
+	in, rest := SplitInput(v, args, operands)
+	if len(rest) == 1 {
+		if _, isInput := BindValue(rest[0]).([]any); isInput {
+			in, rest = rest[0], nil
+		}
+	}
+	return NormalizeToSlice(BindObjectInput(in)), rest
+}

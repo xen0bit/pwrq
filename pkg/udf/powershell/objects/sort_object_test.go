@@ -378,7 +378,7 @@ func TestSortObjectArgumentParsing(t *testing.T) {
 		},
 	}
 
-	parsedObjects, opts, err := ParseSortObjectArgs(args)
+	parsedObjects, opts, err := ParseSortObjectArgs(nil, args)
 	if err != nil {
 		t.Fatalf("ParseSortObjectArgs failed: %v", err)
 	}

@@ -103,6 +103,7 @@ func tarReader(f *os.File, k kind) (*tar.Reader, error) {
 // RegisterReadArchive registers read_archive, one object per entry in an
 // archive without extracting anything.
 func RegisterReadArchive() gojq.CompilerOption {
+	common.DeclareInput("read_archive", common.InputPipeline)
 	return common.WithFunctionOf("read_archive", 0, 1, ArchiveEntry.Each(), func(v any, args []any) any {
 		path, err := archivePath(v, args, "read_archive")
 		if err != nil {

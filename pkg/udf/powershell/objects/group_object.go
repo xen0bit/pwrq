@@ -4,6 +4,7 @@
 package objects
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -44,9 +45,10 @@ type GroupedObject struct {
 //
 // Usage: group_object(objects) or group_object(objects; options)
 func RegisterGroupObject() gojq.CompilerOption {
-	return common.WithFunctionOf("group_object", 1, 2, GroupInfoShape.Each(), func(input any, args []any) any {
+	common.DeclareInput("group_object", common.InputPipeline)
+	return common.WithFunctionOf("group_object", 0, 2, GroupInfoShape.Each(), func(input any, args []any) any {
 		// Parse arguments
-		objects, opts, err := ParseGroupObjectArgs(args)
+		objects, opts, err := ParseGroupObjectArgs(input, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
@@ -102,7 +104,7 @@ func groupByProperty(objects []any, opts GroupObjectOptions) ([]any, error) {
 		group, exists := groupMap[keyStr]
 		if !exists {
 			// Preserve the original property value as the group name (not normalized)
-			nameStr := fmt.Sprintf("%v", propValue)
+			nameStr := groupName(propValue)
 			group = &GroupedObject{
 				Name:  nameStr,
 				Count: 0,
@@ -138,7 +140,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 
 	for _, obj := range objects {
 		// Use the entire object as the key
-		keyStr := fmt.Sprintf("%v", common.BindValue(obj))
+		keyStr := groupName(common.BindObjectInput(obj))
 		if !opts.CaseSensitive {
 			keyStr = strings.ToLower(keyStr)
 		}
@@ -146,7 +148,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 		group, exists := groupMap[keyStr]
 		if !exists {
 			group = &GroupedObject{
-				Name:  fmt.Sprintf("%v", common.BindValue(obj)),
+				Name:  groupName(common.BindObjectInput(obj)),
 				Count: 0,
 				Group: make([]any, 0),
 			}
@@ -169,9 +171,25 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 	return formatGroupsFull(groupMap, groupOrder)
 }
 
+// groupName renders a grouping value as the group's name.
+//
+// A scalar is itself. Anything else goes through JSON, because Go's %v prints
+// an object as map[Dept:Eng] and an array as [a b]: neither can be matched on
+// or fed back into a later query, and grouping by a property that holds a list
+// is not unusual.
+func groupName(v any) string {
+	switch v.(type) {
+	case map[string]any, []any:
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
+	}
+	return fmt.Sprintf("%v", v)
+}
+
 // normalizeGroupKey converts a value to a normalized string key for grouping
 func normalizeGroupKey(key any, caseSensitive bool) string {
-	keyStr := fmt.Sprintf("%v", key)
+	keyStr := groupName(key)
 	if !caseSensitive {
 		keyStr = strings.ToLower(keyStr)
 	}
@@ -189,7 +207,7 @@ func extractPropertyByWildcard(obj any, pattern string) (any, error) {
 	hasWildcard := strings.ContainsAny(pattern, "*?")
 
 	// Extract the underlying value from object if present
-	value := common.BindValue(obj)
+	value := common.BindObjectInput(obj)
 
 	if !hasWildcard {
 		// Direct property access - use local implementation to avoid cross-file dependency
@@ -319,8 +337,9 @@ func createGroupObject(group *GroupedObject) map[string]any {
 	return GroupInfoShape.Build(obj.ToMap())
 }
 
-// ParseGroupObjectArgs parses arguments for testing
-func ParseGroupObjectArgs(args []any) ([]any, GroupObjectOptions, error) {
+// ParseGroupObjectArgs parses arguments for testing. The input is either the
+// pipeline value or the leading argument (common.ObjectInput).
+func ParseGroupObjectArgs(v any, args []any) ([]any, GroupObjectOptions, error) {
 	opts := GroupObjectOptions{
 		CaseSensitive: false,
 		NoElement:     false,
@@ -328,47 +347,41 @@ func ParseGroupObjectArgs(args []any) ([]any, GroupObjectOptions, error) {
 		AsHashTable:   false,
 	}
 
-	if len(args) == 0 {
+	if len(args) == 0 && v == nil {
 		return []any{}, opts, fmt.Errorf("group_object: requires objects argument")
 	}
 
-	// Input validation - explicit nil check
-	if args[0] == nil {
-		return []any{}, opts, fmt.Errorf("group_object: objects argument is nil")
-	}
-
-	// First argument is objects
-	var objects []any
-	inputVal := common.BindValue(args[0])
-	objects = common.NormalizeToSlice(inputVal)
+	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
-	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
-			if propVal, exists := optsMap["property"]; exists {
-				if propStr, ok := propVal.(string); ok {
-					opts.Property = propStr
-				}
+	if len(rest) > 0 {
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			return nil, opts, fmt.Errorf("group_object: options must be an object, e.g. {property: \"Name\"}; got %T", common.BindValue(rest[0]))
+		}
+		if propVal, exists := optsMap["property"]; exists {
+			if propStr, ok := propVal.(string); ok {
+				opts.Property = propStr
 			}
-			if csVal, exists := optsMap["casesensitive"]; exists {
-				if csBool, ok := csVal.(bool); ok {
-					opts.CaseSensitive = csBool
-				}
+		}
+		if csVal, exists := optsMap["casesensitive"]; exists {
+			if csBool, ok := csVal.(bool); ok {
+				opts.CaseSensitive = csBool
 			}
-			if noElemVal, exists := optsMap["noelement"]; exists {
-				if noElemBool, ok := noElemVal.(bool); ok {
-					opts.NoElement = noElemBool
-				}
+		}
+		if noElemVal, exists := optsMap["noelement"]; exists {
+			if noElemBool, ok := noElemVal.(bool); ok {
+				opts.NoElement = noElemBool
 			}
-			if noGroupVal, exists := optsMap["nogroup"]; exists {
-				if noGroupBool, ok := noGroupVal.(bool); ok {
-					opts.NoGroup = noGroupBool
-				}
+		}
+		if noGroupVal, exists := optsMap["nogroup"]; exists {
+			if noGroupBool, ok := noGroupVal.(bool); ok {
+				opts.NoGroup = noGroupBool
 			}
-			if hashVal, exists := optsMap["ashashtable"]; exists {
-				if hashBool, ok := hashVal.(bool); ok {
-					opts.AsHashTable = hashBool
-				}
+		}
+		if hashVal, exists := optsMap["ashashtable"]; exists {
+			if hashBool, ok := hashVal.(bool); ok {
+				opts.AsHashTable = hashBool
 			}
 		}
 	}

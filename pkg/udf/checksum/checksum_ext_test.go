@@ -42,6 +42,41 @@ func TestKDFs(t *testing.T) {
 	}
 }
 
+// TestPBKDF2SHA256Vectors pins pbkdf2_sha256 to the published
+// PBKDF2-HMAC-SHA256 vectors (P="password", S="salt", dkLen=32). The cmdlet
+// used to derive with SHA3-256, which every vector here would fail.
+func TestPBKDF2SHA256Vectors(t *testing.T) {
+	cases := []struct {
+		iterations int
+		want       string
+	}{
+		{1, "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b"},
+		{2, "ae4d0c95af6b46d32d0adff928f06dd02a303f8ef3c251dfd6e2d85a95474c43"},
+		{4096, "c5e478d59288c841aa530db6845c4c8d962893a001ce4e11a4963873aa98134a"},
+	}
+	for _, c := range cases {
+		got := fmt.Sprint(run(t, fmt.Sprintf(`"password" | pbkdf2_sha256("salt"; %d; 32)`, c.iterations)))
+		if got != c.want {
+			t.Errorf("pbkdf2_sha256(iterations=%d) = %s, want %s", c.iterations, got, c.want)
+		}
+	}
+}
+
+// TestArgon2IDKeyLenAndDeterminism checks the keyLen argument is reachable
+// (it used to sit behind an unregistered arity) and that the derivation is
+// stable for a fixed salt.
+func TestArgon2IDKeyLenAndDeterminism(t *testing.T) {
+	got := fmt.Sprint(run(t, `"password" | argon2id_hash("salt"; 1; 8; 64)`))
+	if len(got) != 128 {
+		t.Errorf("argon2id_hash keyLen=64 length = %d, want 128 hex chars", len(got))
+	}
+	a := fmt.Sprint(run(t, `"password" | argon2id_hash("salt"; 1; 8)`))
+	b := fmt.Sprint(run(t, `"password" | argon2id_hash("salt"; 1; 8)`))
+	if a != b {
+		t.Errorf("argon2id_hash is not deterministic: %s != %s", a, b)
+	}
+}
+
 func TestRandomHex(t *testing.T) {
 	got := fmt.Sprint(run(t, `random_hex(8)`))
 	if len(got) != 16 {

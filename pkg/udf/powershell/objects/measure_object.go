@@ -39,9 +39,10 @@ type MeasurementResult struct {
 //
 // Usage: measure_object(objects) or measure_object(objects; options)
 func RegisterMeasureObject() gojq.CompilerOption {
-	return common.WithFunctionOf("measure_object", 1, 2, MeasureInfoShape, func(input any, args []any) any {
+	common.DeclareInput("measure_object", common.InputPipeline)
+	return common.WithFunctionOf("measure_object", 0, 2, MeasureInfoShape, func(input any, args []any) any {
 		// Parse arguments
-		objects, opts, err := ParseMeasureObjectArgs(args)
+		objects, opts, err := ParseMeasureObjectArgs(input, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
@@ -78,22 +79,21 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		Maximum: nil,
 	}
 
-	var errors []string
 	hasNumericValues := false
 
 	for _, obj := range objects {
 		result.Count++
 
-		// If no property specified, just count objects
-		if opts.Property == "" {
+		// Nothing to measure: Measure-Object with no switches is a count.
+		if !opts.measuring() {
 			continue
 		}
 
-		// Extract property value for measurement
-		propValue, err := extractPropertyForMeasurement(obj, opts.Property)
+		// Extract the value to measure: the named property, or the object
+		// itself when none was named.
+		propValue, err := measuredValue(obj, opts.Property)
 		if err != nil {
-			// Collect error for skipped item (PowerShell-style $ERROR stream)
-			errors = append(errors, fmt.Sprintf("object %d: %v", result.Count, err))
+			// An object without the property is not measured, as in PowerShell.
 			continue
 		}
 
@@ -101,7 +101,6 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		numVal, err := convertToFloat64(propValue)
 		if err != nil {
 			// Skip non-numeric values silently (PowerShell behavior)
-			errors = append(errors, fmt.Sprintf("object %d: non-numeric value %T", result.Count, propValue))
 			continue
 		}
 
@@ -133,10 +132,7 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		numericCount := 0
 		sumForAvg := 0.0
 		for _, obj := range objects {
-			if opts.Property == "" {
-				continue
-			}
-			propValue, err := extractPropertyForMeasurement(obj, opts.Property)
+			propValue, err := measuredValue(obj, opts.Property)
 			if err != nil {
 				continue
 			}
@@ -152,26 +148,30 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		}
 	}
 
-	// If no property was specified, we only do counting
-	if opts.Property == "" {
-		return result, nil
-	}
-
-	// If property was specified but no numeric values found, return zeros
-	if !hasNumericValues && opts.Property != "" {
-		if len(errors) > 0 {
-			// Return result with errors noted (caller can inspect)
-			return result, nil
-		}
-	}
-
+	// A measurement that found no numbers still reports the count; the zeroes
+	// beside it say the values were not numeric.
 	return result, nil
+}
+
+// measuring reports whether anything beyond the count was asked for.
+func (o MeasureObjectOptions) measuring() bool {
+	return o.Sum || o.Average || o.Minimum || o.Maximum
+}
+
+// measuredValue is the value a measurement runs on: the named property, or the
+// object itself when no property was named, which is how PowerShell measures a
+// pipeline of bare numbers (`1,2,3 | Measure-Object -Sum`).
+func measuredValue(obj any, property string) (any, error) {
+	if property == "" {
+		return common.BindObjectInput(obj), nil
+	}
+	return extractPropertyForMeasurement(obj, property)
 }
 
 // extractPropertyForMeasurement extracts a property value from an object for measurement
 func extractPropertyForMeasurement(obj any, property string) (any, error) {
 	// Extract the underlying value from object if present
-	value := common.BindValue(obj)
+	value := common.BindObjectInput(obj)
 
 	return common.ExtractPropertyByPath(value, property)
 }
@@ -211,19 +211,17 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 	valueMap := make(map[string]any)
 	valueMap["Count"] = result.Count
 
-	if opts.Property != "" {
-		if opts.Sum {
-			valueMap["Sum"] = result.Sum
-		}
-		if opts.Average {
-			valueMap["Average"] = result.Average
-		}
-		if opts.Minimum {
-			valueMap["Minimum"] = result.Minimum
-		}
-		if opts.Maximum {
-			valueMap["Maximum"] = result.Maximum
-		}
+	if opts.Sum {
+		valueMap["Sum"] = result.Sum
+	}
+	if opts.Average {
+		valueMap["Average"] = result.Average
+	}
+	if opts.Minimum {
+		valueMap["Minimum"] = result.Minimum
+	}
+	if opts.Maximum {
+		valueMap["Maximum"] = result.Maximum
 	}
 
 	// The shape supplies the type name, so it is written down once, beside
@@ -232,71 +230,70 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 
 	// Add NoteProperties for all measurement values
 	obj.AddNoteProperty("Count", result.Count)
-	if opts.Property != "" {
-		if opts.Sum {
-			obj.AddNoteProperty("Sum", result.Sum)
-		}
-		if opts.Average {
-			obj.AddNoteProperty("Average", result.Average)
-		}
-		if opts.Minimum {
-			obj.AddNoteProperty("Minimum", result.Minimum)
-		}
-		if opts.Maximum {
-			obj.AddNoteProperty("Maximum", result.Maximum)
-		}
+	if opts.Sum {
+		obj.AddNoteProperty("Sum", result.Sum)
+	}
+	if opts.Average {
+		obj.AddNoteProperty("Average", result.Average)
+	}
+	if opts.Minimum {
+		obj.AddNoteProperty("Minimum", result.Minimum)
+	}
+	if opts.Maximum {
+		obj.AddNoteProperty("Maximum", result.Maximum)
 	}
 
 	return MeasureInfoShape.Build(obj.ToMap())
 }
 
-// ParseMeasureObjectArgs parses arguments for the measure_object function
-func ParseMeasureObjectArgs(args []any) ([]any, MeasureObjectOptions, error) {
+// ParseMeasureObjectArgs parses arguments for the measure_object function.
+// The input is either the pipeline value or the leading argument
+// (common.ObjectInput).
+func ParseMeasureObjectArgs(v any, args []any) ([]any, MeasureObjectOptions, error) {
 	opts := MeasureObjectOptions{
 		CaseSensitive: false,
 	}
 
-	if len(args) == 0 {
+	if len(args) == 0 && v == nil {
 		return []any{}, opts, fmt.Errorf("measure_object: requires objects argument")
 	}
 
-	// First argument is objects
-	var objects []any
-	inputVal := common.BindValue(args[0])
-	objects = common.NormalizeToSlice(inputVal)
+	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
-	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
-			if propVal, exists := optsMap["property"]; exists {
-				if propStr, ok := propVal.(string); ok {
-					opts.Property = propStr
-				}
+	if len(rest) > 0 {
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			return nil, opts, fmt.Errorf("measure_object: options must be an object, e.g. {property: \"Length\", sum: true}; got %T", common.BindValue(rest[0]))
+		}
+		if propVal, exists := optsMap["property"]; exists {
+			if propStr, ok := propVal.(string); ok {
+				opts.Property = propStr
 			}
-			if sumVal, exists := optsMap["sum"]; exists {
-				if sumBool, ok := sumVal.(bool); ok {
-					opts.Sum = sumBool
-				}
+		}
+		if sumVal, exists := optsMap["sum"]; exists {
+			if sumBool, ok := sumVal.(bool); ok {
+				opts.Sum = sumBool
 			}
-			if avgVal, exists := optsMap["average"]; exists {
-				if avgBool, ok := avgVal.(bool); ok {
-					opts.Average = avgBool
-				}
+		}
+		if avgVal, exists := optsMap["average"]; exists {
+			if avgBool, ok := avgVal.(bool); ok {
+				opts.Average = avgBool
 			}
-			if minVal, exists := optsMap["minimum"]; exists {
-				if minBool, ok := minVal.(bool); ok {
-					opts.Minimum = minBool
-				}
+		}
+		if minVal, exists := optsMap["minimum"]; exists {
+			if minBool, ok := minVal.(bool); ok {
+				opts.Minimum = minBool
 			}
-			if maxVal, exists := optsMap["maximum"]; exists {
-				if maxBool, ok := maxVal.(bool); ok {
-					opts.Maximum = maxBool
-				}
+		}
+		if maxVal, exists := optsMap["maximum"]; exists {
+			if maxBool, ok := maxVal.(bool); ok {
+				opts.Maximum = maxBool
 			}
-			if csVal, exists := optsMap["casesensitive"]; exists {
-				if csBool, ok := csVal.(bool); ok {
-					opts.CaseSensitive = csBool
-				}
+		}
+		if csVal, exists := optsMap["casesensitive"]; exists {
+			if csBool, ok := csVal.(bool); ok {
+				opts.CaseSensitive = csBool
 			}
 		}
 	}

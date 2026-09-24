@@ -87,9 +87,10 @@ type WhereObjectOptions struct {
 //
 // Usage: where_object(objects) or where_object(objects; options)
 func RegisterWhereObject() gojq.CompilerOption {
-	return common.WithFunction("where_object", 1, 2, func(input any, args []any) any {
+	common.DeclareInput("where_object", common.InputPipeline)
+	return common.WithFunction("where_object", 0, 2, func(input any, args []any) any {
 		// Parse arguments
-		objects, opts, err := ParseWhereObjectArgs(args)
+		objects, opts, err := ParseWhereObjectArgs(input, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}
@@ -486,44 +487,44 @@ func whereObject(objects []any, opts WhereObjectOptions) ([]any, error) {
 	return result, nil
 }
 
-// ParseWhereObjectArgs parses arguments for testing
-func ParseWhereObjectArgs(args []any) ([]any, WhereObjectOptions, error) {
+// ParseWhereObjectArgs parses arguments for testing. The input is either the
+// pipeline value or the leading argument (common.ObjectInput).
+func ParseWhereObjectArgs(v any, args []any) ([]any, WhereObjectOptions, error) {
 	opts := WhereObjectOptions{}
 
-	if len(args) == 0 {
+	if len(args) == 0 && v == nil {
 		return []any{}, opts, fmt.Errorf("where_object: requires objects argument")
 	}
 
-	// First argument is objects
-	var objects []any
-	inputVal := common.BindValue(args[0])
-	objects = common.NormalizeToSlice(inputVal)
+	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
-	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
-			if script, exists := optsMap["script"]; exists {
-				if s, ok := script.(string); ok {
-					opts.ScriptBlock = s
-				}
+	if len(rest) > 0 {
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			return nil, opts, fmt.Errorf("where_object: options must be an object, e.g. {script: \".Age > 26\"}; got %T", common.BindValue(rest[0]))
+		}
+		if script, exists := optsMap["script"]; exists {
+			if s, ok := script.(string); ok {
+				opts.ScriptBlock = s
 			}
-			if prop, exists := optsMap["property"]; exists {
-				if p, ok := prop.(string); ok {
-					opts.Property = p
-				}
+		}
+		if prop, exists := optsMap["property"]; exists {
+			if p, ok := prop.(string); ok {
+				opts.Property = p
 			}
-			if op, exists := optsMap["operator"]; exists {
-				if s, ok := op.(string); ok {
-					opts.Operator = parseOperator(s)
-				}
+		}
+		if op, exists := optsMap["operator"]; exists {
+			if s, ok := op.(string); ok {
+				opts.Operator = parseOperator(s)
 			}
-			if val, exists := optsMap["value"]; exists {
-				opts.Value = val
-			}
-			if cs, exists := optsMap["casesensitive"]; exists {
-				if b, ok := cs.(bool); ok {
-					opts.CaseSensitive = b
-				}
+		}
+		if val, exists := optsMap["value"]; exists {
+			opts.Value = val
+		}
+		if cs, exists := optsMap["casesensitive"]; exists {
+			if b, ok := cs.(bool); ok {
+				opts.CaseSensitive = b
 			}
 		}
 	}

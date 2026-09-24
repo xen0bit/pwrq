@@ -31,81 +31,11 @@ type SelectObjectOptions struct {
 //   - select_object(objects, "Name", "Length") - positional property args
 //   - select_object(objects; {first: n, last: n, skip: n, property: ["Name", "Value"]}) - options map
 func RegisterSelectObject() gojq.CompilerOption {
-	return common.WithFunction("select_object", 0, 20, func(v any, args []any) any {
-		var objects []any
-		opts := SelectObjectOptions{
-			First:      -1,
-			Last:       -1,
-			Skip:       -1,
-			Properties: nil, // nil means select all
-		}
-
-		// Parse arguments
-		if len(args) > 0 {
-			// First argument: objects (or could be property names if objects from pipe)
-			firstArg := common.BindValue(args[0])
-
-			// Check if first arg is a property name (string) - means objects from pipe
-			if propStr, isString := firstArg.(string); isString {
-				// Objects from pipe, first arg is a property name
-				inputVal := common.BindValue(v)
-				objects = common.NormalizeToSlice(inputVal)
-				opts.Properties = []string{propStr}
-
-				// Remaining args are additional property names
-				for i := 1; i < len(args); i++ {
-					if pStr, ok := args[i].(string); ok {
-						opts.Properties = append(opts.Properties, pStr)
-					}
-				}
-			} else if arr, isArray := firstArg.([]any); isArray && allStrings(arr) && len(args) == 1 {
-				// First arg is an array of all strings and no other args - treat as property names from pipe
-				inputVal := common.BindValue(v)
-				objects = common.NormalizeToSlice(inputVal)
-				opts.Properties = arrToStrings(arr)
-			} else {
-				// First arg is objects
-				objects = common.NormalizeToSlice(firstArg)
-
-				// Parse remaining arguments
-				for i := 1; i < len(args); i++ {
-					argVal := common.BindValue(args[i])
-
-					// Check if it's a string (positional property name)
-					if propStr, ok := argVal.(string); ok {
-						if opts.Properties == nil {
-							opts.Properties = []string{propStr}
-						} else {
-							opts.Properties = append(opts.Properties, propStr)
-						}
-					} else if optsMap, ok := argVal.(map[string]any); ok {
-						// It's an options map
-						// gojq represents an integral literal as int, not
-						// float64, so {first: 2} was never read at all.
-						if n, ok := common.ToInt(optsMap["first"]); ok {
-							opts.First = n
-						}
-						if n, ok := common.ToInt(optsMap["last"]); ok {
-							opts.Last = n
-						}
-						if n, ok := common.ToInt(optsMap["skip"]); ok {
-							opts.Skip = n
-						}
-						if propVal, exists := optsMap["property"]; exists {
-							opts.Properties = parseProperties(propVal)
-						}
-					}
-				}
-			}
-		} else {
-			// Objects from pipe
-			inputVal := common.BindValue(v)
-			objects = common.NormalizeToSlice(inputVal)
-		}
-
-		// Validate options
-		if opts.First >= 0 && opts.Last >= 0 {
-			return common.MakeUDFErrorResult(fmt.Errorf("select_object: -First and -Last cannot be used together"), nil)
+	common.DeclareInput("select_object", common.InputPipeline)
+	return common.WithFunctionOf("select_object", 0, 20, SelectedProperties, func(v any, args []any) any {
+		objects, opts, err := ParseSelectObjectArgs(v, args)
+		if err != nil {
+			return common.MakeUDFErrorResult(err, nil)
 		}
 
 		// Apply Skip
@@ -359,54 +289,82 @@ func selectObject(objects []any, opts SelectObjectOptions) ([]any, error) {
 	return result, nil
 }
 
-// ParseSelectObjectArgs parses arguments for testing
-func ParseSelectObjectArgs(args []any) ([]any, SelectObjectOptions, error) {
+// ParseSelectObjectArgs binds select_object's objects and options. The input is
+// the pipeline value or the leading argument; see selectObjectInput.
+func ParseSelectObjectArgs(v any, args []any) ([]any, SelectObjectOptions, error) {
 	opts := SelectObjectOptions{
 		First:      -1,
 		Last:       -1,
 		Skip:       -1,
-		Properties: nil,
+		Properties: nil, // nil means select all
 	}
 
-	if len(args) == 0 {
-		return []any{}, opts, nil
-	}
-
-	// First argument is objects or options
-	var objects []any
-	var optsIndex int
-
-	if arr, ok := args[0].([]any); ok {
-		objects = arr
-		optsIndex = 1
-	} else {
-		objects = []any{args[0]}
-		optsIndex = 1
-	}
-
-	// Parse options if present
-	if len(args) > optsIndex {
-		if optsMap, ok := args[optsIndex].(map[string]any); ok {
-			if firstVal, exists := optsMap["first"]; exists {
-				if firstNum, ok := firstVal.(float64); ok {
-					opts.First = int(firstNum)
-				}
+	objects, rest := selectObjectInput(v, args)
+	for _, a := range rest {
+		argVal := common.BindValue(a)
+		switch av := argVal.(type) {
+		case string:
+			opts.Properties = append(opts.Properties, av)
+		case []any:
+			if !allStrings(av) {
+				return nil, opts, fmt.Errorf("select_object: a property list must hold strings")
 			}
-			if lastVal, exists := optsMap["last"]; exists {
-				if lastNum, ok := lastVal.(float64); ok {
-					opts.Last = int(lastNum)
-				}
+			opts.Properties = append(opts.Properties, arrToStrings(av)...)
+		case map[string]any:
+			// gojq represents an integral literal as int, not float64,
+			// so {first: 2} was never read at all.
+			if n, ok := common.ToInt(av["first"]); ok {
+				opts.First = n
 			}
-			if skipVal, exists := optsMap["skip"]; exists {
-				if skipNum, ok := skipVal.(float64); ok {
-					opts.Skip = int(skipNum)
-				}
+			if n, ok := common.ToInt(av["last"]); ok {
+				opts.Last = n
 			}
-			if propVal, exists := optsMap["property"]; exists {
+			if n, ok := common.ToInt(av["skip"]); ok {
+				opts.Skip = n
+			}
+			if propVal, exists := av["property"]; exists {
 				opts.Properties = parseProperties(propVal)
 			}
+		default:
+			// Silently dropping this is how `select_object(.; 5)` used to
+			// return every property and look like it had worked.
+			return nil, opts, fmt.Errorf("select_object: expected a property name, a list of them or an options object, got %T", argVal)
 		}
 	}
 
+	if opts.First >= 0 && opts.Last >= 0 {
+		return nil, opts, fmt.Errorf("select_object: -First and -Last cannot be used together")
+	}
+
 	return objects, opts, nil
+}
+
+// selectObjectInput splits the call into the objects to select from and the
+// property names and options that follow.
+//
+// select_object is the one object cmdlet whose operands are variadic and
+// untagged, so the leading argument's role is read from what it is rather than
+// from where it sits: a property name, a list of them or an options object
+// leaves the input on the pipeline, and anything else is the input itself.
+// The roles do not overlap - nothing select_object can select from is a string
+// or a list of them - and without the rule the piped form the synopsis
+// documents, `select_object("Name"; "Age")`, bound "Name" as the input and
+// returned it.
+func selectObjectInput(v any, args []any) ([]any, []any) {
+	piped := func() ([]any, []any) {
+		return common.NormalizeToSlice(common.BindObjectInput(v)), args
+	}
+	if len(args) == 0 {
+		return common.NormalizeToSlice(common.BindObjectInput(v)), nil
+	}
+	switch first := common.BindValue(args[0]).(type) {
+	case string, map[string]any:
+		return piped()
+	case []any:
+		// An empty array is data: there are no names in it to select by.
+		if len(first) > 0 && allStrings(first) {
+			return piped()
+		}
+	}
+	return common.NormalizeToSlice(common.BindObjectInput(args[0])), args[1:]
 }

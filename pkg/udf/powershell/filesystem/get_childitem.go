@@ -289,7 +289,7 @@ func fileItemFrom(path string, info os.FileInfo) (map[string]any, error) {
 
 // RegisterGetChildItem registers the get_childitem function with gojq
 func RegisterGetChildItem() gojq.CompilerOption {
-	return common.WithIterFunctionOf("get_childitem", 0, 5, FileInfo, func(v any, args []any) gojq.Iter {
+	return common.WithIterFunctionOf("get_childitem", 0, 2, FileInfo, func(v any, args []any) gojq.Iter {
 		opts, err := parseGetChildItemArgs(args)
 		if err != nil {
 			return gojq.NewIter(err)

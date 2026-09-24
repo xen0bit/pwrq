@@ -274,18 +274,19 @@ func TestParseProperties(t *testing.T) {
 }
 
 func TestParseSelectObjectArgs(t *testing.T) {
+	rows := []any{
+		map[string]any{"Name": "Alice"},
+		map[string]any{"Name": "Bob"},
+	}
 	args := []any{
-		[]any{
-			map[string]any{"Name": "Alice"},
-			map[string]any{"Name": "Bob"},
-		},
+		rows,
 		map[string]any{
 			"first":    float64(1),
 			"property": []any{"Name"},
 		},
 	}
 
-	objects, opts, err := ParseSelectObjectArgs(args)
+	objects, opts, err := ParseSelectObjectArgs(nil, args)
 	if err != nil {
 		t.Fatalf("ParseSelectObjectArgs failed: %v", err)
 	}
@@ -513,5 +514,45 @@ func TestSelectObject_PositionalProperties(t *testing.T) {
 		if _, hasCity := m["City"]; hasCity {
 			t.Errorf("Object %d should not have City property", i)
 		}
+	}
+}
+
+// TestParseSelectObjectArgsRoles covers which argument is the input: a property
+// name leaves the objects on the pipeline, an array of rows is the input.
+func TestParseSelectObjectArgsRoles(t *testing.T) {
+	rows := []any{
+		map[string]any{"Name": "Alice", "Age": 30},
+		map[string]any{"Name": "Bob", "Age": 25},
+	}
+
+	// Two property names off the pipeline: neither is the input.
+	objects, opts, err := ParseSelectObjectArgs(rows, []any{"Name", "Age"})
+	if err != nil {
+		t.Fatalf("piped properties: %v", err)
+	}
+	if len(objects) != 2 {
+		t.Errorf("piped properties: got %d objects, want 2", len(objects))
+	}
+	if len(opts.Properties) != 2 {
+		t.Errorf("piped properties: got %v, want [Name Age]", opts.Properties)
+	}
+
+	// The explicit form: the rows lead and the names follow.
+	objects, opts, err = ParseSelectObjectArgs(nil, []any{rows, "Name"})
+	if err != nil {
+		t.Fatalf("explicit input: %v", err)
+	}
+	if len(objects) != 2 {
+		t.Errorf("explicit input: got %d objects, want 2", len(objects))
+	}
+	if len(opts.Properties) != 1 || opts.Properties[0] != "Name" {
+		t.Errorf("explicit input: got %v, want [Name]", opts.Properties)
+	}
+
+	// An operand that is neither a name nor options is an error rather than a
+	// silent drop. (A leading one is the input, so this needs the explicit
+	// form to be an operand at all.)
+	if _, _, err := ParseSelectObjectArgs(nil, []any{rows, 5}); err == nil {
+		t.Error("a numeric operand should be rejected")
 	}
 }

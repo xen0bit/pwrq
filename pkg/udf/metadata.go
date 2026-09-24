@@ -42,7 +42,7 @@ func GetFunctionMetadata() []FunctionMetadata {
 func allFunctionMetadata() []FunctionMetadata {
 	return []FunctionMetadata{
 		// File operations
-		{"find", 1, 2, "Find files/directories matching criteria", "File Operations", []string{`find("src"; "file")`, `find("."; "dir")`}},
+		{"find", 1, 4, "Find files/directories matching criteria (path, [type], [maxdepth], [options])", "File Operations", []string{`find("src"; "file")`, `find("."; "dir"; 2)`}},
 		{"cat", 0, 2, "Read and return contents of a file, decoded as text (filepath from pipe or argument)", "File Operations", []string{`cat("file.txt")`, `"file.txt" | cat`, `find("."; "file") | cat`, `cat("app.log"; {tail: 20})`}},
 		{"read_bytes", 0, 1, "Read a file's bytes verbatim, with no text decoding (use utf8bytelength, not length, to count them)", "File Operations", []string{`read_bytes("a.bin") | sha256`, `"a.bin" | read_bytes | utf8bytelength`}},
 		{"mkdir", 1, 1, "Create a directory (creates parent directories if needed)", "File Operations", []string{`mkdir("/tmp/mydir")`, `mkdir("nested/path/to/dir")`}},
@@ -367,7 +367,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"keccak_256", 0, 2, "Legacy Keccak-256 hash", "Checksum", []string{`"hello" | keccak_256`}},
 		{"crc16", 0, 2, "CRC-16/CCITT-FALSE checksum", "Checksum", []string{`"hello" | crc16`}},
 		{"pbkdf2_sha256", 1, 3, "PBKDF2-SHA256 derived key as hex (salt, [iterations], [keyLen])", "Checksum", []string{`"password" | pbkdf2_sha256("salt"; 100000; 32)`}},
-		{"argon2id_hash", 1, 3, "Argon2id derived key as hex (salt, [time], [memoryMiB])", "Checksum", []string{`"password" | argon2id_hash("salt"; 1; 8)`}},
+		{"argon2id_hash", 1, 4, "Argon2id derived key as hex (salt, [time], [memoryMiB], [keyLen])", "Checksum", []string{`"password" | argon2id_hash("salt"; 1; 8)`, `"password" | argon2id_hash("salt"; 1; 8; 64)`}},
 		{"random_hex", 0, 1, "n cryptographically random bytes as hex", "Checksum", []string{`random_hex(16)`}},
 
 		// IDs and tokens extras
@@ -451,23 +451,23 @@ func allFunctionMetadata() []FunctionMetadata {
 
 		// PowerShell - File System
 		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
-		{"set_content", 2, 2, "Set content of a file (path, value)", "PowerShell", []string{`set_content("file.txt"; "content")`}},
+		{"set_content", 1, 3, "Set a file's content, replacing what was there (path, [value], [options])", "PowerShell", []string{`"content" | set_content("file.txt")`, `set_content("file.txt"; "content")`}},
 		{"add_content", 1, 3, "Append a value to a file, creating it if absent (path, [value], [options])", "PowerShell", []string{`"a line" | add_content("out.log")`, `add_content("out.log"; "a line")`}},
 		{"out_file", 1, 3, "Write a value to a file and pass it on (path, [value], [options])", "PowerShell", []string{`"a line" | out_file("report.txt")`, `"a line" | out_file("run.log"; {Append: true})`}},
-		{"test_path", 1, 1, "Test if a path exists", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp")`}},
-		{"join_path", 2, 2, "Join path segments", "PowerShell", []string{`join_path("/tmp"; "file.txt")`}},
+		{"test_path", 1, 2, "Test if a path exists (path, [PathType or options])", "PowerShell", []string{`test_path("file.txt")`, `test_path("/tmp"; "Container")`}},
+		{"join_path", 1, 10, "Join path segments (segment, ...)", "PowerShell", []string{`join_path("/tmp"; "file.txt")`, `join_path("a"; "b"; "c")`}},
 		{"split_path", 1, 1, "Split a path into components", "PowerShell", []string{`split_path("/tmp/file.txt")`}},
 
 		// PowerShell - Objects
-		{"select_object", 1, 2, "Select object properties (properties, [input])", "PowerShell", []string{`select_object("Name")`, `{"Name":"test"} | select_object("Name")`}},
-		{"where_object", 1, 2, "Filter objects by condition (objects, [options])", "PowerShell", []string{`where_object([1,5,10,15]; {script: ". > 10"})`, `where_object(.; {property: "Age", operator: "gt", value: 26})`}},
-		{"sort_object", 1, 2, "Sort objects by property (property, [input])", "PowerShell", []string{`sort_object("Name")`, `[{"Name":"b"},{"Name":"a"}] | sort_object("Name")`}},
-		{"group_object", 1, 2, "Group objects by property (property, [input])", "PowerShell", []string{`group_object("Category")`}},
-		{"measure_object", 1, 2, "Measure object properties (objects, [options])", "PowerShell", []string{`measure_object([1,2,3])`, `measure_object(.)`}},
+		{"select_object", 0, 20, "Select object properties (objects, [properties...], [options])", "PowerShell", []string{`{"Name":"test","Age":1} | select_object("Name")`, `select_object([{Name: "a"}, {Name: "b"}]; "Name")`}},
+		{"where_object", 0, 2, "Filter objects by condition (objects, [options])", "PowerShell", []string{`[1,5,10,15] | where_object({script: ". > 10"})`, `where_object([{Age: 30}]; {property: "Age", operator: "gt", value: 26})`}},
+		{"sort_object", 0, 2, "Sort objects by property (objects, [options])", "PowerShell", []string{`[{"Name":"b"},{"Name":"a"}] | sort_object({property: "Name"})`, `sort_object([{"Name":"b"},{"Name":"a"}]; {property: "Name"})`}},
+		{"group_object", 0, 2, "Group objects by property (objects, [options])", "PowerShell", []string{`[{"Category":"a"},{"Category":"b"},{"Category":"a"}] | group_object({property: "Category"})`}},
+		{"measure_object", 0, 2, "Measure object properties (objects, [options]); without a property it measures the values themselves", "PowerShell", []string{`[1,2,3] | measure_object`, `[1,2,3] | measure_object({sum: true})`, `measure_object([{v:1},{v:2}]; {property: "v", sum: true})`}},
 
 		// PowerShell - Formatting
-		{"format_list", 1, 2, "Format output as a list (objects, [properties])", "PowerShell", []string{`format_list(.)`, `format_list({Name: "test"})`}},
-		{"format_table", 1, 2, "Format output as a table (objects, [properties])", "PowerShell", []string{`format_table(.)`, `format_table([{Name: "a"}, {Name: "b"}])`}},
+		{"format_list", 1, 2, "Format output as a list (objects, [properties])", "PowerShell", []string{`format_list(.)`, `format_list([{Name: "a", Age: 1}]; "Name")`}},
+		{"format_table", 1, 2, "Format output as a table (objects, [properties])", "PowerShell", []string{`format_table(.)`, `format_table([{Name: "a", Age: 1}]; ["Name"])`}},
 
 		// PowerShell - Variables
 		{"set_variable", 1, 3, "Set a variable (name, [value], [options])", "PowerShell", []string{`set_variable("count"; 42)`, `set_variable("name"; "test"; {"Scope": "global"})`}},
@@ -487,7 +487,7 @@ func allFunctionMetadata() []FunctionMetadata {
 
 		// PowerShell - Processes
 		{"get_process", 0, 2, "List running processes ([name], [options])", "PowerShell", []string{`get_process`, `[get_process | select(.Name == "go")]`}},
-		{"start_process", 1, 2, "Start a process (path, [options])", "PowerShell", []string{`start_process("echo"; {"ArgumentList": ["hi"]})`}},
+		{"start_process", 1, 2, "Start a process (path, [options])", "PowerShell", []string{`start_process("echo"; {"ArgumentList": ["hi"], "PassThru": true})`}},
 		{"stop_process", 1, 2, "Stop a process (id or name, [options])", "PowerShell", []string{`stop_process(1234)`}},
 
 		// PowerShell - Services

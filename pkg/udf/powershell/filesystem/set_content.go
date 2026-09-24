@@ -24,60 +24,23 @@ type SetContentOptions struct {
 	Force    bool
 }
 
-// parseSetContentArgs parses arguments for set_content
-func parseSetContentArgs(args []any) (SetContentOptions, error) {
-	opts := SetContentOptions{
-		Path:     "",
-		Value:    nil,
-		Encoding: "utf8",
-		Force:    false,
-	}
-
+// parseSetContentArgs binds set_content's path, value and options the same way
+// add_content does, so the two writers read alike: the value comes from the
+// pipeline unless an explicit one is supplied, and anything past the options
+// object is an error rather than a silently dropped argument.
+func parseSetContentArgs(v any, args []any) (SetContentOptions, error) {
+	o := appendOptions{SetContentOptions: SetContentOptions{Encoding: "utf8"}}
 	if len(args) == 0 {
-		return opts, fmt.Errorf("set_content: expected at least 2 arguments (path, value)")
+		return o.SetContentOptions, fmt.Errorf("set_content: path is required")
 	}
-
-	for i, arg := range args {
-		argVal := common.BindValue(arg)
-
-		switch v := argVal.(type) {
-		case string:
-			if opts.Path == "" {
-				opts.Path = v
-			} else if opts.Value == nil {
-				opts.Value = v
-			}
-		case map[string]any:
-			if path, ok := v["Path"].(string); ok {
-				opts.Path = path
-			}
-			if value := v["Value"]; value != nil {
-				opts.Value = value
-			}
-			if encoding, ok := v["Encoding"].(string); ok {
-				opts.Encoding = encoding
-			}
-			if force, ok := v["Force"].(bool); ok {
-				opts.Force = force
-			}
-		default:
-			// First non-map argument is path, second is value
-			if i == 0 && opts.Path == "" {
-				opts.Path = fmt.Sprintf("%v", argVal)
-			} else if i == 1 && opts.Value == nil {
-				opts.Value = argVal
-			}
-		}
+	o, err := parseAppendArgs(v, args, "set_content")
+	if err != nil {
+		return o.SetContentOptions, err
 	}
-
-	if opts.Path == "" {
-		return opts, fmt.Errorf("set_content: path is required")
+	if o.Append {
+		return o.SetContentOptions, fmt.Errorf("set_content: does not append; use add_content")
 	}
-	if opts.Value == nil {
-		return opts, fmt.Errorf("set_content: value is required")
-	}
-
-	return opts, nil
+	return o.SetContentOptions, nil
 }
 
 // getEncoding returns the appropriate encoder for the given encoding name
@@ -326,8 +289,8 @@ func setContent(opts SetContentOptions) (string, error) {
 
 // RegisterSetContent registers the set_content function with gojq
 func RegisterSetContent() gojq.CompilerOption {
-	return common.WithFunctionOf("set_content", 0, 5, WrittenFile, func(v any, args []any) any {
-		opts, err := parseSetContentArgs(args)
+	return common.WithFunctionOf("set_content", 1, 3, WrittenFile, func(v any, args []any) any {
+		opts, err := parseSetContentArgs(v, args)
 		if err != nil {
 			return common.MakeUDFErrorResult(err, nil)
 		}

@@ -43,9 +43,10 @@ type SortObjectOptions struct {
 //
 // Usage: sort_object(objects) or sort_object(objects; options)
 func RegisterSortObject() gojq.CompilerOption {
-	return common.WithFunction("sort_object", 1, 2, func(input any, args []any) any {
+	common.DeclareInput("sort_object", common.InputPipeline)
+	return common.WithFunction("sort_object", 0, 2, func(input any, args []any) any {
 		// Parse arguments
-		objects, opts, err := ParseSortObjectArgs(args)
+		objects, opts, err := ParseSortObjectArgs(input, args)
 		if err != nil {
 			return newSortErrorObject(err.Error())
 		}
@@ -164,53 +165,54 @@ func parseSortProperty(v any) ([]SortProperty, error) {
 	return properties, nil
 }
 
-// ParseSortObjectArgs parses arguments for testing
-func ParseSortObjectArgs(args []any) ([]any, SortObjectOptions, error) {
+// ParseSortObjectArgs parses arguments for testing. The input is either the
+// pipeline value or the leading argument (common.ObjectInput).
+func ParseSortObjectArgs(v any, args []any) ([]any, SortObjectOptions, error) {
 	opts := SortObjectOptions{
 		CaseSensitive: false,
 		Unique:        false,
 	}
 
-	if len(args) == 0 {
-		return []any{}, opts, fmt.Errorf("sort_object: requires objects argument")
+	if len(args) == 0 && v == nil {
+		return []any{}, opts, fmt.Errorf("requires objects argument")
 	}
 
-	// First argument is objects
-	var objects []any
-	inputVal := common.BindValue(args[0])
-	objects = common.NormalizeToSlice(inputVal)
+	objects, rest := common.ObjectInput(v, args, 1)
 
 	// Parse options if present
-	if len(args) > 1 {
-		if optsMap, ok := args[1].(map[string]any); ok {
-			if propVal, exists := optsMap["property"]; exists {
-				props, err := parseSortProperty(propVal)
-				if err != nil {
-					return nil, opts, fmt.Errorf("invalid property specification: %w", err)
-				}
-				opts.Properties = props
+	if len(rest) > 0 {
+		optsMap, ok := common.BindValue(rest[0]).(map[string]any)
+		if !ok {
+			// newSortErrorObject supplies the "sort_object:" prefix.
+			return nil, opts, fmt.Errorf("options must be an object, e.g. {property: \"Name\"}; got %T", common.BindValue(rest[0]))
+		}
+		if propVal, exists := optsMap["property"]; exists {
+			props, err := parseSortProperty(propVal)
+			if err != nil {
+				return nil, opts, fmt.Errorf("invalid property specification: %w", err)
 			}
-			// PowerShell spells this `Sort-Object Age -Descending`, so a
-			// top-level flag is the form users reach for first; without it the
-			// only way to sort descending was the "Age desc" property suffix,
-			// and {property: "Age", descending: true} silently sorted ascending.
-			if descVal, exists := optsMap["descending"]; exists {
-				if descBool, ok := descVal.(bool); ok && descBool {
-					opts.Descending = true
-					for i := range opts.Properties {
-						opts.Properties[i].Direction = SortDirectionDescending
-					}
-				}
-			}
-			if csVal, exists := optsMap["casesensitive"]; exists {
-				if csBool, ok := csVal.(bool); ok {
-					opts.CaseSensitive = csBool
+			opts.Properties = props
+		}
+		// PowerShell spells this `Sort-Object Age -Descending`, so a
+		// top-level flag is the form users reach for first; without it the
+		// only way to sort descending was the "Age desc" property suffix,
+		// and {property: "Age", descending: true} silently sorted ascending.
+		if descVal, exists := optsMap["descending"]; exists {
+			if descBool, ok := descVal.(bool); ok && descBool {
+				opts.Descending = true
+				for i := range opts.Properties {
+					opts.Properties[i].Direction = SortDirectionDescending
 				}
 			}
-			if uniqueVal, exists := optsMap["unique"]; exists {
-				if uniqueBool, ok := uniqueVal.(bool); ok {
-					opts.Unique = uniqueBool
-				}
+		}
+		if csVal, exists := optsMap["casesensitive"]; exists {
+			if csBool, ok := csVal.(bool); ok {
+				opts.CaseSensitive = csBool
+			}
+		}
+		if uniqueVal, exists := optsMap["unique"]; exists {
+			if uniqueBool, ok := uniqueVal.(bool); ok {
+				opts.Unique = uniqueBool
 			}
 		}
 	}
@@ -450,7 +452,7 @@ func deduplicateByValue(objects []any) []any {
 	seen := make(map[string]bool)
 
 	for _, obj := range objects {
-		key := fmt.Sprintf("%v", common.BindValue(obj))
+		key := fmt.Sprintf("%v", common.BindObjectInput(obj))
 		if !seen[key] {
 			seen[key] = true
 			result = append(result, obj)
@@ -463,7 +465,7 @@ func deduplicateByValue(objects []any) []any {
 // buildDedupKey creates a unique key for an object based on its sort properties
 func buildDedupKey(obj any, properties []SortProperty) string {
 	if len(properties) == 0 {
-		return fmt.Sprintf("%v", common.BindValue(obj))
+		return fmt.Sprintf("%v", common.BindObjectInput(obj))
 	}
 
 	parts := make([]string, 0, len(properties))

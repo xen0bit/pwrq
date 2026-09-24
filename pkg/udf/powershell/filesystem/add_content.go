@@ -73,6 +73,12 @@ func parseAppendArgs(v any, args []any, fn string) (appendOptions, error) {
 	if err != nil {
 		return o, fmt.Errorf("%s: %v", fn, err)
 	}
+	if path == "" {
+		// Left alone it resolves to the working directory, and the write
+		// fails with "is a directory", which names neither the cmdlet nor
+		// what was actually missing.
+		return o, fmt.Errorf("%s: path is required", fn)
+	}
 	o.Path = path
 
 	rest := args[1:]

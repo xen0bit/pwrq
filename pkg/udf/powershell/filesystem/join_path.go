@@ -164,7 +164,7 @@ func RegisterJoinPath() gojq.CompilerOption {
 // Signature: split_path(path?: string)
 // Returns a typed object with split path components.
 func RegisterSplitPath() gojq.CompilerOption {
-	return common.WithFunctionOf("split_path", 0, 2, SplitPath, func(v any, args []any) any {
+	return common.WithFunctionOf("split_path", 0, 1, SplitPath, func(v any, args []any) any {
 		var path string
 
 		// Get path from argument or pipeline input

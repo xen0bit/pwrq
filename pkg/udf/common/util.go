@@ -84,6 +84,24 @@ func BindString(v any, param string) (string, error) {
 	return "", fmt.Errorf("cannot bind %T to string parameter %q", bound, param)
 }
 
+// BindObjectInput resolves pipeline input for the object cmdlets, which need
+// the whole object.
+//
+// BindValue deliberately collapses a cmdlet object that carries a string
+// PwrqValue - the path of a FileInfo, the name of a SQLite table - to that
+// scalar, because that is what lets one cmdlet's output feed the next
+// (`get_childitem | cat`). The object cmdlets need the opposite: selecting a
+// property from a FileInfo must see Name, Length and the rest, not the path
+// string. This returns the object unchanged.
+func BindObjectInput(v any) any {
+	switch val := v.(type) {
+	case *typed.Object:
+		return val.ToMap()
+	default:
+		return v
+	}
+}
+
 // NormalizeToSlice converts pipeline input to a slice the object cmdlets can
 // iterate. A single object is a one-element pipeline, matching PowerShell,
 // where every value is a pipeline of length one.
