@@ -32,106 +32,106 @@ func RegisterGetVariable() gojq.CompilerOption {
 	return common.WithFunctionOf("get_variable", 0, 2,
 		VariableShape.Each().Note("a single object for an exact name, an array for a wildcard or no name, and the bare value when ValueOnly is set"),
 		func(v any, args []any) any {
-		var name string
-		opts := GetVariableOptions{
-			ValueOnly: false,
-			Scope:     "",
-		}
-
-		// Parse arguments
-		if len(args) == 0 {
-			// No args - return all variables (like Get-Variable with no name)
-			name = "*"
-		} else {
-			// First argument is name or options
-			firstArg := common.BindValue(args[0])
-
-			if nameStr, isString := firstArg.(string); isString {
-				name = nameStr
-			} else if optsMap, ok := firstArg.(map[string]any); ok {
-				// First arg is options map
-				parseGetVariableOptions(&opts, optsMap)
-				if opts.Name != "" {
-					name = opts.Name
-				} else {
-					name = "*"
-				}
+			var name string
+			opts := GetVariableOptions{
+				ValueOnly: false,
+				Scope:     "",
 			}
 
-			// Second argument could be options
-			if len(args) > 1 {
-				if optsMap, ok := args[1].(map[string]any); ok {
+			// Parse arguments
+			if len(args) == 0 {
+				// No args - return all variables (like Get-Variable with no name)
+				name = "*"
+			} else {
+				// First argument is name or options
+				firstArg := common.BindValue(args[0])
+
+				if nameStr, isString := firstArg.(string); isString {
+					name = nameStr
+				} else if optsMap, ok := firstArg.(map[string]any); ok {
+					// First arg is options map
 					parseGetVariableOptions(&opts, optsMap)
+					if opts.Name != "" {
+						name = opts.Name
+					} else {
+						name = "*"
+					}
+				}
+
+				// Second argument could be options
+				if len(args) > 1 {
+					if optsMap, ok := args[1].(map[string]any); ok {
+						parseGetVariableOptions(&opts, optsMap)
+					}
 				}
 			}
-		}
 
-		// Get session state
-		ss := common.GetSessionState()
-		if ss == nil {
-			return common.MakeUDFErrorResult(fmt.Errorf("get_variable: session state not initialized"), nil)
-		}
+			// Get session state
+			ss := common.GetSessionState()
+			if ss == nil {
+				return common.MakeUDFErrorResult(fmt.Errorf("get_variable: session state not initialized"), nil)
+			}
 
-		// Handle wildcard or specific variable
-		if containsWildcard(name) {
-			// Wildcard pattern - return all matching variables
-			return getVariablesByPattern(ss, name, opts)
-		}
+			// Handle wildcard or specific variable
+			if containsWildcard(name) {
+				// Wildcard pattern - return all matching variables
+				return getVariablesByPattern(ss, name, opts)
+			}
 
-		// Single variable lookup
-		var varName string
-		if opts.Scope != "" {
-			scopePrefix := normalizeScope(opts.Scope)
-			if scopePrefix != "" {
-				varName = scopePrefix + ":" + name
+			// Single variable lookup
+			var varName string
+			if opts.Scope != "" {
+				scopePrefix := normalizeScope(opts.Scope)
+				if scopePrefix != "" {
+					varName = scopePrefix + ":" + name
+				} else {
+					varName = name
+				}
 			} else {
 				varName = name
 			}
-		} else {
-			varName = name
-		}
 
-		// Use GetVariableEntry to get full metadata
-		entry, err := ss.GetVariableEntry(varName)
-		if err != nil {
-			// Variable not found
-			if name == "*" {
-				// Return empty array for wildcard with no matches
-				return common.MakeUDFSuccessResult([]any{}, map[string]any{
+			// Use GetVariableEntry to get full metadata
+			entry, err := ss.GetVariableEntry(varName)
+			if err != nil {
+				// Variable not found
+				if name == "*" {
+					// Return empty array for wildcard with no matches
+					return common.MakeUDFSuccessResult([]any{}, map[string]any{
+						"operation": "get_variable",
+						"pattern":   name,
+						"count":     0,
+					})
+				}
+				return common.MakeUDFErrorResult(fmt.Errorf("get_variable: variable %q not found", name), nil)
+			}
+
+			// Update $? automatic variable
+			_ = ss.SetVariable("?", true, sessionstate.None)
+
+			// Return result
+			if opts.ValueOnly {
+				return common.MakeUDFSuccessResult(entry.Value, map[string]any{
 					"operation": "get_variable",
-					"pattern":   name,
-					"count":     0,
+					"name":      name,
 				})
 			}
-			return common.MakeUDFErrorResult(fmt.Errorf("get_variable: variable %q not found", name), nil)
-		}
 
-		// Update $? automatic variable
-		_ = ss.SetVariable("?", true, sessionstate.None)
-
-		// Return result
-		if opts.ValueOnly {
-			return common.MakeUDFSuccessResult(entry.Value, map[string]any{
+			// Return variable info with all metadata (PowerShell-compatible format)
+			result := VariableShape.Build(map[string]any{
+				"Name":    entry.Name,
+				"Value":   entry.Value,
+				"Options": variableOptionsToString(entry.Options),
+				"Scope":   scopeTypeToString(entry.Scope),
+			})
+			if entry.Description != "" {
+				result["Description"] = entry.Description
+			}
+			return common.MakeUDFSuccessResult(result, map[string]any{
 				"operation": "get_variable",
 				"name":      name,
 			})
-		}
-
-		// Return variable info with all metadata (PowerShell-compatible format)
-		result := VariableShape.Build(map[string]any{
-			"Name":    entry.Name,
-			"Value":   entry.Value,
-			"Options": variableOptionsToString(entry.Options),
-			"Scope":   scopeTypeToString(entry.Scope),
 		})
-		if entry.Description != "" {
-			result["Description"] = entry.Description
-		}
-		return common.MakeUDFSuccessResult(result, map[string]any{
-			"operation": "get_variable",
-			"name":      name,
-		})
-	})
 }
 
 // getVariablesByPattern returns all variables matching the pattern

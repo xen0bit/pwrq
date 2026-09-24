@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,19 +13,29 @@ import (
 func TestNewItemCreatesWhatItSays(t *testing.T) {
 	dir := t.TempDir()
 
+	// The permission bits are the umask's business, so the assertion is on the
+	// leading character of the mode - the kind of thing that was created -
+	// which is what the bug got wrong.
 	got := strings.TrimSpace(mustRunDir(t, dir, "", "-n", "-c",
-		`new_item("f.txt"; "file") | {Name, Mode}`))
-	if got != `{"Mode":"-rw-r--r--","Name":"f.txt"}` {
+		`new_item("f.txt"; "file") | {Name, Kind: (.Mode[0:1])}`))
+	if got != `{"Kind":"-","Name":"f.txt"}` {
 		t.Errorf("new_item file: got %s", got)
 	}
-	if _, err := filepath.Glob(filepath.Join(dir, "f.txt")); err != nil {
+	if info, err := os.Stat(filepath.Join(dir, "f.txt")); err != nil {
 		t.Fatal(err)
+	} else if info.IsDir() {
+		t.Errorf("new_item made a directory where a file was asked for")
 	}
 
 	got = strings.TrimSpace(mustRunDir(t, dir, "", "-n", "-c",
-		`new_item("d"; "directory") | {Name, Mode}`))
-	if got != `{"Mode":"drwxr-xr-x","Name":"d"}` {
+		`new_item("d"; "directory") | {Name, Kind: (.Mode[0:1])}`))
+	if got != `{"Kind":"d","Name":"d"}` {
 		t.Errorf("new_item directory: got %s", got)
+	}
+	if info, err := os.Stat(filepath.Join(dir, "d")); err != nil {
+		t.Fatal(err)
+	} else if !info.IsDir() {
+		t.Errorf("new_item made a file where a directory was asked for")
 	}
 
 	// The name remains available through the options object.
