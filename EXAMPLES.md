@@ -185,6 +185,18 @@ $ pwrq -nc '[{"Dept":"Eng"},{"Dept":"Ops"},{"Dept":"Eng"}] | group_object({prope
 [{"Count":2,"Name":"Eng"},{"Count":1,"Name":"Ops"}]
 ```
 
+`select_object` is the exception, because its property names are the arguments:
+a name, a list of names or an options object leaves the objects on the
+pipeline, and anything else is the objects.
+
+```console
+$ pwrq -nc '[{"Name":"Alice","Age":30,"City":"NYC"},{"Name":"Bob","Age":25}] | select_object("Name"; "Age")'
+[{"Age":30,"Name":"Alice"},{"Age":25,"Name":"Bob"}]
+
+$ pwrq -nc 'select_object([{"Name":"Alice","Age":30}]; "Name")'
+{"Name":"Alice"}
+```
+
 For plain filtering jq's own `select` is shorter, and pwrq does not get in its
 way: `map(select(.Age > 26))`.
 

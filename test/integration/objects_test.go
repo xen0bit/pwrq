@@ -199,3 +199,28 @@ func TestObjectCmdletsOnCmdletOutput(t *testing.T) {
 		})
 	}
 }
+
+// TestSelectObjectArgumentRoles pins which argument is the input and which is a
+// property name. The rule is read off the value: a name, a list of names or an
+// options object leaves the objects on the pipeline, and anything else is the
+// objects themselves. Binding the leading argument positionally instead made
+// `select_object("Name"; "Age")` return "Name".
+func TestSelectObjectArgumentRoles(t *testing.T) {
+	cases := []struct{ name, query, want string }{
+		{"two properties from the pipe", `[.[] | select_object("Name"; "Age")] | map(.Name)`,
+			`["Alice","Bob","Carol"]`},
+		{"a property list from the pipe", `select_object(["Name","Age"]) | map(.Name)`,
+			`["Alice","Bob","Carol"]`},
+		{"the explicit input alone", `select_object(.) | length`, `3`},
+		{"the explicit input with properties", `select_object(.; "Name"; "Age") | .[0].Age`, `30`},
+		{"options from the pipe", `select_object({first: 1}) | .Name`, `"Alice"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := strings.TrimSpace(mustRun(t, people, "-c", tc.query))
+			if got != tc.want {
+				t.Errorf("%s\n got %s\nwant %s", tc.query, got, tc.want)
+			}
+		})
+	}
+}
