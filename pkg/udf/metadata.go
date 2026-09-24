@@ -463,7 +463,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"where_object", 0, 2, "Filter objects by condition (objects, [options])", "PowerShell", []string{`[1,5,10,15] | where_object({script: ". > 10"})`, `where_object([{Age: 30}]; {property: "Age", operator: "gt", value: 26})`}},
 		{"sort_object", 0, 2, "Sort objects by property (objects, [options])", "PowerShell", []string{`[{"Name":"b"},{"Name":"a"}] | sort_object({property: "Name"})`, `sort_object([{"Name":"b"},{"Name":"a"}]; {property: "Name"})`}},
 		{"group_object", 0, 2, "Group objects by property (objects, [options])", "PowerShell", []string{`[{"Category":"a"},{"Category":"b"},{"Category":"a"}] | group_object({property: "Category"})`}},
-		{"measure_object", 0, 2, "Measure object properties (objects, [options])", "PowerShell", []string{`[1,2,3] | measure_object`, `measure_object([{v:1},{v:2}]; {property: "v", sum: true})`}},
+		{"measure_object", 0, 2, "Measure object properties (objects, [options]); without a property it measures the values themselves", "PowerShell", []string{`[1,2,3] | measure_object`, `[1,2,3] | measure_object({sum: true})`, `measure_object([{v:1},{v:2}]; {property: "v", sum: true})`}},
 
 		// PowerShell - Formatting
 		{"format_list", 1, 2, "Format output as a list (objects, [properties])", "PowerShell", []string{`format_list(.)`, `format_list([{Name: "a", Age: 1}]; "Name")`}},

@@ -162,7 +162,7 @@ var documentedOptionKeys = map[string][]discovery.Option{
 		{Name: "ashashtable", Type: "boolean", Description: "return one object keyed by grouping value instead of an array; lower case only"},
 	},
 	"measure_object": {
-		{Name: "property", Type: "string", Description: "the property to measure; lower case only, and required before any of the statistics below"},
+		{Name: "property", Type: "string", Description: "the property to measure; lower case only. Without it the values themselves are measured"},
 		{Name: "sum", Type: "boolean", Description: "include the total; lower case only"},
 		{Name: "average", Type: "boolean", Description: "include the mean; lower case only"},
 		{Name: "minimum", Type: "boolean", Description: "include the smallest value; lower case only"},

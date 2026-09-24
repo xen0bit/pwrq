@@ -197,6 +197,14 @@ $ pwrq -nc 'select_object([{"Name":"Alice","Age":30}]; "Name")'
 {"Name":"Alice"}
 ```
 
+`measure_object` measures a named property, or the values themselves when no
+property is named:
+
+```console
+$ pwrq -nc '[1,2,3] | measure_object({sum: true, average: true}) | {Sum, Average}'
+{"Average":2,"Sum":6}
+```
+
 For plain filtering jq's own `select` is shorter, and pwrq does not get in its
 way: `map(select(.Age > 26))`.
 

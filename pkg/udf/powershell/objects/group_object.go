@@ -4,6 +4,7 @@
 package objects
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -103,7 +104,7 @@ func groupByProperty(objects []any, opts GroupObjectOptions) ([]any, error) {
 		group, exists := groupMap[keyStr]
 		if !exists {
 			// Preserve the original property value as the group name (not normalized)
-			nameStr := fmt.Sprintf("%v", propValue)
+			nameStr := groupName(propValue)
 			group = &GroupedObject{
 				Name:  nameStr,
 				Count: 0,
@@ -139,7 +140,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 
 	for _, obj := range objects {
 		// Use the entire object as the key
-		keyStr := fmt.Sprintf("%v", common.BindObjectInput(obj))
+		keyStr := groupName(common.BindObjectInput(obj))
 		if !opts.CaseSensitive {
 			keyStr = strings.ToLower(keyStr)
 		}
@@ -147,7 +148,7 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 		group, exists := groupMap[keyStr]
 		if !exists {
 			group = &GroupedObject{
-				Name:  fmt.Sprintf("%v", common.BindObjectInput(obj)),
+				Name:  groupName(common.BindObjectInput(obj)),
 				Count: 0,
 				Group: make([]any, 0),
 			}
@@ -170,9 +171,25 @@ func groupByValue(objects []any, opts GroupObjectOptions) ([]any, error) {
 	return formatGroupsFull(groupMap, groupOrder)
 }
 
+// groupName renders a grouping value as the group's name.
+//
+// A scalar is itself. Anything else goes through JSON, because Go's %v prints
+// an object as map[Dept:Eng] and an array as [a b]: neither can be matched on
+// or fed back into a later query, and grouping by a property that holds a list
+// is not unusual.
+func groupName(v any) string {
+	switch v.(type) {
+	case map[string]any, []any:
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
+	}
+	return fmt.Sprintf("%v", v)
+}
+
 // normalizeGroupKey converts a value to a normalized string key for grouping
 func normalizeGroupKey(key any, caseSensitive bool) string {
-	keyStr := fmt.Sprintf("%v", key)
+	keyStr := groupName(key)
 	if !caseSensitive {
 		keyStr = strings.ToLower(keyStr)
 	}

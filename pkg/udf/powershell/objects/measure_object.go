@@ -79,22 +79,21 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		Maximum: nil,
 	}
 
-	var errors []string
 	hasNumericValues := false
 
 	for _, obj := range objects {
 		result.Count++
 
-		// If no property specified, just count objects
-		if opts.Property == "" {
+		// Nothing to measure: Measure-Object with no switches is a count.
+		if !opts.measuring() {
 			continue
 		}
 
-		// Extract property value for measurement
-		propValue, err := extractPropertyForMeasurement(obj, opts.Property)
+		// Extract the value to measure: the named property, or the object
+		// itself when none was named.
+		propValue, err := measuredValue(obj, opts.Property)
 		if err != nil {
-			// Collect error for skipped item (PowerShell-style $ERROR stream)
-			errors = append(errors, fmt.Sprintf("object %d: %v", result.Count, err))
+			// An object without the property is not measured, as in PowerShell.
 			continue
 		}
 
@@ -102,7 +101,6 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		numVal, err := convertToFloat64(propValue)
 		if err != nil {
 			// Skip non-numeric values silently (PowerShell behavior)
-			errors = append(errors, fmt.Sprintf("object %d: non-numeric value %T", result.Count, propValue))
 			continue
 		}
 
@@ -134,10 +132,7 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		numericCount := 0
 		sumForAvg := 0.0
 		for _, obj := range objects {
-			if opts.Property == "" {
-				continue
-			}
-			propValue, err := extractPropertyForMeasurement(obj, opts.Property)
+			propValue, err := measuredValue(obj, opts.Property)
 			if err != nil {
 				continue
 			}
@@ -153,20 +148,24 @@ func measureObject(objects []any, opts MeasureObjectOptions) (*MeasurementResult
 		}
 	}
 
-	// If no property was specified, we only do counting
-	if opts.Property == "" {
-		return result, nil
-	}
-
-	// If property was specified but no numeric values found, return zeros
-	if !hasNumericValues && opts.Property != "" {
-		if len(errors) > 0 {
-			// Return result with errors noted (caller can inspect)
-			return result, nil
-		}
-	}
-
+	// A measurement that found no numbers still reports the count; the zeroes
+	// beside it say the values were not numeric.
 	return result, nil
+}
+
+// measuring reports whether anything beyond the count was asked for.
+func (o MeasureObjectOptions) measuring() bool {
+	return o.Sum || o.Average || o.Minimum || o.Maximum
+}
+
+// measuredValue is the value a measurement runs on: the named property, or the
+// object itself when no property was named, which is how PowerShell measures a
+// pipeline of bare numbers (`1,2,3 | Measure-Object -Sum`).
+func measuredValue(obj any, property string) (any, error) {
+	if property == "" {
+		return common.BindObjectInput(obj), nil
+	}
+	return extractPropertyForMeasurement(obj, property)
 }
 
 // extractPropertyForMeasurement extracts a property value from an object for measurement
@@ -212,19 +211,17 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 	valueMap := make(map[string]any)
 	valueMap["Count"] = result.Count
 
-	if opts.Property != "" {
-		if opts.Sum {
-			valueMap["Sum"] = result.Sum
-		}
-		if opts.Average {
-			valueMap["Average"] = result.Average
-		}
-		if opts.Minimum {
-			valueMap["Minimum"] = result.Minimum
-		}
-		if opts.Maximum {
-			valueMap["Maximum"] = result.Maximum
-		}
+	if opts.Sum {
+		valueMap["Sum"] = result.Sum
+	}
+	if opts.Average {
+		valueMap["Average"] = result.Average
+	}
+	if opts.Minimum {
+		valueMap["Minimum"] = result.Minimum
+	}
+	if opts.Maximum {
+		valueMap["Maximum"] = result.Maximum
 	}
 
 	// The shape supplies the type name, so it is written down once, beside
@@ -233,19 +230,17 @@ func formatMeasurementResult(result *MeasurementResult, opts MeasureObjectOption
 
 	// Add NoteProperties for all measurement values
 	obj.AddNoteProperty("Count", result.Count)
-	if opts.Property != "" {
-		if opts.Sum {
-			obj.AddNoteProperty("Sum", result.Sum)
-		}
-		if opts.Average {
-			obj.AddNoteProperty("Average", result.Average)
-		}
-		if opts.Minimum {
-			obj.AddNoteProperty("Minimum", result.Minimum)
-		}
-		if opts.Maximum {
-			obj.AddNoteProperty("Maximum", result.Maximum)
-		}
+	if opts.Sum {
+		obj.AddNoteProperty("Sum", result.Sum)
+	}
+	if opts.Average {
+		obj.AddNoteProperty("Average", result.Average)
+	}
+	if opts.Minimum {
+		obj.AddNoteProperty("Minimum", result.Minimum)
+	}
+	if opts.Maximum {
+		obj.AddNoteProperty("Maximum", result.Maximum)
 	}
 
 	return MeasureInfoShape.Build(obj.ToMap())

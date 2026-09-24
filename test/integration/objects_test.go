@@ -248,3 +248,16 @@ func TestObjectCmdletsRejectABareProperty(t *testing.T) {
 		})
 	}
 }
+
+// TestGroupObjectNamesANonScalarKey is the regression for a group name printed
+// with Go's %v: grouping by a property that holds a list produced "[a b]",
+// which is neither the value nor anything a later query can match.
+func TestGroupObjectNamesANonScalarKey(t *testing.T) {
+	const rows = `[{"Tags":["a","b"]},{"Tags":["a","b"]},{"Tags":["c"]}]`
+	got := strings.TrimSpace(mustRun(t, rows, "-c",
+		`group_object({property: "Tags"}) | map({Name, Count})`))
+	want := `[{"Count":2,"Name":"[\"a\",\"b\"]"},{"Count":1,"Name":"[\"c\"]"}]`
+	if got != want {
+		t.Errorf("group names\n got %s\nwant %s", got, want)
+	}
+}
