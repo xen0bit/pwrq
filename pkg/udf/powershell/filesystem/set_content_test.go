@@ -246,10 +246,10 @@ func TestParseSetContentArgs_WithOptions(t *testing.T) {
 }
 
 func TestParseSetContentArgs_MissingPath(t *testing.T) {
-	args := []any{123, "content"}
-	_, err := parseSetContentArgs(nil, args)
-	if err == nil {
-		t.Fatal("expected error for missing path, got nil")
+	for _, args := range [][]any{{123, "content"}, {"", "content"}} {
+		if _, err := parseSetContentArgs(nil, args); err == nil {
+			t.Errorf("expected an error for path %v, got nil", args[0])
+		}
 	}
 }
 
