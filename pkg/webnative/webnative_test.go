@@ -330,7 +330,9 @@ func TestDiagramReportsBrokenQueries(t *testing.T) {
 
 func TestUnknownMethod(t *testing.T) {
 	e := New()
-	var resp errorResponse
+	var resp struct {
+		Error string `json:"error"`
+	}
 	if err := json.Unmarshal([]byte(e.Call(context.Background(), "nope", "{}")), &resp); err != nil {
 		t.Fatalf("response is not JSON: %v", err)
 	}
