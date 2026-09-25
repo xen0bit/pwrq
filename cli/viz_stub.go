@@ -6,7 +6,11 @@ import (
 	"errors"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/graph"
 )
+
+// renderSVG is nil: the TUI offers the diagram's D2 source instead.
+var renderSVG func(*gojq.Query, graph.RenderOptions) (string, error)
 
 // generateGraph is unavailable in the default build.
 //

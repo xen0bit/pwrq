@@ -1,0 +1,30 @@
+ pwrq · input: stdin, 1.2 KB                                             runs here as user in /work 
+╭─ Query ──────────────────────────────────────────────────────────────────────────────────────────╮
+│1 [.[] | select(.Size > 1000) | {Name, Hash: (.Name | sha256)}]                                   │
+│2 | sort_by(.Name)                                                                                │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Input · Args ───────────────────────╮╭─ Output · Diagram · Catalog · Examples · History ────────╮
+│1 [{"Name":"notes.txt","Size":812},   ││Nothing has run yet. Ctrl-R runs the query.               │
+│2  {"Name":"report.pdf","Size":48211},││                                                          │
+│3  {"Name":"image.png","Size":10240}] ││Queries run here, as you, only when you ask:              │
+│                                      ││editing validates the query but never runs it.            │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+╰──────────────────────────────────────╯╰──────────────────────────────────────────────────────────╯
+ ✓ compiles                                                        limit 10000 · timeout 60s · 2:17 
+ ^R run  Tab pane  ^␣ complete  ^P palette  F1 keys  ^X accept (query)  ^C quit                     
