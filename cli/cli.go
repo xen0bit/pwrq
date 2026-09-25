@@ -92,6 +92,8 @@ type flagopts struct {
 	IDENative     bool              `long:"ide-native" description:"serve the native IDE: the browser editor backed by this machine's full cmdlet vocabulary (queries run here as you; loopback only unless PWRQ_IDE_TOKEN is set)"`
 	MCP           bool              `long:"mcp" description:"serve as an MCP server over stdio"`
 	MCPHTTP       string            `long:"mcp-http" args:"addr" description:"serve as an MCP server over streamable HTTP on the given address (a non-loopback bind requires PWRQ_MCP_TOKEN)"`
+	TUI           bool              `long:"tui" description:"edit the query in a terminal UI over the input; queries run only when you press Ctrl-R, and Ctrl-X prints the query"`
+	Emit          string            `long:"emit" args:"query|output" description:"what --tui prints to stdout on Ctrl-X: the query (default) or its output"`
 }
 
 var addDefaultModulePaths = true
@@ -156,6 +158,12 @@ Usage:
 	}
 	if opts.MCP {
 		return mcpserver.Serve(version)
+	}
+	if opts.TUI {
+		return cli.launchTUI(&opts, args)
+	}
+	if opts.Emit != "" {
+		return errors.New("flag `--emit' needs `--tui'")
 	}
 
 	// Initialize session state after flag parsing

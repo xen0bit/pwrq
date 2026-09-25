@@ -1,4 +1,11 @@
-package graph
+// Package graphsvg renders a query's diagram as an image.
+//
+// It is the only part of the diagramming that needs d2, which brings a
+// JavaScript engine, a syntax highlighter and a PDF writer with it - about 35MB.
+// pkg/graph writes the D2 script and decides the colours without any of that,
+// so a host that only wants the script, or the palette, stays small; importing
+// this package is the choice to pay for the picture.
+package graphsvg
 
 import (
 	"context"
@@ -9,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/graph"
 	"oss.terrastruct.com/d2/d2graph"
 	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
 	"oss.terrastruct.com/d2/d2layouts/d2elklayout"
@@ -20,13 +28,13 @@ import (
 
 // GenerateSVG renders a query's structure as an SVG document.
 func GenerateSVG(query *gojq.Query) (string, error) {
-	return GenerateSVGOpts(query, RenderOptions{})
+	return GenerateSVGOpts(query, graph.RenderOptions{})
 }
 
 // GenerateSVGOpts renders a query's structure as an SVG document, with control
 // over colour, layout and direction.
-func GenerateSVGOpts(query *gojq.Query, opts RenderOptions) (string, error) {
-	svg, err := renderSVGOpts(RenderD2Opts(query, opts), opts)
+func GenerateSVGOpts(query *gojq.Query, opts graph.RenderOptions) (string, error) {
+	svg, err := renderSVGOpts(graph.RenderD2Opts(query, opts), opts)
 	if err != nil {
 		return "", err
 	}
@@ -35,18 +43,18 @@ func GenerateSVGOpts(query *gojq.Query, opts RenderOptions) (string, error) {
 
 // GenerateGraph creates a D2 diagram representing the flow of a jq query
 func GenerateGraph(query *gojq.Query, outputPath string) error {
-	return GenerateGraphOpts(query, outputPath, RenderOptions{})
+	return GenerateGraphOpts(query, outputPath, graph.RenderOptions{})
 }
 
 // GenerateGraphOpts writes a query's diagram to a file, in the format the
 // file's extension names.
-func GenerateGraphOpts(query *gojq.Query, outputPath string, opts RenderOptions) error {
+func GenerateGraphOpts(query *gojq.Query, outputPath string, opts graph.RenderOptions) error {
 	outputPath, err := filepath.Abs(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve output path: %w", err)
 	}
 
-	script := RenderD2Opts(query, opts)
+	script := graph.RenderD2Opts(query, opts)
 
 	switch ext := strings.ToLower(filepath.Ext(outputPath)); ext {
 	case ".d2":
@@ -70,11 +78,11 @@ func GenerateGraphOpts(query *gojq.Query, outputPath string, opts RenderOptions)
 
 // renderSVG compiles a D2 script and renders it with the default options.
 func renderSVG(script string) ([]byte, error) {
-	return renderSVGOpts(script, RenderOptions{})
+	return renderSVGOpts(script, graph.RenderOptions{})
 }
 
 // renderSVGOpts compiles a D2 script and renders it.
-func renderSVGOpts(script string, opts RenderOptions) ([]byte, error) {
+func renderSVGOpts(script string, opts graph.RenderOptions) ([]byte, error) {
 	ctx := d2log.With(context.Background(),
 		slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
 
@@ -83,7 +91,7 @@ func renderSVGOpts(script string, opts RenderOptions) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create text ruler: %w", err)
 	}
 
-	layout := opts.layout()
+	layout := opts.LayoutEngine()
 	diagram, _, err := d2lib.Compile(ctx, script, &d2lib.CompileOptions{
 		Layout: &layout,
 		Ruler:  ruler,
@@ -102,7 +110,7 @@ func renderSVGOpts(script string, opts RenderOptions) ([]byte, error) {
 	}
 
 	pad := int64(d2svg.DEFAULT_PADDING)
-	theme := themeID(opts.Theme)
+	theme := graph.ThemeID(opts.Theme)
 	renderOpts := &d2svg.RenderOpts{Pad: &pad, ThemeID: &theme}
 	if opts.Sketch {
 		sketch := true

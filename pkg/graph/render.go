@@ -25,6 +25,13 @@ func RenderD2(query *gojq.Query) string {
 // gives the picture its colour. See Classes for the vocabulary.
 func RenderD2Opts(query *gojq.Query, opts RenderOptions) string {
 	b := &builder{opts: opts}
+	b.render(query)
+	return b.String()
+}
+
+// render writes the whole script for a query.
+func (b *builder) render(query *gojq.Query) {
+	opts := b.opts
 	b.line("direction: " + opts.direction())
 	b.line("")
 	b.raw(classDecls(opts.palette()))
@@ -32,7 +39,7 @@ func RenderD2Opts(query *gojq.Query, opts RenderOptions) string {
 
 	if query == nil {
 		b.node("empty", "(empty query)", "circle", ClassTerminal)
-		return b.String()
+		return
 	}
 
 	// User-defined functions are context rather than pipeline, so they sit
@@ -50,7 +57,6 @@ func RenderD2Opts(query *gojq.Query, opts RenderOptions) string {
 
 	b.node("end", "End", "circle", ClassTerminal)
 	b.edge(last, "end", "")
-	return b.String()
 }
 
 // opNone is the zero Operator, which gojq uses for a query that is just a
@@ -65,6 +71,9 @@ type builder struct {
 	// defined collects the names of the query's own definitions, so a call to
 	// one is coloured as a definition rather than mistaken for a jq builtin.
 	defined map[string]bool
+	// outline, when set, records the nodes and containers as a tree while
+	// the script is written. See Outline.
+	outline *outliner
 }
 
 func (b *builder) String() string { return b.sb.String() }
@@ -94,6 +103,7 @@ func (b *builder) raw(block string) {
 // node declares a leaf. class names what kind of thing the node is; shape may
 // be empty for D2's default rectangle.
 func (b *builder) node(id, label, shape, class string) {
+	b.outline.leaf(label, class)
 	attrs := make([]string, 0, 2)
 	if shape != "" {
 		attrs = append(attrs, "shape: "+shape)
@@ -116,7 +126,9 @@ func (b *builder) container(id, label, class string) func() {
 	if class != "" {
 		b.line("class: " + class)
 	}
+	b.outline.open(label, class)
 	return func() {
+		b.outline.close()
 		b.depth--
 		b.line("}")
 	}

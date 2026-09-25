@@ -121,7 +121,7 @@ type Result struct {
 	// Halted reports that the query stopped itself with halt or halt_error.
 	Halted bool
 	// Error is why the run did not complete, and Kind classifies it: parse,
-	// compile, args, input, runtime, timeout, limit or halt.
+	// compile, args, input, runtime, timeout, cancelled, limit or halt.
 	Error string
 	Kind  string
 
@@ -146,8 +146,12 @@ const (
 	KindInput   = "input"
 	KindRuntime = "runtime"
 	KindTimeout = "timeout"
-	KindLimit   = "limit"
-	KindHalt    = "halt"
+	// KindCancelled is a run its caller stopped by cancelling the context:
+	// an interactive host replacing a run, or a client that went away. It
+	// says nothing about the query, which is why it is not KindRuntime.
+	KindCancelled = "cancelled"
+	KindLimit     = "limit"
+	KindHalt      = "halt"
 )
 
 // Runner evaluates queries against one fixed vocabulary.
@@ -314,6 +318,11 @@ func (r *Runner) Run(ctx context.Context, req *Request) (result Result) {
 				if ctx.Err() == context.DeadlineExceeded {
 					resp.Kind = KindTimeout
 					resp.Error = timeoutMessage(ctx, started)
+					return resp
+				}
+				if ctx.Err() == context.Canceled {
+					resp.Kind = KindCancelled
+					resp.Error = "cancelled"
 					return resp
 				}
 				resp.Kind = KindRuntime

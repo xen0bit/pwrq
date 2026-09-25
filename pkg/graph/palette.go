@@ -99,8 +99,8 @@ func PaletteFor(theme string) Palette {
 	return darkPalette
 }
 
-// themeID maps a theme name onto the D2 theme that shares its background.
-func themeID(theme string) int64 {
+// ThemeID maps a theme name onto the D2 theme that shares its background.
+func ThemeID(theme string) int64 {
 	if strings.EqualFold(theme, "light") {
 		return 0 // neutral default
 	}
@@ -141,7 +141,9 @@ func (o RenderOptions) direction() string {
 	}
 }
 
-func (o RenderOptions) layout() string {
+// LayoutEngine is the D2 layout engine the options name: elk, or dagre by
+// default.
+func (o RenderOptions) LayoutEngine() string {
 	if strings.EqualFold(o.Layout, "elk") {
 		return "elk"
 	}

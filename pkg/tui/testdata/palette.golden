@@ -1,0 +1,30 @@
+ pwrq · input: stdin, 1.2 KB                                             runs here as user in /work 
+╭─ Query ──────────────────────────────────────────────────────────────────────────────────────────╮
+│1╭─ Palette ────────────────────────────────────────────────────────────────────── Enter · Esc ─╮ │
+│2│› format                                                                                      │ │
+╰─│──────────────────────────────────────────────────────────────────────────────────────────────│─╯
+╭─│ action   Format the query                                                              Alt-F │─╮
+│1│ example  Format a string                                                                  jq │ │
+│2│ cmdlet   format_currency                              A number as a currency string (symbol) │ │
+│3│ cmdlet   format_date     Write an instant in a layout, optionally in a zone (layout, [zone]) │ │
+│ │ cmdlet   format_list                         Format output as a list (objects, [properties]) │ │
+│ │ cmdlet   format_table                       Format output as a table (objects, [properties]) │ │
+│ │ cmdlet   aes_decrypt AES decryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=bas…│ │
+│ │ cmdlet   aes_encrypt AES encryption (data, key, [mode=CBC], [keyFormat=raw], [dataFormat=raw…│ │
+│ │ cmdlet   blowfish_decrypt       Blowfish decryption (data, key, [mode=CBC], [keyFormat=raw]) │ │
+│ │ cmdlet   blowfish_encrypt       Blowfish encryption (data, key, [mode=CBC], [keyFormat=raw]) │ │
+│ │ cmdlet   chacha20 ChaCha20 encryption/decryption (key, [nonce], [keyFormat=raw], [dataFormat…│ │
+│ │ cmdlet   des_decrypt                 DES decryption (data, key, [mode=CBC], [keyFormat=raw]) │ │
+│ │ cmdlet   des_encrypt                 DES encryption (data, key, [mode=CBC], [keyFormat=raw]) │ │
+│ │ cmdlet   rc4              RC4 encryption/decryption (key, [keyFormat=raw], [dataFormat=raw]) │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+╰──────────────────────────────────────╯╰──────────────────────────────────────────────────────────╯
+ ✓ compiles                                                        limit 10000 · timeout 60s · 2:17 
+ ^R run  Tab pane  ^␣ complete  ^P palette  F1 keys  ^X accept (query)  ^C quit                     

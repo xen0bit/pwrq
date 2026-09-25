@@ -762,6 +762,56 @@ The case it cannot catch is a pattern that parses as *something else*: Python's
 `except $E: $$$B` compiles cleanly, because `except` also reads as an
 identifier, into a query for an assignment. Reading `.Query` is how you see it.
 
+## Terminal UI
+
+`pwrq --tui` is the editor in the terminal, in the everyday binary. It is the
+same engine as the browser IDE, with the full cmdlet vocabulary, pointed at
+the data you give it the way the command line would read it:
+
+```bash
+kubectl get pods -o json | pwrq --tui                  # data on stdin
+pwrq --tui '.items[] | {name}' response.json           # a query and a file
+pwrq --tui --yaml-input -r '.spec' deploy.yaml         # jq's flags mean what they mean
+pwrq --tui 'http://localhost:8080/tools/pwrq/#z=…'     # a share link from the page
+pwrq --tui                                             # pick up where you left off
+```
+
+It **validates as you type and runs only when you ask.** Every edit compiles
+the query against the full vocabulary, so an unknown cmdlet or a wrong
+number of arguments is underlined before anything happens; nothing runs until
+Ctrl-R, because a half-typed `new_item("f")` is already a complete query. Esc
+cancels a run that is taking too long.
+
+On Ctrl-X it closes and prints the query to stdout, or with `--emit=output`
+the query's output, so it composes with whatever comes next. Ctrl-C closes
+and prints nothing. The screen is drawn on the terminal rather than on
+stdout, so both work in a pipe:
+
+```bash
+q=$(pwrq --tui)                                        # build a query, keep it
+curl -s api/items | pwrq --tui --emit=output | less    # explore, then keep what it printed
+```
+
+What else it does, with the page's vocabulary:
+
+- **Query, input and arguments** in their own editors: syntax colour, the
+  error underlined where it is, completion on Ctrl-Space, undo, and
+  Format, Minify and Inline on Alt-F, Alt-M and Alt-I. Arguments are one per
+  line, `name = JSON`, as `--argjson` binds them.
+- **Output, Diagram, Catalog, Examples, History** on Alt-1…5 (F2…F6). The
+  diagram is the page's, drawn as a tree in the page's colours; the catalog
+  inserts a cmdlet on Enter and shows its `get_help` on `?`; the examples are
+  the page's gallery; history is what was run and the snippets saved with
+  Ctrl-S.
+- **A palette on Ctrl-P** reaches every action, tab, example, snippet and
+  cmdlet, and F1 lists the keys.
+- **Share links in the page's format.** Alt-L copies one to the clipboard
+  (by OSC 52, so it works over SSH); `PWRQ_SHARE_URL` says which page it
+  opens, defaulting to the IDE `pwrq-viz --ide` serves. A link from the page
+  opens here.
+- **State in `$XDG_STATE_HOME/pwrq`**: history, snippets (in the page's export
+  format, so its Import reads them) and the last session.
+
 ## pwrq-viz
 
 Query diagramming and the browser IDE live in a separate binary. Rendering uses

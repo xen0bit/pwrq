@@ -1,0 +1,30 @@
+ pwrq · input: stdin, 1.2 KB                                             runs here as user in /work 
+╭─ Query ──────────────────────────────────────────────────────────────────────────────────────────╮
+│1 [.[] | select(.Size > 1000) | {Name, Hash: (.Name | sha256)}]                                   │
+│2 | sort_by(.Name)                                                                                │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Input · Args ───────────────────────╮╭─ Output · Diagram · Catalog · Examples · History ────────╮
+│1 [{"Name":"notes.txt","Size":812},   ││■ Path  ■ Cmdlet  ■ Builtin  ■ Construct                  │
+│2  {"Name":"report.pdf","Size":48211},││├─ Collect [ ]                                            │
+│3  {"Name":"image.png","Size":10240}] │││  ├─ .[]                                                 │
+│                                      │││  ├─ select(.Size > 1000)                                │
+│                                      │││  └─ Object { }                                          │
+│                                      │││     ├─ Name: .Name                                      │
+│                                      │││     └─ Hash                                             │
+│                                      │││        ├─ .Name                                         │
+│                                      │││        └─ sha256                                        │
+│                                      ││└─ sort_by(.Name)                                         │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+╰──────────────────────────────────────╯╰──────────────────────────────────────────────────────────╯
+ ✓ compiles                                                               limit 10000 · timeout 60s 
+ ^R run  Tab pane  ^P palette  F1 keys  ^X accept (query)  ^C quit                                  

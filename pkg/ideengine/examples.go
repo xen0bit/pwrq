@@ -1,4 +1,4 @@
-package webapi
+package ideengine
 
 // Example is a query worth opening the page for.
 type Example struct {

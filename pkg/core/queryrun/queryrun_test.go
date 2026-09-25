@@ -294,3 +294,15 @@ func TestInputCount(t *testing.T) {
 		t.Fatalf("slurped InputCount = %d, want 1", got)
 	}
 }
+
+// TestCancelledIsNotARuntimeError keeps a stopped run from reading as a broken
+// query: the caller cancelled it, and the kind has to say so.
+func TestCancelledIsNotARuntimeError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(20*time.Millisecond, cancel)
+
+	res := (&Runner{}).Run(ctx, &Request{Query: `repeat(1) | select(. == 0)`, NullInput: true})
+	if res.Kind != KindCancelled {
+		t.Errorf("kind = %q (%s), want %q", res.Kind, res.Error, KindCancelled)
+	}
+}
