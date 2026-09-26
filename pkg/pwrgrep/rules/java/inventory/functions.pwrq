@@ -1,0 +1,26 @@
+# rules: java-functions
+# languages: java
+# fixture: java/Functions.java
+#
+# Every method and constructor declared, by name, with the method's return
+# type. Modifiers, annotations and throws clauses are allowed without being
+# written. The parameters are `$$$_` rather than a named list: in Java a named
+# hole there binds exactly one parameter.
+#
+# A constructor has no pattern that parses on its own - without a return type
+# it reads as a call followed by a block - so constructors are found as text
+# inside class bodies: a capitalised name, a parameter list and a brace, with
+# nothing but modifiers before it. A method call cannot look like that, and
+# `new Foo() {` has a `new` in front of it.
+
+["$RT $NAME($$$_) { $$$B }"] as $methods
+| ["class $C { $$$B }", "enum $C { $$$B }"] as $classes
+| . as $root
+| scan_ast("*.java"; $methods + $classes) as $all
+| ($all | of($methods) | focus("NAME") | finding("java-functions"; "method $NAME returning $RT"))
+  + ($root
+     | scan_regex("*.java"; "(?m)^[ \\t]*(?:(?:public|protected|private)[ \\t]+)?(?P<NAME>[A-Z]\\w*)[ \\t]*\\([^)]*\\)[ \\t]*(?:throws[^{]+)?\\{")
+     | within($all | of($classes))
+     | focus("NAME")
+     | finding("java-functions"; "constructor $NAME"))
+| report

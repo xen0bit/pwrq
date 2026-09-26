@@ -1,0 +1,19 @@
+# rules: go-concurrency
+# languages: go
+# fixture: go/concurrency.go
+#
+# Where work starts running at the same time as the code that started it, and
+# where goroutines meet: go statements, channels made, selects, and the sync
+# primitives that order them. The places to read slowly.
+
+["go $F($$$A)"] as $spawn
+| ["make($T)", "make($T, $N)"] as $chans
+| ["select { $$$C }"] as $selects
+| ["sync.WaitGroup{}", "var $V sync.WaitGroup", "var $V sync.Mutex", "var $V sync.RWMutex",
+   "$M.Lock()", "$M.RLock()"] as $sync
+| scan_ast("*.go"; $spawn + $chans + $selects + $sync) as $all
+| ($all | of($spawn) | finding("go-concurrency"; "starts a goroutine running $F"))
+  + ($all | of($chans) | where_capture("T"; "^(?:<-\\s*)?chan\\b") | finding("go-concurrency"; "makes a $T"))
+  + ($all | of($selects) | finding("go-concurrency"; "waits on several channels"))
+  + ($all | of($sync) | finding("go-concurrency"; "synchronises goroutines"))
+| report

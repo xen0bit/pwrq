@@ -1,0 +1,16 @@
+# rules: c-functions
+# languages: c
+# fixture: c/functions.c
+#
+# Every function defined, by name and return type. A prototype is a promise
+# rather than a definition and is not reported.
+#
+# A pointer return is a declarator wrapped around the name, so it is a pattern
+# of its own; `$$$_` for the parameters matches every arity, `void` included.
+
+["$RT $NAME($$$_) { $$$B }"] as $plain
+| ["$RT *$NAME($$$_) { $$$B }"] as $pointer
+| scan_ast("*.[ch]"; $plain + $pointer) as $all
+| ($all | of($plain) | focus("NAME") | finding("c-functions"; "function $NAME returning $RT"))
+  + ($all | of($pointer) | focus("NAME") | finding("c-functions"; "function $NAME returning $RT *"))
+| report

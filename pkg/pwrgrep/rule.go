@@ -2,19 +2,21 @@
 // to find one, and how to run it.
 //
 // A rule is a pwrq query and nothing else. select_ast answers one question -
-// where does this piece of syntax occur - and that is rarely a finding on its
-// own: "MD5, but only in a file that imports crypto/md5", "assigning to
-// innerHTML, but not a string literal". The operators that combine those
+// where does this piece of syntax occur - and that is rarely an answer on its
+// own: "an environment variable, but only where it reaches exec.Command", "a
+// catch block, but only an empty one". The operators that combine those
 // answers are cmdlets, so a rule is a file and a header:
 //
-//	# rules: go-weak-hash
-//	# from: go/lang/security/audit/crypto/use_of_weak_crypto.yaml
+//	# rules: go-input-reaches-effect
+//	# languages: go
+//	# fixture: go/input-reaches-effect.go
 //
-//	["md5.New()", "md5.Sum($$$A)"] as $calls
-//	| ["\"crypto/md5\""] as $imports
-//	| scan_ast("*.go"; $calls + $imports) as $all
-//	| ($all | of($calls) | in_files_with($all | of($imports)))
-//	| finding("go-weak-hash"; "this hash is not collision resistant")
+//	["os.Getenv($$$_)", "os.Args"] as $sources
+//	| ["exec.Command($$$A)", "os.WriteFile($$$A)"] as $sinks
+//	| scan_ast("*.go"; $sources + $sinks) as $all
+//	| $all | of($sinks)
+//	| reaching($all | of($sources); [])
+//	| finding("go-input-reaches-effect"; "external input reaches $A")
 //	| report
 //
 // Which is the point of keeping them as queries. A rule is readable, a rule is
@@ -40,7 +42,7 @@ import (
 // names.
 type Rule struct {
 	// Path is the rule's place in the corpus, without the extension:
-	// "go/lang/security/audit/crypto/use_of_weak_crypto".
+	// "go/flow/input-reaches-effect".
 	Path string
 	// Ids are the finding ids this file reports under, from its `# rules:`
 	// header. A caller names one of these.

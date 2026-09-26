@@ -1,0 +1,21 @@
+# rules: go-side-effects
+# languages: go
+# fixture: go/side-effects.go
+#
+# Everywhere the program acts on the world: runs a command, writes or removes
+# a file, talks to the network, or queries a database. These are the sinks
+# go-input-reaches-effect follows values into.
+
+["exec.Command($$$A)", "exec.CommandContext($$$A)", "syscall.Exec($$$A)"] as $commands
+| ["os.WriteFile($$$A)", "os.Create($$$A)", "os.OpenFile($$$A)", "os.Remove($$$A)",
+   "os.RemoveAll($$$A)", "os.Rename($$$A)", "os.Mkdir($$$A)", "os.MkdirAll($$$A)"] as $files
+| ["http.Get($$$A)", "http.Post($$$A)", "http.NewRequest($$$A)", "http.NewRequestWithContext($$$A)",
+   "net.Dial($$$A)", "net.Listen($$$A)", "http.ListenAndServe($$$A)"] as $network
+| ["$DB.Query($$$A)", "$DB.QueryRow($$$A)", "$DB.Exec($$$A)",
+   "$DB.QueryContext($$$A)", "$DB.ExecContext($$$A)"] as $queries
+| scan_ast("*.go"; $commands + $files + $network + $queries) as $all
+| ($all | of($commands) | finding("go-side-effects"; "runs a command"))
+  + ($all | of($files) | finding("go-side-effects"; "changes the filesystem"))
+  + ($all | of($network) | finding("go-side-effects"; "uses the network"))
+  + ($all | of($queries) | where_capture("DB"; "(?i)db|tx|conn|stmt") | finding("go-side-effects"; "queries a database"))
+| report

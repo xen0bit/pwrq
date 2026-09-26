@@ -1,0 +1,29 @@
+# rules: java-external-input
+# languages: java
+# fixture: java/ExternalInput.java
+#
+# Everywhere a value enters the program from outside it: the environment,
+# system properties, standard input, files, and HTTP requests - both the
+# servlet API and parameters Spring or JAX-RS binds from a request. These are
+# the sources java-input-reaches-effect follows.
+#
+# A bound parameter is found as text: an annotation in a pattern has to be
+# the parameter's whole list of modifiers, and in Java a named hole in a
+# parameter list binds exactly one parameter.
+
+["System.getenv($$$_)", "System.getProperty($$$_)"] as $env
+| ["System.in"] as $stdin
+| ["Files.readAllLines($$$_)", "Files.readString($$$_)", "Files.readAllBytes($$$_)",
+   "Files.newBufferedReader($$$_)", "new FileInputStream($$$_)", "new FileReader($$$_)"] as $files
+| ["$R.getParameter($$$_)", "$R.getHeader($$$_)", "$R.getCookies()", "$R.getInputStream()",
+   "$R.getQueryString()", "$R.getReader()"] as $servlet
+| . as $root
+| scan_ast("*.java"; $env + $stdin + $files + $servlet) as $all
+| ($all | of($env) | finding("java-external-input"; "reads the environment"))
+  + ($all | of($stdin) | finding("java-external-input"; "reads standard input"))
+  + ($all | of($files) | finding("java-external-input"; "reads a file"))
+  + ($all | of($servlet) | where_capture("R"; "(?i)^(?:req|request)$") | finding("java-external-input"; "reads an HTTP request"))
+  + ($root
+     | scan_regex("*.java"; "@(?:RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|QueryParam|PathParam|HeaderParam|FormParam)(?:\\([^)]*\\))?\\s+(?:final\\s+)?[\\w.]+(?:<[^>]*>)?(?:\\[\\])*\\s+(?P<V>\\w+)")
+     | focus("V") | finding("java-external-input"; "$V is bound from an HTTP request"))
+| report

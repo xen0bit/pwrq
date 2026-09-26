@@ -31,9 +31,6 @@ before:
     # own page build. The two pages are separate targets so rebuilding one can
     # never smuggle anything into the other.
     - make web.build-native
-    # The corpus is a module dependency now, so there is no rules directory in
-    # the tree for the packages below to point at. This writes one.
-    - make rules.export
 
 # ---------------------------------------------------------------------------
 # Builds — three binaries, because they are three different products.
@@ -308,7 +305,7 @@ nfpms:
       # reads this directory before its own copy, so a rule changed here is the
       # one that runs, and a rule added here is found beside the ones that
       # shipped. See pkg/pwrgrep/README.md.
-      - src: build/rules
+      - src: pkg/pwrgrep/rules
         dst: /usr/share/pwrq/rules
         type: tree
 

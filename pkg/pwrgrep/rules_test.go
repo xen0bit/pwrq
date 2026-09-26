@@ -3,7 +3,6 @@ package pwrgrep_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	pwrgreprules "github.com/xen0bit/pwrgrep-rules"
 	"github.com/xen0bit/pwrq/pkg/pwrgrep"
 	"github.com/xen0bit/pwrq/pkg/udf"
 )
@@ -24,8 +22,8 @@ import (
 // carry a fixture are checked against it line by line: where the rule is
 // supposed to fire, and where it is not.
 //
-// The annotations are the convention the rules being translated are tested
-// with: a comment reading `ruleid: <id>` says the next line must produce a
+// The annotations are the convention semgrep's rules are tested with: a
+// comment reading `ruleid: <id>` says the next line must produce a
 // finding, and `ok: <id>` says it must not. The check is set equality rather
 // than containment, so a rule that fires somewhere nobody marked fails just as
 // loudly as one that misses a line.
@@ -34,62 +32,11 @@ import (
 // compiles against the cmdlet registry - which imports the rules. Reaching
 // both from outside is the only way to run one the way a person would.
 
-// fixtureRoot is where the corpus's fixtures are unpacked for a run.
-//
-// They arrive embedded in the rules module rather than as files here, because
-// a rule and the file proving it fires are one thing and travel together - a
-// rule that moved without its fixture would arrive somewhere unverifiable. A
-// rule is run against a path, though, not against an fs.FS, so they are
-// written out once per test binary.
-var fixtureRoot string
-
-func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "pwrgrep-fixtures")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "unpacking fixtures: %v\n", err)
-		os.Exit(1)
-	}
-	if err := unpack(pwrgreprules.Fixtures, fixtureDir, dir); err != nil {
-		fmt.Fprintf(os.Stderr, "unpacking fixtures: %v\n", err)
-		os.Exit(1)
-	}
-	fixtureRoot = dir
-	code := m.Run()
-	// Best effort: the run is over, and a temporary directory left behind is
-	// not worth changing the exit status a test produced.
-	_ = os.RemoveAll(dir)
-	os.Exit(code)
-}
-
-// fixtureDir is where the fixtures sit inside the rules module. They are under
-// testdata/ there so that the Go tool leaves them alone: they are Go, Java,
-// Python and Ruby source by construction, and a Go fixture in an ordinary
-// directory is a package that `go build` compiles and gofmt rewrites - which
-// would quietly repair the constructs some rules exist to catch.
-const fixtureDir = "testdata/fixtures"
-
-// unpack writes an embedded tree rooted at from into dst, flattening the root
-// away so that `# fixture: go/weak-hash.go` names dst/go/weak-hash.go.
-func unpack(src fs.FS, from, dst string) error {
-	return fs.WalkDir(src, from, func(name string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		rel, err := filepath.Rel(from, filepath.FromSlash(name))
-		if err != nil {
-			return err
-		}
-		out := filepath.Join(dst, rel)
-		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-			return err
-		}
-		body, err := fs.ReadFile(src, name)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(out, body, 0o644)
-	})
-}
+// fixtureRoot is where the corpus's fixtures are. They are under testdata/ so
+// that the Go tool leaves them alone: they are Go, Java, Python and C source by
+// construction, and a Go fixture in an ordinary directory is a package that
+// `go build` compiles and gofmt rewrites.
+const fixtureRoot = "testdata/fixtures"
 
 // annotation matches a `ruleid:`/`ok:` comment in a fixture, whatever the
 // language spells a comment as.
@@ -104,13 +51,22 @@ type finding struct {
 	Message    string `json:"Message"`
 }
 
-// corpus installs the vocabulary rules compile against and returns them all.
+// corpus installs the vocabulary rules compile against and returns the rules
+// built into the binary. Those found in a directory are left out: they are
+// whatever this machine has installed or somebody is writing, and neither is
+// what this repository ships.
 func corpus(t *testing.T) []*pwrgrep.Rule {
 	t.Helper()
 	udf.DefaultRegistry()
-	rules, err := pwrgrep.Rules()
+	all, err := pwrgrep.Rules()
 	if err != nil {
 		t.Fatalf("reading the corpus: %v", err)
+	}
+	var rules []*pwrgrep.Rule
+	for _, rule := range all {
+		if rule.Origin == pwrgrep.Builtin {
+			rules = append(rules, rule)
+		}
 	}
 	if len(rules) == 0 {
 		t.Fatal("the corpus is empty")
@@ -179,25 +135,9 @@ func expectations(t *testing.T, path, id string) (want []int, ok []int) {
 
 // TestEveryRuleWithAFixtureFindsExactlyWhatItMarks is the corpus test.
 //
-// The subtests run in parallel because there is one per rule and every rule in
-// the corpus now carries a fixture. Each reads one fixture file and shares
-// nothing with the others; the only state between them is fixtureRoot, which
-// TestMain writes before m.Run and removes after it returns.
-//
-// It does not run under the race detector, which is a trade and worth stating.
-// The detector costs this test sixteen times the CPU - 8 minutes of it becomes
-// 130 - and at 2177 rules that is more than the half-hour timeout on a runner
-// with four cores. What the detector would be watching is astsearch's
-// goroutines, which the engine's own tests exercise under it directly; running
-// them again once per rule buys the same coverage 2177 times over. So the
-// corpus check runs in a step of its own without -race, where it takes about
-// twenty seconds, and skipping is loud rather than silent because a check that
-// quietly stops running is worse than one that is slow.
+// The subtests run in parallel because there is one per rule, and each reads
+// one fixture file and shares nothing with the others.
 func TestEveryRuleWithAFixtureFindsExactlyWhatItMarks(t *testing.T) {
-	if raceEnabled {
-		t.Skip("the corpus check runs without -race, in its own step: " +
-			"go test -timeout 20m -run TestEveryRuleWithAFixtureFindsExactlyWhatItMarks ./pkg/pwrgrep/")
-	}
 	for _, rule := range withFixtures(t) {
 		t.Run(rule.Id(), func(t *testing.T) {
 			t.Parallel()
@@ -261,18 +201,15 @@ func TestEveryFixtureBelongsToARule(t *testing.T) {
 	for _, rule := range withFixtures(t) {
 		claimed[filepath.Clean(filepath.FromSlash(rule.Fixture))] = true
 	}
-	// Walked in the module rather than in the unpacked copy: an orphan is a
-	// file shipped with the corpus that no rule names, and the shipped tree is
-	// the one that can hold one.
-	err := fs.WalkDir(pwrgreprules.Fixtures, fixtureDir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(fixtureRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		rel, err := filepath.Rel(fixtureDir, filepath.FromSlash(path))
+		rel, err := filepath.Rel(fixtureRoot, path)
 		if err != nil {
 			return err
 		}
-		if !claimed[filepath.Clean(rel)] {
+		if !claimed[rel] {
 			t.Errorf("%s is not the fixture of any rule", path)
 		}
 		return nil
@@ -282,14 +219,13 @@ func TestEveryFixtureBelongsToARule(t *testing.T) {
 	}
 }
 
-// TestEveryRuleSaysWhereItCameFrom keeps the provenance attached to the rule
-// rather than to a README that will drift away from it. A translated rule is
-// checkable against the one it was translated from only while it says which
-// that was.
-func TestEveryRuleSaysWhereItCameFrom(t *testing.T) {
+// TestEveryShippedRuleHasAFixture holds the built-in corpus to the standard a
+// reader is entitled to: a rule that ships says, in a file beside it, what it
+// is supposed to find.
+func TestEveryShippedRuleHasAFixture(t *testing.T) {
 	for _, rule := range corpus(t) {
-		if rule.From == "" {
-			t.Errorf("%s has no `# from:` header naming the rule it was translated from", rule.Path)
+		if rule.Fixture == "" {
+			t.Errorf("%s has no `# fixture:` header, so nothing shows what it finds", rule.Path)
 		}
 	}
 }

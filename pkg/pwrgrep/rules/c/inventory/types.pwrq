@@ -1,0 +1,17 @@
+# rules: c-types
+# languages: c
+# fixture: c/types.c
+#
+# Every struct, union and enum defined, and every typedef. A typedef of a
+# struct defined in place reports both names, on the same line.
+
+["struct $NAME { $$$B };"] as $structs
+| ["union $NAME { $$$B };"] as $unions
+| ["enum $NAME { $$$B };"] as $enums
+| ["typedef $T $NAME;"] as $typedefs
+| scan_ast("*.[ch]"; $structs + $unions + $enums + $typedefs) as $all
+| ($all | of($structs) | finding("c-types"; "struct $NAME"))
+  + ($all | of($unions) | finding("c-types"; "union $NAME"))
+  + ($all | of($enums) | finding("c-types"; "enum $NAME"))
+  + ($all | of($typedefs) | finding("c-types"; "typedef $NAME"))
+| report

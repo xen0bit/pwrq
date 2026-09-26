@@ -1,0 +1,24 @@
+# rules: c-input-reaches-effect
+# languages: c
+# fixture: c/input-reaches-effect.c
+#
+# Source to sink: a value from the environment or the command line that
+# arrives, through declarations and assignments, at an argument of a call
+# that runs a command, opens or removes a file, or connects somewhere. It
+# answers "what can the outside world steer?", which is a question about
+# behaviour before it is one about security.
+#
+# The following is within one function and by assignment only - see reaching
+# in pkg/udf/pwrgrep. C fills most buffers through a pointer argument rather
+# than a return value, so `snprintf(cmd, ..., argv[1])` does not carry argv
+# into cmd here, and an absence is not proof there is no path.
+
+["getenv($$$_)", "secure_getenv($$$_)", "argv[$I]"] as $sources
+| ["system($$$A)", "popen($$$A)", "execl($$$A)", "execlp($$$A)", "execv($$$A)", "execvp($$$A)",
+   "fopen($$$A)", "open($$$A)", "remove($$$A)", "unlink($$$A)", "rename($$$A)",
+   "connect($$$A)"] as $sinks
+| scan_ast("*.[ch]"; $sources + $sinks) as $all
+| $all | of($sinks)
+| reaching($all | of($sources); [])
+| finding("c-input-reaches-effect"; "external input reaches this call's arguments $A")
+| report

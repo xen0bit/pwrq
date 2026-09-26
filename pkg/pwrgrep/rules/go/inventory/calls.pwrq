@@ -1,0 +1,12 @@
+# rules: go-calls
+# languages: go
+# fixture: go/calls.go
+#
+# Every call, by what was called. Narrow it to one function to find its
+# callers: `[invoke_pwrgrep("."; "go-calls")] | map(select(.Message == "calls
+# os.Exit"))`.
+
+scan_ast("*.go"; ["$F($$$A)"])
+| focus("F")
+| finding("go-calls"; "calls $F")
+| report

@@ -1,0 +1,10 @@
+# rules: java-imports
+# languages: java
+# fixture: java/Imports.java
+#
+# Every class and package a file imports, static or not.
+
+scan_ast("*.java"; ["import $I;", "import $I.*;", "import static $I;"]) as $all
+| ($all | of(["import $I.*;"]) | finding("java-imports"; "imports everything in $I"))
+  + ($all | of(["import $I;", "import static $I;"]) | finding("java-imports"; "imports $I"))
+| report

@@ -1,0 +1,26 @@
+# rules: cs-external-input
+# languages: c_sharp
+# fixture: csharp/ExternalInput.cs
+#
+# Everywhere a value enters the program from outside it: the environment, the
+# command line, the console, files, and HTTP requests - both read from the
+# request and bound to an action's parameters. These are the sources
+# cs-input-reaches-effect follows.
+
+["Environment.GetEnvironmentVariable($$$_)", "Environment.GetEnvironmentVariables()",
+ "Environment.GetCommandLineArgs()"] as $env
+| ["Console.ReadLine()", "Console.In"] as $console
+| ["File.ReadAllText($$$_)", "File.ReadAllLines($$$_)", "File.ReadAllBytes($$$_)", "File.OpenRead($$$_)",
+   "new StreamReader($$$_)"] as $files
+| ["Request.Query", "Request.Form", "Request.Headers", "Request.Cookies", "Request.Body",
+   "Request.RouteValues"] as $http
+| . as $root
+| scan_ast("*.cs"; $env + $console + $files + $http) as $all
+| ($all | of($env) | finding("cs-external-input"; "reads the environment or command line"))
+  + ($all | of($console) | finding("cs-external-input"; "reads the console"))
+  + ($all | of($files) | finding("cs-external-input"; "reads a file"))
+  + ($all | of($http) | finding("cs-external-input"; "reads an HTTP request"))
+  + ($root
+     | scan_regex("*.cs"; "\\[From(?:Query|Body|Route|Form|Header)[^\\]]*\\]\\s*[\\w<>\\[\\],.?]+\\s+(?P<V>\\w+)")
+     | focus("V") | finding("cs-external-input"; "$V is bound from an HTTP request"))
+| report

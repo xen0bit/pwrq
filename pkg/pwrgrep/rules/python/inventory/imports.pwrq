@@ -1,0 +1,11 @@
+# rules: python-imports
+# languages: python
+# fixture: python/imports.py
+#
+# Every module a file imports, in either spelling. `import a, b` reports the
+# first module only: a pattern binds one child of a list, not each of them.
+
+scan_ast("*.py"; ["import $M", "import $M as $A", "from $M import $$$N"])
+| focus("M")
+| finding("python-imports"; "imports $M")
+| report

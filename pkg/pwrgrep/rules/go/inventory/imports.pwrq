@@ -1,0 +1,21 @@
+# rules: go-imports
+# languages: go
+# fixture: go/imports.go
+#
+# Every package a file imports. What a file depends on is most of what it
+# does, and this is the list without reading past the header.
+#
+# A grouped import has no pattern of its own: the matcher roots a pattern at
+# the declaration and binds its first spec, so `import ( ... )` reads one
+# package however many there are. The block is found as text instead, and the
+# paths are the string literals inside it.
+
+["import \"$P\"", "import $N \"$P\""] as $single
+| ["\"$P\""] as $paths
+| . as $root
+| ($root | scan_regex("*.go"; "(?s)\\bimport \\(.*?\\n\\)")) as $blocks
+| scan_ast("*.go"; $single + $paths) as $all
+| ($all | of($single))
+  + ($all | of($paths) | within($blocks))
+| finding("go-imports"; "imports $P")
+| report

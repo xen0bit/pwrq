@@ -1,0 +1,18 @@
+# rules: go-variables
+# languages: go
+# fixture: go/variables.go
+#
+# Every variable and constant a program declares, by name: `:=`, `var` and
+# `const`, at package level and inside functions. Assignment to a name that
+# already exists is not a declaration and is not reported.
+#
+# A short declaration of several names reports them together, as written.
+
+["$$$L := $$$R"] as $short
+| ["var $V $T", "var $V = $X", "var $V $T = $X"] as $vars
+| ["const $V = $X", "const $V $T = $X"] as $consts
+| scan_ast("*.go"; $short + $vars + $consts) as $all
+| ($all | of($short) | focus("L") | finding("go-variables"; "variable $L"))
+  + ($all | of($vars) | focus("V") | finding("go-variables"; "variable $V"))
+  + ($all | of($consts) | focus("V") | finding("go-variables"; "constant $V"))
+| report

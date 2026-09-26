@@ -1,0 +1,12 @@
+# rules: python-functions
+# languages: python
+# fixture: python/functions.py
+#
+# Every function and method declared, by name, async or not, decorated or
+# not. A def inside a class is a method; the message does not say so, because
+# the class is one group_by away.
+
+scan_ast("*.py"; ["def $NAME($$$P): $$$B"])
+| focus("NAME")
+| finding("python-functions"; "function $NAME")
+| report

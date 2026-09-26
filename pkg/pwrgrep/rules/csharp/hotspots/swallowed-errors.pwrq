@@ -1,0 +1,14 @@
+# rules: cs-swallowed-errors
+# languages: c_sharp
+# fixture: csharp/SwallowedErrors.cs
+#
+# Where an exception is caught and nothing is done about it: an empty catch
+# block, with or without an exception type. Not always wrong, but always a
+# place where the code has decided a failure does not matter.
+#
+# It is found as text, because no pattern for a C# catch clause compiles to
+# one - a snippet starting `try` is read as a call to something named catch.
+
+scan_regex("*.cs"; "\\bcatch\\b\\s*(?:\\((?P<E>[\\w.]+)[^)]*\\))?\\s*(?:when\\s*\\([^)]*\\)\\s*)?\\{\\s*\\}")
+| finding("cs-swallowed-errors"; "catches an exception and ignores it")
+| report

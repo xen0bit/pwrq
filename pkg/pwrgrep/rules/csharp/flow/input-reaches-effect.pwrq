@@ -1,0 +1,23 @@
+# rules: cs-input-reaches-effect
+# languages: c_sharp
+# fixture: csharp/InputReachesEffect.cs
+#
+# Source to sink: a value from cs-external-input that arrives, through
+# assignments, at an argument of one of cs-side-effects. It answers "what can
+# the outside world steer?", which is a question about behaviour before it is
+# one about security.
+#
+# The following is within one method and by assignment only - see reaching in
+# pkg/udf/pwrgrep. A value handed to a helper and returned is not followed, so
+# an absence here is not proof there is no path. Parameters bound from a
+# request are not sources here, because a parameter is not an assignment.
+
+["Environment.GetEnvironmentVariable($$$_)", "Environment.GetCommandLineArgs()", "Console.ReadLine()",
+ "File.ReadAllText($$$_)", "Request.Query", "Request.Form", "Request.Headers", "Request.Cookies"] as $sources
+| ["Process.Start($$$A)", "new ProcessStartInfo($$$A)", "File.WriteAllText($$$A)", "File.Delete($$$A)",
+   "new SqlCommand($$$A)", "new StreamWriter($$$A)"] as $sinks
+| scan_ast("*.cs"; $sources + $sinks) as $all
+| $all | of($sinks)
+| reaching($all | of($sources); [])
+| finding("cs-input-reaches-effect"; "external input reaches this call's arguments $A")
+| report

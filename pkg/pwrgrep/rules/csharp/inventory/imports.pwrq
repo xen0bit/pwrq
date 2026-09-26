@@ -1,0 +1,9 @@
+# rules: cs-imports
+# languages: c_sharp
+# fixture: csharp/Imports.cs
+#
+# Every namespace a file brings in with using, static or not.
+
+scan_ast("*.cs"; ["using $N;"])
+| finding("cs-imports"; "uses $N")
+| report

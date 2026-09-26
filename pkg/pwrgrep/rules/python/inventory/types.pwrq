@@ -1,0 +1,12 @@
+# rules: python-types
+# languages: python
+# fixture: python/types.py
+#
+# Every class, and what it inherits from when it says.
+
+["class $NAME: $$$B"] as $plain
+| ["class $NAME($$$S): $$$B"] as $derived
+| scan_ast("*.py"; $plain + $derived) as $all
+| ($all | of($derived) | focus("NAME") | finding("python-types"; "class $NAME$S"))
+  + ($all | of($plain) | not_at($all | of($derived)) | focus("NAME") | finding("python-types"; "class $NAME"))
+| report

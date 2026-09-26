@@ -1,0 +1,19 @@
+# rules: java-types
+# languages: java
+# fixture: java/Types.java
+#
+# Every class, interface, enum and record, nested or not. Records are found as
+# text: the grammar this binary carries reads a record declaration, but no
+# pattern written as one compiles to it.
+
+["class $NAME { $$$B }"] as $classes
+| ["interface $NAME { $$$B }"] as $interfaces
+| ["enum $NAME { $$$B }"] as $enums
+| . as $root
+| scan_ast("*.java"; $classes + $interfaces + $enums) as $all
+| ($all | of($classes) | focus("NAME") | finding("java-types"; "class $NAME"))
+  + ($all | of($interfaces) | focus("NAME") | finding("java-types"; "interface $NAME"))
+  + ($all | of($enums) | focus("NAME") | finding("java-types"; "enum $NAME"))
+  + ($root | scan_regex("*.java"; "(?m)^[ \\t]*(?:(?:public|protected|private|static|final)[ \\t]+)*record[ \\t]+(?P<NAME>\\w+)")
+     | focus("NAME") | finding("java-types"; "record $NAME"))
+| report

@@ -412,6 +412,20 @@ func TestANamedGroupIsAHole(t *testing.T) {
 	}
 }
 
+// TestANamedGroupCanBeFocusedOn holds a named group to the rest of what a hole
+// is: a place, so that a regex spanning several lines can put its finding on
+// the line that matters rather than the one it started on.
+func TestANamedGroupCanBeFocusedOn(t *testing.T) {
+	dir := write(t, "A.java", "@Test\npublic void startsUp() {}\n")
+	got := run(t, `(`+quoted(dir)+` | scan_regex("*.java"; ["@Test\\s+public void (?P<NAME>\\w+)"]))
+	| focus("NAME") | map({L: .LineNumber, C: .Column, T: .Text})`)
+
+	want := []any{map[string]any{"C": 13.0, "L": 2.0, "T": "startsUp"}}
+	if !equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
 // quoted renders a path as a jq string literal.
 func quoted(s string) string {
 	body, _ := json.Marshal(s)

@@ -1,0 +1,19 @@
+# rules: c-external-input
+# languages: c
+# fixture: c/external-input.c
+#
+# Everywhere a value enters the program from outside it: the environment, the
+# command line, and anything read from a stream, a descriptor or a socket.
+# These are the sources c-input-reaches-effect follows.
+
+["getenv($$$_)", "secure_getenv($$$_)"] as $env
+| ["argv[$I]"] as $args
+| ["fgets($$$_)", "fread($$$_)", "read($$$_)", "scanf($$$_)", "fscanf($$$_)", "getline($$$_)",
+   "getchar()", "fgetc($$$_)", "gets($$$_)"] as $streams
+| ["recv($$$_)", "recvfrom($$$_)", "recvmsg($$$_)", "accept($$$_)"] as $network
+| scan_ast("*.[ch]"; $env + $args + $streams + $network) as $all
+| ($all | of($env) | finding("c-external-input"; "reads the environment"))
+  + ($all | of($args) | finding("c-external-input"; "reads the command line"))
+  + ($all | of($streams) | finding("c-external-input"; "reads a stream or descriptor"))
+  + ($all | of($network) | finding("c-external-input"; "reads from the network"))
+| report

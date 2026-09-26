@@ -1,0 +1,16 @@
+# rules: js-variables
+# languages: javascript, typescript, tsx
+# fixture: javascript/variables.ts
+#
+# Every variable declared with const, let or var, typed or not. A
+# destructuring declaration reports the pattern as written - `{ a, b }` - since
+# that is the list of names it binds. Assignment to a name that already exists
+# is not a declaration and is not reported.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["const $V = $X", "const $V: $T = $X"] as $consts
+| ["let $V = $X", "let $V: $T = $X", "let $V", "var $V = $X", "var $V"] as $vars
+| scan_ast($globs; $consts + $vars) as $all
+| ($all | of($consts) | focus("V") | finding("js-variables"; "constant $V"))
+  + ($all | of($vars) | focus("V") | finding("js-variables"; "variable $V"))
+| report

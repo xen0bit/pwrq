@@ -1,0 +1,24 @@
+# rules: js-external-input
+# languages: javascript, typescript, tsx
+# fixture: javascript/external-input.ts
+#
+# Everywhere a value enters the program from outside it: the environment, the
+# command line, standard input, files, HTTP requests, and in a browser the
+# URL, storage and the user. These are the sources js-input-reaches-effect
+# follows.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["process.env.$K", "process.env[$K]"] as $env
+| ["process.argv", "process.stdin"] as $args
+| ["fs.readFileSync($$$_)", "fs.readFile($$$_)", "fs.promises.readFile($$$_)", "readFile($$$_)",
+   "readFileSync($$$_)"] as $files
+| ["$R.params", "$R.query", "$R.body", "$R.headers", "$R.cookies"] as $http
+| ["location.search", "location.hash", "window.location", "document.location",
+   "localStorage.getItem($$$_)", "prompt($$$_)"] as $browser
+| scan_ast($globs; $env + $args + $files + $http + $browser) as $all
+| ($all | of($env) | finding("js-external-input"; "reads the environment"))
+  + ($all | of($args) | finding("js-external-input"; "reads the command line or stdin"))
+  + ($all | of($files) | finding("js-external-input"; "reads a file"))
+  + ($all | of($http) | where_capture("R"; "^(?:req|request|ctx\\.request)$") | finding("js-external-input"; "reads an HTTP request"))
+  + ($all | of($browser) | finding("js-external-input"; "reads browser input"))
+| report

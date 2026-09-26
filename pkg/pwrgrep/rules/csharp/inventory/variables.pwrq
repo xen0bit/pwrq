@@ -1,0 +1,11 @@
+# rules: cs-variables
+# languages: c_sharp
+# fixture: csharp/Variables.cs
+#
+# Every field, constant and local variable declared, by name and type.
+# Properties are types' business and are in cs-types.
+
+scan_ast("*.cs"; ["$T $V = $X;", "$T $V;"])
+| focus("V")
+| finding("cs-variables"; "variable $V of type $T")
+| report

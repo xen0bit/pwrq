@@ -1,0 +1,28 @@
+# rules: cs-side-effects
+# languages: c_sharp
+# fixture: csharp/SideEffects.cs
+#
+# Everywhere the program acts on the world: starts a process, writes or
+# removes a file, talks to the network, or queries a database. These are the
+# sinks cs-input-reaches-effect follows values into.
+#
+# Instance methods are found by name on any receiver: `$C.ExecuteReader()` is
+# not a pattern C# compiles, and `$O.$F($$$A)` with a test on the name is.
+
+["Process.Start($$$_)", "new ProcessStartInfo($$$_)"] as $commands
+| ["File.WriteAllText($$$_)", "File.WriteAllLines($$$_)", "File.WriteAllBytes($$$_)",
+   "File.AppendAllText($$$_)", "File.Delete($$$_)", "File.Move($$$_)", "File.Copy($$$_)",
+   "Directory.CreateDirectory($$$_)", "Directory.Delete($$$_)", "new StreamWriter($$$_)"] as $files
+| ["new HttpClient($$$_)", "new TcpClient($$$_)", "new Socket($$$_)"] as $network
+| ["new SqlCommand($$$_)"] as $commandObjects
+| ["$O.$F($$$A)"] as $members
+| scan_ast("*.cs"; $commands + $files + $network + $commandObjects + $members) as $all
+| ($all | of($commands) | finding("cs-side-effects"; "starts a process"))
+  + ($all | of($files) | finding("cs-side-effects"; "changes the filesystem"))
+  + ($all | of($network) | finding("cs-side-effects"; "uses the network"))
+  + ($all | of($members) | where_capture("F"; "^(?:Get|Post|Put|Delete|Send|Patch)Async$")
+     | where_capture("O"; "(?i)client|http") | finding("cs-side-effects"; "uses the network"))
+  + ($all | of($commandObjects) | finding("cs-side-effects"; "queries a database"))
+  + ($all | of($members) | where_capture("F"; "^(?:Execute(?:Reader|NonQuery|Scalar)(?:Async)?|FromSqlRaw|ExecuteSqlRaw(?:Async)?|Query|Execute)$")
+     | finding("cs-side-effects"; "queries a database"))
+| report

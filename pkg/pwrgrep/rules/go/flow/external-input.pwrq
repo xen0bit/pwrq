@@ -1,0 +1,20 @@
+# rules: go-external-input
+# languages: go
+# fixture: go/external-input.go
+#
+# Everywhere a value enters the program from outside it: the environment, the
+# command line, standard input, files, and HTTP requests. These are the
+# sources go-input-reaches-effect follows.
+
+["os.Getenv($$$A)", "os.LookupEnv($$$A)", "os.Environ()"] as $env
+| ["os.Args", "flag.String($$$A)", "flag.Int($$$A)", "flag.Bool($$$A)",
+   "flag.StringVar($$$A)", "flag.IntVar($$$A)", "flag.BoolVar($$$A)", "flag.Args()", "flag.Arg($$$A)"] as $args
+| ["os.Stdin", "os.ReadFile($$$A)", "os.Open($$$A)", "io.ReadAll($$$A)"] as $files
+| ["$R.URL.Query()", "$R.FormValue($$$A)", "$R.PostFormValue($$$A)", "$R.Header.Get($$$A)",
+   "$R.Cookie($$$A)", "$R.PathValue($$$A)", "$R.Body"] as $http
+| scan_ast("*.go"; $env + $args + $files + $http) as $all
+| ($all | of($env) | finding("go-external-input"; "reads the environment"))
+  + ($all | of($args) | finding("go-external-input"; "reads the command line"))
+  + ($all | of($files) | finding("go-external-input"; "reads a file or stdin"))
+  + ($all | of($http) | where_capture("R"; "^(?:r|req|request)$") | finding("go-external-input"; "reads an HTTP request"))
+| report

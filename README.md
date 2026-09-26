@@ -657,31 +657,40 @@ $ pwrq -c '[select_ast("."; "$D = request.args\n$$$_\nrender($D)")]'
 
 ### Rules
 
-A search is not a finding. "MD5" is a search; "MD5, in a file that imports
-crypto/md5, and not the one call that says it is not a signature" is a rule,
-and pwrq ships seventeen hundred of them, in 24 languages:
+A search is not an answer. "Every call" is a search; "every value read from
+the environment that reaches a command, through whatever it was assigned to on
+the way" is a rule. pwrq ships rules for reading an unfamiliar codebase — Go,
+Python, JavaScript and TypeScript, Java, C and C# — and each language has the
+same eleven:
+
+| Rule | What it reports |
+| --- | --- |
+| `<lang>-functions` | every function and method, by name |
+| `<lang>-types` | every class, struct, interface, enum and alias |
+| `<lang>-variables` | every variable and constant declared |
+| `<lang>-imports` | every module, package or header brought in |
+| `<lang>-calls` | every call, by what was called |
+| `<lang>-entry-points` | `main`, HTTP routes, CLI commands, tests, callbacks |
+| `<lang>-external-input` | where values come in: env, args, stdin, files, requests |
+| `<lang>-side-effects` | where the program acts: commands, files, network, SQL |
+| `<lang>-input-reaches-effect` | source to sink: input that arrives at an effect |
+| `<lang>-concurrency` | threads, goroutines, tasks, locks |
+| `<lang>-swallowed-errors` | errors caught or discarded and left there |
+
+The prefixes are `go`, `python`, `js`, `java`, `c` and `cs`, and one more rule,
+`todo-comments`, reads the TODO, FIXME and HACK notes in any language.
 
 ```console
-$ echo src | pwrq -R 'invoke_pwrgrep("go-weak-hash")'
-$ pwrq -n '[invoke_pwrgrep("src"; "go/lang/security")] | group_by(.RuleId)'
-$ pwrq -n '[get_pwrgrep_rule("python")] | map(.Id)'
+$ pwrq -n '[invoke_pwrgrep("src"; "go-functions")] | group_by(.Path) | map({(.[0].Path): map(.Message)}) | add'
+$ pwrq -n '[invoke_pwrgrep("src"; "python-input-reaches-effect")] | map("\(.Path):\(.LineNumber) \(.Message)")[]'
+$ pwrq -n '[invoke_pwrgrep("."; "todo-comments")] | map(.Message)'
+$ pwrq -n '[get_pwrgrep_rule("java")] | map(.Id)'
 ```
 
 A rule is named by its finding id, by a glob over ids, by a path into the
-catalogue — or by a language, which is how you ask for all of them. Name the
-language rather than reaching for a glob: ids are not prefixed with it, so
-`"python-*"` is a glob matching the few that happen to begin that way rather
-than the Python corpus, and it comes back with 26 rules of the 264 and no
-complaint. The catalogue path is where a rule was ported from rather than what
-it is about, and for TypeScript the two are far apart — most of its rules sit
-under `javascript/` because that is the pack they came from. So the language is
-what a rule declares, not where it is filed:
-
-```console
-$ pwrq -n '[get_pwrgrep_rule("typescript")] | length'
-161
-$ pwrq -n '[invoke_pwrgrep("src"; ["typescript", "javascript"])] | length'
-```
+catalogue — `go/flow` is the three data-flow rules — or by a language, which
+is how you ask for all of them. The language is what a rule declares, not
+where it is filed, so it finds rules of your own too.
 
 A rule is an ordinary pwrq query in a file, and that is the whole design —
 `scan_ast`, `scan_regex`, `of`, `within`, `not_at`, `in_files_with`,
@@ -690,13 +699,15 @@ any other, so writing a rule is writing a query and extending the corpus is
 dropping a file in:
 
 ```
-# rules: go-weak-hash
+# rules: go-input-reaches-effect
+# languages: go
 
-["md5.New()", "md5.Sum($$$A)"] as $calls
-| ["\"crypto/md5\""] as $imports
-| scan_ast("*.go"; $calls + $imports) as $all
-| ($all | of($calls) | in_files_with($all | of($imports)))
-| finding("go-weak-hash"; "this hash is not collision resistant")
+["os.Getenv($$$_)", "os.Args"] as $sources
+| ["exec.Command($$$A)", "os.WriteFile($$$A)"] as $sinks
+| scan_ast("*.go"; $sources + $sinks) as $all
+| $all | of($sinks)
+| reaching($all | of($sources); [])
+| finding("go-input-reaches-effect"; "external input reaches $A")
 | report
 ```
 
@@ -721,20 +732,21 @@ whole catalogue unreadable.
 [pkg/pwrgrep](pkg/pwrgrep) is the guide to all of this: listing, reading,
 running, iterating on and writing rules, with examples.
 
-The corpus itself is [pwrgrep-rules](https://github.com/xen0bit/pwrgrep-rules),
-a module pwrq depends on and embeds, so a rule fix does not need a release of
-the engine. It also carries the translator that produced most of it, a manifest
-accounting for every rule it was given, and a validation run against the
-fixtures those rules are tested with — which is the number that matters,
-because a rule that runs and finds nothing is worth knowing about.
+A security corpus — some two thousand rules, most translated from semgrep's —
+lives apart in [pwrgrep-rules](https://github.com/xen0bit/pwrgrep-rules). It is
+not built in; point pwrq at a checkout of it to run it beside these:
+
+```console
+$ PWRQ_RULES=../pwrgrep-rules/rules pwrq -n '[invoke_pwrgrep("src"; "go")] | group_by(.RuleId)'
+```
 
 Three kinds of rule share the vocabulary. Most search syntax. Those whose
-patterns are lines rather than constructs — Dockerfile, the `regex` and
-`generic` ones — search text with `scan_regex`, which reports the same kind of
-match, so every operator works on them unchanged. The rest follow a value:
-`reaching` takes a set of sources, a set of sinks and a set of sanitizers, and
-keeps the sinks a source arrives at, through assignments in its own scope.
-
+subject is text rather than a construct — a comment, an annotation a grammar
+will not give a pattern to — search it with `scan_regex`, which reports the
+same kind of match, so every operator works on them unchanged. The rest follow
+a value: `reaching` takes a set of sources, a set of sinks and a set of
+sanitizers, and keeps the sinks a source arrives at, through assignments in
+its own scope.
 
 Parsing is [gotreesitter](https://github.com/odvcencio/gotreesitter), a pure-Go
 tree-sitter runtime — no cgo, so this changes nothing about cross-compiling to

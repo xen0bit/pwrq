@@ -1,0 +1,20 @@
+# rules: js-entry-points
+# languages: javascript, typescript, tsx
+# fixture: javascript/entry-points.ts
+#
+# Where control comes in from outside: HTTP routes on an Express-shaped
+# router (Express, Koa, Fastify and Hono all spell it this way), a module's
+# default export, the `require.main === module` guard, and tests.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["$APP.$VERB($PATH, $$$_)"] as $routes
+| ["export default $X"] as $exports
+| ["if (require.main === module) { $$$B }"] as $main
+| ["describe($NAME, $$$_)", "it($NAME, $$$_)", "test($NAME, $$$_)"] as $tests
+| scan_ast($globs; $routes + $exports + $main + $tests) as $all
+| ($all | of($routes) | where_capture("VERB"; "^(?:get|post|put|patch|delete|all|use|route)$")
+     | where_capture("PATH"; "^[\"'`]/") | finding("js-entry-points"; "HTTP route $PATH"))
+  + ($all | of($exports) | finding("js-entry-points"; "default export"))
+  + ($all | of($main) | finding("js-entry-points"; "program entry point"))
+  + ($all | of($tests) | where_capture("NAME"; "^[\"'`]") | finding("js-entry-points"; "test $NAME"))
+| report

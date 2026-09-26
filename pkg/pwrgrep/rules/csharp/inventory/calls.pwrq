@@ -1,0 +1,11 @@
+# rules: cs-calls
+# languages: c_sharp
+# fixture: csharp/Calls.cs
+#
+# Every call, by what was called, and every object constructed with new.
+# Narrow it to one name to find the callers of a method.
+
+scan_ast("*.cs"; ["$F($$$A)", "new $T($$$A)"]) as $all
+| ($all | of(["$F($$$A)"]) | focus("F") | finding("cs-calls"; "calls $F"))
+  + ($all | of(["new $T($$$A)"]) | finding("cs-calls"; "constructs $T"))
+| report

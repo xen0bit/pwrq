@@ -1,0 +1,17 @@
+# rules: python-variables
+# languages: python
+# fixture: python/variables.py
+#
+# Every name bound by assignment, plain or annotated. Python has no
+# declaration, so the first binding and a later one look alike and both are
+# reported. An assignment to an attribute or an item - `self.x = ...`,
+# `d[k] = ...` - binds no new name and is left out.
+
+["$V = $X"] as $plain
+| ["$V: $T = $X", "$V: $T"] as $annotated
+| scan_ast("*.py"; $plain + $annotated) as $all
+| ($all | of($plain) + ($all | of($annotated)))
+| where_capture_not("V"; "[.\\[]")
+| focus("V")
+| finding("python-variables"; "variable $V")
+| report

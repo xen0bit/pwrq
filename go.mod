@@ -64,7 +64,6 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/muesli/termenv v0.16.0
 	github.com/odvcencio/gotreesitter v0.51.0
-	github.com/xen0bit/pwrgrep-rules v0.1.2-0.20260914171647-32ff3824ed5b
 	golang.org/x/crypto v0.51.0
 	golang.org/x/net v0.55.0
 	golang.org/x/text v0.39.0

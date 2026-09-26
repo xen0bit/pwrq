@@ -1,0 +1,14 @@
+# rules: go-types
+# languages: go
+# fixture: go/types.go
+#
+# Every named type: structs, interfaces, and the types defined over another
+# one. The message says which, because "where are the interfaces" is usually
+# the first question about a package someone else wrote.
+
+scan_ast("*.go"; ["type $NAME $T"])
+| focus("NAME")
+| (where_capture("T"; "^struct\\b") | finding("go-types"; "struct $NAME"))
+  + (where_capture("T"; "^interface\\b") | finding("go-types"; "interface $NAME"))
+  + (where_capture_not("T"; "^(?:struct|interface)\\b") | finding("go-types"; "type $NAME ($T)"))
+| report

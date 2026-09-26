@@ -1,0 +1,18 @@
+# rules: go-functions
+# languages: go
+# fixture: go/functions.go
+#
+# Every function and method declared, by name, and the receiver a method hangs
+# off. Read with group_by(.Path) it is a table of contents for a package.
+#
+# A result type is a field the pattern has to name or leave out, so a function
+# that returns something and one that does not are two patterns each - and a
+# receiver with no name is a third shape of method.
+
+["func $NAME($$$P) { $$$B }", "func $NAME($$$P) $RES { $$$B }"] as $funcs
+| ["func ($R $T) $NAME($$$P) { $$$B }", "func ($R $T) $NAME($$$P) $RES { $$$B }",
+   "func ($T) $NAME($$$P) { $$$B }", "func ($T) $NAME($$$P) $RES { $$$B }"] as $methods
+| scan_ast("*.go"; $funcs + $methods) as $all
+| ($all | of($funcs) | focus("NAME") | finding("go-functions"; "function $NAME"))
+  + ($all | of($methods) | focus("NAME") | finding("go-functions"; "method $NAME on $T"))
+| report

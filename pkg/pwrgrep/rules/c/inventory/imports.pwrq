@@ -1,0 +1,9 @@
+# rules: c-imports
+# languages: c
+# fixture: c/imports.c
+#
+# Every header a file includes, system or local.
+
+scan_ast("*.[ch]"; ["#include $H"])
+| finding("c-imports"; "includes $H")
+| report
