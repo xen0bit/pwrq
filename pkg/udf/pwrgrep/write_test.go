@@ -86,7 +86,7 @@ func TestARuleThatWouldBreakTheCatalogueIsNotWritten(t *testing.T) {
 		t.Fatalf("a refused write left %v behind (%v)", entries, err)
 	}
 	// The catalogue still reads, which is the thing being protected.
-	run(t, `[get_pwrgrep_rule("go-weak-hash")] | length`)
+	run(t, `[get_pwrgrep_rule("go-functions")] | length`)
 }
 
 // errorOf runs a query that is expected to fail and returns what it said.

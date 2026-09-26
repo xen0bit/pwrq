@@ -1,0 +1,30 @@
+# rules: js-functions
+# languages: javascript, typescript, tsx
+# fixture: javascript/functions.ts
+#
+# Every function declared, by name: function declarations, arrow functions and
+# function expressions bound to a name, and class methods. One rule for
+# JavaScript and TypeScript, whose functions are spelled alike.
+#
+# Methods are found as text inside class bodies. A pattern for a method binds
+# the first member of the class and no other, so a class of ten methods would
+# report one. The regex reads a line that opens with a name, a parameter list
+# and a brace, after whatever modifiers the two languages allow, and the
+# control-flow keywords that share that shape are subtracted.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["function $NAME($$$P) { $$$B }", "function $NAME($$$P): $R { $$$B }"] as $declared
+| ["const $NAME = ($$$P) => $B", "let $NAME = ($$$P) => $B", "const $NAME = async ($$$P) => $B",
+   "const $NAME = function($$$P) { $$$B }"] as $bound
+| ["class $C { $$$B }"] as $classes
+| . as $root
+| scan_ast($globs; $declared + $bound + $classes) as $all
+| ($all | of($declared) | focus("NAME") | finding("js-functions"; "function $NAME"))
+  + ($all | of($bound) | focus("NAME") | finding("js-functions"; "function $NAME"))
+  + ($root
+     | scan_regex($globs; "(?m)^[ \\t]*(?:(?:public|private|protected|static|async|get|set|override|readonly|abstract)[ \\t]+)*\\*?(?P<NAME>#?[A-Za-z_$][\\w$]*)[ \\t]*(?:<[^>\\n]*>)?\\([^)\\n]*\\)[ \\t]*(?::[^{\\n]+)?\\{")
+     | within($all | of($classes))
+     | where_capture_not("NAME"; "^(?:if|for|while|switch|catch|function|return)$")
+     | focus("NAME")
+     | finding("js-functions"; "method $NAME"))
+| report

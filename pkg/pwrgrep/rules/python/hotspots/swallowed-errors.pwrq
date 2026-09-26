@@ -1,0 +1,16 @@
+# rules: python-swallowed-errors
+# languages: python
+# fixture: python/swallowed-errors.py
+#
+# Where an exception is caught and nothing is done about it: a try with a
+# handler whose whole body is `pass` or `...`. Not always wrong, but always a
+# place where the code has decided a failure does not matter.
+#
+# The finding is on the `try`. The handlers are tested as text rather than
+# bound by a pattern, because a comment is a child in Python's tree and a hole
+# after `except:` binds whichever child comes first - often the comment.
+
+scan_ast("*.py"; ["try:\n    $$$T\nexcept:\n    $$$H"])
+| where_text("\\bexcept\\b[^\\n]*:[ \\t]*\\n(?:[ \\t]*#[^\\n]*\\n)*[ \\t]*(?:pass|\\.\\.\\.)[ \\t]*(?:\\n|$)")
+| finding("python-swallowed-errors"; "catches an exception and ignores it")
+| report

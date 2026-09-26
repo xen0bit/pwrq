@@ -1,0 +1,18 @@
+# rules: js-swallowed-errors
+# languages: javascript, typescript, tsx
+# fixture: javascript/swallowed-errors.ts
+#
+# Where an error is caught and nothing is done about it: an empty catch block,
+# with or without a binding, and a promise's .catch handed a function that
+# does nothing. Not always wrong, but always a place where the code has
+# decided a failure does not matter.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["try { $$$T } catch ($E) { $$$B }", "try { $$$T } catch { $$$B }"] as $tries
+| ["$P.catch(($$$A) => { $$$B })", "$P.catch(() => { $$$B })"] as $handlers
+| scan_ast($globs; $tries + $handlers) as $all
+| ($all | of($tries) | where_capture("B"; "^(?:catch\\s*)?\\{\\s*\\}$") | focus("B")
+     | finding("js-swallowed-errors"; "catches an error and ignores it"))
+  + ($all | of($handlers) | where_capture("B"; "^\\{\\s*\\}$")
+     | finding("js-swallowed-errors"; "catches a rejected promise and ignores it"))
+| report

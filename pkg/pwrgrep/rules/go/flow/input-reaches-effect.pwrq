@@ -1,0 +1,25 @@
+# rules: go-input-reaches-effect
+# languages: go
+# fixture: go/input-reaches-effect.go
+#
+# Source to sink: a value from go-external-input that arrives, through
+# assignments, at an argument of one of go-side-effects. It answers "what can
+# the outside world steer?", which is a question about behaviour before it is
+# one about security.
+#
+# The following is within one function and by assignment only - see reaching
+# in pkg/udf/pwrgrep. A value handed to a helper and returned is not followed,
+# so an absence here is not proof there is no path.
+
+["os.Getenv($$$_)", "os.LookupEnv($$$_)", "os.Args", "flag.Arg($$$_)", "flag.Args()",
+ "os.Stdin", "os.ReadFile($$$_)", "$R.URL.Query()", "$R.FormValue($$$_)",
+ "$R.PostFormValue($$$_)", "$R.Header.Get($$$_)", "$R.PathValue($$$_)", "$R.Body"] as $sources
+| ["exec.Command($$$A)", "exec.CommandContext($$$A)", "os.WriteFile($$$A)", "os.Create($$$A)",
+   "os.OpenFile($$$A)", "os.Remove($$$A)", "os.RemoveAll($$$A)", "http.Get($$$A)",
+   "http.Post($$$A)", "http.NewRequest($$$A)"] as $sinks
+| ["$DB.Query($$$A)", "$DB.QueryRow($$$A)", "$DB.Exec($$$A)"] as $queries
+| scan_ast("*.go"; $sources + $sinks + $queries) as $all
+| ($all | of($sinks)) + ($all | of($queries) | where_capture("DB"; "(?i)db|tx|conn|stmt"))
+| reaching($all | of($sources); [])
+| finding("go-input-reaches-effect"; "external input reaches this call's arguments $A")
+| report

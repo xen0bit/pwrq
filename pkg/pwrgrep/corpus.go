@@ -1,6 +1,7 @@
 package pwrgrep
 
 import (
+	"embed"
 	"fmt"
 	"io/fs"
 	"os"
@@ -9,8 +10,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-
-	pwrgreprules "github.com/xen0bit/pwrgrep-rules"
 )
 
 // builtin is the corpus, built into the binary.
@@ -21,15 +20,14 @@ import (
 // twice. The package installs the same files to SystemDir, where they can be
 // read and edited; this copy is what a bare `go install` binary falls back to.
 //
-// The files come from github.com/xen0bit/pwrgrep-rules, which is a module
-// rather than a directory here or a git submodule. Not a directory here
-// because a rule fix should not need a release of the engine. Not a submodule
-// because the corpus is embedded, and a submodule's contents are not in the
-// zip the module proxy serves: `go install pwrq@latest` would fetch a tree
-// with an empty rules directory and fail at the embed, and so would a clone
-// that forgot --recurse-submodules. As a dependency it is fetched like any
-// other and pinned in go.sum, so every build path carries the same corpus.
-var builtin fs.FS = pwrgreprules.FS
+// The corpus is small and about reading code rather than judging it: where
+// things are declared, where a program starts, what it reads and writes, and
+// where a value travels from one to the other. A larger corpus - the security
+// rules in github.com/xen0bit/pwrgrep-rules, say - is a directory on
+// PWRQ_RULES, not something this binary has to carry.
+//
+//go:embed rules
+var builtin embed.FS
 
 // The directories a rule may come from, most specific first.
 const (

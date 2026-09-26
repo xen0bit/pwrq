@@ -12,7 +12,7 @@
 # GoReleaser output
 /dist/
 
-# `make rules.export` — the corpus copied out of the module cache for packaging
+# Local build output (formerly `make rules.export`, which no longer exists)
 /build/
 
 # Coverage files

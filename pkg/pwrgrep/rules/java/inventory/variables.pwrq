@@ -1,0 +1,12 @@
+# rules: java-variables
+# languages: java
+# fixture: java/Variables.java
+#
+# Every field and local variable declared, by name and type. A declaration of
+# several names at once - `int x = 1, y = 2;` - reports the first: a pattern
+# binds one child of a list, not each of them.
+
+scan_ast("*.java"; ["$T $V = $X;", "$T $V;"])
+| focus("V")
+| finding("java-variables"; "variable $V of type $T")
+| report

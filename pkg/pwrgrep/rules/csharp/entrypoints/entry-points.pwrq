@@ -1,0 +1,25 @@
+# rules: cs-entry-points
+# languages: c_sharp
+# fixture: csharp/EntryPoints.cs
+#
+# Where control comes in from outside: Main, ASP.NET controller actions and
+# minimal-API routes, and xUnit, NUnit and MSTest tests.
+#
+# The attributed ones are read as text, from the attribute to the name of the
+# method it sits on; minimal-API routes are too, because a pattern with two
+# named arguments in C# parses as a declaration rather than a call.
+
+["static void Main($$$_) { $$$B }", "static int Main($$$_) { $$$B }",
+ "static async Task Main($$$_) { $$$B }"] as $main
+| . as $root
+| scan_ast("*.cs"; $main) as $all
+| ($all | finding("cs-entry-points"; "program entry point"))
+  + ($root | scan_regex("*.cs";
+       "\\[(?:Http(?:Get|Post|Put|Delete|Patch)|Route)\\((?P<PATH>\"[^\"]*\")\\)\\](?:\\s*(?://[^\\n]*|\\[[^\\]]*\\]|[\\w<>\\[\\],.?]+))*?\\s+(?P<NAME>\\w+)\\s*\\(")
+     | focus("NAME") | finding("cs-entry-points"; "HTTP route $PATH handled by $NAME"))
+  + ($root | scan_regex("*.cs"; "\\.Map(?:Get|Post|Put|Delete|Patch)\\(\\s*(?P<PATH>\"[^\"]*\")")
+     | finding("cs-entry-points"; "HTTP route $PATH"))
+  + ($root | scan_regex("*.cs";
+       "\\[(?:Fact|Theory|Test|TestMethod)\\](?:\\s*(?://[^\\n]*|\\[[^\\]]*\\]|[\\w<>\\[\\],.?]+))*?\\s+(?P<NAME>\\w+)\\s*\\(")
+     | focus("NAME") | finding("cs-entry-points"; "test $NAME"))
+| report

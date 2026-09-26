@@ -1,0 +1,15 @@
+# rules: java-concurrency
+# languages: java
+# fixture: java/Concurrency.java
+#
+# Where work starts running beside the code that started it, and where
+# threads meet: threads and executors, asynchronous futures, parallel
+# streams, and synchronized blocks. The places to read slowly.
+
+["new Thread($$$_)", "Executors.$F($$$_)", "CompletableFuture.supplyAsync($$$_)",
+ "CompletableFuture.runAsync($$$_)", "$C.parallelStream()"] as $spawn
+| ["synchronized ($L) { $$$B }"] as $locks
+| scan_ast("*.java"; $spawn + $locks) as $all
+| ($all | of($spawn) | finding("java-concurrency"; "starts concurrent work"))
+  + ($all | of($locks) | finding("java-concurrency"; "synchronizes on $L"))
+| report

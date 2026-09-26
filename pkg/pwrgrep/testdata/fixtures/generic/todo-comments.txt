@@ -1,0 +1,14 @@
+Annotations here are read on the line before each subject.
+
+ruleid: todo-comments
+// TODO: handle the empty case
+ruleid: todo-comments
+# FIXME(remy) this leaks a file descriptor
+ruleid: todo-comments
+/* HACK: until upstream fixes the parser */
+ruleid: todo-comments
+ * XXX remove once v2 ships
+ok: todo-comments
+todoList := []string{}
+ok: todo-comments
+fmt.Println("TODO")

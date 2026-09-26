@@ -1,0 +1,26 @@
+# rules: java-entry-points
+# languages: java
+# fixture: java/EntryPoints.java
+#
+# Where control comes in from outside: main, Spring and JAX-RS request
+# handlers, servlet methods, and JUnit tests.
+#
+# The annotated ones are read as text. An annotation in a pattern has to be
+# the whole of the method's modifiers, so `@GetMapping("/x") public String
+# f()` would need a pattern per combination of modifiers; a regex from the
+# annotation to the name that follows it does not.
+
+["public static void main(String[] $A) { $$$B }"] as $main
+| ["$RT $NAME($$$_) { $$$B }"] as $methods
+| . as $root
+| scan_ast("*.java"; $main + $methods) as $all
+| ($all | of($main) | finding("java-entry-points"; "program entry point"))
+  + ($all | of($methods) | where_capture("NAME"; "^do(?:Get|Post|Put|Delete)$")
+     | focus("NAME") | finding("java-entry-points"; "servlet handler $NAME"))
+  + ($root | scan_regex("*.java";
+       "@(?:Get|Post|Put|Delete|Patch|Request)Mapping\\((?:\\s*(?:value|path)\\s*=\\s*)?(?P<PATH>\"[^\"]*\")[^)]*\\)(?:\\s*(?://[^\\n]*|@\\w+(?:\\([^)]*\\))?|[\\w<>\\[\\],?]+))*?\\s+(?P<NAME>\\w+)\\s*\\(")
+     | focus("NAME") | finding("java-entry-points"; "HTTP route $PATH handled by $NAME"))
+  + ($root | scan_regex("*.java";
+       "@Test\\b(?:\\s*(?://[^\\n]*|@\\w+(?:\\([^)]*\\))?|[\\w<>\\[\\],?]+))*?\\s+(?P<NAME>\\w+)\\s*\\(")
+     | focus("NAME") | finding("java-entry-points"; "test $NAME"))
+| report

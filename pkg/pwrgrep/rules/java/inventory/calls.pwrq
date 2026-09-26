@@ -1,0 +1,15 @@
+# rules: java-calls
+# languages: java
+# fixture: java/Calls.java
+#
+# Every method call, by what was called and on what, and every constructor
+# invoked with new. Narrow it to one name to find the callers of a method.
+
+["$O.$F($$$A)"] as $qualified
+| ["$F($$$A)"] as $bare
+| ["new $T($$$A)"] as $constructed
+| scan_ast("*.java"; $qualified + $bare + $constructed) as $all
+| ($all | of($qualified) | finding("java-calls"; "calls $O.$F"))
+  + ($all | of($bare) | not_at($all | of($qualified)) | finding("java-calls"; "calls $F"))
+  + ($all | of($constructed) | finding("java-calls"; "constructs $T"))
+| report

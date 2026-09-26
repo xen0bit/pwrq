@@ -1,0 +1,23 @@
+# rules: cs-functions
+# languages: c_sharp
+# fixture: csharp/Functions.cs
+#
+# Every method and constructor declared, by name, with the method's return
+# type.
+#
+# A constructor has no pattern that parses on its own, so constructors are
+# found as text inside type bodies: a capitalised name, a parameter list, an
+# optional `: base(...)` or `: this(...)`, and a brace, with nothing but
+# modifiers before it.
+
+["$RT $NAME($$$_) { $$$B }"] as $methods
+| ["class $C { $$$B }", "struct $C { $$$B }"] as $types
+| . as $root
+| scan_ast("*.cs"; $methods + $types) as $all
+| ($all | of($methods) | focus("NAME") | finding("cs-functions"; "method $NAME returning $RT"))
+  + ($root
+     | scan_regex("*.cs"; "(?m)^[ \\t]*(?:(?:public|protected|private|internal|static)[ \\t]+)*(?P<NAME>[A-Z]\\w*)[ \\t]*\\([^)]*\\)[ \\t]*(?::[ \\t]*(?:base|this)\\([^)]*\\)[ \\t]*)?\\{")
+     | within($all | of($types))
+     | focus("NAME")
+     | finding("cs-functions"; "constructor $NAME"))
+| report

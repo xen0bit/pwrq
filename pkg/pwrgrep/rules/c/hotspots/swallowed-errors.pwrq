@@ -1,0 +1,16 @@
+# rules: c-swallowed-errors
+# languages: c
+# fixture: c/swallowed-errors.c
+#
+# Where a failure is seen and let go: a result cast to void, which is C's way
+# of saying "I know this can fail and I do not care", and an error check whose
+# body is empty.
+
+["(void)$F($$$A);"] as $discarded
+| ["if ($C) { $$$B }"] as $checks
+| scan_ast("*.[ch]"; $discarded + $checks) as $all
+| ($all | of($discarded) | finding("c-swallowed-errors"; "discards what $F returns"))
+  + ($all | of($checks) | where_capture("B"; "^\\{\\s*\\}$")
+     | where_capture("C"; "<\\s*0|==\\s*-1|==\\s*NULL|!=\\s*0|\\berr|^!")
+     | finding("c-swallowed-errors"; "checks for failure and does nothing about it"))
+| report

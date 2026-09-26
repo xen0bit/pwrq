@@ -1,0 +1,19 @@
+# rules: js-concurrency
+# languages: javascript, typescript, tsx
+# fixture: javascript/concurrency.ts
+#
+# Where work is scheduled to run later or elsewhere: timers, workers,
+# processes forked, and promises combined. JavaScript runs one thing at a time,
+# so these are the places where the order things happen in is not the order
+# they are written in.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["setTimeout($$$_)", "setInterval($$$_)", "setImmediate($$$_)", "queueMicrotask($$$_)",
+   "process.nextTick($$$_)"] as $timers
+| ["new Worker($$$_)", "fork($$$_)", "cluster.fork($$$_)"] as $workers
+| ["Promise.all($$$_)", "Promise.allSettled($$$_)", "Promise.race($$$_)", "Promise.any($$$_)"] as $promises
+| scan_ast($globs; $timers + $workers + $promises) as $all
+| ($all | of($timers) | finding("js-concurrency"; "schedules work for later"))
+  + ($all | of($workers) | finding("js-concurrency"; "starts a worker or process"))
+  + ($all | of($promises) | finding("js-concurrency"; "waits on several promises at once"))
+| report

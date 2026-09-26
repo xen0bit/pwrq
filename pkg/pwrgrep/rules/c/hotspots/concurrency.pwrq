@@ -1,0 +1,15 @@
+# rules: c-concurrency
+# languages: c
+# fixture: c/concurrency.c
+#
+# Where work starts running beside the code that started it, and where it
+# meets again: threads, forked processes, and the locks between them. The
+# places to read slowly.
+
+["pthread_create($$$_)", "thrd_create($$$_)", "fork()"] as $spawn
+| ["pthread_mutex_lock($$$_)", "pthread_rwlock_rdlock($$$_)", "pthread_rwlock_wrlock($$$_)",
+   "mtx_lock($$$_)", "pthread_join($$$_)"] as $sync
+| scan_ast("*.[ch]"; $spawn + $sync) as $all
+| ($all | of($spawn) | finding("c-concurrency"; "starts a thread or process"))
+  + ($all | of($sync) | finding("c-concurrency"; "waits on another thread"))
+| report

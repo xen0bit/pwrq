@@ -1,0 +1,19 @@
+# rules: js-types
+# languages: javascript, typescript, tsx
+# fixture: javascript/types.ts
+#
+# Every class, and in TypeScript every interface, type alias and enum. The
+# TypeScript shapes do not parse as JavaScript and so find nothing in a .js
+# file, which is what they should find there.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["class $NAME { $$$B }"] as $classes
+| ["interface $NAME { $$$B }"] as $interfaces
+| ["type $NAME = $T"] as $aliases
+| ["enum $NAME { $$$B }"] as $enums
+| scan_ast($globs; $classes + $interfaces + $aliases + $enums) as $all
+| ($all | of($classes) | focus("NAME") | finding("js-types"; "class $NAME"))
+  + ($all | of($interfaces) | focus("NAME") | finding("js-types"; "interface $NAME"))
+  + ($all | of($aliases) | focus("NAME") | finding("js-types"; "type $NAME"))
+  + ($all | of($enums) | focus("NAME") | finding("js-types"; "enum $NAME"))
+| report

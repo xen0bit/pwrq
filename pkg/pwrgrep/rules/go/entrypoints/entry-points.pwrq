@@ -1,0 +1,17 @@
+# rules: go-entry-points
+# languages: go
+# fixture: go/entry-points.go
+#
+# Where control comes in from outside: main, init, HTTP handlers registered on
+# a mux or a router, and tests. Reading a program starts at one of these.
+
+["func main() { $$$B }", "func init() { $$$B }"] as $starts
+| ["$M.HandleFunc($PATH, $$$_)", "$M.Handle($PATH, $$$_)",
+   "$R.GET($PATH, $$$_)", "$R.POST($PATH, $$$_)", "$R.PUT($PATH, $$$_)",
+   "$R.DELETE($PATH, $$$_)", "$R.PATCH($PATH, $$$_)"] as $routes
+| ["func $NAME($T *testing.T) { $$$B }"] as $tests
+| scan_ast("*.go"; $starts + $routes + $tests) as $all
+| ($all | of($starts) | finding("go-entry-points"; "program entry point"))
+  + ($all | of($routes) | where_capture("PATH"; "^[\"`]/") | finding("go-entry-points"; "HTTP route $PATH"))
+  + ($all | of($tests) | focus("NAME") | finding("go-entry-points"; "test $NAME"))
+| report

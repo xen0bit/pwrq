@@ -1,0 +1,16 @@
+# rules: python-concurrency
+# languages: python
+# fixture: python/concurrency.py
+#
+# Where work starts running beside the code that started it: threads,
+# processes, executors, and asyncio tasks. The places to read slowly.
+
+["threading.Thread($$$_)", "Thread($$$_)", "multiprocessing.Process($$$_)", "Process($$$_)",
+ "ThreadPoolExecutor($$$_)", "ProcessPoolExecutor($$$_)", "multiprocessing.Pool($$$_)",
+ "asyncio.create_task($$$_)", "asyncio.gather($$$_)", "asyncio.run($$$_)",
+ "asyncio.ensure_future($$$_)"] as $spawn
+| ["threading.Lock()", "threading.RLock()", "Lock()", "asyncio.Lock()", "$Q.Queue($$$_)"] as $sync
+| scan_ast("*.py"; $spawn + $sync) as $all
+| ($all | of($spawn) | finding("python-concurrency"; "starts concurrent work"))
+  + ($all | of($sync) | finding("python-concurrency"; "coordinates concurrent work"))
+| report

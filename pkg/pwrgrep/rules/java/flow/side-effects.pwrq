@@ -1,0 +1,24 @@
+# rules: java-side-effects
+# languages: java
+# fixture: java/SideEffects.java
+#
+# Everywhere the program acts on the world: runs a command, writes or removes
+# a file, talks to the network, or queries a database. These are the sinks
+# java-input-reaches-effect follows values into.
+
+["Runtime.getRuntime().exec($$$_)", "new ProcessBuilder($$$_)"] as $commands
+| ["Files.write($$$_)", "Files.writeString($$$_)", "Files.delete($$$_)", "Files.deleteIfExists($$$_)",
+   "Files.move($$$_)", "Files.copy($$$_)", "Files.createDirectories($$$_)",
+   "new FileOutputStream($$$_)", "new FileWriter($$$_)"] as $files
+| ["new URL($$$_)", "new Socket($$$_)", "HttpClient.newHttpClient()"] as $network
+| ["$C.send($$$_)", "$C.sendAsync($$$_)"] as $sends
+| ["$S.executeQuery($$$_)", "$S.executeUpdate($$$_)", "$S.execute($$$_)", "$S.prepareStatement($$$_)",
+   "$S.createQuery($$$_)", "$S.createNativeQuery($$$_)"] as $queries
+| scan_ast("*.java"; $commands + $files + $network + $sends + $queries) as $all
+| ($all | of($commands) | finding("java-side-effects"; "runs a command"))
+  + ($all | of($files) | finding("java-side-effects"; "changes the filesystem"))
+  + ($all | of($network) | finding("java-side-effects"; "uses the network"))
+  + ($all | of($sends) | where_capture("C"; "(?i)client") | finding("java-side-effects"; "uses the network"))
+  + ($all | of($queries) | where_capture("S"; "(?i)stmt|statement|conn|em|entityManager|session")
+     | finding("java-side-effects"; "queries a database"))
+| report

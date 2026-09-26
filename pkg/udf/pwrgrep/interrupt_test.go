@@ -23,12 +23,6 @@ import (
 // tree writes a few files a rule can be run over. Small, because none of these
 // tests is about how much there is to find - only about whether the search
 // stops when it is told to and agrees with itself when it does not.
-//
-// The recv call is here for one reason, and it is a property of the corpus
-// rather than of this file: conn_recv is the rule that sorts first under
-// python/lang/security, and TestTheFirstFindingArrivesBeforeTheLastRuleRuns
-// needs the first rule in path order to be one that fires. Its comment says
-// what that buys.
 func tree(t *testing.T, files int) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -36,14 +30,10 @@ func tree(t *testing.T, files int) string {
 		name := filepath.Join(dir, "mod"+string(rune('a'+i%26))+string(rune('a'+i/26))+".py")
 		source := strings.Join([]string{
 			"import hashlib",
-			"import multiprocessing.connection",
 			"import subprocess",
 			"",
 			"def digest(data):",
 			"    return hashlib.md5(data).hexdigest()",
-			"",
-			"def receive(conn):",
-			"    return multiprocessing.connection.Connection.recv(conn)",
 			"",
 			"def run(cmd):",
 			"    return subprocess.call(cmd, shell=True)",
@@ -129,20 +119,12 @@ func TestACancelledScanIsAFailureRatherThanACleanResult(t *testing.T) {
 //
 // Named rules rather than the whole Python corpus, because this is the one
 // test here that has to run to completion rather than stop at a deadline, and
-// the corpus is 264 rules: under -race on a CI runner, running it twice is
-// longer than `go test` allows a package. What the cache is asked to get wrong
+// it runs its set twice under -race. What the cache is asked to get wrong
 // needs two rules over one tree, not every rule - both of these fire on the
 // files tree writes, so the second one reads what the first one parsed.
-//
-// Cheap ones, deliberately. This runs its set twice under -race, so a taint
-// rule here costs the package a minute and buys nothing: what is being checked
-// is that the second run sees the same tree as the first, and a pattern rule
-// shares a parse exactly as a taint rule does. subprocess-injection is the
-// only other rule in the corpus that fires on this tree, and that is why it is
-// not here.
 func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 	dir := tree(t, 12)
-	rules := `["python-weak-hash", "python-subprocess-shell-true"]`
+	rules := `["python-functions", "python-side-effects"]`
 	query := `[invoke_pwrgrep("` + dir + `"; ` + rules + `)] | map(.RuleId + " " + .Path + " " + (.LineNumber | tostring)) | sort | join(",")`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -172,57 +154,44 @@ func TestTheSameCorpusTwiceInOneProcessAgreesWithItself(t *testing.T) {
 // Findings arrive as they are found rather than at the end.
 //
 // `first(...)` reads one value and abandons the iterator, so a streaming
-// search stops after the rule that produced it and a buffered one runs the
-// whole corpus first. The difference is the whole point of streaming: a scan
-// that is stopped partway still has something to show for the rules it
-// finished.
+// search stops after the rule that produced it and a buffered one runs every
+// rule first. The difference is the whole point of streaming: a scan that is
+// stopped partway still has something to show for the rules it finished.
 //
-// Measured against a deadline shorter than the full corpus takes. If the
-// search were still buffered, the deadline would arrive before the first value
-// did and this would fail with a timeout instead of a finding.
-//
-// Three minutes is not a claim that the first finding takes anything like that
-// long. It is a number chosen to sit between the two answers this can give,
-// and the measurements it sits between are these. Locally, first finding 1.1s
-// and all 107 rules 9.6s; -race multiplies the first of those by about twelve,
-// and a CI runner multiplies it again by about three, which puts streaming at
-// roughly forty seconds there and buffering at roughly five and a half
-// minutes. What the number has to clear is the cost of being first, because
-// the first search in a process compiles the tree-sitter patterns of every
-// rule it reaches before it can match anything - and that cost is per rule,
-// not per file, so a smaller tree does not reduce it.
-//
-// Which is why this searches python/lang/security rather than all of python,
-// and why tree() writes a Connection.recv call. Rules run in path order and
-// this stops at the first finding, so what it costs is whatever precedes the
-// rule that fires - and the cheapest version of that is a rule that fires
-// first. conn_recv sorts first under python/lang/security, and the recv call
-// is there to make it fire.
-//
-// Both halves of that have been learned the hard way. The hand-written rules
-// used to sort ahead of the entire generated corpus - "pwrq" sorts before
-// "python" - and one of them fired almost immediately; moving them into the
-// categories they search put them behind python/django, whose taint rules are
-// the most expensive in the corpus, and the first finding went from 0.75s to
-// 11.8s. Narrowing the selector fixed that until the corpus dropped its
-// non-security rules, which left python-subprocess-shell-true as the first to
-// fire with 56 rules ahead of it, most of a directory of taint rules among
-// them: 5.0s locally, which is 180s on a CI runner under -race. That is the
-// deadline itself, and it failed there at 180.54s. Naming the rules the search
-// reaches is not something this test can control; what it can control is
-// whether the first one it reaches has something to find.
+// This used to be measured against a deadline shorter than the whole Python
+// corpus took, which only worked while the corpus was large enough for the
+// two answers to be minutes apart. It is decided by construction instead. Two
+// rules go on PWRQ_RULES: the first in path order fires on every file tree
+// writes, and the second fails the query the moment it runs. A streaming
+// search never reaches the second; a buffered one reports its error.
 func TestTheFirstFindingArrivesBeforeTheLastRuleRuns(t *testing.T) {
 	dir := tree(t, 40)
+	rules := t.TempDir()
+	write := func(name, source string) {
+		t.Helper()
+		path := filepath.Join(rules, "streaming", name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("a-fires.pwrq", "# rules: streaming-fires\n# languages: python\n\n"+
+		"scan_ast(\"*.py\"; [\"subprocess.call($$$_)\"])\n"+
+		"| finding(\"streaming-fires\"; \"found\")\n| report\n")
+	write("b-fails.pwrq", "# rules: streaming-fails\n\n"+
+		"error(\"the search ran the next rule after its first finding\")\n")
+	t.Setenv("PWRQ_RULES", rules)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
-	res := runIn(ctx, `first(invoke_pwrgrep("`+dir+`"; "python/lang/security")) | .RuleId`)
+	res := runIn(ctx, `first(invoke_pwrgrep("`+dir+`"; "streaming")) | .RuleId`)
 	if res.Error != "" {
-		t.Fatalf("no finding arrived before the deadline, which is what a "+
-			"buffered search would do: %s", res.Error)
+		t.Fatalf("the search did not stop at its first finding: %s", res.Error)
 	}
-	if res.Count != 1 {
-		t.Fatalf("expected one finding, got %d", res.Count)
+	if res.Count != 1 || res.Values[0] != `"streaming-fires"` {
+		t.Fatalf("expected one streaming-fires finding, got %d: %v", res.Count, res.Values)
 	}
 }

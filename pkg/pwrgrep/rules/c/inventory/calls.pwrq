@@ -1,0 +1,16 @@
+# rules: c-calls
+# languages: c
+# fixture: c/calls.c
+#
+# Every call, by the function called. Narrow it to one name to find the
+# callers of a function.
+#
+# A C pattern is read as a declaration as well as an expression, so `$F($$$A)`
+# also matches `int x = 1;` - `int` the "function" and `x = 1` its argument.
+# A real call's arguments are in parentheses, and that is the test.
+
+scan_ast("*.[ch]"; ["$F($$$A)"])
+| where_capture("A"; "^\\(")
+| focus("F")
+| finding("c-calls"; "calls $F")
+| report

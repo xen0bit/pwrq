@@ -1,0 +1,20 @@
+# rules: c-side-effects
+# languages: c
+# fixture: c/side-effects.c
+#
+# Everywhere the program acts on the world: runs a command, writes, removes
+# or renames a file, or talks to the network. These are the sinks
+# c-input-reaches-effect follows values into.
+
+["system($$$_)", "popen($$$_)", "execl($$$_)", "execlp($$$_)", "execle($$$_)", "execv($$$_)",
+ "execvp($$$_)", "execve($$$_)"] as $commands
+| ["fopen($F, $MODE)"] as $opens
+| ["fwrite($$$_)", "write($$$_)", "fprintf($$$_)", "fputs($$$_)", "remove($$$_)", "unlink($$$_)",
+   "rename($$$_)", "mkdir($$$_)", "rmdir($$$_)", "chmod($$$_)", "truncate($$$_)"] as $files
+| ["socket($$$_)", "connect($$$_)", "bind($$$_)", "send($$$_)", "sendto($$$_)"] as $network
+| scan_ast("*.[ch]"; $commands + $opens + $files + $network) as $all
+| ($all | of($commands) | finding("c-side-effects"; "runs a command"))
+  + ($all | of($opens) | where_capture("MODE"; "[wa+]") | finding("c-side-effects"; "opens a file for writing"))
+  + ($all | of($files) | finding("c-side-effects"; "changes a file"))
+  + ($all | of($network) | finding("c-side-effects"; "uses the network"))
+| report

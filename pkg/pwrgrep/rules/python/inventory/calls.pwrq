@@ -1,0 +1,11 @@
+# rules: python-calls
+# languages: python
+# fixture: python/calls.py
+#
+# Every call, by what was called. Narrow it to one name to find the callers
+# of a function.
+
+scan_ast("*.py"; ["$F($$$A)"])
+| focus("F")
+| finding("python-calls"; "calls $F")
+| report

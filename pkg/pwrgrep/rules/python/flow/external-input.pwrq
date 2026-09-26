@@ -1,0 +1,20 @@
+# rules: python-external-input
+# languages: python
+# fixture: python/external-input.py
+#
+# Everywhere a value enters the program from outside it: the environment, the
+# command line, standard input, files opened for reading, and web requests.
+# These are the sources python-input-reaches-effect follows.
+
+["os.environ[$K]", "os.environ.get($$$_)", "os.getenv($$$_)"] as $env
+| ["sys.argv", "$P.parse_args()", "input($$$_)", "sys.stdin"] as $args
+| ["open($F)", "open($F, $MODE)"] as $open
+| ["request.args", "request.form", "request.json", "request.get_json($$$_)",
+   "request.data", "request.cookies", "request.headers", "request.files",
+   "request.GET", "request.POST", "request.body"] as $web
+| scan_ast("*.py"; $env + $args + $open + $web) as $all
+| ($all | of($env) | finding("python-external-input"; "reads the environment"))
+  + ($all | of($args) | finding("python-external-input"; "reads the command line or stdin"))
+  + ($all | of($open) | where_capture_not("MODE"; "[wax+]") | finding("python-external-input"; "reads a file"))
+  + ($all | of($web) | finding("python-external-input"; "reads a web request"))
+| report

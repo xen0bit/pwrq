@@ -1,0 +1,22 @@
+# rules: cs-concurrency
+# languages: c_sharp
+# fixture: csharp/Concurrency.cs
+#
+# Where work starts running beside the code that started it, and where it
+# meets again: tasks, threads, parallel loops, and lock statements. The places
+# to read slowly. A lock is found as text; the statement has no pattern that
+# compiles to it.
+#
+# The C# grammar this binary carries loses an `await` expression statement
+# that follows another statement, so `await Task.WhenAll(...)` part-way down a
+# method is not seen. Assigned first - `var all = Task.WhenAll(...)` - it is.
+
+["Task.Run($$$_)", "Task.Factory.StartNew($$$_)", "new Thread($$$_)", "ThreadPool.QueueUserWorkItem($$$_)",
+ "Parallel.For($$$_)", "Parallel.ForEach($$$_)", "Parallel.Invoke($$$_)"] as $spawn
+| ["$O.$F($$$A)"] as $join
+| . as $root
+| scan_ast("*.cs"; $spawn + $join) as $all
+| ($all | of($spawn) | finding("cs-concurrency"; "starts concurrent work"))
+  + ($all | of($join) | where_capture("O"; "^Task$") | where_capture("F"; "^(?:WhenAll|WhenAny|WaitAll|WaitAny)$") | finding("cs-concurrency"; "waits on several tasks at once"))
+  + ($root | scan_regex("*.cs"; "\\block\\s*\\((?P<L>[^)]*)\\)") | finding("cs-concurrency"; "locks $L"))
+| report

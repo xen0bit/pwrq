@@ -1,0 +1,21 @@
+# rules: c-variables
+# languages: c
+# fixture: c/variables.c
+#
+# Every variable declared, global or local, with its type. A pointer's name
+# is reported with its star, as it is written, because that is where C puts
+# it. Macros are constants in all but name, and are reported as such.
+#
+# `$T $V;` is loose in C: the declarator it binds may carry an initialiser or
+# an array size with it, so those are left to the patterns that name them.
+
+["$T $V = $X;"] as $initialised
+| ["$T $V;"] as $vars
+| ["$T $V[$N];", "$T $V[$N] = $X;"] as $arrays
+| ["#define $NAME $V"] as $macros
+| scan_ast("*.[ch]"; $initialised + $vars + $arrays + $macros) as $all
+| ($all | of($initialised) | where_capture_not("V"; "[(\\[]") | focus("V") | finding("c-variables"; "variable $V of type $T"))
+  + ($all | of($vars) | where_capture_not("V"; "[(\\[=]") | focus("V") | finding("c-variables"; "variable $V of type $T"))
+  + ($all | of($arrays) | focus("V") | finding("c-variables"; "array $V of $T"))
+  + ($all | of($macros) | focus("NAME") | finding("c-variables"; "macro $NAME"))
+| report

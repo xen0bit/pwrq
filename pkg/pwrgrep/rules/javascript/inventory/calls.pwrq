@@ -1,0 +1,12 @@
+# rules: js-calls
+# languages: javascript, typescript, tsx
+# fixture: javascript/calls.ts
+#
+# Every call, by what was called, and every constructor invoked with new.
+# Narrow it to one name to find the callers of a function.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| scan_ast($globs; ["$F($$$A)", "new $F($$$A)"]) as $all
+| ($all | of(["$F($$$A)"]) | focus("F") | finding("js-calls"; "calls $F"))
+  + ($all | of(["new $F($$$A)"]) | focus("F") | finding("js-calls"; "constructs $F"))
+| report

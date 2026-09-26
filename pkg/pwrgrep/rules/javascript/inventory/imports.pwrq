@@ -1,0 +1,11 @@
+# rules: js-imports
+# languages: javascript, typescript, tsx
+# fixture: javascript/imports.ts
+#
+# Every module a file imports: ES imports of every shape, dynamic import(),
+# and CommonJS require().
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| scan_ast($globs; ["import \"$M\"", "require(\"$M\")", "import(\"$M\")"])
+| finding("js-imports"; "imports $M")
+| report

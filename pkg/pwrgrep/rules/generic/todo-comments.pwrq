@@ -1,0 +1,15 @@
+# rules: todo-comments
+# fixture: generic/todo-comments.txt
+#
+# Every TODO, FIXME, HACK, XXX and BUG left in a comment, in any language:
+# the notes a codebase keeps about what it knows is unfinished. The marker and
+# what follows it are the message, so a list of these reads as a backlog.
+#
+# It is a regex over text rather than a pattern, because a comment is not
+# syntax any grammar gives a shape to, and the rule should not care which
+# language it is reading. The marker has to follow a comment opener - `//`,
+# `#`, `/*`, `*`, `--` or `;` - so an identifier called todoList is not one.
+
+scan_regex("*"; "(?m)(?://|#|/\\*|^\\s*\\*|--|;)\\s*(?P<NOTE>(?:TODO|FIXME|HACK|XXX|BUG)\\b.*?)\\s*(?:\\*/)?$")
+| finding("todo-comments"; "$NOTE")
+| report

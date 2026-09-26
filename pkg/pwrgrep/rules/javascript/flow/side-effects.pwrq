@@ -1,0 +1,26 @@
+# rules: js-side-effects
+# languages: javascript, typescript, tsx
+# fixture: javascript/side-effects.ts
+#
+# Everywhere the program acts on the world: runs a command or evaluates code,
+# writes or removes a file, talks to the network, queries a database, or
+# writes HTML into a page. These are the sinks js-input-reaches-effect follows
+# values into.
+
+["*.js", "*.jsx", "*.mjs", "*.cjs", "*.ts", "*.tsx", "*.mts", "*.cts"] as $globs
+| ["exec($$$_)", "execSync($$$_)", "spawn($$$_)", "spawnSync($$$_)", "execFile($$$_)",
+   "child_process.$F($$$_)", "eval($$$_)", "new Function($$$_)"] as $commands
+| ["fs.writeFileSync($$$_)", "fs.writeFile($$$_)", "fs.appendFileSync($$$_)", "fs.unlinkSync($$$_)",
+   "fs.unlink($$$_)", "fs.rmSync($$$_)", "fs.rm($$$_)", "fs.mkdirSync($$$_)", "fs.renameSync($$$_)",
+   "writeFile($$$_)", "writeFileSync($$$_)"] as $files
+| ["fetch($$$_)", "axios.$F($$$_)", "axios($$$_)", "http.request($$$_)", "https.request($$$_)",
+   "http.get($$$_)", "https.get($$$_)", "new WebSocket($$$_)"] as $network
+| ["$DB.query($$$_)", "$DB.execute($$$_)", "$DB.raw($$$_)"] as $queries
+| ["$E.innerHTML = $X", "$E.outerHTML = $X", "document.write($$$_)"] as $html
+| scan_ast($globs; $commands + $files + $network + $queries + $html) as $all
+| ($all | of($commands) | finding("js-side-effects"; "runs a command or evaluates code"))
+  + ($all | of($files) | finding("js-side-effects"; "changes the filesystem"))
+  + ($all | of($network) | finding("js-side-effects"; "uses the network"))
+  + ($all | of($queries) | where_capture("DB"; "(?i)db|pool|conn|client|knex|sequelize") | finding("js-side-effects"; "queries a database"))
+  + ($all | of($html) | finding("js-side-effects"; "writes HTML into the page"))
+| report

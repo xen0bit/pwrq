@@ -1,0 +1,24 @@
+# rules: cs-types
+# languages: c_sharp
+# fixture: csharp/Types.cs
+#
+# Every class, interface, struct, enum and record, and every property - which
+# in C# is as much a part of a type's shape as its methods. Properties are
+# found as text: no pattern for `{ get; set; }` compiles to one.
+
+["class $NAME { $$$B }"] as $classes
+| ["interface $NAME { $$$B }"] as $interfaces
+| ["struct $NAME { $$$B }"] as $structs
+| ["enum $NAME { $$$B }"] as $enums
+| ["record $NAME($$$P);"] as $records
+| . as $root
+| scan_ast("*.cs"; $classes + $interfaces + $structs + $enums + $records) as $all
+| ($all | of($classes) | focus("NAME") | finding("cs-types"; "class $NAME"))
+  + ($all | of($interfaces) | focus("NAME") | finding("cs-types"; "interface $NAME"))
+  + ($all | of($structs) | focus("NAME") | finding("cs-types"; "struct $NAME"))
+  + ($all | of($enums) | focus("NAME") | finding("cs-types"; "enum $NAME"))
+  + ($all | of($records) | focus("NAME") | finding("cs-types"; "record $NAME"))
+  + ($root
+     | scan_regex("*.cs"; "(?m)^[ \\t]*(?:(?:public|protected|private|internal|static|virtual|override|abstract|required|readonly|new)[ \\t]+)*(?P<T>[\\w<>\\[\\],.?]+)[ \\t]+(?P<NAME>\\w+)[ \\t]*\\{[ \\t]*(?:(?:public|private|protected|internal)[ \\t]+)?(?:get|set|init)\\b")
+     | focus("NAME") | finding("cs-types"; "property $NAME of type $T"))
+| report

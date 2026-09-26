@@ -318,11 +318,22 @@ func textMatch(path, expr string, re *regexp.Regexp, text string, lines *astsear
 	line, column := lines.At(start)
 	endLine, endColumn := lines.At(end)
 	captures := map[string]any{}
+	// A named group is a hole, so it has a place as well as a text: that is
+	// what lets focus move a finding onto it, the way it does for a pattern.
+	spans := map[string]any{}
 	for i, name := range re.SubexpNames() {
 		if name == "" || 2*i+1 >= len(span) || span[2*i] < 0 {
 			continue
 		}
-		captures[name] = text[span[2*i]:span[2*i+1]]
+		from, to := span[2*i], span[2*i+1]
+		captures[name] = text[from:to]
+		fromLine, fromColumn := lines.At(from)
+		toLine, toColumn := lines.At(to)
+		spans[name] = map[string]any{
+			"LineNumber": fromLine, "Column": fromColumn,
+			"EndLineNumber": toLine, "EndColumn": toColumn,
+			"Offset": from, "EndOffset": to,
+		}
 	}
 	return astsearch.AstMatch.Build(map[string]any{
 		"Path":          path,
@@ -336,6 +347,7 @@ func textMatch(path, expr string, re *regexp.Regexp, text string, lines *astsear
 		"EndOffset":     end,
 		"Text":          text[start:end],
 		"Captures":      captures,
+		"CaptureSpans":  spans,
 		"PwrqValue":     path,
 	})
 }

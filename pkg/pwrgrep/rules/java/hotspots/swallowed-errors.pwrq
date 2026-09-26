@@ -1,0 +1,14 @@
+# rules: java-swallowed-errors
+# languages: java
+# fixture: java/SwallowedErrors.java
+#
+# Where an exception is caught and nothing is done about it: a catch block
+# with nothing in it. Not always wrong, but always a place where the code has
+# decided a failure does not matter. Only the first catch of a try is read: a
+# pattern binds one child of a list, not each of them.
+
+scan_ast("*.java"; ["try { $$$T } catch ($E $V) { $$$B }"])
+| where_capture("B"; "^\\{\\s*\\}$")
+| focus("B")
+| finding("java-swallowed-errors"; "catches $E and ignores it")
+| report

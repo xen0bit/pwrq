@@ -1,0 +1,20 @@
+# rules: python-entry-points
+# languages: python
+# fixture: python/entry-points.py
+#
+# Where control comes in from outside: the `__main__` guard, web routes
+# declared with a decorator (Flask, FastAPI and the frameworks that copied
+# them), click commands, and pytest tests.
+
+["if __name__ == \"__main__\": $$$B", "if __name__ == '__main__': $$$B"] as $main
+| ["@$APP.$VERB($PATH, $$$_)\ndef $NAME($$$P): $$$B",
+   "@$APP.$VERB($PATH)\ndef $NAME($$$P): $$$B"] as $routes
+| ["@click.command($$$_)\ndef $NAME($$$P): $$$B"] as $commands
+| ["def $NAME($$$P): $$$B"] as $defs
+| scan_ast("*.py"; $main + $routes + $commands + $defs) as $all
+| ($all | of($main) | finding("python-entry-points"; "program entry point"))
+  + ($all | of($routes) | where_capture("VERB"; "^(?:route|get|post|put|patch|delete|websocket)$")
+     | where_capture("PATH"; "^[\"']/") | focus("NAME") | finding("python-entry-points"; "route $PATH handled by $NAME"))
+  + ($all | of($commands) | focus("NAME") | finding("python-entry-points"; "command $NAME"))
+  + ($all | of($defs) | where_capture("NAME"; "^test_") | focus("NAME") | finding("python-entry-points"; "test $NAME"))
+| report

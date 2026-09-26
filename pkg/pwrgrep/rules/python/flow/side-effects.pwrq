@@ -1,0 +1,25 @@
+# rules: python-side-effects
+# languages: python
+# fixture: python/side-effects.py
+#
+# Everywhere the program acts on the world: runs a command, writes or removes
+# a file, talks to the network, or queries a database. These are the sinks
+# python-input-reaches-effect follows values into.
+
+["os.system($$$_)", "os.popen($$$_)", "subprocess.run($$$_)", "subprocess.call($$$_)",
+ "subprocess.Popen($$$_)", "subprocess.check_call($$$_)", "subprocess.check_output($$$_)"] as $commands
+| ["os.remove($$$_)", "os.unlink($$$_)", "os.rmdir($$$_)", "os.rename($$$_)", "os.makedirs($$$_)",
+   "os.mkdir($$$_)", "shutil.rmtree($$$_)", "shutil.move($$$_)", "shutil.copy($$$_)",
+   "shutil.copyfile($$$_)", "shutil.copytree($$$_)"] as $files
+| ["open($F, $MODE)"] as $writes
+| ["requests.get($$$_)", "requests.post($$$_)", "requests.put($$$_)", "requests.patch($$$_)",
+   "requests.delete($$$_)", "requests.request($$$_)", "urlopen($$$_)", "urllib.request.urlopen($$$_)",
+   "socket.socket($$$_)", "httpx.get($$$_)", "httpx.post($$$_)"] as $network
+| ["$C.execute($$$_)", "$C.executemany($$$_)"] as $queries
+| scan_ast("*.py"; $commands + $files + $writes + $network + $queries) as $all
+| ($all | of($commands) | finding("python-side-effects"; "runs a command"))
+  + ($all | of($files) | finding("python-side-effects"; "changes the filesystem"))
+  + ($all | of($writes) | where_capture("MODE"; "[wax+]") | finding("python-side-effects"; "writes a file"))
+  + ($all | of($network) | finding("python-side-effects"; "uses the network"))
+  + ($all | of($queries) | finding("python-side-effects"; "queries a database"))
+| report

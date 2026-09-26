@@ -1,0 +1,18 @@
+# rules: c-entry-points
+# languages: c
+# fixture: c/entry-points.c
+#
+# Where control comes in from outside: main, and the functions handed to the
+# system to call back later - signal handlers, exit handlers, and the start
+# routines of threads.
+
+["int main($$$_) { $$$B }", "void main($$$_) { $$$B }"] as $main
+| ["signal($S, $H)"] as $signals
+| ["atexit($H)"] as $exits
+| ["pthread_create($T, $A, $H, $ARG)"] as $threads
+| scan_ast("*.[ch]"; $main + $signals + $exits + $threads) as $all
+| ($all | of($main) | finding("c-entry-points"; "program entry point"))
+  + ($all | of($signals) | where_capture_not("H"; "^SIG_") | finding("c-entry-points"; "$H handles $S"))
+  + ($all | of($exits) | finding("c-entry-points"; "$H runs at exit"))
+  + ($all | of($threads) | finding("c-entry-points"; "$H runs on a new thread"))
+| report

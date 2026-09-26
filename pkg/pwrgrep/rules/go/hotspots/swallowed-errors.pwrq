@@ -1,0 +1,17 @@
+# rules: go-swallowed-errors
+# languages: go
+# fixture: go/swallowed-errors.go
+#
+# Where an error is thrown away: assigned to the blank identifier, or checked
+# and then ignored with an empty block. Not always wrong, but always a place
+# where the code has decided a failure does not matter, and that decision is
+# worth knowing about when reading it.
+
+["$V, _ := $F($$$A)", "$V, _ = $F($$$A)"] as $beside
+| ["_ = $F($$$A)"] as $blank
+| ["if $ERR != nil { $$$B }"] as $checks
+| scan_ast("*.go"; $beside + $blank + $checks) as $all
+| ($all | of($beside) | finding("go-swallowed-errors"; "discards the second value $F returns"))
+  + ($all | of($blank) | finding("go-swallowed-errors"; "discards what $F returns"))
+  + ($all | of($checks) | where_capture("B"; "^\\{\\s*\\}$") | where_capture("ERR"; "(?i)err") | finding("go-swallowed-errors"; "checks $ERR and does nothing about it"))
+| report

@@ -17,14 +17,14 @@ import (
 // tree and report what they find.
 //
 // A rule is what select_ast is not. select_ast answers one question - where
-// does this piece of syntax occur - and that is rarely a finding on its own:
-// "MD5, but only in a file that imports crypto/md5", "assigning to innerHTML,
-// but not a string literal". A rule carries the combining, the message and the
-// files it is about, so running one is naming it.
+// does this piece of syntax occur - and that is rarely an answer on its own:
+// "every function, and the type a method hangs off", "an environment variable
+// that reaches exec.Command". A rule carries the combining, the message and
+// the files it is about, so running one is naming it.
 //
-//	"src" | invoke_pwrgrep("go-weak-hash")
+//	"src" | invoke_pwrgrep("go-functions")
 //	[invoke_pwrgrep("src"; ["go", "python"])] | group_by(.RuleId)
-//	[invoke_pwrgrep("src"; "go/lang/security")] | map(.Path) | unique
+//	[invoke_pwrgrep("src"; "go/flow")] | map(.Path) | unique
 //
 // The rules named may be finding ids, globs over them, or paths into the
 // catalogue; get_pwrgrep_rule lists what there is. Naming nothing that exists
@@ -183,7 +183,7 @@ func bindSelectors(arg any) ([]string, error) {
 // first - so the only honest answer comes from walking it rather than from a
 // list written down beside it.
 //
-//	get_pwrgrep_rule("go-weak-hash") | .Query
+//	get_pwrgrep_rule("go-functions") | .Query
 //	[get_pwrgrep_rule] | length
 //	[get_pwrgrep_rule("python")] | map(.Id)
 func RegisterGetPwrgrepRule() gojq.CompilerOption {
