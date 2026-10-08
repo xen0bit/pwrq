@@ -355,11 +355,11 @@ func (p *hbbProc) ask(req map[string]any, timeout time.Duration) (map[string]any
 }
 
 func (p *hbbProc) kill() {
-	p.stdin.Close()
+	_ = p.stdin.Close()
 	if p.cmd.Process != nil {
-		p.cmd.Process.Kill()
+		_ = p.cmd.Process.Kill()
 	}
-	go p.cmd.Wait()
+	go func() { _ = p.cmd.Wait() }()
 }
 
 // tailBuffer keeps the end of the child's stderr, for the error message of a
