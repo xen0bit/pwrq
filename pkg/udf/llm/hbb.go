@@ -62,7 +62,8 @@ type hbbOptions struct {
 // $file is {Path, Full} to read it from disk, or {Path, Text}; Path is what the
 // window headers show and its extension picks the language unless Lang is given.
 // The result is {Path, Lang, Lines, Windows: [{From, To, P}], Tokens, Cached},
-// or {Path, Skip} when the model has no language for the file. P holds only the
+// {Path, Skip} when the model has no language for the file, or {Path, Error} when
+// it could not read or score that file. P holds only the
 // questions asked of that language, keyed by question id (cwe_89).
 func RegisterInvokeHbb() gojq.CompilerOption {
 	const op = "invoke_hbb"
@@ -99,9 +100,10 @@ func RegisterInvokeHbb() gojq.CompilerOption {
 		if err != nil {
 			return fmt.Errorf("%s: %w", op, err)
 		}
-		if msg, _ := resp["error"].(string); msg != "" {
-			return fmt.Errorf("%s: %s: %s", op, req["path"], msg)
-		}
+		// A file hbb could not score is that file's Error, in the result, and the
+		// query goes on to the next one. Only a failure of hbb itself -- it
+		// died, it timed out, it could not start -- is raised, because every
+		// later file would fail the same way.
 		recordHbbCall(resp)
 		return hbbFileObject(resp)
 	})
@@ -138,7 +140,7 @@ func RegisterGetHbb() gojq.CompilerOption {
 func hbbFileObject(resp map[string]any) map[string]any {
 	out := map[string]any{typed.TypeKey: "Pwrq.Hbb.File"}
 	for k, name := range map[string]string{"path": "Path", "lang": "Lang", "lines": "Lines",
-		"skip": "Skip", "tokens": "Tokens", "cached": "Cached"} {
+		"skip": "Skip", "error": "Error", "tokens": "Tokens", "cached": "Cached"} {
 		if v, ok := resp[k]; ok {
 			out[name] = v
 		}

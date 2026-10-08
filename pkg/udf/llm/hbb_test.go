@@ -84,10 +84,10 @@ func TestInvokeHbbKeepsOneProcessAndReportsSkipsAndErrors(t *testing.T) {
 	o := `{Bin: "` + bin + `"}`
 	out := runHbbQuery(t, `(invoke_hbb({Path: "a.c", Text: "x"}; `+o+`) | .Path),
 	  (invoke_hbb({Path: "a.zzz", Text: "x"}; `+o+`) | .Skip),
-	  (try invoke_hbb({Path: "b.boom", Text: "x"}; `+o+`) catch .),
+	  (invoke_hbb({Path: "b.boom", Text: "x"}; `+o+`) | .Error),
 	  (invoke_hbb({Path: "a.c", Text: "x"}; `+o+`) | .Lines)`)
 	if len(out) != 4 || out[0] != "a.c" || out[1] != "no language for this extension" ||
-		!strings.Contains(out[2].(string), "cannot read it") {
+		out[2] != "cannot read it" {
 		t.Fatalf("got %v", out)
 	}
 	n := 0
