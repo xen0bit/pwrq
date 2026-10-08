@@ -98,6 +98,8 @@ var unrunnable = map[string]string{
 	"invoke_llm_batch":                "calls a language model provider",
 	"invoke_systemone":                "calls a language model provider",
 	"invoke_systemone_request":        "calls a language model provider",
+	"invoke_hbb":                      "runs the hbb binary and its model",
+	"get_hbb":                         "runs the hbb binary and its model",
 	"invoke_agent":                    "calls a language model provider",
 	"invoke_agent_request":            "calls a language model provider",
 	"invoke_embedding":                "calls a language model provider",
