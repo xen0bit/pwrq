@@ -503,6 +503,26 @@ to sit inside a `map`. Options are labelled in the order they encode, and gojq
 sorts object keys — run llama.cpp with `--systemone-permute` to average each
 question with its options reversed, which is what small models need most.
 
+#### A local encoder: `invoke_hbb`
+
+[hbb](https://github.com/xen0bit/hotbutteredbeans) runs secjev-encoder, a 350M
+model that answers the CWE Top 25 questions about a window of source in one
+forward pass. `invoke_hbb` starts `hbb serve --stdio` once per set of options,
+keeps it for the life of the process, and scores whole files:
+
+```console
+$ pwrq -nc 'invoke_hbb({Path: "src/kn.c", Full: "/repo/src/kn.c"}) | .Windows[] | {From, To, p: .P.cwe_787}'
+{"From":1,"To":234,"p":0.93}
+```
+
+It returns the windows hbb cuts (240 lines, the shape the model was trained on) with
+`P` keyed by question id (`cwe_89`), holding only the questions asked of that
+file's language. A file hbb has no language for comes back as `{Skip}`. `get_hbb`
+reports the model and its questions. Options: `Bin` (or `PWRQ_HBB_BIN`), `Device`,
+`ModelDir`, `ModelRepo`, `ModelRevision`, `ModelVariant`, `GpuId`, `Threads`,
+`CacheDir`, `Offline`, `Timeout`. Calls count in `get_llm_usage`; there is no call
+ceiling, since nothing is billed.
+
 #### Many prompts at once
 
 gojq evaluates synchronously, so `map(invoke_llm(...))` over five hundred rows
