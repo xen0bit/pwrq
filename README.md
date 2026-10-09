@@ -7,18 +7,18 @@ reach the filesystem, the OS, the network and a pile of codecs. Cmdlets emit
 ordinary JSON objects, so jq's own filters work on them directly:
 
 ```console
-$ pwrq -c '[get_childitem(".") | select(.Length > 10000) | {Name, Length}]'
-[{"Length":15673,"Name":"EXAMPLES.md"},{"Length":26859,"Name":"task.md"}]
+$ pwrq -nc '[get_childitem(".") | select(.Extension == ".md") | .Name] | sort'
+["AGENTS.md","EXAMPLES.md","README.md"]
 
-$ pwrq -c '[get_service | select(.Status == "Running") | .Name] | length'
-68
+$ pwrq -nc '[get_service | select(.Status == "Running") | .Name] | length'
+69
 ```
 
 ## It is a strict superset of jq
 
 Any valid jq program produces byte-identical output. That is enforced, not
-aspirational: the test suite runs gojq's own 839-case CLI corpus unchanged, so
-pwrq cannot drift from jq without a test failing.
+aspirational: the test suite runs gojq's own 831-case CLI corpus, plus nine
+cases for pwrq's own paths, so pwrq cannot drift from jq without a test failing.
 
 Concretely, this means pwrq never quietly reinterprets your data:
 
@@ -88,11 +88,12 @@ Everything a cmdlet emits is plain JSON. There is no envelope to unwrap.
 | **Formatters** | text | `format_table(.)` |
 
 ```console
-$ pwrq -c 'get_childitem(".") | select(.Name == "go.mod")'
+$ pwrq -nc 'get_childitem(".") | select(.Name == "go.mod")'
 {"CreationTime":"2026-08-07T22:08:58-04:00","Extension":".mod",
  "FullName":"/home/you/pwrq/go.mod","IsHidden":false,"IsReadOnly":false,
- "LastWriteTime":"2026-08-07T22:08:58-04:00","Length":2928,"Mode":"-rw-rw-r--",
- "Name":"go.mod","PwrqType":"Pwrq.FileSystem.File","PwrqValue":"go.mod"}
+ "LastAccessTime":"2026-08-07T22:08:58-04:00","LastWriteTime":"2026-08-07T22:08:58-04:00",
+ "Length":3225,"Mode":"-rw-rw-r--","Name":"go.mod","PwrqType":"Pwrq.FileSystem.File",
+ "PwrqValue":"go.mod"}
 ```
 
 Because it is JSON, everything jq knows how to do applies — `select`, `map`,
@@ -106,10 +107,10 @@ enumerating something — files, processes, services, matching lines — streams
 and one computing a single answer does not:
 
 ```console
-$ pwrq -c '[get_childitem(".")] | map(.Name) | length'          # stream: collect it
-$ pwrq -c '[select_string("src"; "TODO")] | map(.Path)'         # stream: collect it
-$ pwrq -c 'get_childitem(".") | select(.Length > 1000) | .Name' # or filter it as it goes
-$ pwrq -nc 'sha256("go.mod")'                                   # one value: no brackets
+$ pwrq -nc '[get_childitem(".")] | map(.Name) | length'          # stream: collect it
+$ pwrq -nc '[select_string("src"; "TODO")] | map(.Path)'         # stream: collect it
+$ pwrq -nc 'get_childitem(".") | select(.Length > 1000) | .Name' # or filter it as it goes
+$ pwrq -nc 'sha256("go.mod")'                                    # one value: no brackets
 ```
 
 Because the stream is lazy, filtering it costs only what it reads:
@@ -126,7 +127,7 @@ answer is read out of the registration itself rather than a hand-kept table, so
 it cannot drift from the code:
 
 ```console
-$ pwrq -r 'get_help("get_childitem")' | grep -A1 OUTPUT
+$ pwrq -nr 'get_help("get_childitem")' | grep -A1 OUTPUT
 OUTPUT
     a stream of values, one per result — collect with [...] to get an array
 ```
@@ -139,7 +140,7 @@ The same registration says what an object producer emits, so you do not have to
 run a cmdlet once to find out what to select from it:
 
 ```console
-$ pwrq -r 'get_help("get_service")' | sed -n '/^OUTPUT/,/^$/p'
+$ pwrq -nr 'get_help("get_service")' | sed -n '/^OUTPUT/,/^$/p'
 OUTPUT
     a stream of values, one per result — collect with [...] to get an array
     object [Pwrq.Service] with 12 properties
@@ -161,8 +162,8 @@ object, keys from the input: one key per leaf of the input, named by its dot-and
 ```
 
 And a cmdlet that returns a string or a number says nothing at all. There is no
-property list for `sha256`, and inventing one for the three hundred cmdlets in
-that position is the drift this is built to avoid.
+property list for `sha256`, and inventing one for the 434 cmdlets in that
+position is the drift this is built to avoid.
 
 `PwrqType` is the key to the rest. A value carries it, `get_command` lists the
 same name under `.TypeName`, and the properties are one lookup away. The names
@@ -215,7 +216,7 @@ A cmdlet that fails raises an error rather than returning a value that looks
 successful, so `try`/`catch` and the exit status behave as they do for jq:
 
 ```console
-$ pwrq -c 'try cat("/nope") catch "missing"'
+$ pwrq -nc 'try cat("/nope") catch "missing"'
 "missing"
 ```
 
@@ -224,9 +225,9 @@ $ pwrq -c 'try cat("/nope") catch "missing"'
 The PowerShell short names are compiled into your query as jq definitions:
 
 ```console
-$ pwrq -c '[gci(".")] | length'      # gci, dir, gi
-$ pwrq -c '[gps | .Name] | length'   # gps
-$ pwrq -c 'gl.Path'                  # gl
+$ pwrq -nc '[gci(".")] | length'      # gci, dir, gi
+$ pwrq -nc '[gps | .Name] | length'   # gps
+$ pwrq -nc 'gl.Path'                  # gl
 ```
 
 Aliases that would collide with a jq builtin are deliberately absent. PowerShell's
@@ -241,11 +242,11 @@ change what existing jq programs mean. Use `select_object` and `sort_object`.
 Filesystem, location, processes, services, web, date/time:
 
 ```console
-$ pwrq -c '[get_childitem("src"; {Recurse: true, Filter: "*.go"})] | length'
-$ pwrq -c '[get_process | select(.Name | test("^go")) | {Name, Id}]'
-$ pwrq -c 'get_date | {Year, Month, DayOfWeek}'
-$ pwrq -c 'invoke_web_request("https://example.com") | {StatusCode, ContentLength}'
-$ pwrq -c 'test_path("go.mod")'
+$ pwrq -nc '[get_childitem("src"; {Recurse: true, Filter: "*.go"})] | length'
+$ pwrq -nc '[get_process | select(.Name | test("^go")) | {Name, Id}]'
+$ pwrq -nc 'get_date | {Year, Month, DayOfWeek}'
+$ pwrq -nc 'invoke_web_request("https://example.com") | {StatusCode, ContentLength}'
+$ pwrq -nc 'test_path("go.mod")'
 ```
 
 Parameter names bind case-insensitively, as PowerShell's do, so `{Recurse: true}`
@@ -321,10 +322,10 @@ $ pwrq -nc 'compare_object(["a","b"]; ["b","c"]) | map({v: .InputObject, s: .Sid
 argument, and take their options in a trailing object:
 
 ```console
-$ pwrq -c '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}] | where_object({script: ".Age > 26"})'
-$ pwrq -c 'where_object([{"Name":"Alice","Age":30}]; {property: "Name", operator: "like", value: "A*"})'
-$ pwrq -c '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}] | sort_object({property: "Age", descending: true}) | select_object("Name")'
-$ pwrq -c '[{"Dept":"Eng"},{"Dept":"Ops"}] | group_object({property: "Dept"})'
+$ pwrq -nc '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}] | where_object({script: ".Age > 26"})'
+$ pwrq -nc 'where_object([{"Name":"Alice","Age":30}]; {property: "Name", operator: "like", value: "A*"})'
+$ pwrq -nc '[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}] | sort_object({property: "Age", descending: true}) | select_object("Name")'
+$ pwrq -nc '[{"Dept":"Eng"},{"Dept":"Ops"}] | group_object({property: "Dept"})'
 ```
 
 A script block is jq — any expression, not a subset. Note that jq's own `select`
@@ -337,11 +338,11 @@ and are opened read-only; statements that change the database are a separate
 cmdlet, so a typo in a SELECT cannot rewrite the file being read.
 
 ```console
-$ pwrq -c '[invoke_sqlite_query("app.db"; "select * from users")] | length'
-$ pwrq -c 'invoke_sqlite_query("app.db"; "select * from users where id = ?"; [42]) | .email'
-$ pwrq -c 'invoke_sqlite_command("app.db"; "delete from users where id = ?"; [42]) | .RowsAffected'
-$ pwrq -c '[get_sqlite_table("app.db")] | map(.Name)'
-$ pwrq -c '[get_sqlite_schema("app.db"; "users") | select(.IsPrimaryKey) | .Name]'
+$ pwrq -nc '[invoke_sqlite_query("app.db"; "select * from users")] | length'
+$ pwrq -nc 'invoke_sqlite_query("app.db"; "select * from users where id = ?"; [42]) | .email'
+$ pwrq -nc 'invoke_sqlite_command("app.db"; "delete from users where id = ?"; [42]) | .RowsAffected'
+$ pwrq -nc '[get_sqlite_table("app.db")] | map(.Name)'
+$ pwrq -nc '[get_sqlite_schema("app.db"; "users") | select(.IsPrimaryKey) | .Name]'
 ```
 
 Values are bound rather than interpolated - an array binds to `?`, an object
@@ -386,10 +387,10 @@ organization was carrying. With the variable unset they are absent from
 they are there.
 
 ```console
-$ pwrq -c 'get_censys_host("1.1.1.1") | .resource | {ip, service_count}'
-$ pwrq -c '[search_censys("host.services.protocol=SSH")] | length'
-$ pwrq -c 'get_censys_aggregate("host.services.port=443"; "host.location.country")'
-$ pwrq -c '[get_censys_tag] | map(.name)'
+$ pwrq -nc 'get_censys_host("1.1.1.1") | .resource | {ip, service_count}'
+$ pwrq -nc '[search_censys("host.services.protocol=SSH")] | length'
+$ pwrq -nc 'get_censys_aggregate("host.services.port=443"; "host.location.country")'
+$ pwrq -nc '[get_censys_tag] | map(.name)'
 ```
 
 Credentials come from `CENSYS_PLATFORM_TOKEN` and `CENSYS_PLATFORM_ORGID` — the
@@ -403,7 +404,7 @@ results directly. It stops after one page unless asked for more, because each
 page costs credits:
 
 ```console
-$ pwrq -c '[search_censys("host.location.country=\"Chile\""; {Pages: 3})
+$ pwrq -nc '[search_censys("host.location.country=\"Chile\""; {Pages: 3})
            | .host_v1.resource.ip]'
 ```
 
@@ -585,7 +586,7 @@ answer:
 ```console
 $ pwrq -nr 'invoke_agent("Which file here is largest, and how many bytes?")'
 pwrq-viz 35913993
-$ pwrq -c 'invoke_agent_request("Which row is the outlier?") | .Steps | map(.Query)'
+$ pwrq -nc 'invoke_agent_request("Which row is the outlier?") | .Steps | map(.Query)'
 ```
 
 The tool surface is pwrq itself, which is what `pwrq --mcp` already offers an
@@ -612,11 +613,12 @@ result. See [EXAMPLES.md](EXAMPLES.md) for its output.
 Naming an object cmdlet that takes a script block — `where_object`,
 `select_object` — hands the agent a whole query inside `{script: "..."}`; pwrq
 narrows script blocks to the same allowlist while an agent runs, but the default
-set leaves them out. The LLM cmdlets themselves can never be allowed, which is
-what stops an agent spending in a loop no ceiling anticipates. A run is bounded
-by `MaxSteps` (8), `MaxSeconds` (300) and a per-query result cap, and the agent's
-queries get no environment loader, so `env` cannot hand a model the API keys of
-the process running it.
+set leaves them out. The cmdlets that spend — `invoke_llm`, `invoke_agent`,
+`invoke_systemone` and the `get_llm_*` introspection — can never be allowed,
+which is what stops an agent spending in a loop no ceiling anticipates. A run is
+bounded by `MaxSteps` (8), `MaxSeconds` (300) and a per-query result cap, and the
+agent's queries get no environment loader, so `env` cannot hand a model the API
+keys of the process running it.
 
 ### Codecs, hashes and crypto
 
@@ -626,10 +628,10 @@ compression (gzip, zlib, deflate), format conversion (csv, xml), entropy, and
 `sh`, `http`, `find`, `cat`, `tee`.
 
 ```console
-$ pwrq -r '"hello" | base64_encode'
+$ pwrq -nr '"hello" | base64_encode'
 aGVsbG8=
-$ pwrq -r 'cat("go.mod") | sha256'
-$ pwrq -c '[find("."; "file") | select(endswith(".go"))] | length'
+$ pwrq -nr 'cat("go.mod") | sha256'
+$ pwrq -nc '[find("."; "file") | select(endswith(".go"))] | length'
 ```
 
 See [EXAMPLES.md](EXAMPLES.md) and [pkg/udf/README.md](pkg/udf/README.md).
@@ -642,9 +644,9 @@ them, `$$$_` for "and anything else here" — and whitespace, line breaks and
 comments stop mattering:
 
 ```console
-$ pwrq -c '[select_ast("."; "func $N($$$A) error { $$$B }"; {Include: "*.go"}) | .Captures.N]'
-$ pwrq -c '[select_ast("src"; "$X.$M($$$A)") | .Captures.M] | value_counts'
-$ pwrq -rn 'first(select_ast("."; "if $C { return $E }")) | "\(.Path):\(.LineNumber)"'
+$ pwrq -nc '[select_ast("."; "func $N($$$A) error { $$$B }"; {Include: "*.go"}) | .Captures.N]'
+$ pwrq -nc '[select_ast("src"; "$X.$M($$$A)") | .Captures.M] | value_counts'
+$ pwrq -nr 'first(select_ast("."; "if $C { return $E }")) | "\(.Path):\(.LineNumber)"'
 ```
 
 Each match reports its file, its line and column, the text it spans, and what
@@ -662,8 +664,8 @@ two arguments rather than a call whose arguments include those two, and `$$$_`
 is how a pattern declines to say:
 
 ```console
-$ pwrq -c '[select_ast("."; "exec.Command($NAME, $$$_)") | .Captures.NAME]'
-$ pwrq -c '[select_ast("."; "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}")]'
+$ pwrq -nc '[select_ast("."; "exec.Command($NAME, $$$_)") | .Captures.NAME]'
+$ pwrq -nc '[select_ast("."; "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}")]'
 ```
 
 A hole written twice means the same code twice, so `$X == $X` is a comparison
@@ -672,7 +674,7 @@ statements, and then it matches them in that order wherever they sit — in a
 function body, not only at the top of a file:
 
 ```console
-$ pwrq -c '[select_ast("."; "$D = request.args\n$$$_\nrender($D)")]'
+$ pwrq -nc '[select_ast("."; "$D = request.args\n$$$_\nrender($D)")]'
 ```
 
 ### Rules
@@ -771,7 +773,7 @@ its own scope.
 Parsing is [gotreesitter](https://github.com/odvcencio/gotreesitter), a pure-Go
 tree-sitter runtime — no cgo, so this changes nothing about cross-compiling to
 the eight Debian architectures. Grammars are chosen at build time by the
-Makefile's `GRAMMARS` list, and cost about 3MB for the two dozen shipped;
+Makefile's `GRAMMARS` list, and cost about 3MB for the 34 shipped;
 `get_ast_language` reports whichever ones the binary you are holding actually
 carries, read from the parser's own registry rather than a list beside it.
 
@@ -786,7 +788,7 @@ nodes that matches nothing — so a typo and an honest absence look identical.
 what any pattern became:
 
 ```console
-$ pwrq -c 'ast_pattern("func $$$("; "go") | {Valid, Query}'
+$ pwrq -nc 'ast_pattern("func $$$("; "go") | {Valid, Query}'
 {"Query":"(ERROR (ERROR (ERROR) @_lit_1))\n(#eq? @_lit_1 \"$$$\")","Valid":false}
 ```
 
@@ -830,11 +832,11 @@ What else it does, with the page's vocabulary:
   error underlined where it is, completion on Ctrl-Space, undo, and
   Format, Minify and Inline on Alt-F, Alt-M and Alt-I. Arguments are one per
   line, `name = JSON`, as `--argjson` binds them.
-- **Output, Diagram, Catalog, Examples, History** on Alt-1…5 (F2…F6). The
-  diagram is the page's, drawn as a tree in the page's colours; the catalog
-  inserts a cmdlet on Enter and shows its `get_help` on `?`; the examples are
-  the page's gallery; history is what was run and the snippets saved with
-  Ctrl-S.
+- **Output, Diagram, Catalog, Examples, History, Input, Args** on Alt-1…7
+  (F2…F8). The diagram is the page's, drawn as a tree in the page's colours;
+  the catalog inserts a cmdlet on Enter and shows its `get_help` on `?`; the
+  examples are the page's gallery; history is what was run and the snippets
+  saved with Ctrl-S.
 - **A palette on Ctrl-P** reaches every action, tab, example, snippet and
   cmdlet, and F1 lists the keys.
 - **Share links in the page's format.** Alt-L copies one to the clipboard
@@ -930,7 +932,9 @@ cmdlets that need one are not offered there: `get_childitem`, `get_process`,
 `get_service`, `sh` and their aliases are absent, as are the network cmdlets,
 which would work only against origins that allow CORS. Codecs, hashes,
 ciphers, compression, format conversion, and the object and formatting cmdlets
-are all available. `get_command` in the page lists exactly what the page has.
+are all available. `get_command` in the page lists the whole vocabulary and
+marks each cmdlet the page cannot run as unavailable, so a reader can see that
+`get_childitem` exists rather than wonder why it is missing.
 
 ## MCP server
 
@@ -961,14 +965,15 @@ trip each time. Seven things it used to have to guess:
 - **What a cmdlet is called.** The catalogue filter is case-insensitive across
   names, aliases, categories, descriptions and option keys, so `hash` finds the
   eight cmdlets in the category spelled `Hash`, and `http` finds
-  `invoke_web_request` — which is named for neither `http` nor its category, and
-  is the one cmdlet with `Headers`, `Body` and `AllowAutoRedirect` on it. A
+  `invoke_web_request` — which is named for neither `http` nor its category,
+  and carries `Headers`, `Body` and `AllowAutoRedirect`, option keys no name in
+  the query would have matched. A
   search broad enough that listing every description match would cost the
   entries their examples lists the names it held back instead. A search matching
   nothing offers the nearest names rather than an empty list.
 - **Whether the vocabulary is only the cmdlets.** It is not: pwrq is a strict
   superset of jq, so `ascii_upcase`, `split`, `fromjson`, `to_entries` and the
-  rest are callable exactly like cmdlets. The catalogue documents only the 516
+  rest are callable exactly like cmdlets. The catalogue documents only the 509
   cmdlets, which used to mean the tool denied the other half outright —
   `list_functions` filtered by `ascii_upcase` answered *no functions match, and
   nothing is named close to it*, about a function that runs. A filtered search
@@ -977,8 +982,10 @@ trip each time. Seven things it used to have to guess:
   `did you mean fromjson?`, and `to_upper` with `ascii_upcase`. The list is
   derived from gojq's own `builtins`, so it cannot drift from what actually
   compiles.
-- **Whether an example works.** Every one of the 652 published examples runs as
-  written, and a test runs them to prove it. A hundred of them did not: `e.g.
+- **Whether an example works.** Every published example is compiled, and each
+  one that can run is run, by a test that proves it: 692 example strings across
+  the catalogue, of which 590 run. A hundred did not when the test was first
+  added: `e.g.
   md5` was the whole example for `md5`, `aes_encrypt("data"; "key")` used a
   three-byte key for a cipher that needs sixteen, and `base64_encode(true)` left
   out the path the `true` refers to. The exemptions — the examples that reach a
@@ -1005,7 +1012,7 @@ trip each time. Seven things it used to have to guess:
 
   It warns rather than refuses, and only where both sides have declared
   themselves, so a query it has nothing to say about is not thereby endorsed.
-- **What goes in an options object.** The twenty-five cmdlets documented as
+- **What goes in an options object.** The 33 cmdlets documented as
   taking `[options]` list their keys, their types and what each does — including
   where the casing is fussy, since an unknown key is ignored in silence rather
   than refused.
@@ -1122,7 +1129,7 @@ and the exit status can see them, and they are deliberately left unnormalized.
 ## Development
 
 ```bash
-make build       # pwrq (19MB)
+make build       # pwrq (~32MB)
 make build-viz   # pwrq-viz
 make build-all
 make web.build   # the browser editor (needs bun)

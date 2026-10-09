@@ -80,8 +80,8 @@ func TestFilterIsCaseInsensitiveInBothDirections(t *testing.T) {
 // of the tiering shipped with, and that running the httpbin session against it
 // found in the first call.
 //
-// invoke_web_request is the cmdlet with Headers, Body and AllowAutoRedirect on
-// it - the one a caller wanting to do anything beyond a bare GET needs. Its
+// invoke_web_request carries Headers, Body and AllowAutoRedirect - the options
+// a caller wanting to do anything beyond a bare GET needs. Its
 // name does not contain "http" and its category is PowerShell, so it lives
 // only in the description tier. The tiering searched descriptions solely when
 // names found nothing, names found http and http_serve, and so the most

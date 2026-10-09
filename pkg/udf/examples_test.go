@@ -16,7 +16,7 @@ import (
 // The catalogue publishes an example for every one of its cmdlets, and until
 // this file existed nothing checked that any of them worked.
 //
-// Run against a live server, 100 of the 652 could not. `e.g. md5` was the
+// Run against a live server, 100 of them could not. `e.g. md5` was the
 // whole example for md5, and running it says "argument must be a string, got
 // <nil>". `e.g. aes_encrypt("data"; "key")` says "invalid key size 3 bytes".
 // `e.g. base64_encode(true)` says "file argument requires string path". The

@@ -39,7 +39,7 @@ const (
 // results - so the searches that already worked would return more and explain
 // less. Searching them never is too little, and that was the first version's
 // bug: "http" matches exactly two cmdlets by name, and invoke_web_request -
-// the one with Headers, Body and AllowAutoRedirect on it - is named for
+// which carries Headers, Body and AllowAutoRedirect - is named for
 // neither http nor its category, so the single most obvious search term in the
 // toolbox could not reach the cmdlet it most obviously meant.
 //
