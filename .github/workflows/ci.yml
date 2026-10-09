@@ -82,10 +82,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Exactly 1.27.0, not "1.27": once the runner image carried 1.27.2, "1.27"
+      # resolved to it and golangci-lint v2.13.1 failed to typecheck anything
+      # ("export data version 5 is greater than maximum supported version 4").
+      # Move this with the linter, not before it.
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.27"
+          go-version: "1.27.0"
           cache: true
 
       - name: gofmt
