@@ -15,13 +15,6 @@ concurrency:
 permissions:
   contents: read
 
-# The module's go.mod asks for a patched Go (1.27.2) whose stdlib advisories are
-# fixed. setup-go pins GOTOOLCHAIN=local when it is not already set, which makes
-# the go command refuse to select that toolchain; setting it here - workflow
-# scope is visible to the setup-go step - is what lets the go command fetch it.
-env:
-  GOTOOLCHAIN: auto
-
 jobs:
   test:
     name: test (go ${{ matrix.go }})
@@ -56,6 +49,12 @@ jobs:
           # and the leg would fail before running a single test.
           check-latest: true
           cache: true
+
+      # setup-go exports GOTOOLCHAIN=local, so the go command refuses to select
+      # the patched 1.27.2 that go.mod requires. Overriding it here - a write to
+      # GITHUB_ENV after the action's own - re-enables the auto-download.
+      - name: Fetch the module's toolchain
+        run: echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
 
       - name: Verify go.mod is tidy
         run: |
@@ -95,6 +94,9 @@ jobs:
         with:
           go-version: "1.27"
           cache: true
+
+      - name: Fetch the module's toolchain
+        run: echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
 
       - name: gofmt
         run: |
@@ -143,6 +145,9 @@ jobs:
         with:
           go-version: "1.27"
           cache: true
+
+      - name: Fetch the module's toolchain
+        run: echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
 
       - name: Build every release architecture
         run: |
@@ -196,6 +201,9 @@ jobs:
           go-version: "1.27"
           cache: true
 
+      - name: Fetch the module's toolchain
+        run: echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
+
       - name: Set up bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -229,6 +237,9 @@ jobs:
           go-version: "1.27"
           cache: true
 
+      - name: Fetch the module's toolchain
+        run: echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
+
       - name: Run govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -253,6 +264,9 @@ jobs:
         with:
           go-version: "1.27"
           cache: true
+
+      - name: Fetch the module's toolchain
+        run: echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
 
       - name: Set up bun
         uses: oven-sh/setup-bun@v2
