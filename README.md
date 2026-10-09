@@ -524,6 +524,13 @@ reports the model and its questions. Options: `Bin` (or `PWRQ_HBB_BIN`), `Device
 `CacheDir`, `Offline`, `Timeout`. Calls count in `get_llm_usage`; there is no call
 ceiling, since nothing is billed.
 
+To run the model on another machine (one with a GPU), start `hbb serve --listen :8140`
+there and pass `Url` (or `PWRQ_HBB_URL`) and `Token` (or `PWRQ_HBB_TOKEN`) instead of a
+local child's options; combining them is an error, since the server has its own model.
+`Full` files are read here and sent as text. A server that cannot be reached, or
+rejects the token, is raised as a dead child is (after one retry); a file the server
+refuses or cannot score is that file's `Error`.
+
 #### Many prompts at once
 
 gojq evaluates synchronously, so `map(invoke_llm(...))` over five hundred rows
