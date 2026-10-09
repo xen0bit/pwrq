@@ -36,10 +36,21 @@ import (
 // EnvHbbBin names the hbb binary when no Bin option is given.
 const EnvHbbBin = "PWRQ_HBB_BIN"
 
+// EnvHbbUrl and EnvHbbToken name a remote hbb (hbb serve --listen) and its bearer
+// token when no Url or Token option is given.
+const (
+	EnvHbbUrl   = "PWRQ_HBB_URL"
+	EnvHbbToken = "PWRQ_HBB_TOKEN"
+)
+
 // hbbOptions are the options invoke_hbb and get_hbb accept. Like the LLM
 // cmdlets, an unknown name is an error rather than ignored: an option that
 // silently did nothing is a different model than the caller thinks they ran.
 type hbbOptions struct {
+	// Url, when set, is an `hbb serve --listen` on another machine: no child is
+	// started, and the options that describe a child are errors beside it.
+	Url           string `param:"Url"`
+	Token         string `param:"Token"`
 	Bin           string `param:"Bin"`
 	Device        string `param:"Device"`
 	ModelDir      string `param:"ModelDir"`
@@ -80,6 +91,7 @@ func RegisterInvokeHbb() gojq.CompilerOption {
 		if !ok {
 			return fmt.Errorf("%s: the file must be an object with Path and Full or Text, got %s", op, jsonType(args[0]))
 		}
+		remote := o.Url != ""
 		req := map[string]any{}
 		for _, k := range [][2]string{{"Path", "path"}, {"Full", "file"}, {"Text", "text"}, {"Lang", "lang"}} {
 			if s, ok := file[k[0]].(string); ok && s != "" {
@@ -95,6 +107,16 @@ func RegisterInvokeHbb() gojq.CompilerOption {
 		p, err := hbbProcess(op, o)
 		if err != nil {
 			return err
+		}
+		if remote && req["file"] != nil {
+			// The server does not share this machine's disk: it is sent the bytes.
+			path, _ := req["file"].(string)
+			data, rerr := os.ReadFile(path)
+			if rerr != nil {
+				return hbbFileObject(map[string]any{"path": req["path"], "error": rerr.Error()})
+			}
+			delete(req, "file")
+			req["text"] = string(data)
 		}
 		resp, err := p.ask(req, o.timeout())
 		if err != nil {
@@ -128,10 +150,11 @@ func RegisterGetHbb() gojq.CompilerOption {
 		if err != nil {
 			return err
 		}
+		ready := p.info()
 		out := map[string]any{typed.TypeKey: "Pwrq.Hbb.Info"}
 		for k, name := range map[string]string{"version": "Version", "model": "Model", "device": "Device",
 			"window": "Window", "labels": "Labels", "questions": "Questions"} {
-			out[name] = p.ready[k]
+			out[name] = ready[k]
 		}
 		return out
 	})
@@ -194,6 +217,22 @@ func bindHbbOptions(op string, raw any) (hbbOptions, error) {
 			return o, fmt.Errorf("%s: %w", op, err)
 		}
 	}
+	if o.Url == "" {
+		o.Url = os.Getenv(EnvHbbUrl)
+	}
+	if o.Url != "" {
+		if o.Token == "" {
+			o.Token = os.Getenv(EnvHbbToken)
+		}
+		if set := o.localOptions(); len(set) > 0 {
+			return o, fmt.Errorf("%s: Url names an hbb on another machine, which has its own model; "+
+				"%s describe a local one and cannot be given with it", op, strings.Join(set, ", "))
+		}
+		return o, nil
+	}
+	if o.Token != "" {
+		return o, fmt.Errorf("%s: Token is for an hbb at a Url", op)
+	}
 	if o.Bin == "" {
 		o.Bin = os.Getenv(EnvHbbBin)
 	}
@@ -248,7 +287,36 @@ var (
 	hbbPool   = map[string]*hbbProc{}
 )
 
-func hbbProcess(op string, o hbbOptions) (*hbbProc, error) {
+// localOptions names the options that only make sense for a child hbb.
+func (o hbbOptions) localOptions() []string {
+	var set []string
+	for _, f := range []struct {
+		name string
+		set  bool
+	}{{"Bin", o.Bin != ""}, {"Device", o.Device != ""}, {"ModelDir", o.ModelDir != ""},
+		{"ModelRepo", o.ModelRepo != ""}, {"ModelRevision", o.ModelRevision != ""},
+		{"ModelVariant", o.ModelVariant != ""}, {"GpuId", o.GpuId != 0}, {"Threads", o.Threads != 0},
+		{"CacheDir", o.CacheDir != ""}, {"Offline", o.Offline}} {
+		if f.set {
+			set = append(set, f.name)
+		}
+	}
+	return set
+}
+
+// hbbBackend is an hbb that answers: a child on stdio, or a server over HTTP.
+type hbbBackend interface {
+	// info is the document hbb gave on starting (stdio) or at /v1/info (HTTP).
+	info() map[string]any
+	ask(req map[string]any, timeout time.Duration) (map[string]any, error)
+}
+
+func (p *hbbProc) info() map[string]any { return p.ready }
+
+func hbbProcess(op string, o hbbOptions) (hbbBackend, error) {
+	if o.Url != "" {
+		return hbbRemote(op, o)
+	}
 	key := strings.Join(append([]string{o.Bin}, o.args()...), "\x00")
 	hbbPoolMu.Lock()
 	defer hbbPoolMu.Unlock()
