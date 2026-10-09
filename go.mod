@@ -1,6 +1,6 @@
 module github.com/xen0bit/pwrq
 
-go 1.27.0
+go 1.27.2
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.0 // indirect
@@ -38,8 +38,8 @@ require (
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
 	golang.org/x/image v0.20.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	modernc.org/libc v1.74.4 // indirect
@@ -64,9 +64,9 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/muesli/termenv v0.16.0
 	github.com/odvcencio/gotreesitter v0.51.0
-	golang.org/x/crypto v0.51.0
-	golang.org/x/net v0.55.0
-	golang.org/x/text v0.39.0
+	golang.org/x/crypto v0.57.0
+	golang.org/x/net v0.60.0
+	golang.org/x/text v0.42.0
 	modernc.org/sqlite v1.57.0
 	oss.terrastruct.com/d2 v0.7.1
 )

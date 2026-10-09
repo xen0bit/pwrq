@@ -220,6 +220,11 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: "1.27"
+          # check-latest matters here more than anywhere: govulncheck reads the
+          # standard-library version it is pointed at, and a stale 1.27.x
+          # manifest would scan a toolchain whose stdlib advisories are already
+          # patched in the next patch release.
+          check-latest: true
           cache: true
 
       - name: Run govulncheck
