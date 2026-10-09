@@ -97,12 +97,21 @@ The catalogue is a value, so narrowing it further is the next stage of the
 pipeline rather than an option on the call:
 
 ```console
-$ pwrq -nc '[get_pwrgrep_rule] | map(select(.Origin != "<built in>")) | map(.Path)'
+$ pwrq -nc '[get_pwrgrep_rule] | map(.Origin) | unique'
+["/usr/share/pwrq/rules"]
+```
+
+`Origin` says which of the four directories a rule came from. On a machine with
+the package installed the shipped rules report `/usr/share/pwrq/rules`; when pwrq
+falls back to the copy embedded in the binary it is `<built in>`. Narrowing to
+the rules you wrote yourself, which report your own directory:
+
+```console
+$ pwrq -nc '[get_pwrgrep_rule] | map(select(.Origin == (env.HOME + "/.config/pwrq/rules"))) | map(.Path)'
 []
 ```
 
-That is the rules on this machine that did not ship with pwrq — yours, and
-anything you have overridden. Empty, until you write one.
+Empty, until you write one.
 
 ## Reading one
 

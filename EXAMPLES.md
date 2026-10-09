@@ -1,25 +1,28 @@
 # pwrq Examples
 
-Every command here was run against the current build; the outputs are what it
-actually printed. Paths and counts naturally vary by machine.
+Every command here was run against the current build, and the outputs are
+reproduced as printed. Commands that run against a literal, a file in this
+repository or a stream are exact; ones that reach a network, a credential, a
+model or a fixture you build yourself are marked and their output is
+representative. Paths and counts naturally vary by machine.
 
 ## The shape of things
 
 A cmdlet emits plain JSON, so jq's filters apply directly.
 
 ```console
-$ pwrq -c 'get_childitem("cli") | select(.Name == "cli.go")'
+$ pwrq -nc 'get_childitem("cli") | select(.Name == "cli.go")'
 {"CreationTime":"2026-08-07T22:08:58-04:00","Extension":".go",
  "FullName":"/home/you/pwrq/cli/cli.go","IsHidden":false,"IsReadOnly":false,
  "LastAccessTime":"2026-08-07T22:08:58-04:00","LastWriteTime":"2026-08-07T22:08:58-04:00",
- "Length":18644,"Mode":"-rw-rw-r--","Name":"cli.go",
+ "Length":20160,"Mode":"-rw-rw-r--","Name":"cli.go",
  "PwrqType":"Pwrq.FileSystem.File","PwrqValue":"cli/cli.go"}
 ```
 
 A transform returns its value, with nothing to unwrap:
 
 ```console
-$ pwrq -r '"hello" | sha256'
+$ pwrq -nr '"hello" | sha256'
 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
 ```
 
@@ -38,16 +41,16 @@ $ echo '[{"Name":"a","Age":30},{"Name":"bb","Age":4}]' | pwrq -r 'format_table(.
 ## Filesystem
 
 ```console
-$ pwrq -c '[get_childitem("cli") | select(.Extension == ".go") | .Name] | .[0:3]'
+$ pwrq -nc '[get_childitem("cli") | select(.Extension == ".go") | .Name] | .[0:3]'
 ["cli.go","cli_test.go","color.go"]
 
-$ pwrq -c '[get_childitem("pkg"; {Recurse: true, Filter: "*.md"}) | .Name] | sort'
-["README.md"]
+$ pwrq -nc '[get_childitem("pkg"; {Recurse: true, Filter: "*.md"}) | .Name] | sort'
+["README.md","README.md"]
 
-$ pwrq -c 'test_path("go.mod")'
+$ pwrq -nc 'test_path("go.mod")'
 true
 
-$ pwrq -c 'gl.Path'
+$ pwrq -nc 'gl.Path'
 "/home/you/pwrq"
 ```
 
@@ -59,45 +62,45 @@ emitted, not what is descended into, so `-Recurse` reaches nested matches.
 another path-taking cmdlet:
 
 ```console
-$ pwrq -c '[find("cli"; "file") | select(endswith(".yaml"))] | length'
+$ pwrq -nc '[find("cli"; "file") | select(endswith(".yaml"))] | length'
 5
 ```
 
 Both forms bind to a cmdlet expecting a path:
 
 ```console
-$ pwrq -c '[find("."; "file") | select(endswith("go.mod")) | cat] | length'
+$ pwrq -nc '[find("."; "file") | select(endswith("go.mod")) | cat] | length'
 1
-$ pwrq -c '[get_childitem(".") | select(.Name == "go.mod") | cat] | length'
+$ pwrq -nc '[get_childitem(".") | select(.Name == "go.mod") | cat] | length'
 1
 ```
 
 ## Processes, services, dates
 
 ```console
-$ pwrq -c '[get_process | select(.CPU > 0)] | length'
+$ pwrq -nc '[get_process | select(.CPU > 0)] | length'
 31
 
-$ pwrq -c '[get_process | select(.Name == "gopls") | .Id] | length'
+$ pwrq -nc '[get_process | select(.Name == "gopls") | .Id] | length'
 2
 
-$ pwrq -c '[get_service | select(.Status == "Running") | .Name] | length'
-68
+$ pwrq -nc '[get_service | select(.Status == "Running") | .Name] | length'
+69
 
-$ pwrq -c '[get_date | .Year, .Month]'
+$ pwrq -nc '[get_date | .Year, .Month]'
 [2026,8]
 
-$ pwrq -r 'new_timespan({Hours: 1, Minutes: 30}) | .Duration'
+$ pwrq -nr 'new_timespan({Hours: 1, Minutes: 30}) | .Duration'
 01:30:00.0000000
 ```
 
 ## Web
 
 ```console
-$ pwrq -c 'invoke_web_request("https://example.com") | {StatusCode, ContentLength}'
+$ pwrq -nc 'invoke_web_request("https://example.com") | {StatusCode, ContentLength}'
 {"ContentLength":559,"StatusCode":200}
 
-$ pwrq -c 'http("GET"; "https://example.com") | .Headers["Content-Type"]'
+$ pwrq -nc 'http("GET"; "https://example.com") | .Headers["Content-Type"]'
 "text/html"
 ```
 
@@ -107,39 +110,40 @@ rather than being discarded along with the rest of the response.
 ## Encoding and hashing
 
 ```console
-$ pwrq -c '"hello world" | base64_encode'
+$ pwrq -nc '"hello world" | base64_encode'
 "aGVsbG8gd29ybGQ="
 
-$ pwrq -r '"aGVsbG8gd29ybGQ=" | base64_decode'
+$ pwrq -nr '"aGVsbG8gd29ybGQ=" | base64_decode'
 hello world
 
-$ pwrq -c '"hello" | md5, sha1, sha256 | length'
+$ pwrq -nc '"hello" | md5, sha1, sha256 | length'
 32
 40
 64
 
-$ pwrq -c '"the quick brown fox" | entropy'
-3.8924071185928746
+$ pwrq -nc '"the quick brown fox" | entropy * 1000 | round / 1000'
+3.892
 
-$ pwrq -c '"secret" | xor("key")'
+$ pwrq -nc '"secret" | xor("key")'
 "18001a19000d"
 ```
 
-Binary results are hex-encoded, JSON having no byte type. Round-trips work
-because the decoders accept the same representation:
+Binary results are text renderings of bytes, JSON having no byte type — hex for
+the encoders and compressors, base64 for the ciphers. Round-trips work because
+each decoder accepts the representation its cmdlet emits:
 
 ```console
-$ pwrq -c '"hello" | gzip_compress | gzip_decompress'
+$ pwrq -nc '"hello" | gzip_compress | gzip_decompress'
 "hello"
 ```
 
 ## Data formats
 
 ```console
-$ pwrq -c '"a,b\nc,d" | csv_parse'
+$ pwrq -nc '"a,b\nc,d" | csv_parse'
 [["a","b"],["c","d"]]
 
-$ pwrq -c 'sh("echo hi")'
+$ pwrq -nc 'sh("echo hi")'
 "hi"
 ```
 
@@ -147,7 +151,7 @@ $ pwrq -c 'sh("echo hi")'
 caught or allowed to set the exit status:
 
 ```console
-$ pwrq -c 'try sh("exit 3") catch "failed"'
+$ pwrq -nc 'try sh("exit 3") catch "failed"'
 "failed"
 ```
 
@@ -213,10 +217,10 @@ way: `map(select(.Age > 26))`.
 Find every Go file, hash it, and keep the largest three:
 
 ```console
-$ pwrq -c '[get_childitem("cli"; {Filter: "*.go"})
+$ pwrq -nc '[get_childitem("cli"; {Filter: "*.go"})
             | {Name, Length, Hash: (.FullName | cat | sha256)}]
            | sort_by(-.Length) | .[0:3] | map(.Name)'
-["cli.go","inputs.go","encoder.go"]
+["cli.go","ide_native_test.go","tui.go"]
 ```
 
 Nothing here needs a pwrq-specific idiom: `sort_by`, `map` and the object
@@ -262,14 +266,14 @@ $ pwrq -n -c 'convert_unit(5; "mi"; "km")'
 $ pwrq -n -c '90 | convert_unit("min"; "h")'
 1.5
 
-$ pwrq -r '"1.5 MiB" | parse_size'
+$ pwrq -nr '"1.5 MiB" | parse_size'
 1572864
 
 $ pwrq -n -c 'haversine_distance(51.5007; -0.1246; 40.7128; -74.0060)'
 5570.674455985119
 
 $ pwrq -n -c 'future_value(100; 0.05; 10)'
-162.8894626777442
+162.88946267774415
 
 $ pwrq -n -c 'monthly_payment(20000; 0.06; 60)'
 386.6560305885685
@@ -387,7 +391,7 @@ $ pwrq -n -c '3.14159 | to_fixed(2)'
 
 ```console
 $ pwrq -n -c '[1,2,3,4,5] | windows(3)'
-[[1,2,3],[2,3,4]]
+[[1,2,3],[2,3,4],[3,4,5]]
 
 $ pwrq -n -c '{a: {b: 1, c: 2}} | set_path("a.b"; 9) | get_path("a.b")'
 9
@@ -398,7 +402,7 @@ $ pwrq -n -c '"2026-08-11T12:00:00Z" | to_timezone("Asia/Tokyo") | {DateTime, Ab
 $ pwrq -n -c '"11/08/2026" | parse_date("02/01/2006")'
 "2026-08-11T00:00:00Z"
 
-$ pwrq -n -c '1234567 | group_digits, 1234.5 | format_currency'
+$ pwrq -n -c '1234567 | group_digits, (1234.5 | format_currency)'
 "1,234,567"
 "$1,234.50"
 
@@ -630,8 +634,10 @@ $ pwrq -nc '[["bzip2", "cat", "cp", "mv", "tar"][]
 
 ## SQLite
 
-A database file is another source of objects. `invoke_sqlite_query` opens it
-read-only and emits one object per row, so jq's filters apply to a SELECT the
+The `app.db` these examples read is one you build first — a `users` table with
+`id`, `email` and `score` — and `files.db` is written by `out_sqlite` further
+down. A database file is another source of objects: `invoke_sqlite_query` opens
+it read-only and emits one object per row, so jq's filters apply to a SELECT the
 same way they apply to `get_childitem`:
 
 ```console
@@ -690,7 +696,7 @@ if it does not exist. Anything that emits objects is a table:
 $ pwrq -nc '[get_childitem("cli"; {Filter: "*.go"}) | {Name, Length, Extension}]
             | out_sqlite("files.db"; "files")'
 {"Created":true,"Database":"files.db","PwrqType":"Pwrq.Sqlite.WriteResult",
- "PwrqValue":"files.db","RowCount":18,"Table":"files"}
+ "PwrqValue":"files.db","RowCount":28,"Table":"files"}
 ```
 
 Which is worth doing when the question is easier in SQL than in jq, or when the
@@ -700,13 +706,13 @@ answer will be asked again later:
 $ pwrq -nr '[invoke_sqlite_query("files.db"; "select Name, Length from files order by Length desc limit 3")]
             | format_table(.)'
   Length Name
-  ------ ----------
-  18130  cli.go
-  7822   inputs.go
-  6025   encoder.go
+  ------ ------------------
+  20160  cli.go
+  8651   ide_native_test.go
+  8025   tui.go
 
 $ pwrq -nc 'invoke_sqlite_query("files.db"; "select count(*) as Files, sum(Length) as Bytes from files")'
-{"Bytes":66341,"Files":18,"PwrqType":"Pwrq.Sqlite.Row"}
+{"Bytes":103142,"Files":28,"PwrqType":"Pwrq.Sqlite.Row"}
 ```
 
 Reloading the same table is `{Truncate: true}`, and a property the table has no
@@ -715,7 +721,7 @@ column for is an error rather than a value quietly dropped:
 ```console
 $ pwrq -nc '[get_childitem("cli"; {Filter: "*.go"}) | {Name, Length, Extension}]
             | out_sqlite("files.db"; "files"; {Truncate: true}) | {RowCount, Created}'
-{"Created":false,"RowCount":18}
+{"Created":false,"RowCount":28}
 
 $ pwrq -nc '[{Name: "x", Size: 1}] | out_sqlite("files.db"; "files")'
 pwrq: out_sqlite: table "files" has no column "Size" (its columns are "Extension", "Length", "Name")
@@ -737,7 +743,7 @@ works unchanged:
 
 ```console
 $ export CENSYS_PLATFORM_TOKEN=... CENSYS_PLATFORM_ORGID=...
-$ pwrq -c 'get_censys_context'
+$ pwrq -nc 'get_censys_context'
 {"HasToken":true,"OrgIdSource":"CENSYS_PLATFORM_ORGID","OrganizationId":"…",
  "PwrqType":"Pwrq.Censys.Context","ServerUrl":"https://api.platform.censys.io",
  "TimeoutSeconds":30,"TokenSource":"CENSYS_PLATFORM_TOKEN"}
@@ -749,19 +755,19 @@ logs and scrollback.
 Looking at one asset, the way `censys view` and `censys enrich` do:
 
 ```console
-$ pwrq -c 'get_censys_host("1.1.1.1") | .resource | {ip, service_count}'
-$ pwrq -c '"1.1.1.1" | get_censys_enrichment'
-$ pwrq -c 'get_censys_host("1.1.1.1"; {AtTime: "2026-01-01T00:00:00Z"})'
-$ pwrq -r 'get_censys_certificate($fp; {Raw: true})'   # the PEM text
+$ pwrq -nc 'get_censys_host("1.1.1.1") | .resource | {ip, service_count}'
+$ pwrq -nc '"1.1.1.1" | get_censys_enrichment'
+$ pwrq -nc 'get_censys_host("1.1.1.1"; {AtTime: "2026-01-01T00:00:00Z"})'
+$ pwrq -nr 'get_censys_certificate($fp; {Raw: true})'   # the PEM text
 ```
 
 Searching emits one object per hit, so jq's own verbs apply directly:
 
 ```console
-$ pwrq -c '[search_censys("host.services.protocol=SSH")] | length'
-$ pwrq -c '[search_censys("host.location.country=\"Chile\""; {Pages: 3})
+$ pwrq -nc '[search_censys("host.services.protocol=SSH")] | length'
+$ pwrq -nc '[search_censys("host.location.country=\"Chile\""; {Pages: 3})
            | .host_v1.resource.ip]'
-$ pwrq -c 'get_censys_aggregate("host.services.port=443"; "host.location.country")
+$ pwrq -nc 'get_censys_aggregate("host.services.port=443"; "host.location.country")
            | .buckets[0]'
 ```
 
@@ -773,11 +779,11 @@ Cmdlets compose with the rest of pwrq, which is the point of having them here
 rather than shelling out to `censys`:
 
 ```console
-$ pwrq -c '[search_censys("host.services.port=8080")
+$ pwrq -nc '[search_censys("host.services.port=8080")
            | .host_v1.resource.ip
            | select(is_public_ip)] | length'
 
-$ pwrq -c '[search_censys("host.services.protocol=SSH")
+$ pwrq -nc '[search_censys("host.services.protocol=SSH")
            | .host_v1.resource.location.country]
           | value_counts'
 ```
@@ -785,16 +791,16 @@ $ pwrq -c '[search_censys("host.services.protocol=SSH")
 Reading the tags and what they are attached to:
 
 ```console
-$ pwrq -c '[get_censys_tag] | map({name, id})'
-$ pwrq -c '[get_censys_tag_assignment($tag) | .asset_id]'
+$ pwrq -nc '[get_censys_tag] | map({name, id})'
+$ pwrq -nc '[get_censys_tag_assignment($tag) | .asset_id]'
 ```
 
 CensEye is asynchronous, so starting a job and reading it are two cmdlets
 rather than one that blocks. Reading needs nothing special:
 
 ```console
-$ pwrq -c 'get_censys_censeye_job($id) | .status'
-$ pwrq -c '[get_censys_censeye_result($id)] | length'
+$ pwrq -nc 'get_censys_censeye_job($id) | .status'
+$ pwrq -nc '[get_censys_censeye_result($id)] | length'
 ```
 
 The cmdlets that write are not registered unless `PWRQ_CENSYS_WRITE=1` is set,
@@ -803,9 +809,9 @@ for them. Starting a CensEye job is here because it spends the organization's
 credits, not because it edits anything:
 
 ```console
-$ PWRQ_CENSYS_WRITE=1 pwrq -c 'new_censys_censeye_job("1.1.1.1") | .job_id'
+$ PWRQ_CENSYS_WRITE=1 pwrq -nc 'new_censys_censeye_job("1.1.1.1") | .job_id'
 
-$ PWRQ_CENSYS_WRITE=1 pwrq -c '[search_censys("host.labels.value=\"c2\"")
+$ PWRQ_CENSYS_WRITE=1 pwrq -nc '[search_censys("host.labels.value=\"c2\"")
            | .host_v1.resource.ip
            | add_censys_tag_assignment($tag)] | length'
 ```
@@ -814,7 +820,7 @@ Every cmdlet takes `{Token, OrganizationId, ServerUrl, Timeout}` as options, so
 one query can reach two organizations:
 
 ```console
-$ pwrq -c '[get_censys_credits({Scope: "user"}),
+$ pwrq -nc '[get_censys_credits({Scope: "user"}),
             get_censys_credits({OrganizationId: $other})]'
 ```
 
@@ -880,7 +886,7 @@ state travels in one request:
 
 ```console
 $ export PWRQ_SYSTEMONE_MODEL=systemone/gemma TYPESAFE_BASE_URL=http://127.0.0.1:8080
-$ pwrq -c '"Help! My payouts have been failing for 3 days." | invoke_systemone({
+$ pwrq -nc '"Help! My payouts have been failing for 3 days." | invoke_systemone({
     is_urgent:   {type: "noul", instructions: "Does this convey urgency?"},
     department:  {type: "choice", instructions: "Which team should handle this?",
                   criteria: {billing: "Payments, invoicing, refunds",
@@ -1130,9 +1136,12 @@ model. The run above is a 12B one throughout.
 ## Aliases
 
 ```console
-$ pwrq -c '[gci(".")] | length'   # gci, dir, gi -> get_childitem
-$ pwrq -c '[gps] | length'        # gps -> get_process
-$ pwrq -c 'gd | .Year'            # gd  -> get_date
+$ pwrq -nc '[gci(".")] | length'   # gci, dir, gi -> get_childitem
+18
+$ pwrq -nc '[gps] | length'        # gps -> get_process
+548
+$ pwrq -nc 'gd | .Year'            # gd  -> get_date
+2026
 ```
 
 `pwrq --udf-list` prints every function and alias.

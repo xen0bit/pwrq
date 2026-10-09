@@ -22,8 +22,10 @@ query error, so anything a function computes has to be converted at the boundary
 only about printing: a `time.Time` in the pipeline is a value no jq builtin can
 act on.
 
-Binary output is hex-encoded, JSON having no byte type. The decoders accept the
-same representation, so round-trips work.
+Binary output is a text rendering of bytes, JSON having no byte type: hex for the
+encoders and compressors, base64 for the ciphers. Each cmdlet declares which it
+emits (and which it accepts), and the decoders take the representation their
+cmdlet produces, so round-trips work.
 
 ## Failures
 
