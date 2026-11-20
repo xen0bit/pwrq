@@ -55,6 +55,10 @@ type Options struct {
 	// ShareBase is the page a share link opens.
 	ShareBase string
 
+	// Ranker ranks query suggestions. Nil means the default: d1-2B where
+	// ONNX Runtime runs (suggest.Host), off with PWRQ_SUGGEST=off.
+	Ranker ideengine.Ranker
+
 	// RenderSVG draws a diagram as an image. Only a build with d2 has one;
 	// without it the diagram can be saved as its D2 script.
 	RenderSVG func(query *gojq.Query, opts graph.RenderOptions) (string, error)

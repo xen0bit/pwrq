@@ -134,3 +134,28 @@ describe("completion context", () => {
         expect(inLiteral(tokens, 7)).toBe(false); // between them
     });
 });
+
+describe("ghost text", () => {
+    const strip = (html) => html.replace(/<[^>]+>/g, "");
+
+    test("a suggestion is drawn at the caret, marked, and escaped", () => {
+        const src = ".a | sel";
+        const html = toHTML(src, tokenizeQuery(src, vocabulary), null, { at: src.length, text: 'ect(<b>"x"' });
+        expect(html).toContain('<span class="t-ghost">ect(&lt;b&gt;"x"</span>');
+        expect(html).not.toContain("<b>");
+        expect(strip(html)).toBe('.a | select(&lt;b&gt;"x"\n');
+    });
+
+    test("a caret inside whitespace that runs past the line end stays on its line", () => {
+        const src = ".a | \n.b";
+        const html = toHTML(src, tokenizeQuery(src, vocabulary), null, { at: 5, text: "map(" });
+        const text = strip(html).replace(/&[a-z]+;/g, "?");
+        expect(text.split("\n")[0]).toBe(".a | map(");
+    });
+
+    test("no ghost leaves the markup as it was", () => {
+        const src = ".a | .b";
+        const tokens = tokenizeQuery(src, vocabulary);
+        expect(toHTML(src, tokens, null, null)).toBe(toHTML(src, tokens));
+    });
+});

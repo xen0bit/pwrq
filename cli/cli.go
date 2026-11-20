@@ -94,6 +94,7 @@ type flagopts struct {
 	MCPHTTP       string            `long:"mcp-http" args:"addr" description:"serve as an MCP server over streamable HTTP on the given address (a non-loopback bind requires PWRQ_MCP_TOKEN)"`
 	TUI           bool              `long:"tui" description:"edit the query in a terminal UI over the input; queries run only when you press Ctrl-R, and Ctrl-X prints the query"`
 	Emit          string            `long:"emit" args:"query|output" description:"what --tui prints to stdout on Ctrl-X: the query (default) or its output"`
+	D1            string            `long:"d1" args:"command" description:"the d1-2B decision model: info reports where it would run, fetch downloads it and ONNX Runtime, fetch-gpu the CUDA stack"`
 }
 
 var addDefaultModulePaths = true
@@ -141,6 +142,9 @@ Usage:
 		cli.printUDFList()
 		return nil
 	}
+	if opts.D1 != "" {
+		return cli.runD1(opts.D1)
+	}
 	if opts.IDE && opts.IDENative {
 		return errors.New("flags `--ide' and `--ide-native' are mutually exclusive")
 	}
@@ -165,6 +169,8 @@ Usage:
 	if opts.Emit != "" {
 		return errors.New("flag `--emit' needs `--tui'")
 	}
+
+	defer cli.watchD1()()
 
 	// Initialize session state after flag parsing
 	cli.sessionState = sessionstate.NewSessionState()

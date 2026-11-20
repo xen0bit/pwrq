@@ -17,6 +17,7 @@ package webnative
 
 import (
 	"context"
+	"github.com/xen0bit/pwrq/pkg/d1/suggest"
 	"os"
 	"os/user"
 
@@ -72,6 +73,7 @@ func New() *Engine {
 		PrivateSession:    true,
 		Limits:            limits,
 		RenderSVG:         graphsvg.GenerateSVGOpts,
+		Ranker:            suggest.Host(),
 	})}
 }
 

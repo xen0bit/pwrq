@@ -879,38 +879,59 @@ $ pwrq -c '[.[] | invoke_llm("Extract {name, org} from: \(.)"; {Schema: $S})]
 ### Typed questions with System One
 
 A schema makes a model *write* one of the answers. System One makes it *weigh*
-them: each option gets a single-token label, one forward pass reads how likely
-each label is, and the answer comes back as a probability. Nothing is generated,
-so no answer can fall outside the options — and every question about the same
-state travels in one request:
+them: one forward pass reads how likely each option is, and the answer comes
+back as a probability. Nothing is generated, so no answer can fall outside the
+options — and every question about the same state travels in one pass.
+
+By default it runs [d1-2B](https://huggingface.co/LiquidAI/d1-2B) locally
+through ONNX Runtime. The model (about 2 GB) and the runtime are downloaded and
+cached on first use; `pwrq --d1 fetch` does that ahead of time and
+`pwrq --d1 info` reports what is in use:
 
 ```console
-$ export PWRQ_SYSTEMONE_MODEL=systemone/gemma TYPESAFE_BASE_URL=http://127.0.0.1:8080
 $ pwrq -nc '"Help! My payouts have been failing for 3 days." | invoke_systemone({
     is_urgent:   {type: "noul", instructions: "Does this convey urgency?"},
     department:  {type: "choice", instructions: "Which team should handle this?",
                   criteria: {billing: "Payments, invoicing, refunds",
                              technical: "Bugs, outages, integrations"}},
     frustration: {type: "score", instructions: "How frustrated is the customer?",
-                  criteria: ["Calm", "Frustrated", "Very angry"]}})'
-{"department":{"choice":"billing","confidence":0.9999299964319213,
-               "probabilities":{"billing":0.9999649982159606,"technical":0.000035001784039255326},
-               "type":"choice"},
- "frustration":{"confidence":0.941065122450111,
-                "legend":{"0":"Calm","1":"Frustrated","2":"Very angry"},
-                "probabilities":{"0":0.0006541911135148554,"1":0.9607100816334073,"2":0.0386357272530777},
-                "score":1.0379815361395628,"type":"score"},
- "is_urgent":{"noul":0.9999965076688166,"type":"noul"}}
+                  criteria: ["Calm", "Frustrated", "Very angry"]},
+    days:        {type: "number", instructions: "For how many days has it been failing?"}})'
+{"days":{"found":0.9994366206213349,"number":3,"span":[39,40],"text":"3","type":"number","unit":null},
+ "department":{"choice":"billing","confidence":0.9533323159506717,
+               "probabilities":{"billing":0.9533323159506717,"technical":0.04666768404932828},"type":"choice"},
+ "frustration":{"confidence":0.6869840454862816,"legend":{"0":"Calm","1":"Frustrated","2":"Very angry"},
+                "probabilities":{"0":0.6869840454862816,"1":0.2726985238064631,"2":0.040317430707255374},
+                "score":0,"type":"score"},
+ "is_urgent":{"noul":0.44035143097382584,"type":"noul"}}
 ```
 
-Three questions, one request, three forward passes and no generated tokens:
+The question types are `noul`, `choice` (with `multiple`), `score`, `text`,
+`number` (with `range` for an estimate, `unit`), `date`, `box` and `boxes`.
+Text, number and date answers point at the span of the state they came from.
+
+Images and video go in `Media` — a path, a `get_childitem` object, base64
+`{Data}`, or `{Type: "video", Frames: [...], FPS}`:
 
 ```console
-$ pwrq -nc 'invoke_systemone_request($state; $questions) | {InputTokens, OutputTokens, ServedModel}'
-{"InputTokens":186,"OutputTokens":3,"ServedModel":".../gemma-4-12B-it-QAT-Q4_0.gguf"}
+$ pwrq -nc 'invoke_systemone({shape: {type: "choice", instructions: "Which shape is largest?",
+    criteria: {circle: "A circle", square: "A square", triangle: "A triangle"}}};
+    {Media: ["pkg/d1/testdata/shapes.png"]}) | .shape | {choice, confidence}'
+{"choice":"square","confidence":0.993654021142056}
 ```
 
-The state may be an object, which is usually what a pipeline has:
+`invoke_systemone_request` reports the run itself; a local call costs nothing
+and does not count against `PWRQ_LLM_MAX_CALLS`:
+
+```console
+$ pwrq -nc '"Help! My payouts have been failing for 3 days."
+    | invoke_systemone_request({u: {type: "noul", instructions: "Does this convey urgency?"}})
+    | {Device, InputTokens, Seconds}'
+{"Device":"cpu","InputTokens":38,"Seconds":0.318902416}
+```
+
+The state may be an object, which is usually what a pipeline has, and
+`invoke_systemone_batch` packs many states into as few passes as fit:
 
 ```console
 $ pwrq -c 'map(. + ({Text, severity} | invoke_systemone({
@@ -923,26 +944,21 @@ Because a probability is a number, thresholds belong to the query rather than to
 the model: `select(.page > 0.9)` is a decision you can move without re-prompting
 anything.
 
-The endpoint is TypeSafe's, or llama.cpp's `/v1/systemone` in front of a local
-GGUF. `TYPESAFE_BASE_URL` and `TYPESAFE_API_KEY` are the SDK's own variables,
-and a local server needs no key:
+A malformed question is refused before the model loads:
 
 ```console
-$ pwrq -nc 'get_llm_context({Model: "systemone/gemma"}) | {Endpoint, ApiKeyRequired}'
-{"ApiKeyRequired":false,"Endpoint":"http://127.0.0.1:8080/v1/systemone"}
+$ pwrq -nc '"x" | invoke_systemone({q: {type: "choice", instructions: "Pick"}})'
+pwrq: invoke_systemone: question "q": a choice's "criteria" names the options: {"billing": "Charges and refunds", "shipping": "Delivery"}
 ```
 
-A malformed question is refused before the request, and the server's own field
-errors survive:
+`Device` (`auto`, `cpu`, `gpu`) picks the hardware. `auto` uses CUDA only when
+its libraries are already cached (`pwrq --d1 fetch-gpu`), and otherwise runs on
+the CPU and says why in `get_systemone`'s `Fallback`.
 
-```console
-$ pwrq -nc '"x" | invoke_systemone({q: {type: "choice"}})'
-pwrq: invoke_systemone: question "q": a choice needs criteria, an object of option name to description
-```
-
-Options are labelled in the order they encode and gojq sorts object keys, so
-`--systemone-permute` on llama.cpp averages each question with its options
-reversed — small models show the most position bias, and are helped most.
+A TypeSafe endpoint, or llama.cpp's `/v1/systemone` in front of a GGUF, is
+still available as `{Backend: "remote"}`, and is chosen on its own when
+`PWRQ_SYSTEMONE_MODEL`, `TYPESAFE_BASE_URL` or a `systemone/...` model is set.
+It takes the `noul`, `choice` and `score` types and no media.
 
 ### Many prompts at once
 
@@ -1062,8 +1078,9 @@ together, over a corpus it writes itself so the run is reproducible:
 5. **Ask about them** — `invoke_agent_request`, with the triaged rows piped in,
    writing its own queries against them.
 
-Stage 3 is skipped with a message if no System One endpoint is configured, so
-the run still works with a chat model alone.
+Stage 3 runs on the local d1-2B unless a remote System One endpoint is
+configured, as in the run below; `PWRQ_SKIP_SYSTEMONE=1` skips it, so the run
+still works with a chat model alone.
 
 ```console
 $ export PWRQ_LLM_MODEL=openai-compatible/gemma-4-12b

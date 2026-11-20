@@ -377,7 +377,11 @@ func validateQuery(args validateQueryArgs) validateQueryResult {
 		return validateQueryResult{Error: err.Error(), Stage: stageParse}
 	}
 
+	// With the caller's comments kept, as the IDE's Format keeps them.
 	formatted := jqfmt.Format(query)
+	if withComments, err := jqfmt.WithComments(args.Query, formatted); err == nil {
+		formatted = withComments
+	}
 	if err := compileForValidation(query, args.Args); err != nil {
 		return validateQueryResult{
 			Error: explainCompileError(err.Error(), args.Query),

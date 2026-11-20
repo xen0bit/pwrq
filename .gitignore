@@ -34,3 +34,4 @@ pkg/web/src/node_modules/
 *.swp
 *.swo
 *~
+__pycache__/

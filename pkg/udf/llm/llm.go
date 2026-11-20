@@ -4,9 +4,10 @@ import "github.com/itchyny/gojq"
 
 // RegisterAll returns every LLM and agent cmdlet.
 //
-// These are network calls against a paid API, so like the censys family they
-// are CLI-only: WebRegistry leaves them out, and the browser catalog reports
-// them as unavailable rather than pretending a page could make them.
+// These are network calls against a paid API, or a two-gigabyte model run in
+// this process, so like the censys family they are CLI-only: WebRegistry
+// leaves them out, and the browser catalog reports them as unavailable rather
+// than pretending a page could make them.
 func RegisterAll() []gojq.CompilerOption {
 	return []gojq.CompilerOption{
 		RegisterInvokeLLM(),
@@ -14,8 +15,8 @@ func RegisterAll() []gojq.CompilerOption {
 		RegisterInvokeLLMBatch(),
 		RegisterInvokeSystemOne(),
 		RegisterInvokeSystemOneRequest(),
-		RegisterInvokeHbb(),
-		RegisterGetHbb(),
+		RegisterInvokeSystemOneBatch(),
+		RegisterGetSystemOne(),
 		RegisterInvokeAgent(),
 		RegisterInvokeAgentRequest(),
 		RegisterInvokeEmbedding(),

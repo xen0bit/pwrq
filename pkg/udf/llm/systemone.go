@@ -9,18 +9,24 @@ import (
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/core/typed"
+	"github.com/xen0bit/pwrq/pkg/d1"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
 
-// System One is TypeSafe's API for asking typed questions about a state. Each
-// question lists its options, the server gives each one a single-token label,
-// and one forward pass reads the probability of every label. Nothing is
-// generated, so there is nothing to parse, nothing to repair and no answer
-// outside the options — which is what a classification step in a pipeline
-// wanted from a schema-constrained completion in the first place.
+// System One asks typed questions about a state. Each question lists its
+// options, each option gets a single-token label, and one forward pass reads
+// the probability of every label. Nothing is generated, so there is nothing
+// to parse, nothing to repair and no answer outside the options — which is
+// what a classification step in a pipeline wanted from a schema-constrained
+// completion in the first place.
 //
-// The same API is served by TypeSafe itself and by llama.cpp's
-// /v1/systemone, which is how it runs against a local GGUF.
+// Two backends serve it. The default is local: LiquidAI's d1-2B, downloaded
+// and cached on first use, running in this process on the CPU
+// or a CUDA GPU (systemone_local.go). It reads text, JSON, pictures and video
+// frames, and answers every d1 question type: noul, choice (and multiple
+// choice), score, text, number and date reads, estimates over a range, box
+// and boxes. The remote backend is TypeSafe's HTTP API, served by TypeSafe
+// itself or by llama.cpp's /v1/systemone, for noul, choice and score.
 
 // maxSystemOneOptions is the most options a question can have: the labels are
 // A-Z and a-z. A model whose vocabulary has fewer single-token labels says so
@@ -36,11 +42,15 @@ const maxSystemOneOptions = 52
 func RegisterInvokeSystemOne() gojq.CompilerOption {
 	const op = "invoke_systemone"
 	return common.WithFunction(op, 1, 3, func(v any, args []any) any {
-		resp, _, err := runSystemOne(op, v, args)
+		state, questions, opts, err := splitSystemOneCall(op, v, args)
 		if err != nil {
 			return err
 		}
-		return resp.Answers
+		r, err := systemOneCall(op, state, questions, opts)
+		if err != nil {
+			return err
+		}
+		return r.resp.Answers
 	})
 }
 
@@ -49,34 +59,170 @@ func RegisterInvokeSystemOne() gojq.CompilerOption {
 func RegisterInvokeSystemOneRequest() gojq.CompilerOption {
 	const op = "invoke_systemone_request"
 	return common.WithFunction(op, 1, 3, func(v any, args []any) any {
-		resp, o, err := runSystemOne(op, v, args)
+		state, questions, opts, err := splitSystemOneCall(op, v, args)
 		if err != nil {
 			return err
 		}
-		return systemOneObject(resp, &o)
+		r, err := systemOneCall(op, state, questions, opts)
+		if err != nil {
+			return err
+		}
+		if r.local {
+			return localObject(r.resp, r.info)
+		}
+		return systemOneObject(r.resp, &r.o)
 	})
 }
 
-func runSystemOne(op string, v any, args []any) (*response, options, error) {
-	state, questions, o, err := parseSystemOneCall(op, v, args)
+// RegisterInvokeSystemOneBatch registers invoke_systemone_batch: many
+// {State, Questions, Media} requests, answered in order with one set of
+// options. Locally they share one loaded model, so a batch costs one load,
+// not one per request.
+//
+//	[{State: "...", Questions: $q}, ...] | invoke_systemone_batch
+//	invoke_systemone_batch($requests)
+//	invoke_systemone_batch($requests; $options)
+func RegisterInvokeSystemOneBatch() gojq.CompilerOption {
+	const op = "invoke_systemone_batch"
+	return common.WithFunction(op, 0, 2, func(v any, args []any) any {
+		input, rawOpts := v, any(nil)
+		switch len(args) {
+		case 1:
+			input = args[0]
+		case 2:
+			input, rawOpts = args[0], args[1]
+		}
+		items, ok := common.BindValue(input).([]any)
+		if !ok {
+			return fmt.Errorf("%s: input must be an array of {State, Questions, Media} requests, got %s", op, jsonType(common.BindValue(input)))
+		}
+		opts, err := optionsArg(op, rawOpts)
+		if err != nil {
+			return err
+		}
+		out := make([]any, 0, len(items))
+		for i, item := range items {
+			obj, ok := common.BindValue(item).(map[string]any)
+			if !ok {
+				return fmt.Errorf("%s: request %d must be an object with State, Questions and optional Media, got %s", op, i, jsonType(item))
+			}
+			for k := range obj {
+				switch strings.ToLower(k) {
+				case "state", "questions", "media":
+				default:
+					return fmt.Errorf("%s: request %d: unknown key %q; a request has State, Questions and Media", op, i, k)
+				}
+			}
+			own := opts
+			if m := field(obj, "Media"); m != nil {
+				own = make(map[string]any, len(opts)+1)
+				for k, val := range opts {
+					if !strings.EqualFold(k, "Media") {
+						own[k] = val
+					}
+				}
+				own["Media"] = m
+			}
+			r, err := systemOneCall(fmt.Sprintf("%s: request %d", op, i), field(obj, "State"), field(obj, "Questions"), own)
+			if err != nil {
+				return err
+			}
+			out = append(out, r.resp.Answers)
+		}
+		return out
+	})
+}
+
+// RegisterGetSystemOne registers get_systemone: the local model, loaded if
+// it was not, and what it runs on - the device, why it is not the GPU, where
+// its files came from. Calling it first warms the model up.
+func RegisterGetSystemOne() gojq.CompilerOption {
+	const op = "get_systemone"
+	return common.WithFunction(op, 0, 1, func(v any, args []any) any {
+		var rawOpts any
+		if len(args) == 1 {
+			rawOpts = args[0]
+		}
+		opts, err := optionsArg(op, rawOpts)
+		if err != nil {
+			return err
+		}
+		o := defaults()
+		for k := range opts {
+			switch strings.ToLower(k) {
+			case "device", "modeldir", "threads":
+			default:
+				return fmt.Errorf("%s: unknown option %q; expected one of Device, ModelDir, Threads", op, k)
+			}
+		}
+		if err := bindOptions(op, opts, &o, groupSystemOne); err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), localTimeout)
+		defer cancel()
+		info, err := systemOneInfo(ctx, o)
+		if err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+		return info
+	})
+}
+
+// systemOneResult is a call's outcome, from either backend.
+type systemOneResult struct {
+	resp  *response
+	o     options
+	local bool
+	info  d1.Info
+}
+
+// systemOneCall binds the options, picks the backend, and answers.
+func systemOneCall(op string, state, rawQuestions any, opts map[string]any) (*systemOneResult, error) {
+	o := defaults()
+	if err := bindOptions(op, opts, &o, groupSystemOne); err != nil {
+		return nil, err
+	}
+	backend, err := chooseBackend(op, o, opts)
 	if err != nil {
-		return nil, options{}, err
+		return nil, err
+	}
+	state = normalizeNumbers(common.BindValue(state))
+	rawQuestions = normalizeNumbers(common.BindValue(rawQuestions))
+	if backend == backendLocal {
+		req, err := parseLocal(op, state, rawQuestions, o)
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), localTimeout)
+		defer cancel()
+		resp, info, err := askLocal(ctx, op, req, o)
+		if err != nil {
+			return nil, err
+		}
+		return &systemOneResult{resp: resp, o: o, local: true, info: info}, nil
+	}
+	questions, ok := rawQuestions.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s: questions must be an object of id to question, got %s", op, jsonType(rawQuestions))
 	}
 	if err := validateState(op, state); err != nil {
-		return nil, options{}, err
+		return nil, err
 	}
 	if err := validateQuestions(op, questions); err != nil {
-		return nil, options{}, err
+		return nil, err
 	}
 	p, err := o.resolveSystemOne(op)
 	if err != nil {
-		return nil, options{}, err
+		return nil, err
 	}
 	resp, err := askSystemOne(context.Background(), op, state, questions, o, p)
-	return resp, o, err
+	if err != nil {
+		return nil, err
+	}
+	return &systemOneResult{resp: resp, o: o}, nil
 }
 
-// parseSystemOneCall assigns the arguments by how many there are:
+// splitSystemOneCall assigns the arguments by how many there are:
 //
 //	invoke_systemone($questions)                    state is the pipeline
 //	invoke_systemone($questions; $options)          state is the pipeline
@@ -85,31 +231,18 @@ func runSystemOne(op string, v any, args []any) (*response, options, error) {
 // parseCall tells a prompt from options by type, which works because a prompt
 // is text. A state may be an object, so here the same trick would be guessing
 // between two objects — which is what the arity rule forbids.
-func parseSystemOneCall(op string, v any, args []any) (state any, questions map[string]any, o options, err error) {
-	var rawQuestions, rawOpts any
+func splitSystemOneCall(op string, v any, args []any) (state, questions any, opts map[string]any, err error) {
+	var rawOpts any
 	switch len(args) {
 	case 1:
-		state, rawQuestions = v, args[0]
+		state, questions = v, args[0]
 	case 2:
-		state, rawQuestions, rawOpts = v, args[0], args[1]
+		state, questions, rawOpts = v, args[0], args[1]
 	default:
-		state, rawQuestions, rawOpts = args[0], args[1], args[2]
+		state, questions, rawOpts = args[0], args[1], args[2]
 	}
-
-	opts, err := optionsArg(op, rawOpts)
-	if err != nil {
-		return nil, nil, options{}, err
-	}
-	o = defaults()
-	if err := bindOptions(op, opts, &o, groupSystemOne); err != nil {
-		return nil, nil, options{}, err
-	}
-
-	q, ok := normalizeNumbers(common.BindValue(rawQuestions)).(map[string]any)
-	if !ok {
-		return nil, nil, options{}, fmt.Errorf("%s: questions must be an object of id to question, got %s", op, jsonType(rawQuestions))
-	}
-	return normalizeNumbers(common.BindValue(state)), q, o, nil
+	opts, err = optionsArg(op, rawOpts)
+	return state, questions, opts, err
 }
 
 // validateState accepts what the API does: text, or a document to encode.

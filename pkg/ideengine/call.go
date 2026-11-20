@@ -34,6 +34,11 @@ func (e *Engine) Call(ctx context.Context, method, request string) string {
 			func(err string) InlineResponse { return InlineResponse{Error: err} })
 	case "catalog":
 		return Marshal(e.Catalog())
+	case "suggest":
+		return handle(request, func(req SuggestRequest) SuggestResponse { return e.Suggest(ctx, req) },
+			func(err string) SuggestResponse { return SuggestResponse{Items: []Suggestion{}, Error: err} })
+	case "suggest_status":
+		return Marshal(e.SuggestStatus())
 	default:
 		return Marshal(errorResponse{Error: fmt.Sprintf("unknown method %q", method)})
 	}

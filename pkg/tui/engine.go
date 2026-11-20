@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"github.com/xen0bit/pwrq/pkg/d1/suggest"
 	"strings"
 	"sync"
 
@@ -33,7 +34,10 @@ type runner struct {
 	sink *sink
 }
 
-func newRunner(extra []gojq.CompilerOption, version string) *runner {
+func newRunner(extra []gojq.CompilerOption, version string, ranker ideengine.Ranker) *runner {
+	if ranker == nil {
+		ranker = suggest.Host()
+	}
 	s := &sink{}
 	options := append([]gojq.CompilerOption{}, extra...)
 	options = append(options,
@@ -49,6 +53,7 @@ func newRunner(extra []gojq.CompilerOption, version string) *runner {
 			CompileOnValidate: true,
 			PrivateSession:    true,
 			Limits:            tuiLimits,
+			Ranker:            ranker,
 		}),
 	}
 }

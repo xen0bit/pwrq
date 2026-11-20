@@ -25,8 +25,9 @@
 #   export PWRQ_LLM_MODEL=openai-compatible/your-model
 #   export OPENAI_BASE_URL=http://127.0.0.1:1234/v1
 #
-# Stage 3 needs a System One endpoint: TypeSafe's, or llama.cpp's /v1/systemone
-# serving a local GGUF. Without one it is skipped and the run goes on:
+# Stage 3 runs System One on the local d1-2B model, which is downloaded (about
+# 2 GB) and cached on first use; `pwrq --d1 fetch` does that ahead of time. Set
+# PWRQ_SKIP_SYSTEMONE=1 to skip the stage, or point it at a remote endpoint:
 #   export PWRQ_SYSTEMONE_MODEL=systemone/your-model
 #   export TYPESAFE_BASE_URL=http://127.0.0.1:8080      # and TYPESAFE_API_KEY if hosted
 #
@@ -110,7 +111,7 @@ echo "== 3. scored by System One ===============================================
 # likely each is, so page is a probability, urgency a weighted position on its
 # scale and owner the likeliest team — never a word outside the list. All three
 # questions about a line are one request.
-if [ -n "${PWRQ_SYSTEMONE_MODEL:-}" ]; then
+if [ -z "${PWRQ_SKIP_SYSTEMONE:-}" ]; then
   "$PWRQ" -c '
     {page:    {type: "noul", instructions: "Should this error wake the on-call engineer?"},
      urgency: {type: "score", instructions: "How urgent is fixing this error?",
@@ -125,7 +126,7 @@ if [ -n "${PWRQ_SYSTEMONE_MODEL:-}" ]; then
   "$PWRQ" -r 'map({File, Line, owner, urgency: (.urgency * 100 | round / 100),
                    page: (.page * 100 | round / 100)}) | format_table(.)' < "$logs/scored.json"
 else
-  echo "skipped: set PWRQ_SYSTEMONE_MODEL and TYPESAFE_BASE_URL to score with System One"
+  echo "skipped: PWRQ_SKIP_SYSTEMONE is set"
   "$PWRQ" -c 'map(. + {page: null, urgency: null, owner: null})' < "$logs/triaged.json" > "$logs/scored.json"
 fi
 

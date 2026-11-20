@@ -243,11 +243,26 @@ export function escapeHTML(text) {
  * The mark is applied by splitting tokens at its boundaries rather than by
  * wrapping them, so an error inside a string still underlines exactly the
  * offending characters. */
-export function toHTML(src, tokens, error = null) {
+export function toHTML(src, tokens, error = null, ghost = null) {
     let html = "";
     const inError = (pos) => error && pos >= error.start && pos < error.end;
+    // A ghost is a suggestion drawn at a position but not part of the text.
+    const ghostHTML = ghost && ghost.text ? `<span class="t-ghost">${escapeHTML(ghost.text)}</span>` : "";
+    let ghostDone = !ghostHTML;
 
     for (const token of tokens) {
+        if (!ghostDone && token.start >= ghost.at) {
+            html += ghostHTML;
+            ghostDone = true;
+        } else if (!ghostDone && token.end > ghost.at) {
+            // The caret is inside this token (whitespace running on past the
+            // line's end): split it there.
+            const cls = CLASS_FOR[token.kind] ?? "";
+            html += span(escapeHTML(src.slice(token.start, ghost.at)), cls) + ghostHTML +
+                span(escapeHTML(src.slice(ghost.at, token.end)), cls);
+            ghostDone = true;
+            continue;
+        }
         const cls = CLASS_FOR[token.kind] ?? "";
         if (!error || token.end <= error.start || token.start >= error.end) {
             html += span(escapeHTML(token.text), cls);
@@ -263,6 +278,8 @@ export function toHTML(src, tokens, error = null) {
             pos = end;
         }
     }
+
+    if (!ghostDone) html += ghostHTML;
 
     // A highlight layer that ends exactly at the text's end scrolls short of
     // the caret on the final line; a trailing newline keeps the two aligned.

@@ -818,6 +818,21 @@ input[type="number"] { width: 5.5em; }
 .dot.error { background: var(--danger); }
 @keyframes pulse { 50% { opacity: 0.25; } }
 
+/* Suggestions: the model's state in the status bar, and its ghost text. */
+.suggest-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.suggest-status.hidden { display: none; }
+.spinner {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    border-right-color: transparent;
+    animation: spin 0.8s linear infinite;
+}
+.spinner.hidden { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.t-ghost { color: var(--muted); opacity: 0.6; font-style: italic; }
+
 /* ----------------------------------------------------------------- modals */
 
 .modal {

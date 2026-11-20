@@ -49,12 +49,22 @@ export class Engine extends EventTarget {
         this.dispatchEvent(new CustomEvent("state", { detail: { state, detail, version: this.version } }));
     }
 
+    /* loudPending reports whether a request the page shows as running is in
+     * flight. A quiet one - a suggestion, asked between keystrokes - is not
+     * "running" and must not flash the run indicator or its Cancel button. */
+    loudPending() {
+        for (const entry of this.pending.values()) {
+            if (!entry.quiet) return true;
+        }
+        return false;
+    }
+
     receive(message) {
         if (!message || typeof message !== "object") return;
 
         if (message.type === "ready") {
             this.version = message.version || "";
-            this.setState(this.pending.size ? "busy" : "ready");
+            this.setState(this.loudPending() ? "busy" : "ready");
             return;
         }
         if (message.type === "progress") {
@@ -73,7 +83,7 @@ export class Engine extends EventTarget {
         this.pending.delete(message.id);
         clearTimeout(entry.watchdog);
 
-        if (this.pending.size === 0 && this.state === "busy") {
+        if (!this.loudPending() && this.state === "busy") {
             this.setState("ready");
         }
 
@@ -96,7 +106,7 @@ export class Engine extends EventTarget {
      * whatever deadline the request itself carries, because the engine
      * stopping a query cleanly is the good case.
      */
-    call(method, payload = {}, { supersede = null, watchdogMs = 20000 } = {}) {
+    call(method, payload = {}, { supersede = null, watchdogMs = 20000, quiet = false } = {}) {
         if (!this.worker) {
             return Promise.reject(new Error("the engine is not running"));
         }
@@ -107,6 +117,7 @@ export class Engine extends EventTarget {
         return new Promise((resolve, reject) => {
             const entry = {
                 method,
+                quiet,
                 resolve: (value) => {
                     if (supersede && this.latest.get(supersede) !== id) {
                         reject(superseded());
@@ -118,7 +129,7 @@ export class Engine extends EventTarget {
                 watchdog: setTimeout(() => this.timedOut(id), watchdogMs),
             };
             this.pending.set(id, entry);
-            this.setState("busy");
+            if (!quiet) this.setState("busy");
             this.worker.postMessage({ id, method, request: JSON.stringify(payload) });
         });
     }

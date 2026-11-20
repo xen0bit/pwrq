@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "next": "Which of these should be written next at the cursor, to do what the query's comments ask?",
+  "more": "Does the query need another step after what is written, to do what its comments ask?",
+  "option_style": "help+example",
+  "temperature": 3.605,
+  "more_temperature": 3.966,
+  "threshold": 0.99,
+  "prompt_digest": "8d4c80ac1aac1093"
+}

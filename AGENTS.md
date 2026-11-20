@@ -33,6 +33,8 @@ never run. `TestNoBuiltinShadowing` fails the build instead.
 | `pkg/tui/` | the terminal UI |
 | `pkg/mcpserver/` | the MCP server (its own engine today) |
 | `pkg/pwrgrep/` | the rule corpus and its loader |
+| `pkg/d1/` | local d1-2B: ORT binding, tokenizer, vision, prompt/readout, assets, suggestions |
+| `internal/tools/d1*` | d1 lock pinning, reference fixtures, suggestion calibration |
 | `pkg/graph/`, `pkg/graph/graphsvg/` | query diagramming (behind the `viz` tag) |
 | `docs/` | design record and other long-form docs |
 
@@ -48,8 +50,19 @@ make lint             # go vet + golangci-lint for every build tag
 make web.build        # the browser editor (needs bun)
 make web.build-native # the native editor (needs bun)
 make web.test         # the editor's browser-side tests (needs bun)
+make d1.lock          # re-pin d1-2B and ONNX Runtime in pkg/d1/assets/d1.lock.json
+make d1.calibrate     # recalibrate suggestions (needs the model; writes harness.json)
 make help
 ```
+
+### d1-2B in tests
+
+The model (~2 GB) is downloaded on first use, so **no test may download it**.
+CI sets `PWRQ_D1_OFFLINE=1` and `PWRQ_SUGGEST=off`; a test that would load the
+model must skip unless `PWRQ_TEST_D1_DIR` (the ONNX model folder) and
+`PWRQ_TEST_ORT_LIB` (`libonnxruntime`) are set. Run those locally after any
+change under `pkg/d1`. Changing the suggestion prompt fails
+`TestHarnessMatchesPrompt` until `make d1.calibrate` is rerun.
 
 `make test` needs `bun` for the browser half. The most useful focused runs:
 
@@ -263,7 +276,7 @@ known remaining work, not a pattern to imitate.
 | architecture or a design decision | `docs/DESIGN.md` |
 | the command surface or counts | README.md and EXAMPLES.md |
 
-Counts in the docs are easy to get wrong. The current ones: 509 cmdlets (518
-with `PWRQ_CENSYS_WRITE=1`), 692 published examples of which 590 run, 840 CLI
+Counts in the docs are easy to get wrong. The current ones: 511 cmdlets (520
+with `PWRQ_CENSYS_WRITE=1`), 699 published examples of which 589 run, 840 CLI
 corpus cases, 67 rules, 34 grammars. Regenerate outputs rather than editing them
 by hand, and run the guards above before committing.

@@ -34,6 +34,11 @@ type Editor struct {
 	// Version changes on every edit, so a caller can tell whether what it
 	// computed from the text is stale.
 	Version int
+
+	// Ghost is a suggestion shown after the cursor and not part of the
+	// text until AcceptGhost inserts it. Any edit clears it: it was for the
+	// text as it was.
+	Ghost string
 }
 
 type snapshot struct {
@@ -141,6 +146,18 @@ func (e *Editor) SetOffset(off int) {
 }
 
 func runeLen(s string) int { return utf8.RuneCountInString(s) }
+
+// AcceptGhost inserts the ghost suggestion at the cursor, reporting
+// whether there was one.
+func (e *Editor) AcceptGhost() bool {
+	if e.Ghost == "" {
+		return false
+	}
+	g := e.Ghost
+	e.Ghost = ""
+	e.InsertText(g)
+	return true
+}
 
 func (e *Editor) changed() {
 	e.Version++
@@ -610,7 +627,11 @@ func (e *Editor) Render(th *theme, width, height int, focused, numbers bool, kin
 		if focused && row == e.row {
 			cursorCol = e.col
 		}
-		b.WriteString(renderText(th, e.lines[row], colour, e.left, textWidth, cursorCol, mark, offset))
+		ghost := ""
+		if cursorCol >= 0 {
+			ghost = e.Ghost
+		}
+		b.WriteString(renderText(th, e.lines[row], colour, e.left, textWidth, cursorCol, mark, offset, ghost))
 		out = append(out, b.String())
 		if mark != nil {
 			offset += runeLen(e.lines[row]) + 1
@@ -628,14 +649,14 @@ const longLine = 4096
 // document is a single line of megabytes - is decoded only as far as the
 // screen reaches, and not coloured, since colouring needs the whole line and
 // every frame would pay for it.
-func renderText(th *theme, s string, colour func([]rune) []string, left, width, cursorCol int, mark *Span, offset int) string {
+func renderText(th *theme, s string, colour func([]rune) []string, left, width, cursorCol int, mark *Span, offset int, ghost string) string {
 	if len(s) <= longLine {
 		runes := []rune(s)
 		var kinds []string
 		if colour != nil {
 			kinds = colour(runes)
 		}
-		return renderLine(th, runes, kinds, left, width, cursorCol, mark, offset)
+		return renderLine(th, runes, kinds, left, width, cursorCol, mark, offset, ghost)
 	}
 
 	// Skip to the first rune that reaches the left edge.
@@ -661,12 +682,12 @@ func renderText(th *theme, s string, colour func([]rune) []string, left, width, 
 	if cursorCol >= 0 {
 		cursorCol -= col
 	}
-	return renderLine(th, runes, nil, left-x, width, cursorCol, mark, offset+col)
+	return renderLine(th, runes, nil, left-x, width, cursorCol, mark, offset+col, ghost)
 }
 
 // renderLine draws one line from cell left, textWidth cells wide, padding to
 // the full width. Runes of one style are drawn together.
-func renderLine(th *theme, line []rune, kinds []string, left, textWidth, cursorCol int, mark *Span, offset int) string {
+func renderLine(th *theme, line []rune, kinds []string, left, textWidth, cursorCol int, mark *Span, offset int, ghost string) string {
 	var b strings.Builder
 	x := 0
 	drawn := 0
@@ -687,9 +708,30 @@ func renderLine(th *theme, line []rune, kinds []string, left, textWidth, cursorC
 		drawn += w
 	}
 
+	// drawGhost draws the suggestion at the cursor, as fish does: the
+	// cursor's block on its first rune, the rest faint. It reports whether
+	// it drew anything.
+	drawGhost := func() bool {
+		g := []rune(ghost)
+		if len(g) == 0 || x < left {
+			return false
+		}
+		for k, r := range g {
+			w := cellWidth(r)
+			if drawn+w > textWidth {
+				break
+			}
+			if k == 0 {
+				emit(styleCursor, displayRune(r), w)
+			} else {
+				emit(styleGhost, displayRune(r), w)
+			}
+		}
+		return true
+	}
 	for i := 0; i <= len(line); i++ {
 		if i == len(line) {
-			if i == cursorCol && x >= left && drawn < textWidth {
+			if i == cursorCol && x >= left && drawn < textWidth && !drawGhost() {
 				emit(styleCursor, " ", 1)
 			}
 			break
@@ -719,7 +761,13 @@ func renderLine(th *theme, line []rune, kinds []string, left, textWidth, cursorC
 			style |= styleError
 		}
 		if i == cursorCol {
-			style = styleCursor
+			if drawGhost() {
+				if drawn+w > textWidth {
+					break
+				}
+			} else {
+				style = styleCursor
+			}
 		}
 		emit(style, displayRune(r), w)
 		x += w
