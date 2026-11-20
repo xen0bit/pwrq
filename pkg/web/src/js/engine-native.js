@@ -72,6 +72,16 @@ export class Engine extends EventTarget {
         this.dispatchEvent(new CustomEvent("state", { detail: { state, detail, version: this.version } }));
     }
 
+    /* loudPending reports whether a request the page shows as running is in
+     * flight. A quiet one - a suggestion, asked between keystrokes - is not
+     * "running" and must not flash the run indicator or its Cancel button. */
+    loudPending() {
+        for (const entry of this.pending.values()) {
+            if (!entry.quiet) return true;
+        }
+        return false;
+    }
+
     async checkHealth() {
         try {
             const response = await fetch(this.healthURL, { headers: this.headers() });
@@ -80,7 +90,7 @@ export class Engine extends EventTarget {
             }
             this.health = await response.json();
             this.version = this.health.version || "";
-            this.setState(this.pending.size ? "busy" : "ready");
+            this.setState(this.loudPending() ? "busy" : "ready");
         } catch (err) {
             this.setState("error", err && err.message ? err.message : "the native server is unreachable");
         }
@@ -94,13 +104,14 @@ export class Engine extends EventTarget {
      * whatever timeout the request itself carries, because the server stopping
      * a query cleanly is the good case.
      */
-    call(method, payload = {}, { supersede = null, watchdogMs = 20000 } = {}) {
+    call(method, payload = {}, { supersede = null, watchdogMs = 20000, quiet = false } = {}) {
         const id = this.nextID++;
         if (supersede) this.latest.set(supersede, id);
 
         const controller = new AbortController();
         const entry = {
             method,
+            quiet,
             controller,
             resolve: null,
             reject: null,
@@ -119,7 +130,7 @@ export class Engine extends EventTarget {
             entry.watchdog = setTimeout(() => this.timedOut(id), watchdogMs);
         });
         this.pending.set(id, entry);
-        this.setState("busy");
+        if (!quiet) this.setState("busy");
         this.post(id, method, payload, controller.signal);
         return promise;
     }
@@ -131,7 +142,7 @@ export class Engine extends EventTarget {
             if (!this.pending.has(id)) return;
             this.pending.delete(id);
             clearTimeout(entry.watchdog);
-            if (this.pending.size === 0 && this.state === "busy") {
+            if (!this.loudPending() && this.state === "busy") {
                 this.setState("ready");
             }
             fn(value);
@@ -179,7 +190,7 @@ export class Engine extends EventTarget {
         }
         this.pending.delete(id);
         clearTimeout(entry.watchdog);
-        if (this.pending.size === 0 && this.state === "busy") {
+        if (!this.loudPending() && this.state === "busy") {
             this.setState("ready");
         }
         entry.reject(new Error("the engine stopped responding; the request was aborted"));

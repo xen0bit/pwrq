@@ -302,11 +302,11 @@ func (m *model) outputContent(w, h int) []string {
 		case line.head:
 			out = append(out, th.bold.Render(fit("── "+line.text+" ──", w)))
 		case line.debug:
-			out = append(out, th.faint.Render(renderText(th, line.text, nil, m.outLeft, w, -1, nil, 0)))
+			out = append(out, th.faint.Render(renderText(th, line.text, nil, m.outLeft, w, -1, nil, 0, "")))
 		case m.lastRaw:
-			out = append(out, renderText(th, line.text, nil, m.outLeft, w, -1, nil, 0))
+			out = append(out, renderText(th, line.text, nil, m.outLeft, w, -1, nil, 0, ""))
 		default:
-			out = append(out, renderText(th, line.text, colourJSON, m.outLeft, w, -1, nil, 0))
+			out = append(out, renderText(th, line.text, colourJSON, m.outLeft, w, -1, nil, 0, ""))
 		}
 	}
 	return out
@@ -502,6 +502,8 @@ func (m *model) statusLine() string {
 		mid = style.Render(m.flashText)
 	case m.running:
 		mid = th.accent.Render("running " + elapsed(time.Since(m.runStarted)) + " · Esc cancels")
+	default:
+		mid = m.suggestIndicator()
 	}
 
 	var flags []string

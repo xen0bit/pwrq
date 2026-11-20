@@ -62,6 +62,11 @@ type Config struct {
 	// RenderSVG draws a diagram as an image. Without it a diagram is its D2
 	// script alone.
 	RenderSVG func(query *gojq.Query, opts graph.RenderOptions) (string, error)
+
+	// Ranker weighs query suggestions with a model (pkg/d1/suggest). A host
+	// that cannot run one - the WASM page - leaves it nil, and the suggest
+	// operation says suggestions are unavailable there.
+	Ranker Ranker
 }
 
 // Limits bound what a run may cost. A request may relax the defaults, but not
@@ -101,6 +106,12 @@ type Engine struct {
 
 	runner *queryrun.Runner
 	execMu sync.Mutex
+
+	// Suggestions run beside queries, never under execMu: a suggestion is
+	// read-only and a slow model must not hold up a run.
+	suggest   suggestState
+	vocabOnce sync.Once
+	vocab     []Candidate
 }
 
 // New builds an engine from a host's configuration.

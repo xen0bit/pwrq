@@ -36,6 +36,9 @@ export class Editor extends EventTarget {
         this.completionSource = completions;
         this.error = null;
         this.tokens = [];
+        // A suggestion drawn faint at the caret: {at, text}. It is not in
+        // the text until Tab accepts it, and any edit or caret move drops it.
+        this.ghost = null;
 
         host.innerHTML = "";
         host.classList.add("editor-host");
@@ -73,6 +76,7 @@ export class Editor extends EventTarget {
 
     bind() {
         this.input.addEventListener("input", () => {
+            this.ghost = null;
             this.render();
             this.emit("change");
             this.maybeComplete();
@@ -82,7 +86,10 @@ export class Editor extends EventTarget {
         this.scroll.addEventListener("scroll", () => this.syncScroll());
 
         this.input.addEventListener("keydown", (event) => this.onKeydown(event));
-        this.input.addEventListener("blur", () => this.closeCompletions());
+        this.input.addEventListener("blur", () => {
+            this.closeCompletions();
+            this.clearGhost();
+        });
         this.input.addEventListener("click", () => {
             this.closeCompletions();
             this.emit("caret");
@@ -175,7 +182,8 @@ export class Editor extends EventTarget {
     render() {
         const src = this.input.value;
         this.tokens = this.language === "json" ? tokenizeJSON(src) : tokenizeQuery(src, this.vocabulary);
-        this.highlightCode.innerHTML = src ? toHTML(src, this.tokens, this.error) : "";
+        const ghost = this.ghost && this.ghost.at === this.caret ? this.ghost : null;
+        this.highlightCode.innerHTML = src || ghost ? toHTML(src, this.tokens, this.error, ghost) : "";
         this.renderGutter(src);
         this.syncHeight();
     }
@@ -270,7 +278,52 @@ export class Editor extends EventTarget {
         this.gutter.style.transform = `translateY(${-this.scroll.scrollTop}px)`;
     }
 
+    /* setGhost shows a suggestion at the caret. It is shown only when the
+     * caret ends its line with nothing selected: text after the caret would
+     * otherwise be drawn shifted from where the textarea has it. */
+    setGhost(text) {
+        const { selectionStart: start, selectionEnd: end, value } = this.input;
+        const lineEnd = value.indexOf("\n", start);
+        const rest = value.slice(start, lineEnd === -1 ? value.length : lineEnd);
+        if (!text || start !== end || rest.trim() !== "") {
+            this.clearGhost();
+            return;
+        }
+        this.ghost = { at: start, text };
+        this.render();
+        this.emit("ghost", { text });
+    }
+
+    clearGhost() {
+        if (!this.ghost) return;
+        this.ghost = null;
+        this.render();
+        this.emit("ghost", { text: "" });
+    }
+
+    /* acceptGhost inserts the suggestion, reporting whether there was one. */
+    acceptGhost() {
+        if (!this.ghost || this.ghost.at !== this.caret) return false;
+        const { text } = this.ghost;
+        this.ghost = null;
+        this.insert(text);
+        this.emit("ghost-accepted", { text });
+        return true;
+    }
+
     onKeydown(event) {
+        if (this.ghost) {
+            if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !this.completionState) {
+                event.preventDefault();
+                if (this.acceptGhost()) return;
+            } else if (event.key === "Escape") {
+                event.preventDefault();
+                this.clearGhost();
+                return;
+            } else if (!["Shift", "Control", "Alt", "Meta"].includes(event.key)) {
+                this.clearGhost();
+            }
+        }
         if (this.completionState && this.handleCompletionKey(event)) return;
 
         const { selectionStart: start, selectionEnd: end, value } = this.input;
@@ -356,6 +409,8 @@ export class Editor extends EventTarget {
         if (event.key === " " && event.ctrlKey) {
             event.preventDefault();
             this.maybeComplete(true);
+            // and ask the model, which answers as ghost text
+            this.emit("suggest-request");
         }
     }
 

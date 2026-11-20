@@ -63,6 +63,30 @@ build-viz-native-with-ide: web.build-native
 	@echo "Building $(NATIVE_BIN) with embedded native web assets..."
 	go build -tags "viz ide_native embed_web_native $(BUILD_TAGS)" -ldflags="$(BUILD_LDFLAGS)" -o $(NATIVE_BIN) ./cmd/$(VIZ_BIN)
 
+# d1.lock re-pins pkg/d1/assets/d1.lock.json: the model revision, ONNX
+# Runtime and the CUDA wheels, each by sha256.
+.PHONY: d1.lock
+d1.lock:
+	go run ./internal/tools/d1assets lock
+
+# d1.calibrate re-fits the editors' suggestion questions to d1-2B against the
+# gallery (needs the model; see internal/tools/d1cal).
+.PHONY: d1.calibrate
+d1.calibrate:
+	go run ./internal/tools/d1cal -limit 250
+
+# d1.fixtures regenerates pkg/d1/testdata from d1-2B's own Python code. It
+# needs that checkpoint, its ONNX export and a Python environment with
+# transformers, torch, torchvision and onnxruntime; see the scripts.
+.PHONY: d1.fixtures
+d1.fixtures:
+	@test -n "$(D1_SNAPSHOT)" -a -n "$(D1_ONNX)" -a -n "$(PYTHON)" || \
+		(echo "set D1_SNAPSHOT, D1_ONNX and PYTHON" && exit 1)
+	$(PYTHON) internal/tools/d1fixtures/tokenizer_fixtures.py $(D1_ONNX)/tokenizer.json pkg/d1/testdata/tokenizer_fixtures.json
+	$(PYTHON) internal/tools/d1fixtures/parsing_fixtures.py $(D1_SNAPSHOT) pkg/d1/testdata/parsing_fixtures.json
+	$(PYTHON) internal/tools/d1fixtures/reference.py $(D1_SNAPSHOT) $(D1_ONNX) pkg/d1/testdata
+	$(PYTHON) internal/tools/d1fixtures/vision_fixtures.py $(D1_SNAPSHOT) pkg/d1/testdata
+
 .PHONY: build-all
 build-all: build build-viz
 
@@ -241,6 +265,9 @@ help:
 	@echo "  make build-viz-with-ide - Build $(VIZ_BIN) with embedded web assets"
 	@echo "  make build-viz-native - Build $(NATIVE_BIN) (native IDE, serves dist-native from the tree)"
 	@echo "  make build-viz-native-with-ide - Build $(NATIVE_BIN) with embedded native web assets"
+	@echo "  make d1.lock        - Re-pin the model, ONNX Runtime and CUDA wheels"
+	@echo "  make d1.calibrate   - Re-fit the editors' suggestion questions to d1-2B"
+	@echo "  make d1.fixtures    - Regenerate pkg/d1/testdata from d1-2B's Python code"
 	@echo "  make help           - Show this help message"
 
 .PHONY: version

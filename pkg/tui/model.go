@@ -92,6 +92,9 @@ type model struct {
 	set                settings
 	settingsVersion    int
 
+	// Suggestions from the decision model, as ghost text after the cursor.
+	sugg suggestState
+
 	// The vocabulary, from the engine's catalog.
 	catalog     ideengine.CatalogResponse
 	vocab       Vocabulary
@@ -189,7 +192,7 @@ func newModel(opts Options, th *theme) (*model, error) {
 			limit: tuiLimits.DefaultResults, timeoutMs: tuiLimits.DefaultTimeoutMs,
 		},
 	}
-	m.run = newRunner(opts.RunOptions, opts.Version)
+	m.run = newRunner(opts.RunOptions, opts.Version, opts.Ranker)
 
 	query, input, args := opts.Query, opts.Input, opts.Args
 	switch {
@@ -319,7 +322,7 @@ func (m *model) current() versions {
 func (m *model) stale() bool { return m.last != nil && m.lastFor != m.current() }
 
 func (m *model) Init() tea.Cmd {
-	return m.scheduleValidate()
+	return tea.Batch(m.scheduleValidate(), m.initSuggest())
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +394,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case runMsg:
 		return m, m.finishRun(msg)
+
+	case suggestTickMsg:
+		if msg.gen != m.sugg.gen || m.focus != paneQuery {
+			return m, nil
+		}
+		return m, m.suggest(msg.gen, false)
+
+	case suggestMsg:
+		return m, m.finishSuggest(msg)
+
+	case spinMsg:
+		return m, m.onSpin()
 
 	case runTickMsg:
 		if m.running && msg.gen == m.runGen {
@@ -642,6 +657,11 @@ func (m *model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		m.overlay, m.keysTop = overlayKeys, 0
 		return nil
 	case "tab":
+		// Tab takes a suggestion when one is showing, and moves between
+		// panes otherwise.
+		if m.focus == paneQuery && m.query.Ghost != "" && m.complete == nil {
+			return m.acceptGhost()
+		}
 		m.cycleFocus(1)
 		return nil
 	case "shift+tab":
@@ -654,6 +674,7 @@ func (m *model) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "ctrl+@", "ctrl+ ":
 		if m.focus == paneQuery {
 			m.openCompletion(true)
+			return m.scheduleSuggest(true)
 		}
 		return nil
 	case "alt+f":
@@ -714,6 +735,8 @@ func (m *model) handleKey(msg tea.KeyMsg) tea.Cmd {
 // escape closes the innermost thing that is open.
 func (m *model) escape() tea.Cmd {
 	switch {
+	case m.query.Ghost != "" && m.focus == paneQuery:
+		m.query.Ghost, m.sugg.top = "", nil
 	case m.complete != nil:
 		m.complete = nil
 	case m.helpFor != "" && m.focus != paneQuery && m.visibleTab(m.focus) == tabCatalog:
@@ -751,6 +774,8 @@ func (m *model) editQuery(msg tea.KeyMsg) tea.Cmd {
 	if !handled || !changed {
 		if handled {
 			m.complete = nil
+			// The cursor moved: a suggestion was for where it was.
+			m.query.Ghost, m.sugg.top = "", nil
 		}
 		return nil
 	}
@@ -759,7 +784,7 @@ func (m *model) editQuery(msg tea.KeyMsg) tea.Cmd {
 	} else {
 		m.complete = nil
 	}
-	return m.scheduleValidate()
+	return tea.Batch(m.scheduleValidate(), m.scheduleSuggest(false))
 }
 
 // scroll moves a view's top line by a key, within the lines it has.

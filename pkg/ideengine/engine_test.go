@@ -160,3 +160,18 @@ func TestTheCoreDoesNotLinkD2(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatKeepsCommentsAndMinifyDropsThem(t *testing.T) {
+	src := "# big Go files\nget_childitem(\"*.go\") | where_object(.Length > 1000) # over a kilobyte"
+	got := Format(src)
+	if got.Error != "" || !strings.Contains(got.Query, "# big Go files") || !strings.Contains(got.Query, "# over a kilobyte") {
+		t.Fatalf("Format lost a comment: %+v", got)
+	}
+	if m := Minify(src); m.Error != "" || strings.Contains(m.Query, "#") {
+		t.Fatalf("Minify kept a comment: %+v", m)
+	}
+	in := Inline("# double it\ndef d: . * 2;\n[1] | map(d) # doubled")
+	if in.Error != "" || !strings.Contains(in.Query, "# doubled") {
+		t.Fatalf("Inline lost a comment: %+v", in)
+	}
+}

@@ -198,6 +198,18 @@ type options struct {
 	Parallel        int  `param:"Parallel" group:"batch"`
 	ContinueOnError bool `param:"ContinueOnError" group:"batch"`
 
+	// The System One cmdlets choose a backend, and the local one - d1-2B in
+	// this process - takes its own options; see systemone_local.go.
+	Backend      string  `param:"Backend" group:"systemone"`
+	Media        []any   `param:"Media" group:"systemone"`
+	Device       string  `param:"Device" group:"systemone"`
+	ModelDir     string  `param:"ModelDir" group:"systemone"`
+	Threads      int     `param:"Threads" group:"systemone"`
+	SetSize      int     `param:"SetSize" group:"systemone"`
+	ScoreReadout string  `param:"ScoreReadout" group:"systemone"`
+	AbstainBelow float64 `param:"AbstainBelow" group:"systemone"`
+	Uncalibrated bool    `param:"Uncalibrated" group:"systemone"`
+
 	Allow      []string `param:"Allow" group:"agent"`
 	MaxSteps   int      `param:"MaxSteps" group:"agent"`
 	MaxSeconds int      `param:"MaxSeconds" group:"agent"`
@@ -491,6 +503,8 @@ type response struct {
 	ServedModel string         `json:",omitempty"`
 	// Cached records that this came back without a request being made.
 	Cached bool
+	// Seconds is how long a local System One call took.
+	Seconds float64 `json:",omitempty"`
 }
 
 // complete performs one call, with the cache, the budget, the retries and the

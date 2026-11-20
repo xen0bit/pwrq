@@ -22,7 +22,10 @@ const defaultMaxCalls = 100
 var (
 	usageMu sync.Mutex
 	usage   struct {
-		Calls        int
+		Calls int
+		// LocalCalls are calls answered in this process by the local
+		// d1-2B. They cost nothing, so they do not count against the ceiling.
+		LocalCalls   int
 		CacheHits    int
 		InputTokens  int
 		OutputTokens int
@@ -86,6 +89,14 @@ func recordUsage(resp *response, o options) {
 	}
 }
 
+// recordLocalCall counts a call the local model answered.
+func recordLocalCall(inputTokens int) {
+	usageMu.Lock()
+	defer usageMu.Unlock()
+	usage.LocalCalls++
+	usage.InputTokens += inputTokens
+}
+
 func recordCacheHit() {
 	usageMu.Lock()
 	defer usageMu.Unlock()
@@ -98,6 +109,7 @@ func usageObject() map[string]any {
 	defer usageMu.Unlock()
 	out := map[string]any{
 		"Calls":        usage.Calls,
+		"LocalCalls":   usage.LocalCalls,
 		"CacheHits":    usage.CacheHits,
 		"InputTokens":  usage.InputTokens,
 		"OutputTokens": usage.OutputTokens,

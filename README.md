@@ -467,69 +467,75 @@ something almost right.
 #### Typed questions, and probabilities instead of words
 
 A schema makes a model write an answer from a list. `invoke_systemone` asks a
-[System One](https://docs.typesafe.ai/api) model to *weigh* the list instead: it
-gives each option a single-token label and reads how likely each one is in a
-single forward pass, so nothing is generated, nothing can come back outside the
-options, and the answer carries how sure it is. A question is `noul` (how likely
-is this true), `choice` (which of these) or `score` (where on this scale), and
-every question about one state is one request:
+decision model to *weigh* the list instead: each option gets a single-token
+label and one forward pass reads how likely each is, so nothing is generated,
+nothing can come back outside the options, and the answer carries how sure it
+is. It runs [LiquidAI's d1-2B](https://huggingface.co/LiquidAI/d1-2B) in this
+process — on the CPU, or a CUDA GPU when one is present — and every question
+about one state is one pass:
 
 ```console
-$ export PWRQ_SYSTEMONE_MODEL=systemone/gemma TYPESAFE_BASE_URL=http://127.0.0.1:8080
 $ pwrq -nc '"Help! My payouts have been failing for 3 days." | invoke_systemone({
     is_urgent:   {type: "noul", instructions: "Does this convey urgency?"},
     department:  {type: "choice", instructions: "Which team should handle this?",
                   criteria: {billing: "Payments, invoicing, refunds",
                              technical: "Bugs, outages, integrations"}},
     frustration: {type: "score", instructions: "How frustrated is the customer?",
-                  criteria: ["Calm", "Frustrated", "Very angry"]}})
-  | {urgent: .is_urgent.noul, team: .department.choice, frustration: .frustration.score}'
-{"frustration":1.0379815361395628,"team":"billing","urgent":0.9999965076688166}
+                  criteria: ["Calm", "Frustrated", "Very angry"]},
+    days:        {type: "number", instructions: "For how many days has it been failing?"}})
+  | {urgent: .is_urgent.noul, team: .department.choice, frustration: .frustration.score, days: .days.number}'
+{"days":3,"frustration":0,"team":"billing","urgent":0.44035143097382584}
 ```
 
-A `score` is the weighted position on its own scale, so 1.04 is "frustrated,
-edging towards angry" rather than a bucket. `.probabilities` and `.confidence`
-carry the rest, and `invoke_systemone_request` reports the tokens and the model
-the server actually loaded.
+The question types are d1's:
 
-The endpoint is TypeSafe's hosted API — `TYPESAFE_API_KEY`, as the SDK spells
-it — or [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `/v1/systemone`
-serving a local GGUF, where no key is needed. `PWRQ_SYSTEMONE_MODEL` is separate
-from `PWRQ_LLM_MODEL` so one shell can hold both; a chat model given to
-`invoke_systemone`, or a System One model given to `invoke_llm`, is refused
-before anything is sent.
+| type | answers | read as |
+|---|---|---|
+| `noul` | `.noul`, P(yes) | yes or no, optional `criteria: {true, false}` |
+| `choice` | `.choice`, `.confidence`, `.probabilities` | one of `criteria`'s options; `multiple: true` reads each one yes or no (`.choices`) |
+| `score` | `.score`, `.probabilities`, `.legend` | a level of `criteria` (2–10, lowest first); `ScoreReadout` is `median`, `mean` or `argmax` |
+| `text`, `number`, `date` | the value, `.span`, `.found`, `.path` | a span pointed at in the state: parsed as written (`56.00 EUR` is `56` with `unit` EUR, `3 March 2026` is `2026-03-03`), `null` when absent |
+| `number` with `range` | `.number`, `.interval` (p10–p90) | an estimate on a grid from low to high, `step` apart |
+| `box`, `boxes` | `.box` {top, bottom, left, right} in fractions of the picture, `.found`, `.confidence`; `.boxes`, `.count` | where something is in the one picture of `Media` |
 
-A question costs one forward pass and generates no tokens, so it is fast enough
-to sit inside a `map`. Options are labelled in the order they encode, and gojq
-sorts object keys — run llama.cpp with `--systemone-permute` to average each
-question with its options reversed, which is what small models need most.
-
-#### A local encoder: `invoke_hbb`
-
-[hbb](https://github.com/xen0bit/hotbutteredbeans) runs secjev-encoder, a 350M
-model that answers the CWE Top 25 questions about a window of source in one
-forward pass. `invoke_hbb` starts `hbb serve --stdio` once per set of options,
-keeps it for the life of the process, and scores whole files:
+A state is text, any JSON document (rendered as the model was trained on it),
+or `null` with pictures alone. Pictures and video frames go in `Media`: a path,
+a `get_childitem` object, `{Data: base64}`, or `{Type: "video", Frames: [...],
+FPS: n}`:
 
 ```console
-$ pwrq -nc 'invoke_hbb({Path: "src/kn.c", Full: "/repo/src/kn.c"}) | .Windows[] | {From, To, p: .P.cwe_787}'
-{"From":1,"To":234,"p":0.93}
+$ pwrq -nc 'invoke_systemone(null; {red: {type: "noul", instructions: "Is there a red square?"},
+                                    where: {type: "box", instructions: "Where is the red square?"}};
+                              {Media: ["shapes.png"]}) | {red: .red.noul, box: .where.box}'
+{"box":{"bottom":0.588,"left":0.126,"right":0.378,"top":0.23700000000000002},"red":0.9971356266287155}
 ```
 
-It returns the windows hbb cuts (240 lines, the shape the model was trained on) with
-`P` keyed by question id (`cwe_89`), holding only the questions asked of that
-file's language. A file hbb has no language for comes back as `{Skip}`. `get_hbb`
-reports the model and its questions. Options: `Bin` (or `PWRQ_HBB_BIN`), `Device`,
-`ModelDir`, `ModelRepo`, `ModelRevision`, `ModelVariant`, `GpuId`, `Threads`,
-`CacheDir`, `Offline`, `Timeout`. Calls count in `get_llm_usage`; there is no call
-ceiling, since nothing is billed.
+Probabilities go through the release's own calibration (`Uncalibrated: true`
+reads them raw). `invoke_systemone_request` adds the device, tokens and
+seconds, `invoke_systemone_batch` answers many `{State, Questions, Media}` on
+one loaded model, and `get_systemone` loads the model and says where it runs
+and, when that is not the GPU, why. Local calls cost nothing, so they count in
+`get_llm_usage` as `LocalCalls` and not against the call ceiling.
 
-To run the model on another machine (one with a GPU), start `hbb serve --listen :8140`
-there and pass `Url` (or `PWRQ_HBB_URL`) and `Token` (or `PWRQ_HBB_TOKEN`) instead of a
-local child's options; combining them is an error, since the server has its own model.
-`Full` files are read here and sent as text. A server that cannot be reached, or
-rejects the token, is raised as a dead child is (after one retry); a file the server
-refuses or cannot score is that file's `Error`.
+**Where the model comes from.** The first call downloads d1-2B (about 1.9 GB)
+and ONNX Runtime, pinned and checksummed, into `~/.cache/pwrq/d1`
+(`PWRQ_D1_CACHE_DIR`), and every later call reads them from there.
+`pwrq --d1 fetch` does it ahead of time and `pwrq --d1 info` reports what is
+there and where the model would run.
+`PWRQ_D1_MODEL_DIR` points at a folder of your own, `PWRQ_D1_OFFLINE=1` never
+downloads.
+
+**CPU or GPU.** `PWRQ_D1_DEVICE` (or `{Device: ...}`) is `auto`, `cpu`, `gpu`
+or `coreml`. `auto` uses CUDA when an NVIDIA driver, the CUDA 13 libraries and
+the q4f16 decoder are present, and the CPU otherwise; `pwrq --d1 fetch-gpu`
+installs the GPU stack (several gigabytes, from NVIDIA's PyPI wheels). `gpu`
+fails rather than falling back.
+
+**The remote backend.** `{Backend: "remote"}`, a `Model`, a `BaseUrl`, or
+`PWRQ_SYSTEMONE_MODEL` / `TYPESAFE_BASE_URL` send `noul`, `choice` and `score`
+questions to TypeSafe's hosted API (`TYPESAFE_API_KEY`) or to
+[llama.cpp](https://github.com/ggml-org/llama.cpp)'s `/v1/systemone` instead,
+with the same answer shapes.
 
 #### Many prompts at once
 
@@ -980,7 +986,7 @@ trip each time. Seven things it used to have to guess:
   nothing offers the nearest names rather than an empty list.
 - **Whether the vocabulary is only the cmdlets.** It is not: pwrq is a strict
   superset of jq, so `ascii_upcase`, `split`, `fromjson`, `to_entries` and the
-  rest are callable exactly like cmdlets. The catalogue documents only the 509
+  rest are callable exactly like cmdlets. The catalogue documents only the 511
   cmdlets, which used to mean the tool denied the other half outright —
   `list_functions` filtered by `ascii_upcase` answered *no functions match, and
   nothing is named close to it*, about a function that runs. A filtered search
@@ -990,8 +996,8 @@ trip each time. Seven things it used to have to guess:
   derived from gojq's own `builtins`, so it cannot drift from what actually
   compiles.
 - **Whether an example works.** Every published example is compiled, and each
-  one that can run is run, by a test that proves it: 692 example strings across
-  the catalogue, of which 590 run. A hundred did not when the test was first
+  one that can run is run, by a test that proves it: 699 example strings across
+  the catalogue, of which 589 run. A hundred did not when the test was first
   added: `e.g.
   md5` was the whole example for `md5`, `aes_encrypt("data"; "key")` used a
   three-byte key for a cipher that needs sixteen, and `base64_encode(true)` left

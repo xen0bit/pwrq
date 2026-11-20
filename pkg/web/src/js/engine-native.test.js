@@ -156,3 +156,25 @@ describe("noise helpers", () => {
         expect(isNoise(null)).toBe(false);
     });
 });
+
+describe("quiet requests", () => {
+    test("a quiet request never shows the page as running", async () => {
+        let release;
+        globalThis.fetch = async (url) => {
+            if (String(url).endsWith("health")) return jsonResponse({ mode: "native", version: "v" });
+            await new Promise((resolve) => (release = resolve));
+            return jsonResponse({ items: [] });
+        };
+        const engine = new Engine("api/call");
+        await new Promise((r) => setTimeout(r, 0));
+        const states = [];
+        engine.addEventListener("state", (e) => states.push(e.detail.state));
+        const pending = engine.call("suggest", { query: ".a | " }, { quiet: true, watchdogMs: 5000 });
+        await new Promise((r) => setTimeout(r, 0));
+        expect(states).not.toContain("busy");
+        expect(engine.loudPending()).toBe(false);
+        release();
+        expect(await pending).toEqual({ items: [] });
+        expect(states).not.toContain("busy");
+    });
+});

@@ -25,15 +25,28 @@ type FormatResponse struct {
 
 // Format pretty-prints a query onto multiple lines, breaking top-level
 // pipelines and folding long objects, arrays and conditionals under
-// indentation. The result parses back to the same program.
+// indentation, and keeps every comment beside the code it was written
+// beside. The result parses back to the same program.
+//
+// Comments are kept because they are what a reader - and the editors'
+// suggestions, which read them as the author's intent - most needs; gojq's
+// parser drops them, so jqfmt.FormatSource puts them back.
 func Format(src string) FormatResponse {
-	return rewrite(src, jqfmt.Format)
+	if strings.TrimSpace(src) == "" {
+		return FormatResponse{Query: src}
+	}
+	out, err := jqfmt.FormatSource(src)
+	if err != nil {
+		return FormatResponse{Query: src, Error: err.Error()}
+	}
+	return FormatResponse{Query: out}
 }
 
 // Minify renders a query on a single line: the canonical form, spacing
 // normalised and whitespace stripped. It is Format's inverse in spirit - one
 // spreads the query for reading, the other compacts it for storing or
-// sharing.
+// sharing. It drops comments: a '#' runs to the end of its line, so a
+// one-line query cannot hold one.
 func Minify(src string) FormatResponse {
 	return rewrite(src, jqfmt.Minify)
 }
@@ -83,8 +96,15 @@ func Inline(src string) InlineResponse {
 		return InlineResponse{Query: src, Error: err.Error()}
 	}
 	result := jqinline.Inline(query)
+	formatted := jqfmt.Format(result.Query)
+	// Comments travel with the code that stays; one beside code that was
+	// expanded away lands beside the nearest code that survived. Should
+	// that fail, the expansion is still worth having without them.
+	if withComments, err := jqfmt.WithComments(src, formatted); err == nil {
+		formatted = withComments
+	}
 	return InlineResponse{
-		Query:    jqfmt.Format(result.Query),
+		Query:    formatted,
 		Expanded: result.Expanded,
 		Kept:     result.Kept,
 	}

@@ -1,0 +1,390 @@
+{
+"numbers": [
+{
+"text": "56.00 EUR",
+"context": "",
+"unit": "EUR",
+"value": 56
+},
+{
+"text": "12.50",
+"context": "",
+"unit": null,
+"value": 12.5
+},
+{
+"text": "1,250",
+"context": "",
+"unit": null,
+"value": null
+},
+{
+"text": "1,250",
+"context": "price 3.50",
+"unit": null,
+"value": 1250
+},
+{
+"text": "1.250",
+"context": "Preis 3,50 €",
+"unit": null,
+"value": 1250
+},
+{
+"text": "1.234.567",
+"context": "",
+"unit": null,
+"value": 1234567
+},
+{
+"text": "1 234,50",
+"context": "",
+"unit": null,
+"value": 1234.5
+},
+{
+"text": "€1.234,50",
+"context": "",
+"unit": null,
+"value": 1234.5
+},
+{
+"text": "$1,234.50",
+"context": "",
+"unit": null,
+"value": 1234.5
+},
+{
+"text": "(42)",
+"context": "",
+"unit": null,
+"value": -42
+},
+{
+"text": "-7",
+"context": "",
+"unit": null,
+"value": -7
+},
+{
+"text": "−7",
+"context": "",
+"unit": null,
+"value": -7
+},
+{
+"text": "+3",
+"context": "",
+"unit": null,
+"value": 3
+},
+{
+"text": "15%",
+"context": "",
+"unit": null,
+"value": 15
+},
+{
+"text": "3.5 million",
+"context": "",
+"unit": null,
+"value": 3500000
+},
+{
+"text": "2bn",
+"context": "revenue",
+"unit": null,
+"value": 2000000000
+},
+{
+"text": "2bn",
+"context": "",
+"unit": null,
+"value": null
+},
+{
+"text": "12k",
+"context": "$",
+"unit": null,
+"value": 12000
+},
+{
+"text": "1,23,45,678",
+"context": "₹ amounts",
+"unit": null,
+"value": 12345678
+},
+{
+"text": "¥5000",
+"context": "",
+"unit": null,
+"value": 5000
+},
+{
+"text": "1'234.5",
+"context": "",
+"unit": null,
+"value": 1234.5
+},
+{
+"text": "12 345",
+"context": "",
+"unit": null,
+"value": 12345
+},
+{
+"text": "abc",
+"context": "",
+"unit": null,
+"value": null
+},
+{
+"text": "",
+"context": "",
+"unit": null,
+"value": null
+},
+{
+"text": "3,14",
+"context": "lang: fr",
+"unit": null,
+"value": 3.14
+},
+{
+"text": "3.14",
+"context": "",
+"unit": null,
+"value": 3.14
+},
+{
+"text": "0.5",
+"context": "",
+"unit": null,
+"value": 0.5
+},
+{
+"text": "1e5",
+"context": "",
+"unit": null,
+"value": null
+},
+{
+"text": "100 USD",
+"context": "",
+"unit": null,
+"value": 100
+},
+{
+"text": "USD 100",
+"context": "",
+"unit": null,
+"value": 100
+},
+{
+"text": "-$5",
+"context": "",
+"unit": null,
+"value": -5
+},
+{
+"text": "$-5",
+"context": "",
+"unit": null,
+"value": -5
+},
+{
+"text": "(−5)",
+"context": "",
+"unit": null,
+"value": null
+},
+{
+"text": "5 Billion",
+"context": "",
+"unit": null,
+"value": null
+},
+{
+"text": "7 thousand",
+"context": "",
+"unit": null,
+"value": 7000
+},
+{
+"text": "4.5 Mio",
+"context": "",
+"unit": null,
+"value": 4500000
+}
+],
+"units": [
+{
+"text": "15%",
+"unit": "%"
+},
+{
+"text": "€12",
+"unit": "€"
+},
+{
+"text": "12 EUR",
+"unit": "EUR"
+},
+{
+"text": "12 USD and 3 EUR",
+"unit": null
+},
+{
+"text": "12",
+"unit": null
+},
+{
+"text": "Rs. 400",
+"unit": "Rs."
+},
+{
+"text": "5 kr",
+"unit": "kr"
+}
+],
+"dates": [
+{
+"text": "3 March 2026",
+"context": "",
+"value": "2026-03-03",
+"ambiguous": false
+},
+{
+"text": "March 3, 2026",
+"context": "",
+"value": "2026-03-03",
+"ambiguous": false
+},
+{
+"text": "2026-03-03",
+"context": "",
+"value": "2026-03-03",
+"ambiguous": false
+},
+{
+"text": "03/04/2026",
+"context": "",
+"value": null,
+"ambiguous": true
+},
+{
+"text": "03/04/2026",
+"context": "date format dd/mm/yyyy",
+"value": "2026-04-03",
+"ambiguous": false
+},
+{
+"text": "03/04/2026",
+"context": "lang: en",
+"value": "2026-03-04",
+"ambiguous": false
+},
+{
+"text": "13/04/2026",
+"context": "",
+"value": "2026-04-13",
+"ambiguous": false
+},
+{
+"text": "03/04/26",
+"context": "issued 2026-01-01",
+"value": null,
+"ambiguous": true
+},
+{
+"text": "03/04/26",
+"context": "",
+"value": null,
+"ambiguous": false
+},
+{
+"text": "2026年10月20日",
+"context": "",
+"value": "2026-10-20",
+"ambiguous": false
+},
+{
+"text": "20 octobre 2026",
+"context": "",
+"value": "2026-10-20",
+"ambiguous": false
+},
+{
+"text": "Tue, 20 Oct 2026",
+"context": "",
+"value": "2026-10-20",
+"ambiguous": false
+},
+{
+"text": "segunda-feira, 20 de outubro de 2026",
+"context": "",
+"value": "2026-10-20",
+"ambiguous": false
+},
+{
+"text": "2026-03-03 10:30",
+"context": "",
+"value": "2026-03-03T10:30:00",
+"ambiguous": false
+},
+{
+"text": "2026-03-03T10:30:15Z",
+"context": "",
+"value": "2026-03-03T10:30:15+00:00",
+"ambiguous": false
+},
+{
+"text": "2026-03-03 9:05:01.5+02:00",
+"context": "",
+"value": "2026-03-03T09:05:01.500000+02:00",
+"ambiguous": false
+},
+{
+"text": "31/02/2026",
+"context": "",
+"value": null,
+"ambiguous": false
+},
+{
+"text": "1st of May 2026",
+"context": "",
+"value": "2026-05-01",
+"ambiguous": false
+},
+{
+"text": "not a date",
+"context": "",
+"value": null,
+"ambiguous": false
+},
+{
+"text": "20.10.2026",
+"context": "Datum tt.mm.jjjj",
+"value": "2026-10-20",
+"ambiguous": false
+},
+{
+"text": "10/20/2026",
+"context": "x 13/01/2026",
+"value": null,
+"ambiguous": false
+},
+{
+"text": "5 мая 2026",
+"context": "",
+"value": "2026-05-05",
+"ambiguous": false
+},
+{
+"text": "3 März 2026",
+"context": "",
+"value": "2026-03-03",
+"ambiguous": false
+}
+]
+}

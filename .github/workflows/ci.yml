@@ -15,6 +15,15 @@ concurrency:
 permissions:
   contents: read
 
+# The d1-2B decision model is two gigabytes. No test may fetch it: one that
+# reaches for it fails offline instead, which is how a test that meant to stay
+# on the fast path but did not is caught here rather than costing every run a
+# download. The model's own tests skip unless PWRQ_TEST_D1_DIR names a copy;
+# its prompt, tokenizer, vision and readout are checked against fixtures.
+env:
+  PWRQ_D1_OFFLINE: "1"
+  PWRQ_SUGGEST: "off"
+
 jobs:
   test:
     name: test (go ${{ matrix.go }})

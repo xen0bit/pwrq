@@ -211,6 +211,41 @@ change a remote system.
   option with a single token and one forward pass reads how likely each is, so
   nothing is generated and nothing can come back outside the options.
 
+### d1-2B, local by default
+
+System One runs LiquidAI's d1-2B in-process (`pkg/d1`): a purego ONNX Runtime
+binding (no cgo), a pure-Go BPE tokenizer, Go ports of the reference prompt
+builder, image/video preprocessing and readout (pointer spans, boxes, number
+and date parsing, `calibration.json`). Every piece is checked against fixtures
+generated from the Python reference, and the model-gated test matches its
+answers end to end.
+
+- **Nothing is embedded.** The q4 model is about 2 GB and Go's linker refuses
+  data over 2e9 bytes, so the model, the tokenizer and the ORT library are
+  downloaded on first use into `~/.cache/pwrq/d1` (`PWRQ_D1_CACHE_DIR`), each
+  pinned by sha256 in `pkg/d1/assets/d1.lock.json`. Downloads resume and lock
+  against a second pwrq. ORT comes from its PyPI wheels: Microsoft's GitHub
+  release URLs return 404.
+- **GPU is a fallback that never surprises.** `auto` uses CUDA (the q4f16
+  decoder plus NVIDIA's PyPI wheels) only when it is already cached by
+  `pwrq --d1 fetch-gpu`; otherwise it runs on the CPU and records why.
+- **Preprocessing must be bit-faithful.** The q4 decoder quantizes activations
+  to int8, which turns a one-ulp difference in a pixel into a different answer,
+  so resizing copies torchvision's int16 antialias kernels and normalization is
+  `(x-127.5)/127.5`, not `(x/255-0.5)/0.5`.
+- **Tests never download.** CI sets `PWRQ_D1_OFFLINE=1` and `PWRQ_SUGGEST=off`;
+  the model-gated tests run only with `PWRQ_TEST_D1_DIR`/`PWRQ_TEST_ORT_LIB`.
+
+The editors use the same model for next-step suggestions: the engine builds up
+to 16 candidates (BM25 over help text against the query's `#` comments, plus
+staples), and d1 picks one with each option described by its help and first
+example. `pkg/d1/suggest/harness.json` holds the wording and the temperatures
+`make d1.calibrate` fitted (see `internal/tools/d1cal/studies/completion`), and
+`TestHarnessMatchesPrompt` fails when the prompt changes without recalibrating.
+The measured top-1 is low, so ghost text appears on its own only above a high
+bar; Ctrl+Space asks explicitly. Formatting keeps comments for this reason:
+they are the best statement of intent a suggestion has.
+
 ### What running a model actually taught
 
 These are protocol lessons, not model-quality excuses; the same server runs the
@@ -235,7 +270,8 @@ agent loop cleanly on a 12B model.
    before the first turn, so a model that ran out of tokens mid-thought has said
    nothing, not that the question cannot be judged.
 8. A second model needs a second endpoint variable — `PWRQ_SYSTEMONE_MODEL` is
-   separate from `PWRQ_LLM_MODEL` so one shell can hold both.
+   separate from `PWRQ_LLM_MODEL` so one shell can hold both. (System One is now
+   local by default; setting it selects the remote backend.)
 9. Two models disagree, and the probability is where you see it. A threshold is
    the caller's to set; an enum hides the disagreement.
 10. A probability is not bit-reproducible (llama.cpp slot batching). Thresholds
@@ -285,10 +321,12 @@ refused unless `PWRQ_MCP_TOKEN` is set.
   worth doing separately.
 - The native web page still runs as you type. The TUI's validate-don't-run rule
   may be right for it too.
-- `invoke_systemone_batch` is not built; if a run's wall clock turns out to be
-  the `map` rather than the model, `runBatch` is the pool to reuse.
 - Phase-5 LLM work deliberately unbuilt: an MCP client, multi-turn sessions,
-  streaming tokens, multimodal input, conversation compaction.
+  streaming tokens, conversation compaction. (Multimodal input exists for
+  System One, through d1-2B; audio does not.)
+- Suggestion quality is the weak point of the d1 integration: top-1 is about
+  14% on the gallery. A better candidate set or a larger harness search is the
+  next lever, not more temperature fitting.
 - The old "call every function at its minimum arity and watch for a crash" sweep
   is still the right way to find the next `deep_merge`-style panic.
 

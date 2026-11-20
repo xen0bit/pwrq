@@ -94,6 +94,9 @@ function buildEditors() {
         updateCursor();
     });
     queryEditor.addEventListener("caret", updateCursor);
+    queryEditor.addEventListener("change", () => scheduleSuggest(false));
+    queryEditor.addEventListener("suggest-request", () => scheduleSuggest(true));
+    queryEditor.addEventListener("ghost", renderSuggestStatus);
 
     inputEditor.addEventListener("change", () => {
         checkInput();
@@ -213,6 +216,7 @@ function wireEngine() {
             queryEditor.setVocabulary(vocabulary);
             renderCatalog();
             renderExamples();
+            initSuggest();
             renderLegend();
             if (catalog.version) $("version").textContent = `pwrq ${catalog.version}`;
             // Anything typed while the engine was loading runs now.
@@ -1505,3 +1509,129 @@ window.addEventListener("resize", () => {
 // Last, not first: boot reaches for constants declared throughout this module,
 // and a module's bindings only exist once its body has run.
 boot();
+
+/* ------------------------------------------------------------ suggestions */
+
+/* Suggestions come from the decision model the native IDE runs (d1-2B): after
+ * a pause in typing, or on Ctrl-Space, the engine is asked what comes next at
+ * the caret, and a confident answer appears as faint ghost text that Tab
+ * accepts. The WASM page has no model; the engine says so once and the page
+ * never asks again. */
+
+const SUGGEST_DELAY_MS = 600;
+
+const suggestState = {
+    enabled: false,
+    timer: 0,
+    seq: 0,
+    busy: false,
+    status: null,
+    top: null,
+    poll: 0,
+};
+
+async function initSuggest() {
+    try {
+        const status = await engine.call("suggest_status", {}, { quiet: true, watchdogMs: 10000 });
+        suggestState.status = status;
+        suggestState.enabled = status.state !== "unavailable";
+        if (!suggestState.enabled) {
+            $("suggest-status").title = status.unavailable || "";
+            return;
+        }
+        $("suggest-status").classList.remove("hidden");
+        pollSuggestStatus();
+    } catch {
+        suggestState.enabled = false;
+    }
+    renderSuggestStatus();
+}
+
+/* pollSuggestStatus follows the model while it downloads and loads, so the
+ * spinner says what the first suggestion is waiting for. */
+function pollSuggestStatus() {
+    clearTimeout(suggestState.poll);
+    suggestState.poll = setTimeout(async () => {
+        try {
+            suggestState.status = await engine.call("suggest_status", {}, { quiet: true, watchdogMs: 10000 });
+        } catch {
+            /* the next poll tries again */
+        }
+        renderSuggestStatus();
+        const s = suggestState.status && suggestState.status.state;
+        if (s === "loading" || s === "fetching" || s === "idle") pollSuggestStatus();
+    }, 400);
+}
+
+function scheduleSuggest(explicit) {
+    if (!suggestState.enabled) return;
+    clearTimeout(suggestState.timer);
+    suggestState.top = null;
+    if (explicit) {
+        suggest(true);
+        return;
+    }
+    suggestState.timer = setTimeout(() => suggest(false), SUGGEST_DELAY_MS);
+}
+
+async function suggest(explicit) {
+    const query = queryEditor.value;
+    const caretUnits = queryEditor.caret;
+    // The engine counts code points; the textarea counts UTF-16 units.
+    const cursor = [...query.slice(0, caretUnits)].length;
+    const seq = ++suggestState.seq;
+    suggestState.busy = true;
+    renderSuggestStatus();
+    try {
+        const resp = await engine.call(
+            "suggest",
+            { query, cursor, input: inputEditor.value.slice(0, 4000), explicit },
+            { supersede: "suggest", quiet: true, watchdogMs: 120000 },
+        );
+        if (seq !== suggestState.seq) return;
+        suggestState.status = resp.status || suggestState.status;
+        if (queryEditor.value !== query || queryEditor.caret !== caretUnits) return;
+        suggestState.top = resp.ranked && resp.items && resp.items.length ? resp.items[0] : null;
+        queryEditor.setGhost(resp.ghost || "");
+    } catch (err) {
+        if (!isNoise(err) && seq === suggestState.seq) suggestState.top = null;
+    } finally {
+        if (seq === suggestState.seq) {
+            suggestState.busy = false;
+            renderSuggestStatus();
+        }
+    }
+}
+
+function renderSuggestStatus() {
+    if (!suggestState.enabled) return;
+    const spinner = $("suggest-spinner");
+    const text = $("suggest-text");
+    const st = suggestState.status || { state: "idle" };
+    let label = "";
+    let spinning = false;
+    switch (true) {
+        case st.state === "fetching":
+            spinning = true;
+            label = st.fraction >= 0 ? `d1 ${st.detail} ${Math.round(st.fraction * 100)}%` : `d1 ${st.detail || "downloading"}`;
+            break;
+        case st.state === "loading" || st.state === "idle":
+            spinning = true;
+            label = "d1 loading";
+            break;
+        case suggestState.busy:
+            spinning = true;
+            label = "d1 thinking";
+            break;
+        case st.state === "error":
+            label = `d1: ${st.detail || "failed"}`;
+            break;
+        case Boolean(queryEditor.ghost && suggestState.top):
+            label = `Tab ⇥ ${suggestState.top.display} ${Math.round(suggestState.top.probability * 100)}%`;
+            break;
+        default:
+            label = st.device ? `d1 · ${st.device}` : "d1";
+    }
+    spinner.classList.toggle("hidden", !spinning);
+    text.textContent = label;
+}

@@ -22,6 +22,8 @@ const (
 	stylePunct
 	styleKey
 	styleCursor
+	// styleGhost is a suggestion drawn after the cursor, not yet in the text.
+	styleGhost
 
 	styleError = 1 << 8
 )
@@ -135,6 +137,8 @@ func (th *theme) styleFor(style int) lipgloss.Style {
 	switch base {
 	case styleCursor:
 		st = st.Reverse(true)
+	case styleGhost:
+		st = st.Foreground(colourFaint).Italic(true)
 	case styleComment:
 		st = st.Foreground(syntaxColours[base]).Italic(true)
 	case styleKeyword, styleCmdlet:
