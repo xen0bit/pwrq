@@ -235,13 +235,12 @@ jobs:
           cache: true
 
       # govulncheck reports the standard-library version it is run under, so it
-      # has to be the patched 1.27.2 even though the rest of CI stays on the
-      # toolchain setup-go installs (golangci-lint v2.13.1 cannot read 1.27.2's
-      # export data). Step env beats setup-go's exported GOTOOLCHAIN=local, so
-      # the go command fetches 1.27.2 from the module proxy for this step.
+      # is pinned to a patched release here rather than left to whatever
+      # setup-go's "1.27" resolves to. Step env beats setup-go's exported
+      # GOTOOLCHAIN=local, so the go command fetches it if it is not installed.
       - name: Run govulncheck
         env:
-          GOTOOLCHAIN: go1.27.2
+          GOTOOLCHAIN: go1.27.4
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           "$(go env GOPATH)/bin/govulncheck" ./...
