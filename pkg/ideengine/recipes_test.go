@@ -147,6 +147,7 @@ var recipeInputs = map[string]string{
 // table, the service manager, a model, or the shell.
 var recipesNotRun = map[string]string{
 	"images-containing": "needs the d1 model", "images-score": "needs the d1 model",
+	"video-shows": "needs the d1 model", "video-when": "needs the d1 model", "videos-containing": "needs the d1 model", "video-frames-ffmpeg": "needs ffmpeg and the d1 model",
 	"images-count-objects": "needs the d1 model", "images-classify": "needs the d1 model",
 	"sentiment": "needs the d1 model", "text-yes-no": "needs the d1 model", "classify-lines": "needs the d1 model",
 	"summarize-file": "needs a language model",

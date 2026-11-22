@@ -193,6 +193,7 @@ func systemOneCall(op string, state, rawQuestions any, opts map[string]any) (*sy
 		if err != nil {
 			return nil, err
 		}
+		defer req.close()
 		ctx, cancel := context.WithTimeout(context.Background(), localTimeout)
 		defer cancel()
 		resp, info, err := askLocal(ctx, op, req, o)

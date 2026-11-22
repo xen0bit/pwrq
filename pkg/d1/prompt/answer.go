@@ -218,6 +218,24 @@ func choiceIndex(probs []float64, abstain int, below *float64) int {
 	return best
 }
 
+// ScoreOf is a score question's level read from its levels' probabilities,
+// lowest level first: the median level (the default), the expected level
+// unrounded (mean) or the likeliest (argmax). A caller that combines
+// several answers' probabilities reads the result the way one is read.
+func ScoreOf(probs []float64, readout string) float64 {
+	if readout == ScoreMean {
+		level := 0.0
+		for i, x := range probs {
+			level += float64(i) * x
+		}
+		return level
+	}
+	if readout == "" {
+		readout = ScoreMedian
+	}
+	return float64(scoreLevel(probs, readout))
+}
+
 func scoreLevel(probs []float64, readout string) int {
 	total := 0.0
 	for _, p := range probs {
@@ -347,18 +365,7 @@ func (b *Builder) answer(q Question, probs [][]float64, read *readResult, contex
 	}
 	// score
 	p := probs[0]
-	readout := opts.ScoreReadout
-	if readout == "" {
-		readout = ScoreMedian
-	}
-	var level float64
-	if readout == ScoreMean {
-		for i, x := range p {
-			level += float64(i) * x
-		}
-	} else {
-		level = float64(scoreLevel(p, readout))
-	}
+	level := ScoreOf(p, opts.ScoreReadout)
 	ps, legend := map[string]any{}, map[string]any{}
 	for i, x := range p {
 		ps[strconv.Itoa(i)] = x

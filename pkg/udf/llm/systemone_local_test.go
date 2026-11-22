@@ -77,7 +77,7 @@ func TestLocalRefusesBeforeLoading(t *testing.T) {
 		{`invoke_systemone({q: {type: "number", instructions: "?", range: [0, 10], step: 3}})`, `its step, above 0, divides it`},
 		{`invoke_systemone(null; {q: {type: "noul", instructions: "?"}}; {})`, `the state is null and there is no Media`},
 		{`invoke_systemone({q: {type: "noul", instructions: "?"}}; {Media: [{Type: "audio", Path: "a.wav"}]})`, `audio needs d1-Omni`},
-		{`invoke_systemone({q: {type: "noul", instructions: "?"}}; {Media: [{Type: "video", Frames: []}]})`, `pwrq does not decode video files`},
+		{`invoke_systemone({q: {type: "noul", instructions: "?"}}; {Media: [{Type: "video", Frames: []}]})`, `a video is a file's path, {Type: "video", Path, Start, End}`},
 		{`invoke_systemone({q: {type: "noul", instructions: "?"}}; {Media: [{Data: "not base64!"}]})`, `the Data is not base64`},
 		{`invoke_systemone({q: {type: "noul", instructions: "?"}}; {Media: ["/no/such/picture.png"]})`, `no such file`},
 		{`invoke_systemone({q: {type: "noul", instructions: "?"}}; {Mdia: []})`, `unknown option "Mdia"`},
@@ -176,5 +176,53 @@ func TestLocalReadsAPicture(t *testing.T) {
 	got, err = run(t, `invoke_systemone(null; {red: {type: "noul", instructions: "Is there a red square?"}}; {Media: [{FullName: "`+shapes+`"}]}) | .red.noul > 0.5`, nil)
 	if err != nil || got != true {
 		t.Errorf("file object: %v, %v", got, err)
+	}
+}
+
+// TestMediaReadsVideoFiles: an MP4, QuickTime, Matroska or WebM path is a video, decoded
+// here and sampled as d1 samples, by path, file object or {Type, Path,
+// Start, End}; another container is refused with the way out, before any
+// model is loaded.
+func TestMediaReadsVideoFiles(t *testing.T) {
+	clip := filepath.Join("..", "..", "d1", "video", "testdata", "h264.mp4")
+	for _, item := range []any{
+		clip,
+		map[string]any{"FullName": clip},
+		map[string]any{"Type": "video", "Path": clip},
+	} {
+		media, digest, _, err := parseMedia("invoke_systemone", []any{item})
+		if err != nil {
+			t.Fatalf("%v: %v", item, err)
+		}
+		m := media[0]
+		if m.Picture != nil || len(m.Frames) != 6 || len(m.Times) != 6 {
+			t.Fatalf("%v: %d frames, %d times, want 6 of each (two a second for 3s)", item, len(m.Frames), len(m.Times))
+		}
+		if !strings.HasPrefix(digest[0], "video-file:") {
+			t.Errorf("digest %q", digest[0])
+		}
+	}
+	media, _, _, err := parseMedia("invoke_systemone", []any{map[string]any{"Type": "video", "Path": clip, "Start": 1, "End": 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(media[0].Frames); n != 4 || media[0].Times[0] != 0 {
+		t.Errorf("1s..2s: %d frames from %v, want 4 from 0", n, media[0].Times[0])
+	}
+
+	for _, name := range []string{"vp9.webm", "av1.webm", "h264.mkv"} {
+		media, _, _, err := parseMedia("invoke_systemone", []any{filepath.Join("..", "..", "d1", "video", "testdata", name)})
+		if err != nil || len(media[0].Frames) < 4 {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	avi := filepath.Join("..", "..", "d1", "video", "testdata", "other.avi")
+	_, _, _, err = parseMedia("invoke_systemone", []any{avi})
+	if err == nil || !strings.Contains(err.Error(), "Frames") || !strings.Contains(err.Error(), "ffmpeg") {
+		t.Errorf("an AVI: %v, want the frames route and ffmpeg named", err)
+	}
+	_, _, _, err = parseMedia("invoke_systemone", []any{map[string]any{"Type": "video"}})
+	if err == nil {
+		t.Error("a video with neither Path nor Frames should be refused")
 	}
 }

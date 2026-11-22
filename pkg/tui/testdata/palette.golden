@@ -16,7 +16,7 @@
 │ │ cmdlet   chacha20 ChaCha20 encryption/decryption (key, [nonce], [keyFormat=raw], [dataFormat…│ │
 │ │ cmdlet   des_decrypt                 DES decryption (data, key, [mode=CBC], [keyFormat=raw]) │ │
 │ │ cmdlet   des_encrypt                 DES encryption (data, key, [mode=CBC], [keyFormat=raw]) │ │
-│ │ cmdlet   rc4              RC4 encryption/decryption (key, [keyFormat=raw], [dataFormat=raw]) │ │
+│ │ cmdlet   invoke_systemone Ask typed questions about a state - text, JSON, pictures or video …│ │
 │ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                      ││                                                          │
 │                                      ││                                                          │

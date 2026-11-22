@@ -911,13 +911,71 @@ The question types are `noul`, `choice` (with `multiple`), `score`, `text`,
 Text, number and date answers point at the span of the state they came from.
 
 Images and video go in `Media` — a path, a `get_childitem` object, base64
-`{Data}`, or `{Type: "video", Frames: [...], FPS}`:
+`{Data}`, `{Type: "video", Path, Start, End}` for part of a video, or
+`{Type: "video", Frames: [...], FPS}` for frames you extracted:
 
 ```console
 $ pwrq -nc 'invoke_systemone({shape: {type: "choice", instructions: "Which shape is largest?",
     criteria: {circle: "A circle", square: "A square", triangle: "A triangle"}}};
     {Media: ["pkg/d1/testdata/shapes.png"]}) | .shape | {choice, confidence}'
 {"choice":"square","confidence":0.993654021142056}
+```
+
+A video file — MP4, QuickTime, Matroska or WebM, holding H.264, HEVC, VP8,
+VP9 or AV1: what phones, cameras, browsers and video sites write — is decoded
+in Go, with no ffmpeg, and read at two frames a second, as the model was
+trained:
+
+```console
+$ pwrq -nc 'invoke_systemone(null; {what: {type: "choice", instructions: "What does the video show?",
+    criteria: {bars: "Colour bars or a test pattern", people: "People", nature: "A landscape"}}};
+    {Media: ["pkg/d1/video/testdata/h264.mp4"]}) | .what | {choice, confidence}'
+{"choice":"bars","confidence":0.9975197713530337}
+```
+
+A WebM — a browser's screen or camera recording, a downloaded clip — is read
+the same way:
+
+```console
+$ pwrq -nc 'invoke_systemone(null; {what: {type: "choice", instructions: "What does the video show?",
+    criteria: {bars: "Colour bars or a test pattern", people: "People", nature: "A landscape"}}};
+    {Media: ["pkg/d1/video/testdata/vp9.webm"]}) | .what | {choice, confidence}'
+{"choice":"bars","confidence":0.9985115949521443}
+```
+
+A clip is read within one budget of pixels, so the longer it is the smaller
+its frames: a minute of 1080p is 352x192, six minutes or more 128x64.
+`Segment: n` reads it n seconds at a time instead, each segment at the detail
+its length allows (two seconds of 1080p at full size), one model pass a
+segment. Each answer is combined — a yes/no is the largest of the segments'
+(`.all` the smallest, `.mean` the share of time), a choice or score averages
+its probabilities over time — and `.segments` says when:
+
+```console
+$ pwrq -nc 'invoke_systemone(null; {bars: {type: "noul", instructions: "Are there colour bars?"}};
+    {Media: [{Type: "video", Path: "pkg/d1/video/testdata/h264.mp4", Segment: 1}]})
+  | .bars | {noul, all, segments: [.segments[] | {start, end, noul}]}'
+{"all":0.96414372805548,"noul":0.9830415920437298,"segments":[{"end":1,"noul":0.979685135646543,"start":0},{"end":2,"noul":0.9830415920437298,"start":1},{"end":3,"noul":0.96414372805548,"start":2}]}
+```
+
+On three minutes of 1080p with 44-pixel text shown for four seconds, the
+whole clip read "is GATE 17 shown?" as 0.71 and could not read the number;
+10-second segments found it at 0.98 in the right one (18 passes, 27s on a
+GPU), 2-second segments at 0.99 in exactly the three that show it (90 passes).
+A choice averaged over time says what the video *mostly* is; to ask what is
+shown at any point, read `.segments`.
+
+Any other format (AVI, WMV, MPEG-TS, 10-bit VP9) goes through its frames. With ffmpeg
+installed, `sh` extracts them at the rate d1 reads — two a second, fewer for a
+clip over 6.4 minutes so it stays within 768 frames — and passes that rate on:
+
+```console
+$ pwrq -n 'sh("ffprobe -v error -show_entries format=duration -of csv=p=0 talk.avi") | tonumber as $secs
+    | ([2, 768 / $secs] | min) as $fps
+    | sh("d=$(mktemp -d) && ffmpeg -loglevel error -i talk.avi -vf fps=\($fps) $d/%05d.png && echo $d")
+    | [get_childitem(.; {Filter: "*.png"}) | .FullName] | sort
+    | invoke_systemone(null; {slides: {type: "noul", instructions: "Does the speaker show slides?"}};
+        {Media: [{Type: "video", Frames: ., FPS: $fps}]}) | .slides.noul'
 ```
 
 `invoke_systemone_request` reports the run itself; a local call costs nothing

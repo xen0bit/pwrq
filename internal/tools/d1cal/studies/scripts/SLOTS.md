@@ -22,10 +22,10 @@ Each kind's phrasings, asked of every dev comment whose recipe has a slot of tha
 | field | Which property of the items is it about? | 4 | 6 |
 | field | Which attribute or column? | 5 | 6 |
 | field | Which key? | 1 | 6 |
-| file | Which file? | 57 | 69 |
-| file | Which file name? | 58 | 69 |
-| file | What file is named? | 59 | 69 |
-| file | Which file (name or path)? | 60 | 69 |
+| file | Which file? | 70 | 82 |
+| file | Which file name? | 71 | 82 |
+| file | What file is named? | 72 | 82 |
+| file | Which file (name or path)? | 73 | 82 |
 | host | Which host, domain or URL? | 5 | 5 |
 | host | Which host name? | 5 | 5 |
 | host | What server or domain? | 5 | 5 |
@@ -42,11 +42,11 @@ Each kind's phrasings, asked of every dev comment whose recipe has a slot of tha
 | number | What count or limit? | 27 | 50 |
 | number | What number is given? | 23 | 50 |
 | number | How many items, lines or results? | 21 | 50 |
-| path | Which directory or folder? | 42 | 47 |
-| path | Which directory? | 41 | 47 |
-| path | In which folder or path? | 41 | 47 |
-| path | What directory path is named? | 42 | 47 |
-| path | Which folder or path, if any? | 41 | 47 |
+| path | Which directory or folder? | 44 | 49 |
+| path | Which directory? | 43 | 49 |
+| path | In which folder or path? | 43 | 49 |
+| path | What directory path is named? | 44 | 49 |
+| path | Which folder or path, if any? | 43 | 49 |
 | size | What size? | 1 | 1 |
 | size | What size limit? | 1 | 1 |
 | size | What file size, with its unit? | 1 | 1 |
@@ -65,12 +65,12 @@ Chosen:
 - days: "How many days?" (2 of 2)
 - ext: "Which programming language or file extension?" (3 of 3)
 - field: "Which attribute or column?" (5 of 6)
-- file: "Which file (name or path)?" (60 of 69)
+- file: "Which file (name or path)?" (73 of 82)
 - host: "Which host, domain or URL?" (5 of 5)
 - input: "What text or value should it work on?" (56 of 89)
 - ip: "Which IP address?" (12 of 12)
 - number: "How many?" (30 of 50)
-- path: "Which directory or folder?" (42 of 47)
+- path: "Which directory or folder?" (44 of 49)
 - size: "What size?" (1 of 1)
 - url: "Which URL or website?" (8 of 8)
 - value: "What number should it work on?" (19 of 22)

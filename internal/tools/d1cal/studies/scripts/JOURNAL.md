@@ -1,43 +1,49 @@
 # Journal: the whole-query question on d1-2B
 
-Run 2026-11-22 on gpu (q4f16), 851 comments (dev 434, test 417).
+Run 2026-11-22 on gpu (q4f16), 879 comments (dev 449, test 430).
 
 Dev split, raw (T=1):
 
 | variant | coverage | top-1 | top-3 | slots | exact | works | NLL | ECE | negatives shown | p50 s |
 |---|---|---|---|---|---|---|---|---|---|---|
-| queries/task | 0.916 | 0.696 | 0.883 | 0.909 | 0.633 | 0.731 | 0.660 | 0.091 | 67% | 0.055 |
-| queries/task+query | 0.916 | 0.734 | 0.886 | 0.911 | 0.668 | 0.773 | 0.506 | 0.067 | 83% | 0.077 |
-| task/task | 0.916 | 0.694 | 0.876 | 0.909 | 0.631 | 0.736 | 0.698 | 0.085 | 83% | 0.055 |
-| task/task+none | 0.916 | 0.685 | 0.874 | 0.904 | 0.619 | 0.724 | 1.004 | 0.115 | 67% | 0.055 |
-| wants/task | 0.916 | 0.682 | 0.881 | 0.911 | 0.621 | 0.724 | 0.700 | 0.096 | 67% | 0.055 |
-| wants/task+none | 0.916 | 0.678 | 0.881 | 0.910 | 0.617 | 0.717 | 1.091 | 0.131 | 50% | 0.056 |
+| queries/task | 0.916 | 0.695 | 0.883 | 0.893 | 0.621 | 0.725 | 0.653 | 0.092 | 67% | 0.053 |
+| queries/task+query | 0.916 | 0.731 | 0.887 | 0.895 | 0.655 | 0.767 | 0.525 | 0.072 | 83% | 0.074 |
+| task/task | 0.916 | 0.686 | 0.874 | 0.891 | 0.612 | 0.722 | 0.694 | 0.084 | 67% | 0.052 |
+| task/task+none | 0.916 | 0.679 | 0.876 | 0.887 | 0.603 | 0.716 | 1.004 | 0.105 | 50% | 0.053 |
+| wants/task | 0.916 | 0.682 | 0.880 | 0.894 | 0.609 | 0.718 | 0.697 | 0.100 | 67% | 0.052 |
+| wants/task+none | 0.916 | 0.677 | 0.880 | 0.893 | 0.605 | 0.711 | 1.092 | 0.126 | 50% | 0.053 |
 
-Chosen: **queries/task+query** (most working queries on dev). Temperature 0.863 by dev NLL; ghost bar 0.49, the most right for the fewest wrong at precision 0.80 or more on dev (precision 0.834, shown on 89% of positives and 100% of negatives).
+Chosen: **queries/task+query** (most working queries on dev). Temperature 0.863 by dev NLL; ghost bar 0.49, the most right for the fewest wrong at precision 0.80 or more on dev (precision 0.823, shown on 89% of positives and 100% of negatives).
 
 Test split, scored once:
 
 | | coverage | top-1 | top-3 | slots | exact | works | NLL | ECE |
 |---|---|---|---|---|---|---|---|---|
-| raw (T=1) | 0.891 | 0.720 | 0.861 | 0.946 | 0.681 | 0.808 | 0.503 | 0.085 |
-| tempered | 0.891 | 0.720 | 0.861 | 0.946 | 0.681 | 0.808 | 0.489 | 0.114 |
-| tempered, hand comments (86) | 0.975 | 0.838 | 0.975 | 0.985 | 0.825 | 0.912 | 0.453 | 0.082 |
-| tempered, example comments (331) | 0.870 | 0.692 | 0.834 | 0.934 | 0.647 | 0.782 | 0.499 | 0.147 |
+| raw (T=1) | 0.894 | 0.719 | 0.866 | 0.934 | 0.672 | 0.795 | 0.503 | 0.089 |
+| tempered | 0.894 | 0.719 | 0.866 | 0.934 | 0.672 | 0.795 | 0.487 | 0.113 |
+| tempered, hand comments (98) | 0.978 | 0.848 | 0.978 | 0.936 | 0.793 | 0.859 | 0.432 | 0.075 |
+| tempered, example comments (332) | 0.870 | 0.684 | 0.834 | 0.934 | 0.639 | 0.777 | 0.504 | 0.156 |
 
-Ghost text on test at the dev bar: precision 0.851, shown on 91% of positives and 67% of negatives.
+Ghost text on test at the dev bar: precision 0.834, shown on 92% of positives and 67% of negatives.
 
 Misses on test (chosen variant):
 
 | comment | wanted | got |
 |---|---|---|
-| which screenshots contain a terminal window, ask d1 | images-containing | images-classify |
+| which screenshots contain a terminal window, ask d1 | images-containing | diff_lines#1 |
+| files bigger than 500 KB | files-larger-than | largest-files |
 | find all json files under config | files-by-extension | list-files-recursive (not a candidate) |
 | first 20 lines of data.csv | head-file | head#1 |
 | what kind of file is mystery.bin | file-type | file_type#1 |
 | all links on https://go.dev | page-links | extract_urls#1 |
 | is 10.1.2.3 a private address | ip-info | is_private_ip#1 |
 | just the ids | pluck-field | is_uuid#1 |
+| use ffmpeg to get frames from game.mkv and ask d1 if there is a crowd | video-frames-ffmpeg | slots: `Does the video show crowd?"}}; {Media: [{Type: "vi → Does the video show a dog?"}}; {Media: [{Type: "vi` |
+| ffmpeg the avi into frames and see if anyone waves | video-frames-ffmpeg | slots: `oes the video show anyone waves?"}}; {Media: [{Typ → oes the video show a dog?"}}; {Media: [{Type: "vid` |
+| at what times is the door open in cam.mp4 | video-when | slots: `Does the video show the door open?"}}; {Media: [{T → Does the video show door open?"}}; {Media: [{Type:` |
+| ask d1 if the screen recording demo.webm shows an error dialog | video-shows | invoke_systemone#9 |
+| when is a screen shared in meeting.webm | video-when | slots: `es the video show a screen shared?"}}; {Media: [{T → es the video show a dog?"}}; {Media: [{Type: "vide` |
 
 ## Continuing a recipe
 
-Each labelled query cut after each stage, the cursor on the next line: the top suggestion is the exact rest on 197 of 282 dev cuts and 165 of 268 test cuts. Ghost bar 0.19 (dev: shown 168 of 282, right 136; test: shown 153 of 268, right 116).
+Each labelled query cut after each stage, the cursor on the next line: the top suggestion is the exact rest on 215 of 312 dev cuts and 180 of 295 test cuts. Ghost bar 0.18 (dev: shown 205 of 312, right 165; test: shown 195 of 295, right 142).

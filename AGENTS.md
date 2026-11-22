@@ -33,7 +33,7 @@ never run. `TestNoBuiltinShadowing` fails the build instead.
 | `pkg/tui/` | the terminal UI |
 | `pkg/mcpserver/` | the MCP server (its own engine today) |
 | `pkg/pwrgrep/` | the rule corpus and its loader |
-| `pkg/d1/` | local d1-2B: ORT binding, tokenizer, vision, prompt/readout, assets, suggestions |
+| `pkg/d1/` | local d1-2B: ORT binding, tokenizer, vision, video decoding, prompt/readout, assets, suggestions |
 | `internal/tools/d1*` | d1 lock pinning, reference fixtures, suggestion calibration |
 | `pkg/graph/`, `pkg/graph/graphsvg/` | query diagramming (behind the `viz` tag) |
 | `docs/` | design record and other long-form docs |
@@ -297,6 +297,6 @@ known remaining work, not a pattern to imitate.
 | the command surface or counts | README.md and EXAMPLES.md |
 
 Counts in the docs are easy to get wrong. The current ones: 511 cmdlets (520
-with `PWRQ_CENSYS_WRITE=1`), 697 published examples of which 586 run, 840 CLI
+with `PWRQ_CENSYS_WRITE=1`), 701 published examples of which 586 run, 840 CLI
 corpus cases, 67 rules, 34 grammars. Regenerate outputs rather than editing them
 by hand, and run the guards above before committing.
