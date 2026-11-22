@@ -751,9 +751,8 @@ dropping a file in:
 | report
 ```
 
-The rules are built into the binary and installed to `/usr/share/pwrq/rules`.
-pwrq reads `$PWRQ_RULES`, then `~/.config/pwrq/rules`, then that directory,
-then its own copy — so a rule you drop in is found beside the ones that
+The rules are built into the binary. pwrq reads `$PWRQ_RULES`, then
+`~/.config/pwrq/rules`, then its own copy — so a rule you drop in is found beside the ones that
 shipped, and one you copy in under a shipped rule's path replaces it. Those
 directories are re-read when they change, which means a rule written now is a
 rule this process can run now — so `write_pwrgrep_rule` closes the loop for a

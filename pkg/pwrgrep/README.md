@@ -98,12 +98,11 @@ pipeline rather than an option on the call:
 
 ```console
 $ pwrq -nc '[get_pwrgrep_rule] | map(.Origin) | unique'
-["/usr/share/pwrq/rules"]
+["<built in>"]
 ```
 
-`Origin` says which of the four directories a rule came from. On a machine with
-the package installed the shipped rules report `/usr/share/pwrq/rules`; when pwrq
-falls back to the copy embedded in the binary it is `<built in>`. Narrowing to
+`Origin` says where a rule came from: a directory, or `<built in>` for the
+rules embedded in the binary. Narrowing to
 the rules you wrote yourself, which report your own directory:
 
 ```console
@@ -179,13 +178,12 @@ what you want.
 ## Where a rule of your own goes
 
 The shipped rules live in [`rules/`](rules), beside this file, and are built
-into the binary from there; the package installs the same files to
-`/usr/share/pwrq/rules`. pwrq looks for rules in, in order:
+into the binary from there; nothing is installed beside it. pwrq looks for
+rules in, in order:
 
 1. every directory in `$PWRQ_RULES`, separated the way `PATH` is
 2. `~/.config/pwrq/rules`
-3. `/usr/share/pwrq/rules`
-4. the copy inside the binary
+3. the copy inside the binary
 
 A rule found earlier hides one with the same path found later, so changing a
 shipped rule is copying it into your own directory under the same path and
@@ -194,7 +192,7 @@ is adding a directory:
 
     PWRQ_RULES=../pwrgrep-rules/rules pwrq -n '[invoke_pwrgrep("."; "go")]'
 
-`get_pwrgrep_rule` reports in `Origin` which of the four a rule came from.
+`get_pwrgrep_rule` reports in `Origin` which of the three a rule came from.
 
 The catalogue is re-read whenever those directories change, so a rule written
 now is a rule this process can run now — which matters for the MCP server,

@@ -17,8 +17,10 @@ import (
 // Rules ship with pwrq for the same reason grammars do: a rule is worth
 // nothing on a machine that does not have it, and a tool that has to be
 // pointed at a rule directory before it can say anything is a tool nobody runs
-// twice. The package installs the same files to SystemDir, where they can be
-// read and edited; this copy is what a bare `go install` binary falls back to.
+// twice. The package does not install a second copy: one beside the binary's
+// hid it under the same paths, so a binary newer than its package ran the
+// package's older rules. To change a shipped rule, copy it into your own
+// directory under the same path.
 //
 // The corpus is small and about reading code rather than judging it: where
 // things are declared, where a program starts, what it reads and writes, and
@@ -35,8 +37,6 @@ const (
 	// first, so a checkout of rules under development wins over everything
 	// installed.
 	EnvDirs = "PWRQ_RULES"
-	// SystemDir is where the package puts the corpus.
-	SystemDir = "/usr/share/pwrq/rules"
 	// userDir is under the user's config directory, and is where somebody's
 	// own rules live.
 	userDir = "pwrq/rules"
@@ -66,7 +66,6 @@ func Dirs() []string {
 	if config, err := os.UserConfigDir(); err == nil {
 		add(filepath.Join(config, filepath.FromSlash(userDir)))
 	}
-	add(SystemDir)
 	return dirs
 }
 
@@ -120,9 +119,8 @@ func Rules() ([]*Rule, error) {
 // what a reload costs once. Touch the file - or set PWRQ_RULES to a fresh
 // directory - if an edit that fine ever needs to be seen.
 //
-// The walk runs about 4us a file, so the installed corpus in SystemDir costs
-// single-digit milliseconds and a directory of somebody's own costs nothing
-// worth measuring - either way less than compiling the first rule it finds.
+// The walk runs about 4us a file, so a directory of somebody's own costs
+// nothing worth measuring - less than compiling the first rule it finds.
 func stamp() string {
 	var b strings.Builder
 	for _, dir := range Dirs() {

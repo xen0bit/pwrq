@@ -13,10 +13,6 @@ import (
 // directory. It is returned whether or not it exists yet, because the answer
 // to "where do I put a rule" should not depend on somebody having made the
 // directory first.
-//
-// SystemDir is never it. That is the package's copy of the corpus, owned by
-// the package manager and replaced by the next upgrade, so a rule written
-// there is a rule that quietly disappears.
 func WritableDir() string {
 	for _, dir := range filepath.SplitList(os.Getenv(EnvDirs)) {
 		if dir != "" {

@@ -84,12 +84,11 @@ func TestWriteRefusesWhatIsNotARule(t *testing.T) {
 	}
 }
 
-// A rule goes where somebody can edit it, never into the directory the package
-// manager owns and the next upgrade replaces.
-func TestWritableDirIsNeverTheSystemCopy(t *testing.T) {
+// A rule goes to the first directory of PWRQ_RULES, else the user's own.
+func TestWritableDirIsTheFirstOfYours(t *testing.T) {
 	t.Setenv(EnvDirs, "")
-	if got := WritableDir(); got == SystemDir {
-		t.Fatalf("rules would be written to %s", got)
+	if got := WritableDir(); !strings.HasSuffix(got, filepath.FromSlash(userDir)) {
+		t.Fatalf("rules would be written to %s, not the user's config directory", got)
 	}
 	t.Setenv(EnvDirs, strings.Join([]string{"/first", "/second"}, string(os.PathListSeparator)))
 	if got := WritableDir(); got != "/first" {
