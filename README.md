@@ -996,8 +996,8 @@ trip each time. Seven things it used to have to guess:
   derived from gojq's own `builtins`, so it cannot drift from what actually
   compiles.
 - **Whether an example works.** Every published example is compiled, and each
-  one that can run is run, by a test that proves it: 699 example strings across
-  the catalogue, of which 589 run. A hundred did not when the test was first
+  one that can run is run, by a test that proves it: 697 example strings across
+  the catalogue, of which 586 run. A hundred did not when the test was first
   added: `e.g.
   md5` was the whole example for `md5`, `aes_encrypt("data"; "key")` used a
   three-byte key for a cipher that needs sixteen, and `base64_encode(true)` left

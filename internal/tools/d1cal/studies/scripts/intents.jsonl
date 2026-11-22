@@ -1,0 +1,679 @@
+{"example": "find(\"src\"; \"file\")", "comment": "find all the files under src"}
+{"example": "find(\".\"; \"dir\"; 2)", "comment": "list directories here, at most 2 levels deep"}
+{"example": "cat(\"file.txt\")", "comment": "print file.txt"}
+{"example": "\"file.txt\" | cat", "comment": "read file.txt"}
+{"example": "find(\".\"; \"file\") | cat", "comment": "dump the contents of every file in this directory"}
+{"example": "cat(\"app.log\"; {tail: 20})", "comment": "show the last 20 lines of app.log"}
+{"example": "read_bytes(\"a.bin\") | sha256", "comment": "sha256 of the raw bytes of a.bin"}
+{"example": "\"a.bin\" | read_bytes | utf8bytelength", "comment": "how many bytes is a.bin"}
+{"example": "mkdir(\"/tmp/mydir\")", "comment": "create the directory /tmp/mydir"}
+{"example": "mkdir(\"nested/path/to/dir\")", "comment": "make nested/path/to/dir including parents"}
+{"example": "rm(\"/tmp/file.txt\"; \"file\")", "comment": "delete the file /tmp/file.txt"}
+{"example": "rm(\"/tmp/mydir\"; \"folder\")", "comment": "remove the folder /tmp/mydir"}
+{"example": "read_archive(\"release.zip\")", "comment": "list what's inside release.zip"}
+{"example": "\"backup.tar.gz\" | read_archive | map(.Name)", "comment": "names of the entries in backup.tar.gz"}
+{"example": "expand_archive(\"release.zip\"; \"./out\")", "comment": "unzip release.zip into ./out"}
+{"example": "\"backup.tar.gz\" | expand_archive(\"./restore\")", "comment": "extract backup.tar.gz to ./restore"}
+{"example": "compress_archive(\"src\"; \"src.zip\")", "comment": "zip the src folder into src.zip"}
+{"example": "[\"a.txt\",\"b.txt\"] | compress_archive(\"pair.tar.gz\")", "comment": "bundle these files into pair.tar.gz"}
+{"example": "\"hello\" | base64_encode", "comment": "base64 encode hello"}
+{"example": "\"file.txt\" | base64_encode(true)", "comment": "base64 of the contents of file.txt"}
+{"example": "\"aGVsbG8=\" | base64_decode", "comment": "decode the base64 aGVsbG8="}
+{"example": "\"hello\" | hex_encode", "comment": "hex encode the text hello"}
+{"example": "\"file.txt\" | hex_encode(true)", "comment": "hex dump of file.txt"}
+{"example": "\"68656c6c6f\" | hex_decode", "comment": "decode hex 68656c6c6f to text"}
+{"example": "\"hello\" | base32_encode", "comment": "base32 encode hello"}
+{"example": "\"file.txt\" | base32_encode(true)", "comment": "base32 of the file file.txt"}
+{"example": "\"NBSWY3DP\" | base32_decode", "comment": "decode base32 NBSWY3DP"}
+{"example": "\"hello\" | base85_encode", "comment": "ascii85 encode hello"}
+{"example": "\"file.txt\" | base85_encode(true)", "comment": "base85 encode file.txt"}
+{"example": "\"BOu!rDZ\" | base85_decode", "comment": "decode the base85 string BOu!rDZ"}
+{"example": "\"hi\" | binary_encode", "comment": "show hi as binary bits"}
+{"example": "\"file.txt\" | binary_encode(true)", "comment": "binary representation of file.txt"}
+{"example": "\"01101000 01101001\" | binary_decode", "comment": "convert the bits 01101000 01101001 back to text"}
+{"example": "\"a b&c\" | url_encode", "comment": "percent-encode a b&c for a url"}
+{"example": "\"file.txt\" | url_encode(true)", "comment": "url encode the contents of file.txt"}
+{"example": "\"a%20b%26c\" | url_decode", "comment": "url decode a%20b%26c"}
+{"example": "\"<b>hi</b>\" | html_encode", "comment": "escape <b>hi</b> for html"}
+{"example": "\"file.txt\" | html_encode(true)", "comment": "html escape file.txt"}
+{"example": "\"&lt;b&gt;hi&lt;/b&gt;\" | html_decode", "comment": "unescape html entities in &lt;b&gt;hi&lt;/b&gt;"}
+{"example": "\"hello\" | gzip_compress", "comment": "gzip the string hello"}
+{"example": "\"file.txt\" | gzip_compress(true)", "comment": "gzip compress file.txt"}
+{"example": "\"hello\" | gzip_compress | gzip_decompress", "comment": "gzip and gunzip hello"}
+{"example": "\"hello\" | zlib_compress", "comment": "zlib compress hello"}
+{"example": "\"file.txt\" | zlib_compress(true)", "comment": "zlib compress file.txt"}
+{"example": "\"hello\" | zlib_compress | zlib_decompress", "comment": "zlib round trip of hello"}
+{"example": "\"hello\" | deflate_compress", "comment": "raw deflate hello"}
+{"example": "\"file.txt\" | deflate_compress(true)", "comment": "deflate compress file.txt"}
+{"example": "\"hello\" | deflate_compress | deflate_decompress", "comment": "deflate then inflate hello"}
+{"example": "\"old dog\" | replace(\"old\"; \"new\")", "comment": "replace old with new in old dog"}
+{"example": "replace(\"old\"; \"new\"; \"old text\")", "comment": "substitute every old with new in old text"}
+{"example": "\"hello\" | md5", "comment": "md5 of hello"}
+{"example": "\"file.txt\" | md5(true)", "comment": "md5sum of file.txt"}
+{"example": "\"hello\" | sha1", "comment": "sha1 hash of hello"}
+{"example": "\"file.txt\" | sha1(true)", "comment": "sha1sum file.txt"}
+{"example": "\"hello\" | sha224", "comment": "sha224 of hello"}
+{"example": "\"file.txt\" | sha224(true)", "comment": "sha224 checksum of file.txt"}
+{"example": "\"hello\" | sha256", "comment": "sha256 of the string hello"}
+{"example": "\"file.txt\" | sha256(true)", "comment": "sha256sum of file.txt"}
+{"example": "\"hello\" | sha384", "comment": "sha384 of hello"}
+{"example": "\"file.txt\" | sha384(true)", "comment": "sha384 checksum of file.txt"}
+{"example": "\"hello\" | sha512", "comment": "sha512 hash of hello"}
+{"example": "\"file.txt\" | sha512(true)", "comment": "sha512sum of file.txt"}
+{"example": "\"hello\" | sha512_224", "comment": "sha512/224 of hello"}
+{"example": "\"file.txt\" | sha512_224(true)", "comment": "sha512/224 digest of file.txt"}
+{"example": "\"hello\" | sha512_256", "comment": "sha512/256 of hello"}
+{"example": "\"file.txt\" | sha512_256(true)", "comment": "sha512/256 checksum of file.txt"}
+{"example": "\"message\" | hmac_md5(\"key\")", "comment": "hmac-md5 of message with key key"}
+{"example": "hmac_md5(\"key\"; \"message\")", "comment": "compute an md5 hmac signature"}
+{"example": "\"message\" | hmac_sha1(\"key\")", "comment": "hmac-sha1 of message using the secret key"}
+{"example": "hmac_sha1(\"key\"; \"message\")", "comment": "sign with hmac sha1"}
+{"example": "\"message\" | hmac_sha224(\"key\")", "comment": "hmac sha224 of message"}
+{"example": "hmac_sha224(\"key\"; \"message\")", "comment": "sha224 hmac with a key"}
+{"example": "\"message\" | hmac_sha256(\"key\")", "comment": "hmac-sha256 signature of message"}
+{"example": "hmac_sha256(\"key\"; \"message\")", "comment": "sign a webhook payload with hmac sha256"}
+{"example": "\"message\" | hmac_sha384(\"key\")", "comment": "hmac sha384 of message"}
+{"example": "hmac_sha384(\"key\"; \"message\")", "comment": "keyed sha384 mac"}
+{"example": "\"message\" | hmac_sha512(\"key\")", "comment": "hmac-sha512 of message"}
+{"example": "hmac_sha512(\"key\"; \"message\")", "comment": "sign with hmac sha512"}
+{"example": "\"message\" | hmac_sha512_224(\"key\")", "comment": "hmac sha512/224 of message"}
+{"example": "hmac_sha512_224(\"key\"; \"message\")", "comment": "keyed sha512/224 hmac"}
+{"example": "\"message\" | hmac_sha512_256(\"key\")", "comment": "hmac sha512/256 of message"}
+{"example": "hmac_sha512_256(\"key\"; \"message\")", "comment": "sha512/256 hmac with a key"}
+{"example": "1609459200 | timestamp_to_date", "comment": "convert the unix timestamp 1609459200 to a date"}
+{"example": "now | timestamp_to_date", "comment": "what's the current time as a date"}
+{"example": "\"2021-01-01T00:00:00Z\" | date_to_timestamp", "comment": "unix time of 2021-01-01T00:00:00Z"}
+{"example": "\"2021-01-01\" | date_to_timestamp", "comment": "epoch seconds for 2021-01-01"}
+{"example": "json_parse", "comment": "parse this json string"}
+{"example": "\"{\\\"key\\\":\\\"value\\\"}\" | json_parse", "comment": "decode the json text into an object"}
+{"example": "json_stringify", "comment": "turn this into a json string"}
+{"example": "{\"key\":\"value\"} | json_stringify", "comment": "serialize the object to json text"}
+{"example": "\"a,b,c\" | csv_parse", "comment": "parse this csv line"}
+{"example": "\"a;b;c\" | csv_parse(\";\")", "comment": "parse semicolon separated values"}
+{"example": "csv_parse(\",\"; \"a,b,c\")", "comment": "split a,b,c as csv"}
+{"example": "[[\"a\",\"b\"],[\"1\",\"2\"]] | csv_stringify", "comment": "write these rows as csv"}
+{"example": "[[\"a\",\"b\"],[\"1\",\"2\"]] | csv_stringify(\";\")", "comment": "output rows as semicolon delimited csv"}
+{"example": "\"<root>test</root>\" | xml_parse", "comment": "parse the xml <root>test</root>"}
+{"example": "\"<a><b>1</b></a>\" | xml_parse | ._content", "comment": "get the content of an xml element"}
+{"example": "xml_stringify", "comment": "convert this to xml"}
+{"example": "{\"_tag\":\"root\",\"_content\":\"test\"} | xml_stringify", "comment": "write an xml element from an object"}
+{"example": "\"hello\" | entropy", "comment": "shannon entropy of hello"}
+{"example": "\"a.bin\" | entropy(true)", "comment": "how random is a.bin, entropy of the file"}
+{"example": "read_bytes(\"firmware.bin\") | ssdeep", "comment": "fuzzy hash of firmware.bin"}
+{"example": "ssdeep(\"firmware.bin\"; true)", "comment": "ssdeep hash the file firmware.bin"}
+{"example": "ssdeep_compare(ssdeep(\"firmware.bin\"; true); ssdeep(\"firmware2.bin\"; true))", "comment": "how similar are firmware.bin and firmware2.bin by fuzzy hash"}
+{"example": "tee", "comment": "print the value to stderr and pass it along"}
+{"example": "tee(\"/tmp/output.json\")", "comment": "save a copy to /tmp/output.json while passing it through"}
+{"example": "{\"key\":\"value\"} | tee", "comment": "tee this object"}
+{"example": "sh(\"echo hello\")", "comment": "run echo hello in the shell"}
+{"example": "\"echo test\" | sh(.)", "comment": "execute the input as a shell command"}
+{"example": "sh(\"ls -la\")", "comment": "run ls -la"}
+{"example": "tempdir", "comment": "make a temporary directory"}
+{"example": "tempdir(\"prefix_\")", "comment": "create a temp dir named with a prefix"}
+{"example": "tempdir(\"prefix_\"; \"/tmp\")", "comment": "temp directory with a prefix under /tmp"}
+{"example": "tempdir(\"\"; \"/tmp\")", "comment": "new scratch directory in /tmp"}
+{"example": "http(\"GET\"; \"https://example.com\") | .StatusCode", "comment": "status code of a GET to https://example.com"}
+{"example": "http(\"GET\"; \"https://api.example.com/x\") | .Content | json_parse", "comment": "GET https://api.example.com/x and parse the json body"}
+{"example": "\"https://example.com\" | http", "comment": "fetch https://example.com"}
+{"example": "{\"key\":\"value\"} | http(\"POST\"; \"https://api.example.com\")", "comment": "POST json to https://api.example.com"}
+{"example": "http(\"GET\"; \"https://example.com/a.tar.gz\") | .Content | out_file(\"a.tar.gz\")", "comment": "download https://example.com/a.tar.gz and save it as a.tar.gz"}
+{"example": "http_serve(\"127.0.0.1\"; 8080)", "comment": "serve http on 127.0.0.1 port 8080"}
+{"example": "http_serve(\"0.0.0.0\"; 0)", "comment": "start a web server on any free port"}
+{"example": "aes_encrypt(\"data\"; \"0123456789abcdef\")", "comment": "aes encrypt data with key 0123456789abcdef"}
+{"example": "aes_encrypt(\"data\"; \"0123456789abcdef\"; \"CBC\")", "comment": "aes-cbc encrypt some data"}
+{"example": "aes_encrypt(\"data\"; \"0123456789abcdef\"; \"ECB\")", "comment": "aes encrypt in ecb mode"}
+{"example": "aes_encrypt(\"data\"; \"0123456789abcdef\") | aes_decrypt(.; \"0123456789abcdef\")", "comment": "aes encrypt and then decrypt"}
+{"example": "aes_encrypt(\"data\"; \"0123456789abcdef\"; \"CBC\") | aes_decrypt(.; \"0123456789abcdef\"; \"CBC\")", "comment": "aes cbc round trip encrypt decrypt"}
+{"example": "des_encrypt(\"data\"; \"8bytekey\")", "comment": "des encrypt data with an 8 byte key"}
+{"example": "des_encrypt(\"data\"; \"8bytekey\"; \"CBC\")", "comment": "des cbc encryption"}
+{"example": "des_encrypt(\"data\"; \"8bytekey\") | des_decrypt(.; \"8bytekey\")", "comment": "des encrypt then decrypt"}
+{"example": "des_encrypt(\"data\"; \"8bytekey\"; \"CBC\") | des_decrypt(.; \"8bytekey\"; \"CBC\")", "comment": "des cbc decrypt"}
+{"example": "triple_des_encrypt(\"data\"; \"0123456789abcdef01234567\")", "comment": "3des encrypt data"}
+{"example": "triple_des_encrypt(\"data\"; \"0123456789abcdef01234567\"; \"CBC\")", "comment": "triple des cbc encrypt"}
+{"example": "triple_des_encrypt(\"data\"; \"0123456789abcdef01234567\") | triple_des_decrypt(.; \"0123456789abcdef01234567\")", "comment": "3des decrypt"}
+{"example": "triple_des_encrypt(\"data\"; \"0123456789abcdef01234567\"; \"CBC\") | triple_des_decrypt(.; \"0123456789abcdef01234567\"; \"CBC\")", "comment": "triple des cbc round trip"}
+{"example": "blowfish_encrypt(\"data\"; \"blowfishkey\")", "comment": "blowfish encrypt data"}
+{"example": "blowfish_encrypt(\"data\"; \"blowfishkey\"; \"CBC\")", "comment": "blowfish cbc encryption"}
+{"example": "blowfish_encrypt(\"data\"; \"blowfishkey\") | blowfish_decrypt(.; \"blowfishkey\")", "comment": "blowfish decrypt"}
+{"example": "blowfish_encrypt(\"data\"; \"blowfishkey\"; \"CBC\") | blowfish_decrypt(.; \"blowfishkey\"; \"CBC\")", "comment": "blowfish cbc encrypt and decrypt"}
+{"example": "\"secret\" | rc4(\"key\")", "comment": "rc4 encrypt secret with key"}
+{"example": "read_bytes(\"a.bin\") | rc4(\"key\")", "comment": "rc4 the bytes of a.bin"}
+{"example": "\"secret\" | chacha20(\"0123456789abcdef0123456789abcdef\")", "comment": "chacha20 encrypt secret"}
+{"example": "read_bytes(\"a.bin\") | chacha20(\"0123456789abcdef0123456789abcdef\")", "comment": "chacha20 the file a.bin"}
+{"example": "\"secret\" | xor(\"key\")", "comment": "xor secret with the key key"}
+{"example": "read_bytes(\"a.bin\") | xor(\"key\")", "comment": "xor decode a.bin with a key"}
+{"example": "\"Hello World!\" | slugify", "comment": "slugify Hello World!"}
+{"example": "\"FooBar baz\" | snake_case", "comment": "convert to snake_case"}
+{"example": "\"FooBar baz\" | kebab_case", "comment": "make it kebab-case"}
+{"example": "\"hello world\" | camel_case", "comment": "convert hello world to camelCase"}
+{"example": "\"hello world\" | pascal_case", "comment": "PascalCase hello world"}
+{"example": "\"the quick brown fox\" | title_case", "comment": "title case the quick brown fox"}
+{"example": "\"hello world\" | truncate(5)", "comment": "cut hello world to 5 characters"}
+{"example": "\"hello world\" | truncate(5; \"...\")", "comment": "truncate to 5 chars with an ellipsis"}
+{"example": "\"5\" | pad_left(3; \"0\")", "comment": "zero pad 5 to 3 digits"}
+{"example": "\"5\" | pad_right(3; \"0\")", "comment": "pad 5 on the right with zeros to width 3"}
+{"example": "\"hunter2\" | mask", "comment": "mask the password hunter2"}
+{"example": "\"hunter2\" | mask(2)", "comment": "hide all but 2 characters of hunter2"}
+{"example": "\"banana\" | count_occurrences(\"an\")", "comment": "how many times does an appear in banana"}
+{"example": "42 | to_base(16)", "comment": "42 in hexadecimal"}
+{"example": "255 | to_base(2)", "comment": "255 in binary"}
+{"example": "\"2a\" | from_base(16)", "comment": "parse 2a as base 16"}
+{"example": "255 | to_hex_number", "comment": "255 as hex"}
+{"example": "\"ff\" | from_hex_number", "comment": "convert hex ff to decimal"}
+{"example": "99 | clamp(0; 10)", "comment": "clamp 99 between 0 and 10"}
+{"example": "12 | gcd(18)", "comment": "greatest common divisor of 12 and 18"}
+{"example": "4 | lcm(6)", "comment": "least common multiple of 4 and 6"}
+{"example": "3.14159 | round_to(2)", "comment": "round 3.14159 to 2 decimals"}
+{"example": "1234 | round_to(-2)", "comment": "round 1234 to the nearest hundred"}
+{"example": "1048576 | human_bytes", "comment": "1048576 bytes in human readable units"}
+{"example": "40 | percentage(200)", "comment": "what percent is 40 of 200"}
+{"example": "\"/tmp/data/file.txt\" | basename", "comment": "file name of /tmp/data/file.txt"}
+{"example": "\"/tmp/data/file.txt\" | dirname", "comment": "directory part of /tmp/data/file.txt"}
+{"example": "\"/tmp/data/file.txt\" | file_extension", "comment": "extension of /tmp/data/file.txt"}
+{"example": "\"/tmp/x\" | is_absolute", "comment": "is /tmp/x an absolute path"}
+{"example": "[1,2,3,4] | mean", "comment": "average of these numbers"}
+{"example": "[1,2,3,4] | median", "comment": "median of the numbers"}
+{"example": "[\"a\",\"b\",\"a\"] | mode", "comment": "most common value in the list"}
+{"example": "[2,4,4,4,5,5,7,9] | variance", "comment": "variance of the numbers"}
+{"example": "[2,4,4,4,5,5,7,9] | stdev", "comment": "standard deviation"}
+{"example": "[1,2,3,4] | percentile(50)", "comment": "50th percentile of the values"}
+{"example": "[1,2,3,4] | summary", "comment": "min max mean median of these numbers"}
+{"example": "3661 | human_duration", "comment": "3661 seconds as a readable duration"}
+{"example": "\"2h30m\" | parse_duration", "comment": "how many seconds is 2h30m"}
+{"example": "\"P1DT2H3M4S\" | parse_duration", "comment": "parse the iso duration P1DT2H3M4S"}
+{"example": "93784 | human_duration | parse_duration", "comment": "turn a human duration back into seconds"}
+{"example": "1700000000 | time_ago", "comment": "how long ago was timestamp 1700000000"}
+{"example": "\"2026-08-10\" | weekday", "comment": "what day of the week is 2026-08-10"}
+{"example": "\"2026-08-08\" | is_weekend", "comment": "is 2026-08-08 a weekend"}
+{"example": "random_int(1; 6)", "comment": "roll a die, random number 1 to 6"}
+{"example": "random_int(100)", "comment": "random integer below 100"}
+{"example": "random_float", "comment": "random float"}
+{"example": "random_float(10; 20)", "comment": "random decimal between 10 and 20"}
+{"example": "random_string(16)", "comment": "random string of 16 characters"}
+{"example": "random_string(8; \"01\")", "comment": "random 8 digit binary string"}
+{"example": "[10,20,30] | random_choice", "comment": "pick a random element"}
+{"example": "[1,2,3,4,5] | shuffle", "comment": "shuffle the list"}
+{"example": "[1,2,3,4,5] | sample(3)", "comment": "pick 3 random items"}
+{"example": "\"192.168.1.1\" | is_ip", "comment": "is 192.168.1.1 a valid ip address"}
+{"example": "\"192.168.1.1\" | is_ipv4", "comment": "check if it's an ipv4 address"}
+{"example": "\"2001:db8::1\" | is_ipv6", "comment": "is 2001:db8::1 ipv6"}
+{"example": "\"192.168.1.1\" | ip_to_int", "comment": "convert 192.168.1.1 to an integer"}
+{"example": "3232235777 | int_to_ip", "comment": "turn 3232235777 into an ip address"}
+{"example": "\"10.1.2.3\" | in_cidr(\"10.0.0.0/8\")", "comment": "is 10.1.2.3 inside 10.0.0.0/8"}
+{"example": "\"10.0.0.0/24\" | cidr_size", "comment": "how many addresses are in 10.0.0.0/24"}
+{"example": "\"00:11:22:33:44:55\" | is_mac", "comment": "is 00:11:22:33:44:55 a mac address"}
+{"example": "\"00-11-22-33-44-55\" | mac_normalize", "comment": "normalize the mac 00-11-22-33-44-55"}
+{"example": "uuid4", "comment": "generate a uuid"}
+{"example": "\"550e8400-e29b-41d4-a716-446655440000\" | is_uuid", "comment": "is this a valid uuid"}
+{"example": "\"550e8400-e29b-41d4-a716-446655440000\" | uuid_version", "comment": "which version is this uuid"}
+{"example": "\"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.sig\" | jwt_decode", "comment": "decode this jwt"}
+{"example": "\"a.b.c\" | is_jwt", "comment": "does this look like a jwt"}
+{"example": "\"hello?\" | base64url_encode", "comment": "url-safe base64 encode hello?"}
+{"example": "\"aGVsbG8_\" | base64url_decode", "comment": "decode url-safe base64"}
+{"example": "\"hello\" | rot13", "comment": "rot13 hello"}
+{"example": "\"hello\" | rot(1)", "comment": "caesar shift hello by 1"}
+{"example": "\"2026-08-11T12:00:00Z\" | to_timezone(\"Europe/London\")", "comment": "convert 2026-08-11T12:00:00Z to london time"}
+{"example": "to_timezone(1770000000; \"Asia/Tokyo\")", "comment": "show a timestamp in Asia/Tokyo time"}
+{"example": "\"2026-08-11T12:00:00Z\" | format_date(\"date\")", "comment": "format 2026-08-11T12:00:00Z as a plain date"}
+{"example": "format_date(1770000000; \"rfc1123\"; \"UTC\")", "comment": "format a unix time as rfc1123 in UTC"}
+{"example": "\"11/08/2026\" | parse_date(\"02/01/2006\")", "comment": "parse 11/08/2026 as day/month/year"}
+{"example": "parse_date(\"2026-08-11 09:30:00\"; \"datetime\"; \"Europe/Berlin\")", "comment": "parse a datetime in Europe/Berlin"}
+{"example": "list_timezones(\"Europe\")", "comment": "list the timezones in Europe"}
+{"example": "\"Tokyo\" | list_timezones", "comment": "which timezone is Tokyo"}
+{"example": "\"ada@example.com\" | is_email", "comment": "is ada@example.com a valid email"}
+{"example": "\"https://example.com/x\" | is_url", "comment": "check if https://example.com/x is a url"}
+{"example": "\"example.com\" | is_domain", "comment": "is example.com a valid domain name"}
+{"example": "\"{\\\"a\\\":1}\" | is_json", "comment": "is this string valid json"}
+{"example": "\"mail ada@example.com\" | extract_emails", "comment": "pull the email addresses out of this text"}
+{"example": "\"see https://a.com/x\" | extract_urls", "comment": "find the links in this text"}
+{"example": "\"from 10.0.0.1\" | extract_ips", "comment": "extract ip addresses from the text"}
+{"example": "\"<b>hi</b>\" | strip_tags", "comment": "remove html tags"}
+{"example": "levenshtein(\"kitten\"; \"sitting\")", "comment": "edit distance between kitten and sitting"}
+{"example": "hamming_distance(\"karolin\"; \"kathrin\")", "comment": "hamming distance of karolin and kathrin"}
+{"example": "jaccard([1,2,3]; [2,3,4])", "comment": "jaccard similarity of two sets"}
+{"example": "deep_diff({a:1}; {a:2, b:3})", "comment": "what's different between two json objects"}
+{"example": "[read_bytes(\"a.bin\"), read_bytes(\"b.bin\")] | rncd_compare | .Hybrid", "comment": "how similar are a.bin and b.bin by compression distance"}
+{"example": "[find(\"samples\"; \"file\") | {Name: ., Content: read_bytes(.)}] | [rncd_compare] | sort_by(.Hybrid)", "comment": "rank the files in samples by similarity"}
+{"example": "shared_chunks(\"the quick brown fox\"; \"the quick red fox\")", "comment": "what text do two strings share"}
+{"example": "read_bytes(\"suspect.bin\") | shared_chunks(read_bytes(\"known.bin\")) | .Coverage", "comment": "how much of known.bin is inside suspect.bin"}
+{"example": "\"name: ada\\nrole: engineer\\n\" | yaml_parse", "comment": "parse this yaml"}
+{"example": "{name: \"ada\"} | yaml_stringify", "comment": "convert to yaml"}
+{"example": "\"hello\" | crc32", "comment": "crc32 of hello"}
+{"example": "\"hello\" | crc32c", "comment": "crc32c checksum of hello"}
+{"example": "\"hello\" | crc64", "comment": "crc64 of hello"}
+{"example": "\"hello\" | fnv1a", "comment": "fnv-1a hash of hello"}
+{"example": "\"hello\" | adler32", "comment": "adler32 checksum"}
+{"example": "\"hello\" | blake2b_256", "comment": "blake2b-256 of hello"}
+{"example": "\"hello\" | blake2b_512", "comment": "blake2b-512 hash"}
+{"example": "\"hunter2\" | bcrypt_hash", "comment": "bcrypt hash the password hunter2"}
+{"example": "\"hunter2\" | bcrypt_verify(\"$2a$...\")", "comment": "check a password against a bcrypt hash"}
+{"example": "head(\"app.log\")", "comment": "first lines of app.log"}
+{"example": "head(\"app.log\"; 5)", "comment": "first 5 lines of app.log"}
+{"example": "tail(\"app.log\"; 5)", "comment": "last 5 lines of app.log"}
+{"example": "grep_lines(\"app.log\"; \"error\")", "comment": "lines containing error in app.log"}
+{"example": "select_string(\"src\"; \"TODO\") | .Path", "comment": "which files under src mention TODO"}
+{"example": "[select_string(\"src\"; \"panic\"; {Include: \"*.go\", Context: 2})]", "comment": "find panic in go files under src with 2 lines of context"}
+{"example": "first(select_string(\"src\"; \"\\\\.html$\"))", "comment": "first html file reference under src"}
+{"example": "select_string(\"src\"; \"join\\\\(|walk\\\\(\")", "comment": "find calls to join or walk in src"}
+{"example": "select_ast(\"src\"; \"func $NAME($$$ARGS) error { $$$BODY }\") | .Captures.NAME", "comment": "names of go functions in src that return an error"}
+{"example": "[select_ast(\"src\"; \"if $C { $$$B }\"; {Include: \"*.go\"})] | length", "comment": "count the if statements in go files under src"}
+{"example": "[select_ast(\"src\"; [\"md5.New()\", \"sha1.New()\"])] | group_by(.Pattern) | map({(.[0].Pattern): length}) | add", "comment": "find md5 and sha1 use in src grouped by pattern"}
+{"example": "select_ast(\"src\"; \"tls.Config{$$$_, InsecureSkipVerify: true, $$$_}\")", "comment": "find tls configs that skip certificate verification"}
+{"example": "ast_pattern(\"func $N($$$A) error { $$$B }\"; \"go\") | .Valid", "comment": "is this go ast pattern valid"}
+{"example": "\"$X.$M($$$A)\" | ast_pattern(\"go\") | .MetaVariables", "comment": "metavariables of an ast pattern"}
+{"example": "ast_pattern(\"md5($X)\"; \"php\") | .Problem", "comment": "check a php ast pattern for problems"}
+{"example": "[get_ast_language] | length", "comment": "how many languages can the ast search parse"}
+{"example": "get_ast_language(\"go\") | .Extensions", "comment": "file extensions for the go grammar"}
+{"example": "wc_lines(\"app.log\")", "comment": "line count of app.log"}
+{"example": "invoke_pwrgrep(\"src\"; \"go-functions\")", "comment": "list the go functions in src with pwrgrep"}
+{"example": "\"src\" | invoke_pwrgrep([\"go\", \"python\"])", "comment": "run the go and python rules on src"}
+{"example": "[invoke_pwrgrep(\"src\"; \"go/flow\")] | group_by(.RuleId) | map({(.[0].RuleId): length}) | add", "comment": "count go flow findings in src by rule"}
+{"example": "get_pwrgrep_rule(\"go-functions\")", "comment": "show the go-functions rule"}
+{"example": "[get_pwrgrep_rule] | length", "comment": "how many pwrgrep rules are there"}
+{"example": "[get_pwrgrep_rule(\"python\")] | map(.Id)", "comment": "ids of the python rules"}
+{"example": "\"src\" | scan_ast(\"*.go\"; [\"md5.New()\", \"sha1.New()\"])", "comment": "scan go files in src for md5 and sha1"}
+{"example": "scan_ast(\"src\"; [\"*.js\", \"*.ts\"]; [\"eval($X)\"]) | length", "comment": "count eval calls in js and ts files under src"}
+{"example": "[{Pattern: \"md5.New()\", Path: \"a.go\"}] | of(\"md5.New()\")", "comment": "keep only the md5 matches"}
+{"example": "\"src\" | scan_ast(\"*.go\"; [\"md5.New()\", \"sha1.New()\"]) | of([\"md5.New()\"])", "comment": "scan src for weak hashes and keep only md5"}
+{"example": "[{Path: \"a.go\", Offset: 5, EndOffset: 9}] | within([{Path: \"a.go\", Offset: 0, EndOffset: 20}])", "comment": "matches that are inside another match"}
+{"example": "[{Path: \"a.go\", Offset: 5, EndOffset: 9}] | outside([{Path: \"a.go\", Offset: 30, EndOffset: 40}])", "comment": "matches not inside a given region"}
+{"example": "[{Path: \"a.go\", Offset: 5, EndOffset: 9}] | in_files_with([{Path: \"a.go\", Offset: 0, EndOffset: 2}])", "comment": "matches in files that also contain something else"}
+{"example": "[{Path: \"a.go\", Offset: 5, EndOffset: 9}] | in_files_without([{Path: \"b.go\", Offset: 0, EndOffset: 2}])", "comment": "matches in files that lack another match"}
+{"example": "[{Path: \"a.go\", Offset: 5, EndOffset: 9}] | at_same_place([{Path: \"a.go\", Offset: 5, EndOffset: 9}])", "comment": "matches at the same spot as others"}
+{"example": "[{Path: \"a.go\", Offset: 5, EndOffset: 9}] | not_at([{Path: \"a.go\", Offset: 0, EndOffset: 2}])", "comment": "drop matches at the same place as others"}
+{"example": "[{Captures: {P: \"/tmp/x\"}}] | where_capture(\"P\"; \"^/tmp/\")", "comment": "keep matches whose path capture starts with /tmp"}
+{"example": "[{Captures: {ALGO: \"MD5\"}}] | where_capture_not(\"ALGO\"; \"SHA-?256\")", "comment": "drop matches whose algorithm is sha256"}
+{"example": "[{Captures: {A: \"x\", B: \"x\"}}] | where_same(\"A\"; \"B\")", "comment": "matches where two captures are equal"}
+{"example": "[{Captures: {A: \"x\", B: \"y\"}}] | where_different(\"A\"; \"B\")", "comment": "matches where two captures differ"}
+{"example": "\"src\" | scan_regex(\"*.html\"; \"\\\\{%\\\\s*autoescape\\\\s+off\\\\s*%\\\\}\")", "comment": "find autoescape off in html templates under src"}
+{"example": "scan_regex(\"src\"; [\"*.yml\", \"*.yaml\"]; \"password:\\\\s*\\\\S+\") | length", "comment": "count passwords in yaml files under src"}
+{"example": "[{Text: \"getenv(\\\"PASSWORD\\\")\"}] | where_text(\"PASSWORD|SECRET\")", "comment": "keep matches mentioning PASSWORD or SECRET"}
+{"example": "[{Text: \"x = 1\"}] | where_text_not(\"^//\")", "comment": "drop matches that are comments"}
+{"example": "[{Language: \"python\", Captures: {ARG: \"os.getenv(\\\"X\\\")\"}}] | where_capture_ast(\"ARG\"; \"os.getenv($$$_)\")", "comment": "matches whose argument is an os.getenv call"}
+{"example": "[{Captures: {V: \"\\\"AKIAIOSFODNN7EXAMPLE\\\"\"}}] | where_capture_entropy(\"V\")", "comment": "keep captures that look like secrets by entropy"}
+{"example": "[{Captures: {R: \"(a+)+$\"}}] | where_capture_redos(\"R\")", "comment": "find regexes vulnerable to redos"}
+{"example": "[{Captures: {MODE: \"0o777\"}}] | where_capture_compare(\"$MODE >= 0o666\")", "comment": "file modes that are too permissive"}
+{"example": "[{LineNumber: 1, Captures: {T: \"True\"}, CaptureSpans: {T: {LineNumber: 2, Column: 27}}}] | focus(\"T\")", "comment": "report the line of a capture rather than the match"}
+{"example": "[{Path: \"a.go\", LineNumber: 3, Text: \"md5.New()\", Captures: {}}] | finding(\"go-weak-hash\"; \"this hash is not collision resistant\")", "comment": "turn matches into findings with a message"}
+{"example": "[{Path: \"a.java\", LineNumber: 7, Text: \"run\", Captures: {NAME: \"run\"}}] | finding(\"java-functions\"; \"method $NAME\")", "comment": "report each java method as a finding"}
+{"example": "[{RuleId: \"a\", Path: \"z.go\", LineNumber: 2, Column: 1, Match: \"x\"}, {RuleId: \"a\", Path: \"a.go\", LineNumber: 1, Column: 1, Match: \"y\"}] | report", "comment": "sort and report findings"}
+{"example": "\"\" | is_blank", "comment": "is the string blank"}
+{"example": "\"abc123\" | is_alphanumeric", "comment": "is abc123 alphanumeric"}
+{"example": "\"abc\" | is_alphabetic", "comment": "is it only letters"}
+{"example": "\"12345\" | is_numeric_string", "comment": "is 12345 all digits"}
+{"example": "\"HELLO\" | is_uppercase", "comment": "is HELLO uppercase"}
+{"example": "\"hello\" | is_lowercase", "comment": "is the text lowercase"}
+{"example": "\"plain\" | is_ascii", "comment": "is the text plain ascii"}
+{"example": "\"the quick brown fox\" | word_count", "comment": "count the words in the quick brown fox"}
+{"example": "\"  a   b  \" | normalize_whitespace", "comment": "collapse extra spaces"}
+{"example": "\"International Business Machines\" | acronym", "comment": "acronym of International Business Machines"}
+{"example": "\"a.b\" | escape_regex", "comment": "escape a.b for use in a regex"}
+{"example": "\"^[a-z]+$\" | is_regex_valid", "comment": "is this a valid regular expression"}
+{"example": "\"*.txt\" | glob_to_regex", "comment": "convert the glob *.txt to a regex"}
+{"example": "\"notes.txt\" | match_glob(\"*.txt\")", "comment": "does notes.txt match *.txt"}
+{"example": "[1,2,3,4,5] | chunks(2)", "comment": "split the array into chunks of 2"}
+{"example": "[3,1,2,1] | dedupe", "comment": "remove duplicates keeping the order"}
+{"example": "deep_merge({a: {x: 1}}; {a: {y: 2}})", "comment": "deep merge two objects"}
+{"example": "{a: 1, b: null, c: {d: \"\"}} | prune", "comment": "remove null and empty fields"}
+{"example": "{a: {b: 1}} | flatten_keys", "comment": "flatten nested keys to dotted paths"}
+{"example": "{\"a.b\": 1} | unflatten_keys", "comment": "expand dotted keys into nested objects"}
+{"example": "[1,2,3] | zip_arrays([\"a\",\"b\"])", "comment": "zip two arrays together"}
+{"example": "{a: {b: 1}} | json_pointer(\"/a/b\")", "comment": "get the value at json pointer /a/b"}
+{"example": "{a: 1} | json_pointer_set(\"/b\"; 2)", "comment": "set /b to 2 by json pointer"}
+{"example": "\"a=1&b=two\" | query_string_parse", "comment": "parse the query string a=1&b=two"}
+{"example": "{a: \"1\"} | query_string_build", "comment": "build a url query string from an object"}
+{"example": "\"2026-01-01\" | duration_between(\"2026-01-03\")", "comment": "how long from 2026-01-01 to 2026-01-03"}
+{"example": "0 | add_seconds(3600)", "comment": "add 3600 seconds to a time"}
+{"example": "0 | add_days(1)", "comment": "add a day to a timestamp"}
+{"example": "1700000000 | start_of_day", "comment": "midnight at the start of that day"}
+{"example": "1700000000 | end_of_day", "comment": "end of the day for a timestamp"}
+{"example": "2024 | is_leap_year", "comment": "is 2024 a leap year"}
+{"example": "2024 | days_in_month(2)", "comment": "how many days in february 2024"}
+{"example": "2 | month_name", "comment": "name of month 2"}
+{"example": "\"192.168.1.1\" | ip_version", "comment": "is 192.168.1.1 ipv4 or ipv6"}
+{"example": "\"10.0.0.1\" | is_private_ip", "comment": "is 10.0.0.1 a private address"}
+{"example": "\"127.0.0.1\" | is_loopback", "comment": "is 127.0.0.1 loopback"}
+{"example": "\"192.168.1.55/24\" | cidr_network", "comment": "network address of 192.168.1.55/24"}
+{"example": "\"192.168.1.55/24\" | cidr_broadcast", "comment": "broadcast address of 192.168.1.55/24"}
+{"example": "\"192.168.1.1\" | ip_add(1)", "comment": "next ip after 192.168.1.1"}
+{"example": "\"2001:db8::1\" | ipv6_expand", "comment": "expand the ipv6 address 2001:db8::1"}
+{"example": "\"192.168.1.1\" | reverse_ip", "comment": "reverse 192.168.1.1 for a ptr lookup"}
+{"example": "\"hello\" | sha3_256", "comment": "sha3-256 of hello"}
+{"example": "\"hello\" | sha3_512", "comment": "sha3-512 hash"}
+{"example": "\"hello\" | keccak_256", "comment": "keccak256 of hello"}
+{"example": "\"hello\" | crc16", "comment": "crc16 checksum"}
+{"example": "\"password\" | pbkdf2_sha256(\"salt\"; 100000; 32)", "comment": "derive a key from a password with pbkdf2"}
+{"example": "\"password\" | argon2id_hash(\"salt\"; 1; 8)", "comment": "argon2id hash of a password"}
+{"example": "\"password\" | argon2id_hash(\"salt\"; 1; 8; 64)", "comment": "argon2id with 64 byte output"}
+{"example": "random_hex(16)", "comment": "random hex string 16 bytes"}
+{"example": "uuid7", "comment": "time ordered uuid v7"}
+{"example": "nanoid(21)", "comment": "generate a nanoid"}
+{"example": "\"aGVsbG8=\" | is_base64", "comment": "is this valid base64"}
+{"example": "\"aGVsbG8_\" | is_base64url", "comment": "is this url-safe base64"}
+{"example": "\"hello\" | base58_encode", "comment": "base58 encode hello"}
+{"example": "\"Cn8eVZg\" | base58_decode", "comment": "decode base58"}
+{"example": "5 | factorial", "comment": "factorial of 5"}
+{"example": "13 | is_prime", "comment": "is 13 prime"}
+{"example": "10 | fibonacci", "comment": "the first 10 fibonacci numbers"}
+{"example": "5 | combinations_count(2)", "comment": "5 choose 2"}
+{"example": "5 | permutations_count(2)", "comment": "number of permutations of 5 taken 2 at a time"}
+{"example": "3 | ordinal", "comment": "3 as an ordinal like 3rd"}
+{"example": "0 | lerp(10; 0.5)", "comment": "interpolate halfway between 0 and 10"}
+{"example": "1500 | human_number", "comment": "1500 as 1.5k"}
+{"example": "4 | is_even", "comment": "is 4 even"}
+{"example": "3 | is_odd", "comment": "is 3 odd"}
+{"example": "\"%PDF-1.7\" | file_type", "comment": "what file type are these bytes"}
+{"example": "\"text\" | is_binary", "comment": "is it binary data"}
+{"example": "\"héllo\" | is_utf8", "comment": "is the text valid utf-8"}
+{"example": "\"\\\\u001b[31mred\\\\u001b[0m\" | strip_ansi", "comment": "remove ansi color codes"}
+{"example": "\"hello {{name}}\" | template({name: \"ada\"})", "comment": "fill a template with values"}
+{"example": "\"the quick brown fox\" | wrap_text(10)", "comment": "wrap text at 10 columns"}
+{"example": "\"a\\\\nb\" | indent(2)", "comment": "indent each line by 2 spaces"}
+{"example": "[1,2,3,4,5] | moving_average(3)", "comment": "3 point moving average"}
+{"example": "[1,4,16] | geomean", "comment": "geometric mean"}
+{"example": "[2,4,6] | normalize", "comment": "normalize the values to 0..1"}
+{"example": "5 | rescale(0; 10; 0; 100)", "comment": "rescale 5 from 0-10 to 0-100"}
+{"example": "100 | pct_change(120)", "comment": "percent change from 100 to 120"}
+{"example": "1234 | digit_sum", "comment": "sum of the digits of 1234"}
+{"example": "255 | hamming_weight", "comment": "count the set bits in 255"}
+{"example": "[1,2,3,4,5] | rotate(2)", "comment": "rotate the array by 2"}
+{"example": "[1,9,3,7,5] | top_n(2)", "comment": "the 2 largest numbers"}
+{"example": "[1,2,3] | interleave([\"a\",\"b\",\"c\"])", "comment": "interleave two arrays"}
+{"example": "json_merge_patch({a: 1}; {a: 2, b: null})", "comment": "apply a json merge patch"}
+{"example": "cat(\"events.jsonl\") | jsonl_parse", "comment": "read events.jsonl as json lines"}
+{"example": "jsonl_parse(cat(\"events.jsonl\"))", "comment": "parse the ndjson file events.jsonl"}
+{"example": "{a: {b: [1, 2]}} | get_path(\"a.b[1]\")", "comment": "value at path a.b[1]"}
+{"example": "\"10.0.0.0/24\" | subnet_of(\"10.0.0.0/8\")", "comment": "is 10.0.0.0/24 a subnet of 10.0.0.0/8"}
+{"example": "\"10.0.0.0/24\" | cidr_first_host", "comment": "first usable host in 10.0.0.0/24"}
+{"example": "\"10.0.0.0/24\" | cidr_last_host", "comment": "last host address in 10.0.0.0/24"}
+{"example": "\"8.8.8.8\" | is_public_ip", "comment": "is 8.8.8.8 a public ip"}
+{"example": "443 | port_name", "comment": "what service runs on port 443"}
+{"example": "similarity_percent(\"kitten\"; \"sitting\")", "comment": "how similar are kitten and sitting in percent"}
+{"example": "\"hello\" | n_grams(2)", "comment": "bigrams of hello"}
+{"example": "\"Robert\" | soundex", "comment": "soundex code of Robert"}
+{"example": "jaro_winkler(\"MARTHA\"; \"MARHTA\")", "comment": "jaro winkler similarity of two names"}
+{"example": "\"1.2.3\" | is_semver", "comment": "is 1.2.3 a valid semver"}
+{"example": "\"4111111111111111\" | is_credit_card", "comment": "is this a valid credit card number"}
+{"example": "\"bücher.example\" | punycode_encode", "comment": "punycode encode bücher.example"}
+{"example": "\"xn--bcher-kva.example\" | punycode_decode", "comment": "decode the punycode domain"}
+{"example": "resolve_host(\"example.com\")", "comment": "dns lookup example.com"}
+{"example": "reverse_dns(\"8.8.8.8\")", "comment": "reverse dns of 8.8.8.8"}
+{"example": "which(\"go\")", "comment": "where is go installed"}
+{"example": "get_childitem(\".\")", "comment": "list the current directory"}
+{"example": "get_childitem(\"src\"; {\"Recurse\": true})", "comment": "list everything under src recursively"}
+{"example": "\"content\" | set_content(\"file.txt\")", "comment": "write content to file.txt"}
+{"example": "set_content(\"file.txt\"; \"content\")", "comment": "overwrite file.txt with some text"}
+{"example": "\"a line\" | add_content(\"out.log\")", "comment": "append a line to out.log"}
+{"example": "add_content(\"out.log\"; \"a line\")", "comment": "add a line to the end of out.log"}
+{"example": "\"a line\" | out_file(\"report.txt\")", "comment": "save the output to report.txt"}
+{"example": "\"a line\" | out_file(\"run.log\"; {Append: true})", "comment": "append the output to run.log"}
+{"example": "test_path(\"file.txt\")", "comment": "does file.txt exist"}
+{"example": "test_path(\"/tmp\"; \"Container\")", "comment": "is /tmp a directory"}
+{"example": "join_path(\"/tmp\"; \"file.txt\")", "comment": "join /tmp and file.txt into a path"}
+{"example": "join_path(\"a\"; \"b\"; \"c\")", "comment": "build a path from parts"}
+{"example": "split_path(\"/tmp/file.txt\")", "comment": "split /tmp/file.txt into folder and name"}
+{"example": "{\"Name\":\"test\",\"Age\":1} | select_object(\"Name\")", "comment": "keep only the Name property"}
+{"example": "select_object([{Name: \"a\"}, {Name: \"b\"}]; \"Name\")", "comment": "pick the Name field of each object"}
+{"example": "[1,5,10,15] | where_object({script: \". > 10\"})", "comment": "keep the numbers greater than 10"}
+{"example": "where_object([{Age: 30}]; {property: \"Age\", operator: \"gt\", value: 26})", "comment": "people older than 26"}
+{"example": "[{\"Name\":\"b\"},{\"Name\":\"a\"}] | sort_object({property: \"Name\"})", "comment": "sort by Name"}
+{"example": "sort_object([{\"Name\":\"b\"},{\"Name\":\"a\"}]; {property: \"Name\"})", "comment": "sort objects by their Name property"}
+{"example": "[{\"Category\":\"a\"},{\"Category\":\"b\"},{\"Category\":\"a\"}] | group_object({property: \"Category\"})", "comment": "group the rows by Category"}
+{"example": "[1,2,3] | measure_object", "comment": "count the items"}
+{"example": "[1,2,3] | measure_object({sum: true})", "comment": "sum of the values"}
+{"example": "measure_object([{v:1},{v:2}]; {property: \"v\", sum: true})", "comment": "total of the v property"}
+{"example": "format_list(.)", "comment": "show as a list"}
+{"example": "format_list([{Name: \"a\", Age: 1}]; \"Name\")", "comment": "list view of the Name property"}
+{"example": "format_table(.)", "comment": "print as a table"}
+{"example": "format_table([{Name: \"a\", Age: 1}]; [\"Name\"])", "comment": "table with just the Name column"}
+{"example": "set_variable(\"count\"; 42)", "comment": "set the variable count to 42"}
+{"example": "set_variable(\"name\"; \"test\"; {\"Scope\": \"global\"})", "comment": "set a global variable"}
+{"example": "get_variable(\"count\")", "comment": "get the value of the count variable"}
+{"example": "get_variable(\"*\")", "comment": "list all session variables"}
+{"example": "get_variable(\"name\"; {\"ValueOnly\": true})", "comment": "value of the variable name"}
+{"example": "remove_variable(\"temp\")", "comment": "delete the temp variable"}
+{"example": "remove_variable(\"*\"; {\"Exclude\": \"ErrorActionPreference\"})", "comment": "clear all variables"}
+{"example": "copy_item(\"a.txt\"; \"a-copy.txt\")", "comment": "copy a.txt to a-copy.txt"}
+{"example": "copy_item(\"src\"; \"dst\"; {\"Recurse\": true})", "comment": "copy the src folder to dst recursively"}
+{"example": "move_item(\"draft.txt\"; \"final.txt\")", "comment": "rename draft.txt to final.txt"}
+{"example": "new_item(\"/tmp/d\"; \"directory\")", "comment": "create a new directory /tmp/d"}
+{"example": "new_item(\"/tmp/f.txt\"; \"file\")", "comment": "create an empty file /tmp/f.txt"}
+{"example": "resolve_path(\"~/..\")", "comment": "absolute path of the parent of my home"}
+{"example": "resolve_path(\".\")", "comment": "full path of the current directory"}
+{"example": "get_location", "comment": "what directory am I in"}
+{"example": "set_location(\"/tmp\")", "comment": "cd to /tmp"}
+{"example": "push_location(\"/tmp\")", "comment": "pushd /tmp"}
+{"example": "pop_location", "comment": "go back to the previous directory, popd"}
+{"example": "get_process", "comment": "list running processes"}
+{"example": "[get_process | select(.Name == \"go\")]", "comment": "is go running"}
+{"example": "start_process(\"echo\"; {\"ArgumentList\": [\"hi\"], \"PassThru\": true})", "comment": "start a program and get its process info"}
+{"example": "stop_process(1234)", "comment": "kill process 1234"}
+{"example": "get_service", "comment": "list the system services"}
+{"example": "[get_service | select(.Status == \"Running\")]", "comment": "services that are running"}
+{"example": "start_service(\"nginx\")", "comment": "start the nginx service"}
+{"example": "stop_service(\"nginx\")", "comment": "stop nginx"}
+{"example": "invoke_web_request(\"https://example.com\")", "comment": "fetch https://example.com"}
+{"example": "invoke_web_request(\"https://example.com\") | .StatusCode", "comment": "http status of https://example.com"}
+{"example": "invoke_rest_method(\"https://api.example.com/items\")", "comment": "call the rest api https://api.example.com/items"}
+{"example": "test_connection(\"example.com\")", "comment": "ping example.com"}
+{"example": "get_date", "comment": "current date and time"}
+{"example": "get_date | .Year", "comment": "what year is it"}
+{"example": "set_date(\"2026-01-01T00:00:00Z\")", "comment": "set the system clock"}
+{"example": "new_timespan({\"Hours\": 2})", "comment": "a timespan of 2 hours"}
+{"example": "invoke_llm(\"Summarize: \\(.Body)\")", "comment": "summarize the body with an llm"}
+{"example": "\"one word for blue\" | invoke_llm", "comment": "ask a language model for one word for blue"}
+{"example": "invoke_llm(\"classify\"; {Schema: {type: \"object\"}})", "comment": "classify with an llm and get json back"}
+{"example": "invoke_llm_request(\"hello\") | {Content, TotalTokens}", "comment": "ask the llm and show tokens used"}
+{"example": "invoke_llm_request(\"hi\"; {Cache: true}) | .Cached", "comment": "llm call with caching"}
+{"example": "[invoke_llm_batch([\"a\",\"b\"]; {Parallel: 4})] | map(.Content)", "comment": "send several prompts to the llm in parallel"}
+{"example": "[.[] | \"Summarize: \\(.)\"] | [invoke_llm_batch({ContinueOnError: true})]", "comment": "summarize each item with an llm"}
+{"example": "\"my card was charged twice\" | invoke_systemone({refund: {type: \"noul\", instructions: \"Does the customer want a refund?\"}}) | .refund.noul", "comment": "does the customer want a refund, ask the decision model"}
+{"example": "invoke_systemone({team: {type: \"choice\", instructions: \"Which team handles it?\", criteria: {billing: \"Payments\", tech: null}}, urgency: {type: \"score\", instructions: \"How urgent?\", criteria: [\"Can wait\", \"Today\", \"Now\"]}})", "comment": "route the ticket to a team and rate urgency with d1"}
+{"example": "invoke_systemone({total: {type: \"number\", instructions: \"What is the invoice total?\", unit: \"EUR\"}, date: {type: \"date\", instructions: \"When was it issued?\"}}) | {total: .total.number, date: .date.date}", "comment": "read the invoice total and date with the decision model"}
+{"example": "invoke_systemone(null; {cups: {type: \"boxes\", instructions: \"Every cup.\", max: 8}}; {Media: [\"kitchen.jpg\"]}) | .cups.count", "comment": "count the cups in kitchen.jpg"}
+{"example": "invoke_systemone({team: {type: \"choice\", instructions: \"Team?\", criteria: {billing: null, tech: null}}}; {Backend: \"remote\", Model: \"systemone/jev-latest\"})", "comment": "ask the remote jev model which team"}
+{"example": "invoke_systemone_request({q: {type: \"score\", instructions: \"How severe?\", criteria: [\"low\", \"high\"]}}) | {Answers, Device, TotalTokens}", "comment": "ask d1 how severe and show the device and tokens"}
+{"example": "[.[] | {State: ., Questions: {spam: {type: \"noul\", instructions: \"Is this spam?\"}}}] | invoke_systemone_batch | map(.spam.noul)", "comment": "flag spam in each item with the decision model"}
+{"example": "get_systemone | {Device, Fallback, Gpu}", "comment": "is the decision model on the gpu"}
+{"example": "get_systemone({Device: \"cpu\"}) | .LoadSeconds", "comment": "how long does d1 take to load on cpu"}
+{"example": "invoke_agent(\"how many Go files are here?\")", "comment": "ask an agent how many go files are here"}
+{"example": "invoke_agent_request(\"count the TODOs\") | .Steps | map(.Query)", "comment": "have an agent count the TODOs and show its steps"}
+{"example": "invoke_embedding(\"a sentence\")", "comment": "embedding vector for a sentence"}
+{"example": "[.[] | .text] | invoke_embedding({Model: \"openai/text-embedding-3-small\"})", "comment": "embed each text with openai"}
+{"example": "[get_llm_model] | map(.Model)", "comment": "which llm models are available"}
+{"example": "get_llm_model({Model: \"anthropic\"}) | .Id", "comment": "id of the anthropic model"}
+{"example": "get_llm_context", "comment": "llm context window size"}
+{"example": "get_llm_context({Model: \"openai/gpt-4o\"})", "comment": "context length of gpt-4o"}
+{"example": "get_llm_usage", "comment": "llm usage so far"}
+{"example": "get_llm_usage.TotalTokens", "comment": "total tokens used"}
+{"example": "get_command", "comment": "list all commands"}
+{"example": "get_command(\"get_*\")", "comment": "commands starting with get_"}
+{"example": "[get_command | select(.Category == \"PowerShell\") | .Name]", "comment": "names of the powershell cmdlets"}
+{"example": "get_help(\"get_childitem\")", "comment": "help for get_childitem"}
+{"example": "\"gci\" | get_help", "comment": "what does gci do"}
+{"example": "[{\"dept\":\"eng\"},{\"dept\":\"ops\"}] | group_by_key(\"dept\")", "comment": "group rows by dept"}
+{"example": "[{\"dept\":\"eng\"},{\"dept\":\"eng\"}] | count_by(\"dept\")", "comment": "count rows per dept"}
+{"example": "[{\"d\":\"eng\",\"pay\":90}] | sum_by(\"d\"; \"pay\")", "comment": "total pay per department"}
+{"example": "[{\"d\":\"eng\",\"pay\":90},{\"d\":\"eng\",\"pay\":110}] | avg_by(\"d\"; \"pay\")", "comment": "average pay by department"}
+{"example": "[{\"d\":\"eng\",\"id\":1},{\"d\":\"eng\",\"id\":2}] | index_by(\"d\")", "comment": "index the rows by d"}
+{"example": "[\"a\",\"b\",\"a\"] | value_counts", "comment": "how often each value occurs"}
+{"example": "[{\"d\":\"eng\",\"pay\":90},{\"d\":\"eng\",\"pay\":110}] | summarize_by(\"d\"; \"pay\")", "comment": "stats of pay per department"}
+{"example": "[{\"dept\":\"eng\",\"year\":2020,\"amt\":10}] | pivot({rows: \"dept\", cols: \"year\", values: \"amt\"})", "comment": "pivot dept by year"}
+{"example": "[{\"dept\":\"eng\",\"y2020\":10}] | unpivot({cols: [\"y2020\"], id: \"dept\"})", "comment": "unpivot the year columns into rows"}
+{"example": "[{\"d\":\"a\",\"s\":1},{\"d\":\"b\",\"s\":9}] | top_by(\"s\"; 1)", "comment": "row with the highest s"}
+{"example": "[{\"d\":\"a\",\"s\":1},{\"d\":\"b\",\"s\":9}] | bottom_by(\"s\"; 1)", "comment": "row with the lowest s"}
+{"example": "20 | convert_unit(\"C\"; \"F\")", "comment": "convert 20 celsius to fahrenheit"}
+{"example": "convert_unit(5; \"mi\"; \"km\")", "comment": "5 miles in km"}
+{"example": "90 | convert_unit(\"min\"; \"h\")", "comment": "90 minutes in hours"}
+{"example": "\"1.5 MiB\" | parse_size", "comment": "how many bytes is 1.5 MiB"}
+{"example": "haversine_distance(51.5007; -0.1246; 40.7128; -74.0060)", "comment": "distance between london and new york"}
+{"example": "bearing(37.7749; -122.4194; 34.0522; -118.2437)", "comment": "compass bearing from san francisco to los angeles"}
+{"example": "geo_midpoint(0; 0; 0; 10)", "comment": "midpoint between two coordinates"}
+{"example": "within_radius(51.5; -0.12; 51.5007; -0.1246; 1)", "comment": "is a point within 1 km of another"}
+{"example": "parse_coords(\"51.5007, -0.1246\")", "comment": "parse the coordinates 51.5007, -0.1246"}
+{"example": "geohash_encode(42.6; -5.6; 6)", "comment": "geohash for a lat lon"}
+{"example": "\"ezs42\" | geohash_decode", "comment": "decode the geohash ezs42"}
+{"example": "cagr(100; 200; 1)", "comment": "compound annual growth rate from 100 to 200"}
+{"example": "future_value(100; 0.1; 10)", "comment": "future value of 100 at 10% for 10 years"}
+{"example": "present_value(259.37; 0.1; 10)", "comment": "present value of a future amount"}
+{"example": "monthly_payment(10000; 0.06; 36)", "comment": "monthly loan payment for 10000 at 6% over 36 months"}
+{"example": "compound_interest(100; 0.1; 10)", "comment": "compound interest on 100"}
+{"example": "simple_interest(100; 0.1; 3)", "comment": "simple interest on 100 at 10% for 3 years"}
+{"example": "[1,2,3] | cumsum", "comment": "running total"}
+{"example": "[3,1,4,2] | cumulative_max", "comment": "running maximum"}
+{"example": "[3,1,4,2] | cumulative_min", "comment": "running minimum"}
+{"example": "[1,4,9,2] | deltas", "comment": "differences between consecutive values"}
+{"example": "[1,2,3] | lag(1)", "comment": "shift the series by one"}
+{"example": "[1,null,2] | fill_forward", "comment": "fill nulls with the previous value"}
+{"example": "[1,2,3] | ema(0.5)", "comment": "exponential moving average"}
+{"example": "[3,1,4,1,5] | moving_max(3)", "comment": "rolling max over 3"}
+{"example": "[3,1,4,1,5] | moving_min(3)", "comment": "rolling minimum window of 3"}
+{"example": "[1,2,3] | correlation([2,4,6])", "comment": "correlation between two series"}
+{"example": "correlation([1,2,3]; [2,4,6])", "comment": "pearson correlation of two arrays"}
+{"example": "[1,2,3] | covariance([2,4,6])", "comment": "covariance of two series"}
+{"example": "[1,1,1,1,10] | skewness", "comment": "skewness of the data"}
+{"example": "[1,2,3,4,5,6,7,8] | kurtosis", "comment": "kurtosis of the values"}
+{"example": "[1,2,3] | weighted_mean([1,1,1])", "comment": "weighted average"}
+{"example": "weighted_mean([1,2,3]; [1,1,1])", "comment": "weighted mean with weights"}
+{"example": "[1,2,4] | harmonic_mean", "comment": "harmonic mean"}
+{"example": "[1,2,3,4,5,6,7,8] | quartiles", "comment": "quartiles of the numbers"}
+{"example": "[1,2,3,100] | trimmed_mean(0.25)", "comment": "mean ignoring outliers"}
+{"example": "[1,2,3] | standardize", "comment": "z-scores of the values"}
+{"example": "[1,2,3,4] | rms", "comment": "root mean square"}
+{"example": "[1,2,3] | product", "comment": "multiply the numbers together"}
+{"example": "\"the quick brown\" | reverse_words", "comment": "reverse the word order"}
+{"example": "\"the quick brown\" | truncate_words(2)", "comment": "keep only the first 2 words"}
+{"example": "\"café\" | remove_accents", "comment": "strip accents from café"}
+{"example": "\"hELLO World\" | sentence_case", "comment": "sentence case the text"}
+{"example": "\"a\\nb\\nc\" | line_count", "comment": "how many lines in the text"}
+{"example": "\"  a\\n    b\" | dedent", "comment": "remove common indentation"}
+{"example": "\"HeLLo\" | swap_case", "comment": "swap upper and lower case"}
+{"example": "\"aab\" | char_frequencies", "comment": "count each character"}
+{"example": "\"a\\nb\\nc\" | reverse_lines", "comment": "reverse the order of lines"}
+{"example": "\"b\\na\\nb\" | unique_lines", "comment": "remove duplicate lines"}
+{"example": "\"b\\na\\nc\" | sort_lines", "comment": "sort the lines"}
+{"example": "\"\\\"quoted\\\"\" | strip_quotes", "comment": "remove the surrounding quotes"}
+{"example": "\"hi\" | pad_center(5)", "comment": "center hi in 5 characters"}
+{"example": "\"/a//b/../c\" | normalize_path", "comment": "clean up the path /a//b/../c"}
+{"example": "\"/a/b/c\" | relative_path(\"/a\")", "comment": "path of /a/b/c relative to /a"}
+{"example": "\"/tmp/report.pdf\" | stem", "comment": "file name without extension of /tmp/report.pdf"}
+{"example": "\"c.txt\" | with_extension(\".md\")", "comment": "change the extension of c.txt to .md"}
+{"example": "\"a.txt\" | has_extension", "comment": "does a.txt have an extension"}
+{"example": "\"/a/b/\" | is_dir_path", "comment": "does the path end with a slash"}
+{"example": "path_sep", "comment": "the path separator"}
+{"example": "\"~/x\" | expand_home", "comment": "expand ~ in a path"}
+{"example": "home_dir", "comment": "my home directory"}
+{"example": "semver_compare(\"1.2.3\"; \"2.0.0\")", "comment": "compare versions 1.2.3 and 2.0.0"}
+{"example": "\"1.2.3\" | semver_compare(\"2.0.0\")", "comment": "is 1.2.3 older than 2.0.0"}
+{"example": "\"2.1.3-rc.1+build5\" | semver_parts", "comment": "parse the version 2.1.3-rc.1+build5"}
+{"example": "\"ff00\" | is_hex", "comment": "is ff00 hex"}
+{"example": "\"10.0.0.0/8\" | is_cidr", "comment": "is 10.0.0.0/8 valid cidr"}
+{"example": "443 | is_port", "comment": "is 443 a valid port"}
+{"example": "\"2026-08-10\" | is_date", "comment": "is 2026-08-10 a date"}
+{"example": "\"2026-08-10T12:34:56Z\" | is_iso8601", "comment": "is it an iso 8601 timestamp"}
+{"example": "\"my-cool-slug-2\" | is_slug", "comment": "is it a valid slug"}
+{"example": "\"born 2024-01-02\" | extract_dates", "comment": "find dates in the text"}
+{"example": "[1,2,3] | intersection([2,3,4])", "comment": "elements in both arrays"}
+{"example": "[1,2] | union([2,3])", "comment": "union of two arrays"}
+{"example": "[1,2,3] | difference([2])", "comment": "elements not in the other array"}
+{"example": "[1,2] | symmetric_difference([2,3])", "comment": "elements in one array but not both"}
+{"example": "[1,1,1] | all_equal", "comment": "are all the values the same"}
+{"example": "[1,2,1] | contains_duplicates", "comment": "does the list have duplicates"}
+{"example": "cartesian([1,2]; [\"a\",\"b\"])", "comment": "cartesian product of two lists"}
+{"example": "[[1,2],[3,4]] | column(1)", "comment": "second column of the rows"}
+{"example": "[{\"name\":\"ada\"}] | lookup(\"name\"; \"ada\")", "comment": "find the row where name is ada"}
+{"example": "compare_object([\"a\",\"b\"]; [\"b\",\"c\"])", "comment": "compare two lists, what was added and removed"}
+{"example": "[\"file2\",\"file10\",\"file1\"] | natural_sort", "comment": "natural sort file names"}
+{"example": "-5 | sign", "comment": "sign of -5"}
+{"example": "14 | next_prime", "comment": "next prime after 14"}
+{"example": "60 | prime_factors", "comment": "prime factors of 60"}
+{"example": "\"[server]\\nhost=10.0.0.1\" | ini_parse", "comment": "parse this ini config"}
+{"example": "{server: {host: \"10.0.0.1\"}} | ini_stringify", "comment": "write as an ini file"}
+{"example": "\"DB_HOST=db.internal\" | properties_parse", "comment": "parse a .env file"}
+{"example": "{DB_HOST: \"db.internal\"} | properties_stringify", "comment": "write key=value properties"}
+{"example": "\"level=info n=3 ok=true\" | logfmt_parse", "comment": "parse logfmt"}
+{"example": "{level: \"info\", n: 3} | logfmt_stringify", "comment": "format as logfmt"}
+{"example": "\"user@example.com\" | before_first(\"@\")", "comment": "user part of user@example.com"}
+{"example": "\"user@example.com\" | after_first(\"@\")", "comment": "domain of the email user@example.com"}
+{"example": "\"x\" | surround(\"[ \"; \" ]\")", "comment": "wrap the text in brackets"}
+{"example": "\"hello\" | count_vowels", "comment": "count vowels in hello"}
+{"example": "\"hello\" | count_consonants", "comment": "count consonants"}
+{"example": "\"hELLO\" | capitalize_first", "comment": "capitalize the first letter"}
+{"example": "\"héllo\" | unicode_escape", "comment": "escape non-ascii as \\u codes"}
+{"example": "\"h\\\\u00e9llo\" | unicode_unescape", "comment": "unescape \\u sequences"}
+{"example": "\"a\\nb\" | diff_lines(\"b\\nc\")", "comment": "diff two texts line by line"}
+{"example": "{\"a\":1} | rename_keys({\"a\": \"x\"})", "comment": "rename the key a to x"}
+{"example": "[1,2,3,4,5] | autocorrelation", "comment": "autocorrelation of the series"}
+{"example": "[1,2,3,4,5] | autocorrelation(2)", "comment": "autocorrelation at lag 2"}
+{"example": "[1,2,3,4,5,6,7,8] | iqr", "comment": "interquartile range"}
+{"example": "[1,2,3,4,5] | mad", "comment": "median absolute deviation"}
+{"example": "[1,2,3,4,5] | moving_stdev(2)", "comment": "rolling standard deviation"}
+{"example": "\"2026-01-01\" | days_between(\"2026-01-10\")", "comment": "days between 2026-01-01 and 2026-01-10"}
+{"example": "\"2026-08-10\" | day_of_year", "comment": "day of year of 2026-08-10"}
+{"example": "\"2026-08-10\" | week_of_year", "comment": "week number of 2026-08-10"}
+{"example": "\"2026-08-13T12:00:00Z\" | start_of_week", "comment": "monday of that week"}
+{"example": "\"2026-01-15\" | add_months(1)", "comment": "a month after 2026-01-15"}
+{"example": "\"2026-01-15\" | add_years(2)", "comment": "add 2 years to 2026-01-15"}
+{"example": "\"2000-06-15\" | age_in_years", "comment": "how old is someone born 2000-06-15"}
+{"example": "3.14159 | to_fixed(2)", "comment": "format 3.14159 with 2 decimals"}
+{"example": "16 | is_power_of_two", "comment": "is 16 a power of two"}
+{"example": "\"hello=world\" | quoted_printable_encode", "comment": "quoted-printable encode"}
+{"example": "\"hello=3Dworld\" | quoted_printable_decode", "comment": "decode quoted-printable"}
+{"example": "\"a\\nb\" | prefix_lines(\"> \")", "comment": "quote each line with >"}
+{"example": "\"a\\nb\\nc\" | first_lines(2)", "comment": "first 2 lines of the text"}
+{"example": "\"a\\nb\\nc\" | last_lines(2)", "comment": "last 2 lines of the text"}
+{"example": "\"(a[b])\" | is_balanced", "comment": "are the brackets balanced"}
+{"example": "\"a\\tb\\n1\\t2\" | tsv_parse", "comment": "parse tab separated values"}
+{"example": "[[\"a\",\"b\"],[\"1\",\"2\"]] | tsv_stringify", "comment": "write rows as tsv"}
+{"example": "[1,2,3,4] | windows(3)", "comment": "sliding windows of 3"}
+{"example": "{a: 1} | set_path(\"a\"; 2)", "comment": "set a to 2"}
+{"example": "{a: {b: [1,2]}} | set_path(\"a.b[1]\"; 9)", "comment": "set the value at a.b[1]"}
+{"example": "{a: 1} | has_path(\"a\")", "comment": "does it have the key a"}
+{"example": "{a: {b: 1, c: 2}} | del_path(\"a.b\")", "comment": "delete the field a.b"}
+{"example": "1234567 | group_digits", "comment": "1234567 with thousands separators"}
+{"example": "1234.5 | format_currency", "comment": "format 1234.5 as money"}
+{"example": "1234.5 | format_currency(\"€\")", "comment": "format as euros"}
+{"example": "\"-1.5e3\" | is_numeric", "comment": "is -1.5e3 a number"}
+{"example": "[1,2,3,4,5] | percentile_rank(3)", "comment": "percentile rank of 3"}
+{"example": "net_present_value([-100, 50, 60]; 0.1)", "comment": "npv of these cash flows at 10%"}
+{"example": "93784 | iso_duration", "comment": "93784 seconds as an iso 8601 duration"}
+{"example": "invoke_sqlite_query(\"app.db\"; \"select * from users\")", "comment": "select everything from users in app.db"}
+{"example": "invoke_sqlite_query(\"app.db\"; \"select * from users where id = ?\"; [42])", "comment": "user with id 42 from app.db"}
+{"example": "invoke_sqlite_query(\"app.db\"; \"select * from users where email = :e\"; {e: \"a@b.c\"})", "comment": "find a user by email in app.db"}
+{"example": "\"app.db\" | invoke_sqlite_query(\"select count(*) as n from users\") | .n", "comment": "how many users in app.db"}
+{"example": "invoke_sqlite_command(\"app.db\"; \"create table audit (id integer primary key, at text)\")", "comment": "create an audit table in app.db"}
+{"example": "invoke_sqlite_command(\"app.db\"; \"delete from users where id = ?\"; [42]) | .RowsAffected", "comment": "delete user 42 from app.db"}
+{"example": "[get_sqlite_table(\"app.db\")] | map(.Name)", "comment": "table names in app.db"}
+{"example": "\"app.db\" | get_sqlite_table | select(.Type == \"view\") | .Sql", "comment": "sql of the views in app.db"}
+{"example": "[get_sqlite_schema(\"app.db\"; \"users\")]", "comment": "columns of the users table in app.db"}
+{"example": "get_sqlite_table(\"app.db\") | get_sqlite_schema(.Name)", "comment": "schema of every table in app.db"}
+{"example": "[get_sqlite_schema(\"app.db\"; \"users\") | select(.IsPrimaryKey) | .Name]", "comment": "primary key of users in app.db"}
+{"example": "[get_childitem(\".\") | {Name, Length}] | out_sqlite(\"files.db\"; \"files\")", "comment": "save the file listing to files.db"}
+{"example": "[get_childitem(\".\") | {Name, Length}] | out_sqlite(\"files.db\"; \"files\"; {Truncate: true}) | .RowCount", "comment": "replace the files table in files.db with the listing"}
+{"example": "get_censys_context", "comment": "my censys account context"}
+{"example": "get_censys_context | .OrganizationId", "comment": "censys organization id"}
+{"example": "get_censys_host(\"1.1.1.1\")", "comment": "censys data for 1.1.1.1"}
+{"example": "\"1.1.1.1\" | get_censys_host({AtTime: \"2026-01-01T00:00:00Z\"})", "comment": "what censys saw on 1.1.1.1 at the start of 2026"}
+{"example": "get_censys_webproperty(\"example.com:443\")", "comment": "censys web property example.com:443"}
+{"example": "\"1.1.1.1\" | get_censys_enrichment", "comment": "enrich 1.1.1.1 with censys"}
+{"example": "[get_censys_host_timeline(\"1.1.1.1\")] | length", "comment": "how many censys events for 1.1.1.1"}
+{"example": "[get_censys_webproperty_timeline(\"example.com:443\")] | length", "comment": "censys history of example.com:443"}
+{"example": "[get_censys_host_service(\"1.1.1.1\"; {Port: 443})]", "comment": "censys service on port 443 of 1.1.1.1"}
+{"example": "[search_censys(\"host.services.port=22\")] | length", "comment": "how many hosts have ssh open, search censys"}
+{"example": "search_censys(\"host.location.country=\\\"Chile\\\"\"; {Pages: 3})", "comment": "censys hosts in chile"}
+{"example": "get_censys_aggregate(\"host.services.port=443\"; \"host.location.country\")", "comment": "count hosts with port 443 by country in censys"}
+{"example": "[get_censys_collection] | map(.name)", "comment": "my censys collections"}
+{"example": "[get_censys_censeye_job({HostId: \"1.1.1.1\"})]", "comment": "start a censeye job for 1.1.1.1"}
+{"example": "[get_censys_threat] | length", "comment": "how many censys threats"}
+{"example": "[get_censys_tag] | map(.name)", "comment": "names of my censys tags"}
+{"example": "get_censys_organization", "comment": "my censys organization"}
+{"example": "get_censys_credits", "comment": "censys credits left"}
+{"example": "get_censys_credits({Scope: \"user\"})", "comment": "my own censys user credits"}
+{"example": "cat(\"data.csv\") | csv_parse", "comment": "parse data.csv"}
+{"example": "cat(\"config.yaml\") | yaml_parse", "comment": "load config.yaml"}
+{"example": "grep_lines(\"app.log\"; \"error\") | length", "comment": "how many lines of app.log mention error"}
+{"example": "select_string(\".\"; \"TODO\") | \"\\(.Path):\\(.LineNumber): \\(.Line)\"", "comment": "grep TODO here, show file and line"}
+{"example": "get_childitem(\".\"; {Recurse: true, Filter: \"*.txt\"}) | .FullName", "comment": "all the txt files under here"}
+{"example": "[get_childitem(\".\"; {Recurse: true})] | sort_by(-.Length) | .[:5] | map({Name, Length})", "comment": "the 5 biggest files"}
+{"example": "[get_process] | sort_by(-.WorkingSet) | .[:5] | map({Id, Name, WorkingSet})", "comment": "5 processes using the most memory"}
+{"example": "test_connection(\"example.com\"; {TcpPort: 443, Quiet: true})", "comment": "is port 443 open on example.com"}

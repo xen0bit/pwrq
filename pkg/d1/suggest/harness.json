@@ -1,10 +1,17 @@
 {
-  "version": 1,
+  "version": 2,
   "next": "Which of these should be written next at the cursor, to do what the query's comments ask?",
   "more": "Does the query need another step after what is written, to do what its comments ask?",
   "option_style": "help+example",
-  "temperature": 3.605,
-  "more_temperature": 3.966,
-  "threshold": 0.99,
-  "prompt_digest": "8d4c80ac1aac1093"
+  "temperature": 4.799,
+  "more_temperature": 4.799,
+  "threshold": 0.53,
+  "lexical_weight": 4,
+  "script": "Which of these queries does what the comment asks?",
+  "script_option_style": "task+query",
+  "script_temperature": 0.863,
+  "script_threshold": 0.49,
+  "continue_threshold": 0.19,
+  "member": "",
+  "prompt_digest": "590f13794b99eb6c"
 }

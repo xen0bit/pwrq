@@ -69,8 +69,10 @@ build-viz-native-with-ide: web.build-native
 d1.lock:
 	go run ./internal/tools/d1assets lock
 
-# d1.calibrate re-fits the editors' suggestion questions to d1-2B against the
-# gallery (needs the model; see internal/tools/d1cal).
+# d1.calibrate re-fits the editors' suggestion questions to d1-2B: each slot
+# kind's question, the whole-query question against labelled comments, and
+# the step-by-step question against the gallery (needs the model; see
+# internal/tools/d1cal).
 .PHONY: d1.calibrate
 d1.calibrate:
 	go run ./internal/tools/d1cal -limit 250

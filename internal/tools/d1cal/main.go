@@ -1,30 +1,32 @@
 // Command d1cal calibrates pwrq's own requests to d1-2B: the questions the
-// IDE asks to rank query suggestions.
+// IDE asks to suggest what to write.
 //
 // It follows ~/Projects/jev_calibration's method - a fixed harness (question
 // wording, how options are described) searched against labelled samples and
 // scored the same way for every sample - and adds what a local model allows
-// and a remote one did not: real calibration of the probabilities. The
-// samples are pwrq's own gallery (pkg/ideengine/examples.go): every example
-// cut at each top-level stage, labelled with the stage that really came
-// next, its title written above it as the author's comment. Then:
+// and a remote one did not: real calibration of the probabilities. Three
+// studies, each run in a fresh build because each reads the embedded files
+// the one before wrote:
 //
-//  1. each harness variant is run over every sample, and the variant with
-//     the best top-1 accuracy is kept;
+//  1. slots (studies/scripts/SLOTS.md): each slot kind's question - "How
+//     many?", "Which directory or folder?" - chosen by how often it reads the
+//     labelled value out of a dev comment; written to
+//     pkg/ideengine/slots.json.
 //
-//  2. a temperature for the choice and one for the "more needed" gate are
-//     fitted by negative log-likelihood under 5-fold cross-validation, folds
-//     split by label so no cmdlet is scored on folds that fitted it;
+//  2. scripts (studies/scripts): the question that picks a whole recipe for
+//     a comment, compared on dev comments, its temperature fitted by NLL and
+//     its ghost bar set to show the most right queries for the fewest wrong
+//     ones; then the same for the rest of a recipe after part of it is
+//     written. Held-out test comments are scored once and reported.
 //
-//  3. the ghost-text bar is the lowest that keeps cross-validated precision
-//     at or above 0.8;
+//  3. next (studies/completion): the step-by-step question - which name comes
+//     next - on pwrq's gallery, every example cut at each stage, as before.
 //
-//  4. harness.json is written with the prompt's digest, and the study's
-//     JOURNAL.md and FINDINGS.md with every number behind it.
+//     go run ./internal/tools/d1cal [-study all|slots|scripts|next] [-limit N]
 //
-//     go run ./internal/tools/d1cal [-limit N] [-out internal/tools/d1cal/studies/completion]
-//
-// It runs the real model (PWRQ_D1_* as everywhere; GPU when available).
+// harness.json gets the prompt's digest; TestHarnessMatchesPrompt fails when
+// the prompt changes without a recalibration. It runs the real model
+// (PWRQ_D1_* as everywhere; GPU when available).
 package main
 
 import (
@@ -34,6 +36,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -65,13 +68,13 @@ type Variant struct {
 }
 
 var variants = []Variant{
-	{"intent+help+example", suggest.Harness{Version: 1, OptionStyle: "help+example",
+	{"intent+help+example", suggest.Harness{Version: 2, OptionStyle: "help+example",
 		Next: "Which of these should be written next at the cursor, to do what the query's comments ask?",
 		More: "Does the query need another step after what is written, to do what its comments ask?"}},
-	{"intent+help", suggest.Harness{Version: 1, OptionStyle: "help",
+	{"intent+help", suggest.Harness{Version: 2, OptionStyle: "help",
 		Next: "Which of these should be written next at the cursor, to do what the query's comments ask?",
 		More: "Does the query need another step after what is written, to do what its comments ask?"}},
-	{"plain+help+example", suggest.Harness{Version: 1, OptionStyle: "help+example",
+	{"plain+help+example", suggest.Harness{Version: 2, OptionStyle: "help+example",
 		Next: "Which function comes next in this jq query?",
 		More: "Is this jq query unfinished?"}},
 }
@@ -98,14 +101,41 @@ func main() {
 	out := flag.String("out", filepath.Join("internal", "tools", "d1cal", "studies", "completion"), "the study folder")
 	harnessOut := flag.String("harness", filepath.Join("pkg", "d1", "suggest", "harness.json"), "where the calibrated harness goes")
 	only := flag.String("variants", "", "comma-separated variant names to run (default all)")
+	study := flag.String("study", "all", "which study: slots (each kind's question), scripts (whole queries from comments), next (the step-by-step choice), or all")
 	flag.Parse()
-	if err := run(*limit, *out, *harnessOut, *only); err != nil {
+	if err := run(*limit, *out, *harnessOut, *only, *study); err != nil {
 		fmt.Fprintln(os.Stderr, "d1cal:", err)
 		os.Exit(1)
 	}
 }
 
-func run(limit int, out, harnessOut, only string) error {
+func run(limit int, out, harnessOut, only, study string) error {
+	_ = udf.DefaultRegistry() // publishes the catalog the example recipes are made from
+	scriptsDir := filepath.Join(filepath.Dir(out), "scripts")
+	switch study {
+	case "all":
+		// Each study reads what the one before wrote into embedded files
+		// (slots.json, harness.json), so each runs in a fresh build.
+		for _, st := range []string{"slots", "scripts", "next"} {
+			if err := reexec(st, limit, out, harnessOut, only); err != nil {
+				return err
+			}
+		}
+		return nil
+	case "slots", "scripts":
+		model, err := d1.Shared(context.Background(), d1.OptionsFromEnv())
+		if err != nil {
+			return err
+		}
+		if study == "slots" {
+			return runSlots(context.Background(), model, scriptsDir)
+		}
+		eng := ideengine.New(ideengine.Config{Registry: udf.DefaultRegistry()})
+		return runScripts(context.Background(), eng, model, scriptsDir, harnessOut, only)
+	case "next":
+	default:
+		return fmt.Errorf("unknown study %q", study)
+	}
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return err
 	}
@@ -139,6 +169,18 @@ func run(limit int, out, harnessOut, only string) error {
 		byVariant[v.Name] = results
 	}
 	return report(byVariant, info, samples, out, harnessOut)
+}
+
+// reexec runs one study in a fresh `go run`, so it is built with the
+// embedded files the studies before it wrote.
+func reexec(study string, limit int, out, harnessOut, only string) error {
+	args := []string{"run", "./internal/tools/d1cal", "-study", study, "-out", out, "-harness", harnessOut, "-limit", fmt.Sprint(limit)}
+	if only != "" {
+		args = append(args, "-variants", only)
+	}
+	cmd := exec.Command("go", args...)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	return cmd.Run()
 }
 
 // stageSplit cuts a query at its top-level pipes.
@@ -259,7 +301,7 @@ func runVariant(ctx context.Context, eng *ideengine.Engine, model *d1.Model, v V
 		sc := eng.SuggestContext(ideengine.SuggestRequest{Query: s.Query, Cursor: -1, Input: s.Input})
 		r := Result{ID: s.ID, LabelAt: -1, Kind: s.Kind, Label: s.Label, More: s.More, Variant: v.Name, Category: s.Category, Lexical: -1}
 		for k, c := range sc.Candidates {
-			if s.Kind == "next" && c.Name == s.Label {
+			if s.Kind == "next" && !r.Covered && candidateIs(c, s.Label) {
 				r.LabelAt, r.Covered, r.Lexical = k, true, k
 			}
 		}
@@ -285,6 +327,20 @@ func runVariant(ctx context.Context, eng *ideengine.Engine, model *d1.Model, v V
 	}
 	return results, nil
 }
+
+// candidateIs reports whether a candidate writes the labelled name next: a
+// name by itself, or a recipe whose continuation starts with it.
+func candidateIs(c ideengine.Candidate, label string) bool {
+	if c.Kind != "recipe" {
+		return c.Name == label
+	}
+	first := ideengine.Stages(strings.TrimPrefix(strings.TrimSpace(c.Insert), "| "))[0]
+	return strings.TrimLeft(identHead(first), "[({") == label
+}
+
+var identHeadRe = regexp.MustCompile(`^[\[({]*[A-Za-z_][A-Za-z0-9_]*`)
+
+func identHead(s string) string { return identHeadRe.FindString(strings.TrimSpace(s)) }
 
 func writeLine(f *os.File, v any) {
 	raw, _ := json.Marshal(v)
@@ -430,7 +486,7 @@ func ece(conf, correct []float64, bins int) float64 {
 
 var temperatures = func() []float64 {
 	var out []float64
-	for t := 0.25; t <= 4.0001; t *= 1.1 {
+	for t := 0.25; t <= 12.0001; t *= 1.1 {
 		out = append(out, math.Round(t*1000)/1000)
 	}
 	return out
@@ -559,17 +615,42 @@ func report(by map[string][]Result, info d1.Info, samples []Sample, out, harness
 			bestTop1, bestName = m.Top1, n
 		}
 	}
-	rs := by[bestName]
+	// The blend with the prefilter's order: the weight with the best top-1,
+	// applied before temperatures are fitted.
+	bestW, bestW1 := 0.0, -1.0
+	for _, w := range []float64{0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5} {
+		var blended []Result
+		for _, r := range by[bestName] {
+			if r.Probs != nil {
+				r.Probs = suggest.Blend(r.Probs, w)
+			}
+			blended = append(blended, r)
+		}
+		if m := evaluate(blended, 1, 1); m.Top1 > bestW1+1e-9 {
+			bestW, bestW1 = w, m.Top1
+		}
+	}
+	modelOnly := evaluate(by[bestName], 1, 1)
+	var rs []Result
+	for _, r := range by[bestName] {
+		if r.Probs != nil {
+			r.Probs = suggest.Blend(r.Probs, bestW)
+		}
+		rs = append(rs, r)
+	}
 	raw := evaluate(rs, 1, 1)
 	t, tm, cv := fitCV(rs)
 	th, prec, cover := threshold(rs, t, 0.8)
-	var h suggest.Harness
+	h := suggest.DefaultHarness()
+	if raw, err := os.ReadFile(harnessOut); err == nil {
+		_ = json.Unmarshal(raw, &h) // keep the scripts study's fields
+	}
 	for _, v := range variants {
 		if v.Name == bestName {
-			h = v.Harness
+			h.Version, h.Next, h.More, h.OptionStyle = v.Harness.Version, v.Harness.Next, v.Harness.More, v.Harness.OptionStyle
 		}
 	}
-	h.Temperature, h.MoreTemperature, h.Threshold = t, tm, th
+	h.Temperature, h.MoreTemperature, h.Threshold, h.LexicalWeight = t, tm, th, bestW
 	h.PromptDigest = h.Digest()
 
 	// by category
@@ -582,7 +663,7 @@ func report(by map[string][]Result, info d1.Info, samples []Sample, out, harness
 		catNames = append(catNames, c)
 	}
 	sort.Strings(catNames)
-	fmt.Fprintf(&j, "\nChosen: **%s** (best top-1 among covered samples).\n\n", bestName)
+	fmt.Fprintf(&j, "\nChosen: **%s** (best top-1 among covered samples). Blended with the prefilter's order at weight %.1f: top-1 %.3f, against %.3f for the model alone and %.3f for the order alone.\n\n", bestName, bestW, raw.Top1, modelOnly.Top1, modelOnly.LexicalTop1)
 	fmt.Fprintf(&j, "Temperatures fitted by NLL: choice %.3f, more %.3f. Cross-validated (5 folds by label):\n\n", t, tm)
 	fmt.Fprintf(&j, "| | top-1 | NLL | ECE | Brier | more acc | more NLL | more Brier |\n|---|---|---|---|---|---|---|---|\n")
 	fmt.Fprintf(&j, "| raw (T=1) | %.3f | %.3f | %.3f | %.3f | %.3f | %.3f | %.3f |\n", raw.Top1, raw.NLL, raw.ECE, raw.Brier, raw.MoreAcc, raw.MoreNLL, raw.MoreBrier)
@@ -604,7 +685,7 @@ func report(by map[string][]Result, info d1.Info, samples []Sample, out, harness
 	fmt.Fprintf(&f, "# Findings: the IDE's suggestion questions on d1-2B\n\n")
 	fmt.Fprintf(&f, "- Harness: `%s`. The choice's options are the engine's prefiltered candidates, each described by its help text%s.\n", bestName, map[bool]string{true: " and first example", false: ""}[h.OptionStyle == "help+example"])
 	fmt.Fprintf(&f, "- Coverage: the label is among the %d candidates on %d of %d stage starts (%.0f%%); the rest are the prefilter's misses, which no ranking can recover.\n", 16, raw.Covered, raw.N, 100*float64(raw.Covered)/math.Max(1, float64(raw.N)))
-	fmt.Fprintf(&f, "- Ranking: top-1 %.1f%% and top-3 %.1f%% among covered samples, against %.1f%% for the lexical order alone.\n", 100*raw.Top1, 100*raw.Top3, 100*raw.LexicalTop1)
+	fmt.Fprintf(&f, "- Ranking: the model alone is right first %.1f%% of the time and the prefilter's order alone %.1f%%; blended (prior weight %.1f) top-1 is %.1f%% and top-3 %.1f%% among covered samples.\n", 100*modelOnly.Top1, 100*modelOnly.LexicalTop1, bestW, 100*raw.Top1, 100*raw.Top3)
 	fmt.Fprintf(&f, "- Calibration: temperature %.2f takes the choice's ECE from %.3f to %.3f and NLL from %.3f to %.3f (cross-validated); the gate's temperature is %.2f.\n", t, raw.ECE, cv.ECE, raw.NLL, cv.NLL, tm)
 	fmt.Fprintf(&f, "- Ghost text appears unasked at confidence %.2f or more, where it is right %.0f%% of the time, on %.0f%% of stage starts.\n", th, 100*prec, 100*cover)
 	fmt.Fprintf(&f, "- Latency (%s): p50 %.2f s, p95 %.2f s a suggestion.\n", info.Device, raw.P50, raw.P95)

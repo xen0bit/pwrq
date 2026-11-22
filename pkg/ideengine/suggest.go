@@ -12,6 +12,8 @@ import (
 	"unicode"
 
 	"github.com/itchyny/gojq"
+	"github.com/xen0bit/pwrq/pkg/core/shape"
+	"github.com/xen0bit/pwrq/pkg/udf/discovery"
 )
 
 // Suggestions: what to write next at the cursor.
@@ -37,6 +39,12 @@ type Ranker interface {
 	Warm()
 }
 
+// Speller is a Ranker that can correct a comment's misspellings: phrase
+// slots, which are asked about again at run time, go through it.
+type Speller interface {
+	Correct(text string) string
+}
+
 // Ranking is a Ranker's answer.
 type Ranking struct {
 	Probabilities []float64
@@ -46,6 +54,16 @@ type Ranking struct {
 	// Threshold is the calibrated bar a suggestion clears to be shown as
 	// ghost text without being asked for.
 	Threshold float64
+	// RecipeThreshold, when set, is the bar instead for the rest of a
+	// recipe, offered after part of it is written.
+	RecipeThreshold float64
+	// Members holds, for a candidate with members (a cmdlet's examples),
+	// one probability a member - asked for the top candidate only.
+	Members map[int][]float64
+	// Slots answers SuggestContext.SlotQuestions: the words of the comment
+	// each question found, by question. A question the comment does not
+	// answer is absent, and its slots keep their defaults.
+	Slots map[string]string
 }
 
 // SuggestRequest asks what comes next at Cursor (in runes; < 0 or past the
@@ -61,20 +79,26 @@ type SuggestRequest struct {
 
 // Suggestion is one thing to insert.
 type Suggestion struct {
-	Insert      string  `json:"insert"` // the text that replaces the Replace runes before the cursor
-	Replace     int     `json:"replace"`
-	Display     string  `json:"display"`
-	Kind        string  `json:"kind"` // cmdlet, builtin, field, argument, pipe
-	Probability float64 `json:"probability"`
-	Help        string  `json:"help,omitempty"`
+	Insert  string `json:"insert"` // the text that replaces the Replace runes before the cursor
+	Replace int    `json:"replace"`
+	// ReplaceAfter runes after the cursor go too: the bracket an editor
+	// closed by itself, which the insert closes where it should.
+	ReplaceAfter int     `json:"replaceAfter,omitempty"`
+	Display      string  `json:"display"`
+	Kind         string  `json:"kind"` // cmdlet, builtin, field, argument, pipe
+	Probability  float64 `json:"probability"`
+	Help         string  `json:"help,omitempty"`
 }
 
 // SuggestResponse is what to offer. Ghost, when set, is the rest of
 // Items[0] after what is already typed, confident enough to show inline
 // after the cursor; accepting it inserts exactly that.
 type SuggestResponse struct {
-	Items       []Suggestion  `json:"items"`
-	Ghost       string        `json:"ghost,omitempty"`
+	Items []Suggestion `json:"items"`
+	Ghost string       `json:"ghost,omitempty"`
+	// GhostAfter is the top item's ReplaceAfter: how many runes after the
+	// cursor the ghost stands in for, and accepting it removes.
+	GhostAfter  int           `json:"ghostAfter,omitempty"`
 	Position    string        `json:"position"`
 	Status      SuggestStatus `json:"status"`
 	Unavailable string        `json:"unavailable,omitempty"`
@@ -98,15 +122,27 @@ const (
 	PosAfter    = "after"    // after a finished stage: a pipe and a next stage
 	PosField    = "field"    // after a dot: a field name
 	PosArgument = "argument" // inside a call's parentheses
+	PosScript   = "script"   // nothing written but comments: a whole query
 )
 
 // Candidate is one thing the cursor could take, before ranking.
 type Candidate struct {
 	Name    string `json:"name"`
-	Kind    string `json:"kind"`
+	Kind    string `json:"kind"` // cmdlet, builtin, field, argument, recipe
 	Insert  string `json:"insert"`
 	Help    string `json:"help"`
 	Example string `json:"example,omitempty"`
+	// Display is how a list shows it, when not by Name: a recipe by its
+	// task.
+	Display string `json:"display,omitempty"`
+	// Slots are values Insert takes from the comment (recipes).
+	Slots []Slot `json:"slots,omitempty"`
+	// Keywords are more words the prefilter matches, not shown to a model.
+	Keywords string `json:"-"`
+	// Members are the queries a candidate stands for when it is a cmdlet
+	// with several examples: the model picks the cmdlet among the others,
+	// then one of these. Best match first; nil for a single query.
+	Members []Candidate `json:"-"`
 	Lexical float64
 }
 
@@ -120,12 +156,31 @@ type SuggestContext struct {
 	Call       string      // the call whose arguments the cursor is in
 	Input      string      // a sample of the input, trimmed
 	Candidates []Candidate // prefiltered, best first
+	// Lead goes before whichever candidate is inserted: a line break when
+	// the cursor ends a comment line, a space after a finished term.
+	Lead string
+	// Closers are what follows the cursor on its line when it is nothing
+	// but closing brackets - typed by the editor, not the author.
+	Closers string
+	// SlotQuestions are the slot questions of the likeliest candidates,
+	// once each, for a Ranker to ask about the comments.
+	SlotQuestions []string
 }
+
+// Comment is the comments as one text: what slot questions read.
+func (sc SuggestContext) Comment() string { return strings.Join(sc.Intent, "\n") }
 
 const (
 	maxCandidates = 16
-	maxInputChars = 1200
-	maxItems      = 5
+	// maxScriptCandidates are the tasks a comment is matched against: more
+	// than a step's names, since there are some eight hundred of them and
+	// the prefilter's misses are the commonest miss.
+	maxScriptCandidates = 24
+	maxInputChars       = 1200
+	maxItems            = 5
+	// maxSlotQuestions fill a row with the choice: d1 reads 16 questions
+	// together.
+	maxSlotQuestions = 15
 )
 
 var unavailableText = "suggestions need a model; they run in the native IDE (pwrq --ide-native) and the TUI (pwrq --tui), not in the browser page"
@@ -174,10 +229,10 @@ func (e *Engine) Suggest(parent context.Context, req SuggestRequest) SuggestResp
 	ranking, err := r.Rank(ctx, sc)
 	resp.Status = r.Status()
 	probs := make([]float64, len(sc.Candidates))
-	threshold, cont := 1.0, 1.0
+	threshold, cont, recipeThreshold := 1.0, 1.0, 0.0
 	if err == nil && len(ranking.Probabilities) == len(sc.Candidates) {
 		copy(probs, ranking.Probabilities)
-		threshold, cont = ranking.Threshold, ranking.Continue
+		threshold, cont, recipeThreshold = ranking.Threshold, ranking.Continue, ranking.RecipeThreshold
 		resp.Ranked = true
 	} else {
 		if err != nil {
@@ -198,28 +253,209 @@ func (e *Engine) Suggest(parent context.Context, req SuggestRequest) SuggestResp
 			}
 		}
 	}
+	speller, _ := r.(Speller)
 	order := make([]int, len(probs))
 	for i := range order {
 		order[i] = i
 	}
 	sort.SliceStable(order, func(a, b int) bool { return probs[order[a]] > probs[order[b]] })
+	if resp.Ranked && len(order) > 1 && sc.Candidates[order[0]].Kind != "recipe" {
+		// The model's choice is a name a recipe goes on from: the recipe
+		// says the same thing next and the rest after it, so it takes the
+		// name's weight and its place.
+		name := sc.Candidates[order[0]].Name
+		for k, i := range order[1:] {
+			c := sc.Candidates[i]
+			if c.Kind != "recipe" {
+				continue
+			}
+			first := strings.TrimLeft(strings.TrimPrefix(strings.TrimSpace(c.Insert), "| "), "[({")
+			if identPrefix(first) == name {
+				probs[i] += probs[order[0]]
+				probs[order[0]] = 0
+				copy(order[1:k+2], order[0:k+1])
+				order[0] = i
+				break
+			}
+		}
+	}
 	for _, i := range order[:min(maxItems, len(order))] {
-		c := sc.Candidates[i]
+		c := Choose(sc, ranking, i)
+		display := c.Display
+		if display == "" {
+			display = c.Name
+		}
+		insert := sc.Lead + FillCandidateWith(c, ranking.Slots, sc.Comment(), speller)
+		after := 0
+		if sc.Closers != "" {
+			first := insert
+			if i := strings.IndexByte(insert, '\n'); i >= 0 {
+				first = insert[:i]
+			}
+			if strings.HasSuffix(first, sc.Closers) {
+				after = len([]rune(sc.Closers))
+			}
+		}
 		resp.Items = append(resp.Items, Suggestion{
-			Insert: c.Insert, Replace: len([]rune(sc.Partial)), Display: c.Name, Kind: c.Kind,
+			Insert: insert, Replace: len([]rune(sc.Partial)), ReplaceAfter: after, Display: display, Kind: c.Kind,
 			Probability: probs[i], Help: c.Help,
 		})
 	}
 	if len(resp.Items) > 0 && resp.Ranked {
 		top := resp.Items[0]
+		if top.Kind == "recipe" && sc.Position != PosScript && recipeThreshold > 0 {
+			threshold = recipeThreshold
+		}
 		// The ghost is what is left to type: the insert past the word
 		// already half written.
 		if (req.Explicit || top.Probability*cont >= threshold) && strings.HasPrefix(top.Insert, sc.Partial) {
 			resp.Ghost = strings.TrimPrefix(top.Insert, sc.Partial)
+			resp.GhostAfter = top.ReplaceAfter
 		}
 	}
 	resp.Seconds = time.Since(start).Seconds()
 	return resp
+}
+
+// FillCandidate is a candidate's insert with its slots filled: from the
+// model's answers to their questions, else from what the comment plainly
+// spells (a lone number, an address, a URL), else their defaults.
+func FillCandidate(c Candidate, answers map[string]string, comment string) string {
+	return FillCandidateWith(c, answers, comment, nil)
+}
+
+// FillCandidateWith is FillCandidate with a speller for phrase slots.
+func FillCandidateWith(c Candidate, answers map[string]string, comment string, sp Speller) string {
+	if len(c.Slots) == 0 {
+		return c.Insert
+	}
+	values := map[string]string{}
+	positional := positionalNumbers(c.Slots, comment)
+	for _, s := range c.Slots {
+		if v, ok := positional[s.Name]; ok {
+			values[s.Name] = v
+			continue
+		}
+		if v, ok := answers[TargetedQuestion(c, s)]; ok && v != "" {
+			if _, readable := normalizeSlot(s.Kind, v); readable {
+				if s.Kind == "phrase" && sp != nil {
+					v = sp.Correct(v)
+				}
+				values[s.Name] = v
+				continue
+			}
+		}
+		if v, ok := answers[s.Question]; ok {
+			if _, readable := normalizeSlot(s.Kind, v); readable {
+				if s.Kind == "phrase" && sp != nil {
+					v = sp.Correct(v)
+				}
+				values[s.Name] = v
+				continue
+			}
+		}
+		if v, ok := lexicalSlot(s.Kind, comment); ok {
+			values[s.Name] = v
+		}
+	}
+	return Fill(c.Insert, c.Slots, values)
+}
+
+// TargetedQuestion is a slot's question asked again for the one query
+// chosen, naming what it is for: "What text or value should it work on?"
+// reads nothing out of "rot13 hello" in a row of other questions, and
+// "hello" when it names rot13.
+func TargetedQuestion(c Candidate, s Slot) string {
+	what := c.Name
+	if cmdlet, _, ok := strings.Cut(c.Name, "#"); ok {
+		what = cmdlet
+	}
+	return s.Question + " (for " + what + ")"
+}
+
+var standaloneNumberRe = regexp.MustCompile(`(?:^|[\s(,])(-?\d+(?:\.\d+)?)(?:$|[\s,.;:)!?])`)
+
+// positionalNumbers fills a query's numeric slots from the numbers a
+// comment states, in order, when there are exactly as many: "gcd of 12 and
+// 18", "5 choose 2", "clamp 99 between 0 and 10".
+func positionalNumbers(slots []Slot, comment string) map[string]string {
+	var numeric []Slot
+	for _, s := range slots {
+		if s.Kind == "value" || s.Kind == "number" || s.Kind == "days" {
+			numeric = append(numeric, s)
+		}
+	}
+	if len(numeric) < 2 {
+		return nil
+	}
+	var found []string
+	for _, m := range standaloneNumberRe.FindAllStringSubmatch(" "+comment+" ", -1) {
+		found = append(found, m[1])
+	}
+	if len(found) != len(numeric) {
+		return nil
+	}
+	out := map[string]string{}
+	for i, s := range numeric {
+		out[s.Name] = found[i]
+	}
+	return out
+}
+
+var (
+	loneIntRe = regexp.MustCompile(`(?i)(?:^|[\s(])(\d+)(\s*(?:kb|mb|gb|tb|kib|mib|gib|k|m|g|b|bytes|days?|weeks?|months?|%|x)\b)?`)
+	daysRe    = regexp.MustCompile(`(?i)\b(\d+)\s*days?\b`)
+	sizeLexRe = regexp.MustCompile(`(?i)\b\d+(?:\.\d+)?\s*(?:kb|mb|gb|tb|kib|mib|gib|bytes)\b`)
+	ipv4Re    = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+	urlLexRe  = regexp.MustCompile(`https?://[^\s"'<>]+`)
+)
+
+// lexicalSlot reads the values a comment spells so plainly that a pattern
+// is as good as a model, and better when the model's read comes back
+// empty: "top 20 largest files" has one number in it.
+func lexicalSlot(kind, comment string) (string, bool) {
+	switch kind {
+	case "value":
+		if ms := standaloneNumberRe.FindAllStringSubmatch(" "+comment+" ", -1); len(ms) == 1 {
+			return ms[0][1], true
+		}
+	case "number":
+		var found []string
+		for _, m := range loneIntRe.FindAllStringSubmatch(comment, -1) {
+			if m[2] == "" {
+				found = append(found, m[1])
+			}
+		}
+		if len(found) == 1 {
+			return found[0], true
+		}
+	case "days":
+		if m := daysRe.FindStringSubmatch(comment); m != nil {
+			return m[1], true
+		}
+		low := strings.ToLower(comment)
+		switch {
+		case strings.Contains(low, "today"):
+			return "1", true
+		case strings.Contains(low, "week"):
+			return "7", true
+		case strings.Contains(low, "month"):
+			return "30", true
+		}
+	case "size":
+		if m := sizeLexRe.FindString(comment); m != "" {
+			return m, true
+		}
+	case "ip":
+		if m := ipv4Re.FindString(comment); m != "" {
+			return m, true
+		}
+	case "url":
+		if m := urlLexRe.FindString(comment); m != "" {
+			return strings.TrimRight(m, ".,;:)"), true
+		}
+	}
+	return "", false
 }
 
 // SuggestStatus reports the ranker's state, and starts it loading so the
@@ -234,6 +470,11 @@ func (e *Engine) SuggestStatus() SuggestStatus {
 
 var identRe = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*$`)
 
+var identStartRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*`)
+
+// identPrefix is the name s starts with.
+func identPrefix(s string) string { return identStartRe.FindString(s) }
+
 // SuggestContext reads the query up to the cursor and gathers its
 // candidates: what Suggest hands a Ranker, exported for calibration.
 func (e *Engine) SuggestContext(req SuggestRequest) SuggestContext { return e.suggestContext(req) }
@@ -245,17 +486,51 @@ func (e *Engine) suggestContext(req SuggestRequest) SuggestContext {
 		cursor = len(runes)
 	}
 	before := string(runes[:cursor])
+	after := string(runes[cursor:])
 	sc := SuggestContext{Before: before, Input: trimInput(req.Input)}
 	code, comments := splitComments(before)
 	sc.Intent = comments
 	if inString(code) {
 		return sc // nothing to suggest inside a string
 	}
-	// The cursor at the end of a comment line is writing prose, not code.
+	restOfLine := after
+	if i := strings.IndexByte(after, '\n'); i >= 0 {
+		restOfLine = after[:i]
+	}
+	if t := strings.TrimRight(restOfLine, " \t"); t != "" && strings.Trim(t, ")]}") == "" {
+		sc.Closers = t
+		restOfLine = ""
+	}
+	blank := strings.TrimSpace(code) == ""
+	// The cursor in a comment line is writing prose. At the end of one,
+	// what comes next is the code the comment asks for, on the next line.
 	if lastLine := before[strings.LastIndexByte(before, '\n')+1:]; strings.Contains(lastLine, "#") {
-		if _, cs := splitComments(lastLine); len(cs) > 0 {
+		if lc, cs := splitComments(lastLine); len(cs) > 0 || strings.TrimSpace(lc) != strings.TrimSpace(lastLine) {
+			if strings.TrimSpace(restOfLine) != "" {
+				return sc
+			}
+			sc.Lead = "\n"
+			if blank {
+				sc.Position = PosScript
+			} else {
+				sc.Position = PosAfter
+			}
+			sc.Candidates = e.candidates(sc, code)
+			sc.SlotQuestions = slotQuestions(sc.Candidates)
 			return sc
 		}
+	}
+	if blank {
+		// Nothing written but comments: a whole query, if they say what for.
+		if len(comments) > 0 {
+			sc.Position = PosScript
+			if strings.TrimSpace(before[strings.LastIndexByte(before, '\n')+1:]) != "" {
+				sc.Lead = "\n"
+			}
+			sc.Candidates = e.candidates(sc, code)
+			sc.SlotQuestions = slotQuestions(sc.Candidates)
+		}
+		return sc
 	}
 	trimmed := strings.TrimRightFunc(code, unicode.IsSpace)
 	endsInSpace := len(trimmed) < len(code)
@@ -279,11 +554,18 @@ func (e *Engine) suggestContext(req SuggestRequest) SuggestContext {
 		}
 	case partial == "" && endsInSpace:
 		sc.Position = PosAfter
+	case partial == "" && strings.ContainsAny(last, ")]}\""):
+		// right after a closing bracket: the stage is finished
+		sc.Position, sc.Lead = PosAfter, " "
+		if strings.TrimSpace(restOfLine) == "" {
+			sc.Lead = "\n"
+		}
 	default:
 		// a word right after a finished term: still naming the stage
 		sc.Position = PosStage
 	}
-	sc.Candidates = e.candidates(sc)
+	sc.Candidates = e.candidates(sc, code)
+	sc.SlotQuestions = slotQuestions(sc.Candidates)
 	return sc
 }
 
@@ -376,6 +658,10 @@ func words(s string) []string {
 		if len(w) < 2 || stopWords[w] {
 			continue
 		}
+		// sha256sum, md5sum: the coreutils names for the hashes.
+		if len(w) > 5 && strings.HasSuffix(w, "sum") && !strings.HasSuffix(w, "checksum") {
+			out = append(out, strings.TrimSuffix(w, "sum"))
+		}
 		for _, suf := range []string{"ing", "es", "s", "ed"} {
 			if len(w) > len(suf)+2 && strings.HasSuffix(w, suf) {
 				w = strings.TrimSuffix(w, suf)
@@ -392,13 +678,24 @@ var stopWords = map[string]bool{"the": true, "a": true, "an": true, "of": true, 
 	"be": true, "that": true, "this": true, "from": true, "each": true, "all": true, "into": true, "at": true}
 
 // candidates gathers what the cursor could take, scored lexically against
-// the intent: BM25 over each candidate's name and help.
-func (e *Engine) candidates(sc SuggestContext) []Candidate {
+// the intent: BM25 over each candidate's name and help. code is the query
+// before the cursor without its comments.
+func (e *Engine) candidates(sc SuggestContext, code string) []Candidate {
 	var pool []Candidate
+	query := words(strings.Join(sc.Intent, " "))
 	switch sc.Position {
+	case PosScript:
+		pool = recipeCandidates()
+		scoreBM25(pool, query)
+		sort.SliceStable(pool, func(a, b int) bool { return pool[a].Lexical > pool[b].Lexical })
+		groups := groupByTask(pool)
+		return groups[:min(maxScriptCandidates, len(groups))]
 	case PosField:
 		for _, k := range inputKeys(sc.Input) {
 			pool = append(pool, Candidate{Name: k, Kind: "field", Insert: fieldInsert(k), Help: "a field of the input"})
+		}
+		if len(pool) == 0 {
+			pool = shapeFields(code)
 		}
 	case PosArgument:
 		pool = append(pool, e.argumentCandidates(sc.Call)...)
@@ -409,19 +706,26 @@ func (e *Engine) candidates(sc SuggestContext) []Candidate {
 				pool[i].Insert = "| " + pool[i].Insert
 			}
 		}
+		pool = append(pool, recipeContinuations(code, sc.Position, sc.Partial)...)
 	}
 	if sc.Partial != "" {
 		var keep []Candidate
 		for _, c := range pool {
-			if strings.HasPrefix(c.Name, sc.Partial) && c.Name != sc.Partial {
+			if strings.HasPrefix(c.Name, sc.Partial) && c.Name != sc.Partial ||
+				c.Kind == "recipe" && strings.HasPrefix(c.Insert, sc.Partial) {
 				keep = append(keep, c)
 			}
 		}
 		pool = keep
 	}
-	query := words(strings.Join(sc.Intent, " "))
 	query = append(query, words(sc.Partial)...)
 	scoreBM25(pool, query)
+	for i := range pool {
+		if pool[i].Kind == "recipe" {
+			// It continues what is written, which a single name does not.
+			pool[i].Lexical += recipeBonus
+		}
+	}
 	sort.SliceStable(pool, func(a, b int) bool { return pool[a].Lexical > pool[b].Lexical })
 	if len(pool) <= maxCandidates {
 		return pool
@@ -449,6 +753,193 @@ func (e *Engine) candidates(sc SuggestContext) []Candidate {
 	return out
 }
 
+// recipeBonus lifts a recipe that continues the query over single names in
+// the prefilter.
+const recipeBonus = 1.5
+
+// recipeCandidates are the recipes as whole-query candidates.
+func recipeCandidates() []Candidate {
+	rs := AllRecipes()
+	out := make([]Candidate, 0, len(rs))
+	for _, r := range rs {
+		out = append(out, Candidate{Name: r.ID, Kind: "recipe", Insert: r.Query, Help: r.Task, Display: r.Task,
+			Example: Fill(r.Query, r.Slots, nil), Slots: r.Slots, Keywords: r.Also})
+	}
+	return out
+}
+
+// recipeContinuations are the rests of the recipes that start the way the
+// query does: same stages, by what each starts with, up to the cursor's.
+func recipeContinuations(code, pos, partial string) []Candidate {
+	trimmed := strings.TrimSpace(code)
+	if trimmed == "" {
+		return nil
+	}
+	typed := Stages(trimmed)
+	complete, current, opened := typed, "", ""
+	if pos == PosStage {
+		last := strings.TrimSpace(typed[len(typed)-1])
+		complete, current = typed[:len(typed)-1], last
+		opened = strings.TrimSuffix(last, partial)
+		if strings.Trim(opened, "[({ ") != "" {
+			return nil // the stage holds more than brackets and a name: not a recipe's
+		}
+	}
+	var out []Candidate
+	seen := map[string]bool{}
+	for _, r := range AllRecipes() {
+		stages := Stages(r.Query)
+		k := len(complete)
+		if k >= len(stages) {
+			continue
+		}
+		ok := true
+		for i := 0; i < k && ok; i++ {
+			ok = stageHead(complete[i]) == stageHead(stages[i])
+		}
+		if !ok || !strings.HasPrefix(stages[k], current) {
+			continue
+		}
+		insert := strings.Join(stages[k:], "\n| ")
+		if pos != PosStage {
+			insert = "| " + insert
+		} else {
+			insert = insert[len(opened):] // the brackets are written already
+		}
+		if seen[insert] {
+			continue
+		}
+		seen[insert] = true
+		next := Fill(stages[k], r.Slots, nil)
+		if len(next) > 60 {
+			next = next[:57] + "..."
+		}
+		out = append(out, Candidate{Name: r.ID, Kind: "recipe", Insert: insert, Help: r.Task, Display: next,
+			Example: Fill(r.Query, r.Slots, nil), Slots: r.Slots, Keywords: r.Also})
+	}
+	return out
+}
+
+// shapePreserving stages pass their input's objects through unchanged, so
+// the fields after them are the fields before.
+var shapePreserving = map[string]bool{"select": true, "sort_by": true, "sort_object": true, "where_object": true,
+	"unique_by": true, "first": true, "last": true, "limit": true, "reverse": true, "sort": true, "unique": true}
+
+// shapeFields are the properties of what the stage before the cursor's
+// emits, as its cmdlet declared them: get_childitem's Name, Length, ... .
+func shapeFields(code string) []Candidate {
+	stages := Stages(strings.TrimSpace(code))
+	shapes := commandShapes()
+	for i := len(stages) - 1; i >= 0; i-- {
+		st := stages[i]
+		if i == len(stages)-1 {
+			// The cursor's own stage: a call that opens it, as in
+			// select(.  or  [get_childitem(".") | select(.
+			if inner := Stages(strings.TrimLeft(st, "[({ ")); len(inner) > 1 {
+				st = inner[len(inner)-2]
+			} else {
+				continue
+			}
+		}
+		head := strings.TrimLeft(stageHead(st), "[({")
+		if props, ok := shapes[head]; ok {
+			out := make([]Candidate, 0, len(props))
+			for _, p := range props {
+				out = append(out, Candidate{Name: p.Name, Kind: "field", Insert: fieldInsert(p.Name), Help: p.Doc})
+			}
+			return out
+		}
+		if !shapePreserving[head] {
+			return nil
+		}
+	}
+	return nil
+}
+
+var (
+	shapesOnce sync.Once
+	shapesBy   map[string][]shape.Property
+)
+
+func commandShapes() map[string][]shape.Property {
+	shapesOnce.Do(func() {
+		shapesBy = map[string][]shape.Property{}
+		for _, c := range discovery.Catalog() {
+			if c.Shape != nil && len(c.Shape.Properties()) > 0 {
+				shapesBy[c.Name] = c.Shape.Properties()
+			}
+		}
+	})
+	return shapesBy
+}
+
+// groupByTask makes one candidate of each cmdlet's examples, in the order of
+// its best: they share a description, so as separate options the model
+// could not tell them apart, and they would crowd out the other tasks. The
+// group's members are its examples, best first; the model chooses among
+// them once the cmdlet is chosen.
+func groupByTask(pool []Candidate) []Candidate {
+	var out []Candidate
+	at := map[string]int{}
+	for _, c := range pool {
+		cmdlet, _, isExample := strings.Cut(c.Name, "#")
+		if !isExample {
+			out = append(out, c)
+			continue
+		}
+		if k, ok := at[cmdlet]; ok {
+			out[k].Members = append(out[k].Members, c)
+			continue
+		}
+		at[cmdlet] = len(out)
+		group := c
+		group.Name = cmdlet
+		group.Members = []Candidate{c}
+		out = append(out, group)
+	}
+	return out
+}
+
+// Choose is the query a ranking settles on for candidate i: the candidate,
+// or the member of it the ranking picked.
+func Choose(sc SuggestContext, ranking Ranking, i int) Candidate {
+	c := sc.Candidates[i]
+	if len(c.Members) == 0 {
+		return c
+	}
+	if len(c.Members) == 1 {
+		return c.Members[0]
+	}
+	pick := 0
+	if p, ok := ranking.Members[i]; ok && len(p) == len(c.Members) {
+		for k := range p {
+			if p[k] > p[pick] {
+				pick = k
+			}
+		}
+	}
+	return c.Members[pick]
+}
+
+// slotQuestions are the slot questions of the candidates, likeliest first,
+// once each and no more than fit beside the choice.
+func slotQuestions(cs []Candidate) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, c := range cs {
+		for _, m := range append([]Candidate{c}, c.Members...) {
+			for _, s := range m.Slots {
+				if seen[s.Question] || len(out) == maxSlotQuestions {
+					continue
+				}
+				seen[s.Question] = true
+				out = append(out, s.Question)
+			}
+		}
+	}
+	return out
+}
+
 // reservedStaples is how many of the candidates are the likeliest staples.
 const reservedStaples = 6
 
@@ -468,7 +959,13 @@ func scoreBM25(pool []Candidate, query []string) {
 	df := map[string]int{}
 	total := 0
 	for i, c := range pool {
-		docs[i] = words(c.Name + " " + c.Name + " " + c.Help + " " + c.Example)
+		text := c.Name + " " + c.Name + " " + c.Help + " " + c.Example
+		if c.Kind == "recipe" {
+			// A recipe's query is mostly get_childitem and select: its task
+			// and keywords say what it is for.
+			text = strings.ReplaceAll(c.Name, "-", " ") + " " + c.Help + " " + c.Keywords
+		}
+		docs[i] = words(text)
 		total += len(docs[i])
 		seen := map[string]bool{}
 		for _, w := range docs[i] {
