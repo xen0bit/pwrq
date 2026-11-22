@@ -76,7 +76,7 @@ func (f fakeModel) Ask(context.Context, d1.Request) (*d1.Response, error) {
 
 func TestRankReadsAnswers(t *testing.T) {
 	h := DefaultHarness()
-	h.Temperature, h.MoreTemperature = 1, 1
+	h.Temperature, h.MoreTemperature, h.LexicalWeight = 1, 1, 0
 	r := NewWith(fakeModel{map[string]any{
 		"next": map[string]any{"type": "choice", "choice": "sort_object", "probabilities": map[string]any{"sort_object": 0.7, "select": 0.2, "select (2)": 0.1}},
 		"more": map[string]any{"type": "noul", "noul": 0.9},
@@ -98,5 +98,31 @@ func TestTemper(t *testing.T) {
 	sharp, flat := Temper(p, 0.5), Temper(p, 2)
 	if !(sharp[0] > 0.6 && flat[0] < 0.6) || math.Abs(sharp[0]+sharp[1]+sharp[2]-1) > 1e-12 {
 		t.Fatalf("sharp %v flat %v", sharp, flat)
+	}
+}
+
+type fakeVocab map[string]int32
+
+func (f fakeVocab) ID(t string) (int32, bool) { id, ok := f[t]; return id, ok }
+
+func TestCorrectSpelling(t *testing.T) {
+	v := fakeVocab{"Ġship": 1000, "Ġshrimp": 44307, "Ġdog": 4448, "Ġago": 5526, "Ġego": 40531, "Ġbeautiful": 8153, "Ġsunset": 49422, "Ġcat": 5140}
+	for in, want := range map[string]string{
+		"shimp": "shrimp", "a shimp": "a shrimp", "beatiful sunset": "beautiful sunset",
+		"a cat": "a cat", "kangaroo": "kangaroo", "Shimp": "Shimp", "the TODO": "the TODO",
+	} {
+		if got := correct(v, in); got != want {
+			t.Errorf("correct(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestBlend(t *testing.T) {
+	got := Blend([]float64{0.2, 0.8}, 1) // 0.2*1, 0.8/2
+	if math.Abs(got[0]-0.2/0.6) > 1e-12 || math.Abs(got[1]-0.4/0.6) > 1e-12 {
+		t.Fatalf("Blend = %v", got)
+	}
+	if got := Blend([]float64{0.2, 0.8}, 0); got[1] != 0.8 {
+		t.Fatalf("Blend at 0 = %v", got)
 	}
 }

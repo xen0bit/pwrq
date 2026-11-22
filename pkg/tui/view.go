@@ -28,6 +28,11 @@ type layout struct {
 func (m *model) layout() layout {
 	body := max(8, m.height-3)
 	content := max(2, min(m.query.Lines(), max(2, body/3)))
+	if g := strings.Count(m.query.Ghost, "\n"); g > 0 && m.focus == paneQuery {
+		// A suggestion of several lines gets room to be read before it is
+		// taken: up to half the screen, while it shows.
+		content = max(content, min(m.query.Lines()+g, max(2, body/2)))
+	}
 	l := layout{queryH: content + 2}
 	l.bottomH = max(4, body-l.queryH)
 	l.wide = m.width >= wideWidth

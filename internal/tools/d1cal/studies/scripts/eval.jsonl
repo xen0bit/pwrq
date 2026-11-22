@@ -1,0 +1,172 @@
+{"id": "s000", "comment": "Use a decision model to list images in the current directory that contain a shimp", "recipe": "images-containing", "slots": {"dir": ".", "subject": "shimp"}, "split": "dev"}
+{"id": "s001", "comment": "which of my photos have a dog in them", "recipe": "images-containing", "slots": {"subject": "dog"}, "split": "test"}
+{"id": "s002", "comment": "find pics in ~/Pictures/2024 showing the beach", "recipe": "images-containing", "slots": {"dir": "~/Pictures/2024", "subject": "the beach"}, "split": "dev"}
+{"id": "s003", "comment": "show pictures with cars", "recipe": "images-containing", "slots": {"subject": "cars"}, "split": "test"}
+{"id": "s004", "comment": "photos that have a sunset", "recipe": "images-containing", "slots": {"subject": "a sunset"}, "split": "dev"}
+{"id": "s005", "comment": "which screenshots contain a terminal window, ask d1", "recipe": "images-containing", "slots": {"subject": "a terminal window"}, "split": "test"}
+{"id": "s006", "comment": "rank the images here by how likely they show a cat", "recipe": "images-score", "slots": {"subject": "a cat"}, "split": "dev"}
+{"id": "s007", "comment": "score each photo for whether it contains food", "recipe": "images-score", "slots": {"subject": "food"}, "split": "test"}
+{"id": "s008", "comment": "how many people are in each picture", "recipe": "images-count-objects", "slots": {"subject": "people"}, "split": "dev"}
+{"id": "s009", "comment": "count the birds in every photo in ./birds", "recipe": "images-count-objects", "slots": {"dir": "./birds", "subject": "birds"}, "split": "test"}
+{"id": "s010", "comment": "classify my images as photos or screenshots", "recipe": "images-classify", "slots": {}, "split": "dev"}
+{"id": "s011", "comment": "which images are screenshots and which are drawings", "recipe": "images-classify", "slots": {}, "split": "test"}
+{"id": "s012", "comment": "list all the jpgs and pngs", "recipe": "list-images", "slots": {}, "split": "dev"}
+{"id": "s013", "comment": "what image files are in assets", "recipe": "list-images", "slots": {"dir": "assets"}, "split": "test"}
+{"id": "s014", "comment": "ls", "recipe": "list-files", "slots": {}, "split": "dev"}
+{"id": "s015", "comment": "what files are in /etc", "recipe": "list-files", "slots": {"dir": "/etc"}, "split": "test"}
+{"id": "s016", "comment": "show me the folders in this directory", "recipe": "list-directories", "slots": {}, "split": "dev"}
+{"id": "s017", "comment": "subdirs of src", "recipe": "list-directories", "slots": {"dir": "src"}, "split": "test"}
+{"id": "s018", "comment": "every file under docs, recursively", "recipe": "list-files-recursive", "slots": {"dir": "docs"}, "split": "dev"}
+{"id": "s019", "comment": "walk the whole tree and print all file paths", "recipe": "list-files-recursive", "slots": {}, "split": "test"}
+{"id": "s020", "comment": "biggest files in my home dir", "recipe": "largest-files", "slots": {"dir": "~"}, "split": "dev"}
+{"id": "s021", "comment": "top 20 largest files", "recipe": "largest-files", "slots": {"n": "20"}, "split": "test"}
+{"id": "s022", "comment": "what's eating my disk space? show the 5 biggest files in /var/log", "recipe": "largest-files", "slots": {"dir": "/var/log", "n": "5"}, "split": "dev"}
+{"id": "s023", "comment": "files over 100MB", "recipe": "files-larger-than", "slots": {"size": "104857600"}, "split": "test"}
+{"id": "s024", "comment": "find anything larger than 1GB in ~/Downloads", "recipe": "files-larger-than", "slots": {"dir": "~/Downloads", "size": "1073741824"}, "split": "dev"}
+{"id": "s025", "comment": "files bigger than 500 KB", "recipe": "files-larger-than", "slots": {"size": "512000"}, "split": "test"}
+{"id": "s026", "comment": "all the python files", "recipe": "files-by-extension", "slots": {"ext": "py"}, "split": "dev"}
+{"id": "s027", "comment": "list .md files in docs", "recipe": "files-by-extension", "slots": {"dir": "docs", "ext": "md"}, "split": "test"}
+{"id": "s028", "comment": "find every go file", "recipe": "files-by-extension", "slots": {"ext": "go"}, "split": "dev"}
+{"id": "s029", "comment": "find all json files under config", "recipe": "files-by-extension", "slots": {"dir": "config", "ext": "json"}, "split": "test"}
+{"id": "s030", "comment": "files with invoice in the name", "recipe": "files-named", "slots": {"name": "invoice"}, "split": "dev"}
+{"id": "s031", "comment": "find files called something like backup", "recipe": "files-named", "slots": {"name": "backup"}, "split": "test"}
+{"id": "s032", "comment": "what changed in the last 3 days", "recipe": "recent-files", "slots": {"days": "3"}, "split": "dev"}
+{"id": "s033", "comment": "files modified this week", "recipe": "recent-files", "slots": {}, "split": "test"}
+{"id": "s034", "comment": "files edited in the past 30 days in src", "recipe": "recent-files", "slots": {"dir": "src", "days": "30"}, "split": "dev"}
+{"id": "s035", "comment": "oldest files in archive", "recipe": "oldest-files", "slots": {"dir": "archive"}, "split": "test"}
+{"id": "s036", "comment": "the 10 most recently changed files", "recipe": "newest-files", "slots": {"n": "10"}, "split": "dev"}
+{"id": "s037", "comment": "latest files in downloads", "recipe": "newest-files", "slots": {"dir": "downloads"}, "split": "test"}
+{"id": "s038", "comment": "zero byte files", "recipe": "empty-files", "slots": {}, "split": "dev"}
+{"id": "s039", "comment": "find empty files in tmp", "recipe": "empty-files", "slots": {"dir": "tmp"}, "split": "test"}
+{"id": "s040", "comment": "show dotfiles in my home directory", "recipe": "hidden-files", "slots": {"dir": "~"}, "split": "dev"}
+{"id": "s041", "comment": "how many files are in this folder", "recipe": "count-files", "slots": {}, "split": "test"}
+{"id": "s042", "comment": "number of files in node_modules", "recipe": "count-files", "slots": {"dir": "node_modules"}, "split": "dev"}
+{"id": "s043", "comment": "breakdown of file types", "recipe": "count-by-extension", "slots": {}, "split": "test"}
+{"id": "s044", "comment": "how many of each extension are there in src", "recipe": "count-by-extension", "slots": {"dir": "src"}, "split": "dev"}
+{"id": "s045", "comment": "which file types take the most space", "recipe": "size-by-extension", "slots": {}, "split": "test"}
+{"id": "s046", "comment": "how big is this directory", "recipe": "directory-size", "slots": {}, "split": "dev"}
+{"id": "s047", "comment": "total size of ~/Videos", "recipe": "directory-size", "slots": {"dir": "~/Videos"}, "split": "test"}
+{"id": "s048", "comment": "size of each folder", "recipe": "folder-sizes", "slots": {}, "split": "dev"}
+{"id": "s049", "comment": "which subdirectories are the largest in /home", "recipe": "folder-sizes", "slots": {"dir": "/home"}, "split": "test"}
+{"id": "s050", "comment": "find duplicate files", "recipe": "duplicate-files", "slots": {}, "split": "dev"}
+{"id": "s051", "comment": "are there any identical files in Pictures", "recipe": "duplicate-files", "slots": {"dir": "Pictures"}, "split": "test"}
+{"id": "s052", "comment": "grep for TODO", "recipe": "search-text", "slots": {"pattern": "TODO"}, "split": "dev"}
+{"id": "s053", "comment": "search the src folder for password", "recipe": "search-text", "slots": {"dir": "src", "pattern": "password"}, "split": "test"}
+{"id": "s054", "comment": "where is getUser used", "recipe": "search-text", "slots": {"pattern": "getUser"}, "split": "dev"}
+{"id": "s055", "comment": "which files mention kubernetes", "recipe": "files-containing", "slots": {"pattern": "kubernetes"}, "split": "test"}
+{"id": "s056", "comment": "list files that contain the word secret", "recipe": "files-containing", "slots": {"pattern": "secret"}, "split": "dev"}
+{"id": "s057", "comment": "how many times does error appear in each file", "recipe": "count-matches", "slots": {"pattern": "error"}, "split": "test"}
+{"id": "s058", "comment": "find all the TODOs and FIXMEs", "recipe": "todo-comments", "slots": {}, "split": "dev"}
+{"id": "s059", "comment": "show me README.md", "recipe": "read-file", "slots": {"file": "README.md"}, "split": "test"}
+{"id": "s060", "comment": "print the contents of config.toml", "recipe": "read-file", "slots": {"file": "config.toml"}, "split": "dev"}
+{"id": "s061", "comment": "first 20 lines of data.csv", "recipe": "head-file", "slots": {"file": "data.csv", "n": "20"}, "split": "test"}
+{"id": "s062", "comment": "head of main.go", "recipe": "head-file", "slots": {"file": "main.go"}, "split": "dev"}
+{"id": "s063", "comment": "last 50 lines of /var/log/syslog", "recipe": "tail-file", "slots": {"file": "/var/log/syslog", "n": "50"}, "split": "test"}
+{"id": "s064", "comment": "tail server.log", "recipe": "tail-file", "slots": {"file": "server.log"}, "split": "dev"}
+{"id": "s065", "comment": "lines in app.log that mention timeout", "recipe": "grep-file", "slots": {"file": "app.log", "pattern": "timeout"}, "split": "test"}
+{"id": "s066", "comment": "grep warning in build.log", "recipe": "grep-file", "slots": {"file": "build.log", "pattern": "warning"}, "split": "dev"}
+{"id": "s067", "comment": "how many errors are in app.log", "recipe": "count-lines-matching", "slots": {"file": "app.log", "pattern": "error"}, "split": "test"}
+{"id": "s068", "comment": "count the 404s in access.log", "recipe": "count-lines-matching", "slots": {"file": "access.log", "pattern": "404"}, "split": "dev"}
+{"id": "s069", "comment": "how many lines is main.go", "recipe": "count-lines", "slots": {"file": "main.go"}, "split": "test"}
+{"id": "s070", "comment": "line count of notes.txt", "recipe": "count-lines", "slots": {"file": "notes.txt"}, "split": "dev"}
+{"id": "s071", "comment": "count lines of python code in src", "recipe": "lines-of-code", "slots": {"dir": "src", "ext": "py"}, "split": "test"}
+{"id": "s072", "comment": "how many lines of go are there", "recipe": "lines-of-code", "slots": {"ext": "go"}, "split": "dev"}
+{"id": "s073", "comment": "word count of essay.txt", "recipe": "word-count", "slots": {"file": "essay.txt"}, "split": "test"}
+{"id": "s074", "comment": "most common words in book.txt", "recipe": "word-frequency", "slots": {"file": "book.txt"}, "split": "dev"}
+{"id": "s075", "comment": "top 25 words used in speech.txt", "recipe": "word-frequency", "slots": {"file": "speech.txt", "n": "25"}, "split": "test"}
+{"id": "s076", "comment": "how many errors vs warnings in app.log", "recipe": "log-levels", "slots": {"file": "app.log"}, "split": "dev"}
+{"id": "s077", "comment": "sha256 of release.tar.gz", "recipe": "file-hash", "slots": {"file": "release.tar.gz"}, "split": "test"}
+{"id": "s078", "comment": "checksum of installer.iso", "recipe": "file-hash", "slots": {"file": "installer.iso"}, "split": "dev"}
+{"id": "s079", "comment": "md5sum of photo.jpg", "recipe": "file-md5", "slots": {"file": "photo.jpg"}, "split": "test"}
+{"id": "s080", "comment": "hash every file in dist", "recipe": "hash-all-files", "slots": {"dir": "dist"}, "split": "dev"}
+{"id": "s081", "comment": "what kind of file is mystery.bin", "recipe": "file-type", "slots": {"file": "mystery.bin"}, "split": "test"}
+{"id": "s082", "comment": "find files that look encrypted", "recipe": "file-entropy", "slots": {}, "split": "dev"}
+{"id": "s083", "comment": "which files are binary", "recipe": "binary-files", "slots": {}, "split": "test"}
+{"id": "s084", "comment": "does config.yaml exist", "recipe": "file-exists", "slots": {"file": "config.yaml"}, "split": "dev"}
+{"id": "s085", "comment": "what's in backup.zip", "recipe": "list-archive", "slots": {"file": "backup.zip"}, "split": "test"}
+{"id": "s086", "comment": "unzip release.zip into build", "recipe": "extract-archive", "slots": {"file": "release.zip", "dir": "build"}, "split": "dev"}
+{"id": "s087", "comment": "zip up the docs folder as docs.zip", "recipe": "make-archive", "slots": {"dir": "docs", "file": "docs.zip"}, "split": "test"}
+{"id": "s088", "comment": "load users.csv", "recipe": "read-csv", "slots": {"file": "users.csv"}, "split": "dev"}
+{"id": "s089", "comment": "parse sales.csv into objects", "recipe": "read-csv", "slots": {"file": "sales.csv"}, "split": "test"}
+{"id": "s090", "comment": "get the email column of users.csv", "recipe": "csv-column", "slots": {"file": "users.csv", "column": "email"}, "split": "dev"}
+{"id": "s091", "comment": "convert people.csv to json", "recipe": "csv-to-json", "slots": {"file": "people.csv"}, "split": "test"}
+{"id": "s092", "comment": "turn this json into csv", "recipe": "json-to-csv", "slots": {}, "split": "dev"}
+{"id": "s093", "comment": "read package.json", "recipe": "read-json", "slots": {"file": "package.json"}, "split": "test"}
+{"id": "s094", "comment": "open docker-compose.yml", "recipe": "read-yaml", "slots": {"file": "docker-compose.yml"}, "split": "dev"}
+{"id": "s095", "comment": "convert this yaml to json", "recipe": "yaml-to-json", "slots": {}, "split": "test"}
+{"id": "s096", "comment": "output as yaml", "recipe": "json-to-yaml", "slots": {}, "split": "dev"}
+{"id": "s097", "comment": "read events.ndjson", "recipe": "read-jsonl", "slots": {"file": "events.ndjson"}, "split": "test"}
+{"id": "s098", "comment": "parse this xml", "recipe": "xml-to-json", "slots": {}, "split": "dev"}
+{"id": "s099", "comment": "what tables are in app.db", "recipe": "sqlite-tables", "slots": {"file": "app.db"}, "split": "test"}
+{"id": "s100", "comment": "first rows of the orders table in shop.sqlite", "recipe": "sqlite-query", "slots": {"file": "shop.sqlite", "table": "orders"}, "split": "dev"}
+{"id": "s101", "comment": "how many rows in each table of data.db", "recipe": "sqlite-count", "slots": {"file": "data.db"}, "split": "test"}
+{"id": "s102", "comment": "what's using all my RAM", "recipe": "top-memory-processes", "slots": {}, "split": "dev"}
+{"id": "s103", "comment": "top 3 memory hogs", "recipe": "top-memory-processes", "slots": {"n": "3"}, "split": "test"}
+{"id": "s104", "comment": "which processes are using the most cpu", "recipe": "top-cpu-processes", "slots": {}, "split": "dev"}
+{"id": "s105", "comment": "is firefox running", "recipe": "find-process", "slots": {"name": "firefox"}, "split": "test"}
+{"id": "s106", "comment": "find the postgres processes", "recipe": "find-process", "slots": {"name": "postgres"}, "split": "dev"}
+{"id": "s107", "comment": "how many processes are running", "recipe": "count-processes", "slots": {}, "split": "test"}
+{"id": "s108", "comment": "list running services", "recipe": "running-services", "slots": {}, "split": "dev"}
+{"id": "s109", "comment": "where is python installed", "recipe": "which-command", "slots": {"name": "python"}, "split": "test"}
+{"id": "s110", "comment": "show my PATH", "recipe": "path-entries", "slots": {}, "split": "dev"}
+{"id": "s111", "comment": "print all env vars", "recipe": "environment-variables", "slots": {}, "split": "test"}
+{"id": "s112", "comment": "run uptime", "recipe": "run-command", "slots": {"command": "uptime"}, "split": "dev"}
+{"id": "s113", "comment": "what's today's date", "recipe": "current-date", "slots": {}, "split": "test"}
+{"id": "s114", "comment": "what directory am I in", "recipe": "current-directory", "slots": {}, "split": "dev"}
+{"id": "s115", "comment": "what IP does google.com resolve to", "recipe": "resolve-host", "slots": {"host": "google.com"}, "split": "test"}
+{"id": "s116", "comment": "dns lookup for api.github.com", "recipe": "resolve-host", "slots": {"host": "api.github.com"}, "split": "dev"}
+{"id": "s117", "comment": "what hostname is 1.1.1.1", "recipe": "reverse-dns", "slots": {"ip": "1.1.1.1"}, "split": "test"}
+{"id": "s118", "comment": "can I reach example.org", "recipe": "ping-host", "slots": {"host": "example.org"}, "split": "dev"}
+{"id": "s119", "comment": "is port 22 open on myserver.local", "recipe": "port-open", "slots": {"host": "myserver.local", "port": "22"}, "split": "test"}
+{"id": "s120", "comment": "check if https://news.ycombinator.com is up", "recipe": "http-status", "slots": {"url": "https://news.ycombinator.com"}, "split": "dev"}
+{"id": "s121", "comment": "what headers does cloudflare.com send", "recipe": "http-headers", "slots": {"url": "https://cloudflare.com"}, "split": "test"}
+{"id": "s122", "comment": "get json from https://api.github.com/repos/golang/go", "recipe": "fetch-json", "slots": {"url": "https://api.github.com/repos/golang/go"}, "split": "dev"}
+{"id": "s123", "comment": "all links on https://go.dev", "recipe": "page-links", "slots": {"url": "https://go.dev"}, "split": "test"}
+{"id": "s124", "comment": "download https://example.com/file.pdf to file.pdf", "recipe": "download-file", "slots": {"url": "https://example.com/file.pdf", "file": "file.pdf"}, "split": "dev"}
+{"id": "s125", "comment": "is 10.1.2.3 a private address", "recipe": "ip-info", "slots": {"ip": "10.1.2.3"}, "split": "test"}
+{"id": "s126", "comment": "how many hosts in 192.168.0.0/16", "recipe": "cidr-info", "slots": {"cidr": "192.168.0.0/16"}, "split": "dev"}
+{"id": "s127", "comment": "how many items are there", "recipe": "count-items", "slots": {}, "split": "test"}
+{"id": "s128", "comment": "what keys does this have", "recipe": "object-keys", "slots": {}, "split": "dev"}
+{"id": "s129", "comment": "only the entries where status is failed", "recipe": "filter-by-field", "slots": {"field": "status", "value": "failed"}, "split": "test"}
+{"id": "s130", "comment": "items with country equal to France", "recipe": "filter-by-field", "slots": {"field": "country", "value": "France"}, "split": "dev"}
+{"id": "s131", "comment": "users older than 40", "recipe": "filter-greater-than", "slots": {"field": "age", "number": "40"}, "split": "test"}
+{"id": "s132", "comment": "sort by date", "recipe": "sort-by-field", "slots": {"field": "date"}, "split": "dev"}
+{"id": "s133", "comment": "order these by name", "recipe": "sort-by-field", "slots": {"field": "name"}, "split": "test"}
+{"id": "s134", "comment": "top 3 by revenue", "recipe": "top-by-field", "slots": {"field": "revenue", "n": "3"}, "split": "dev"}
+{"id": "s135", "comment": "how many per category", "recipe": "group-count", "slots": {"field": "category"}, "split": "test"}
+{"id": "s136", "comment": "group these by owner", "recipe": "group-by-field", "slots": {"field": "owner"}, "split": "dev"}
+{"id": "s137", "comment": "total of price", "recipe": "sum-field", "slots": {"field": "price"}, "split": "test"}
+{"id": "s138", "comment": "average duration", "recipe": "average-field", "slots": {"field": "duration"}, "split": "dev"}
+{"id": "s139", "comment": "stats for latency", "recipe": "stats-field", "slots": {"field": "latency"}, "split": "test"}
+{"id": "s140", "comment": "distinct values of region", "recipe": "unique-values", "slots": {"field": "region"}, "split": "dev"}
+{"id": "s141", "comment": "just the ids", "recipe": "pluck-field", "slots": {"field": "ids"}, "split": "test"}
+{"id": "s142", "comment": "dedupe this", "recipe": "remove-duplicates", "slots": {}, "split": "dev"}
+{"id": "s143", "comment": "flatten the nested json", "recipe": "flatten-json", "slots": {}, "split": "test"}
+{"id": "s144", "comment": "show as a table", "recipe": "as-table", "slots": {}, "split": "dev"}
+{"id": "s145", "comment": "pull out all the email addresses", "recipe": "extract-emails", "slots": {}, "split": "test"}
+{"id": "s146", "comment": "grab the urls from this text", "recipe": "extract-urls", "slots": {}, "split": "dev"}
+{"id": "s147", "comment": "find IP addresses in the log text", "recipe": "extract-ips", "slots": {}, "split": "test"}
+{"id": "s148", "comment": "decode this base64", "recipe": "base64-decode", "slots": {}, "split": "dev"}
+{"id": "s149", "comment": "base64 it", "recipe": "base64-encode", "slots": {}, "split": "test"}
+{"id": "s150", "comment": "what's in this jwt", "recipe": "jwt-decode", "slots": {}, "split": "dev"}
+{"id": "s151", "comment": "unescape this url", "recipe": "url-decode", "slots": {}, "split": "test"}
+{"id": "s152", "comment": "split into lines", "recipe": "text-lines", "slots": {}, "split": "dev"}
+{"id": "s153", "comment": "sha256 this string", "recipe": "sha256-text", "slots": {}, "split": "test"}
+{"id": "s154", "comment": "convert epoch seconds to dates", "recipe": "timestamps-to-dates", "slots": {}, "split": "dev"}
+{"id": "s155", "comment": "is this review positive or negative", "recipe": "sentiment", "slots": {}, "split": "test"}
+{"id": "s156", "comment": "ask the decision model: is this a complaint?", "recipe": "text-yes-no", "slots": {"question": "is this a complaint?"}, "split": "dev"}
+{"id": "s157", "comment": "use d1 to find lines in app.log about disk space", "recipe": "classify-lines", "slots": {"file": "app.log", "subject": "disk space"}, "split": "test"}
+{"id": "s158", "comment": "summarize notes.md", "recipe": "summarize-file", "slots": {"file": "notes.md"}, "split": "dev"}
+{"id": "s159", "comment": "scan for security issues in this python project", "recipe": "code-rules", "slots": {"language": "python"}, "split": "test"}
+{"id": "s160", "comment": "compute the first 20 fibonacci numbers", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s161", "comment": "convert 100 fahrenheit to celsius", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s162", "comment": "generate a random password", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s163", "comment": "what's the distance between Paris and Berlin", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s164", "comment": "encrypt this with aes", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s165", "comment": "calculate a monthly mortgage payment", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s166", "comment": "make a uuid", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s167", "comment": "translate this into french", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s168", "comment": "slugify these titles", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s169", "comment": "compare two versions with semver", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s170", "comment": "ssdeep hash of every file", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s171", "comment": "roll a die", "recipe": "", "slots": {}, "split": "test"}

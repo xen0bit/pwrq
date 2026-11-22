@@ -1,0 +1,15 @@
+{
+  "cidr": "Which CIDR range or subnet?",
+  "days": "How many days?",
+  "ext": "Which programming language or file extension?",
+  "field": "Which attribute or column?",
+  "file": "Which file (name or path)?",
+  "host": "Which host, domain or URL?",
+  "input": "What text or value should it work on?",
+  "ip": "Which IP address?",
+  "number": "How many?",
+  "path": "Which directory or folder?",
+  "size": "What size?",
+  "url": "Which URL or website?",
+  "value": "What number should it work on?"
+}

@@ -39,6 +39,9 @@ type Editor struct {
 	// text until AcceptGhost inserts it. Any edit clears it: it was for the
 	// text as it was.
 	Ghost string
+	// GhostAfter runes after the cursor - a bracket the editor closed by
+	// itself - are hidden while the ghost shows, and replaced by it.
+	GhostAfter int
 }
 
 type snapshot struct {
@@ -147,6 +150,27 @@ func (e *Editor) SetOffset(off int) {
 
 func runeLen(s string) int { return utf8.RuneCountInString(s) }
 
+// AcceptGhostLine inserts the ghost up to the end of its first line (or of
+// its first line with text, when it starts by breaking one): a stage at a
+// time, for taking part of a suggestion.
+func (e *Editor) AcceptGhostLine() bool {
+	if e.Ghost == "" {
+		return false
+	}
+	g := e.Ghost
+	start := len(g) - len(strings.TrimLeft(g, "\n"))
+	part := g
+	if i := strings.IndexByte(g[start:], '\n'); i >= 0 {
+		part = g[:start+i]
+	}
+	rest := g[len(part):]
+	e.Ghost = ""
+	e.dropAfter()
+	e.InsertText(part)
+	e.Ghost = rest
+	return true
+}
+
 // AcceptGhost inserts the ghost suggestion at the cursor, reporting
 // whether there was one.
 func (e *Editor) AcceptGhost() bool {
@@ -155,8 +179,22 @@ func (e *Editor) AcceptGhost() bool {
 	}
 	g := e.Ghost
 	e.Ghost = ""
+	e.dropAfter()
 	e.InsertText(g)
 	return true
+}
+
+// dropAfter removes the runes after the cursor the ghost stands in for.
+func (e *Editor) dropAfter() {
+	n := e.GhostAfter
+	e.GhostAfter = 0
+	line := []rune(e.lines[e.row])
+	if n <= 0 || e.col+n > len(line) {
+		return
+	}
+	e.checkpoint(editOther)
+	e.lines[e.row] = string(line[:e.col]) + string(line[e.col+n:])
+	e.changed()
 }
 
 func (e *Editor) changed() {
@@ -593,6 +631,12 @@ func (e *Editor) Render(th *theme, width, height int, focused, numbers bool, kin
 	}
 	textWidth := max(1, width-gutter)
 	e.scrollTo(textWidth, height)
+	limit := height
+	if n := strings.Count(e.Ghost, "\n"); n > 0 && focused && e.row-e.top+1+n > height {
+		// Scroll so the ghost's lines show under the cursor, as far as the
+		// cursor can stay on screen.
+		e.top = min(e.row, e.row+1+n-height)
+	}
 
 	// Offsets of the first visible line, so the error span can be tested
 	// per rune.
@@ -627,17 +671,71 @@ func (e *Editor) Render(th *theme, width, height int, focused, numbers bool, kin
 		if focused && row == e.row {
 			cursorCol = e.col
 		}
-		ghost := ""
+		ghost, more := "", []string(nil)
 		if cursorCol >= 0 {
-			ghost = e.Ghost
+			// A ghost of several lines - a whole query under the comment
+			// asking for it - draws its first line at the cursor and the
+			// rest as lines of their own below, pushing the text down
+			// until it is accepted or dismissed.
+			ghost, more = e.Ghost, nil
+			if i := strings.IndexByte(ghost, '\n'); i >= 0 {
+				more = strings.Split(ghost[i+1:], "\n")
+				ghost = ghost[:i]
+				if ghost == "" {
+					ghost = " " // the cursor still needs a cell
+				}
+			}
 		}
-		b.WriteString(renderText(th, e.lines[row], colour, e.left, textWidth, cursorCol, mark, offset, ghost))
+		text := e.lines[row]
+		if ghost != "" && e.GhostAfter > 0 {
+			if rs := []rune(text); cursorCol+e.GhostAfter <= len(rs) {
+				text = string(rs[:cursorCol]) + string(rs[cursorCol+e.GhostAfter:])
+			}
+		}
+		b.WriteString(renderText(th, text, colour, e.left, textWidth, cursorCol, mark, offset, ghost))
 		out = append(out, b.String())
 		if mark != nil {
 			offset += runeLen(e.lines[row]) + 1
 		}
+		for _, g := range more {
+			if len(out) >= limit {
+				break
+			}
+			var gb strings.Builder
+			if numbers {
+				gb.WriteString(th.gutter.Render(strings.Repeat(" ", gutter)))
+			}
+			gb.WriteString(renderGhostLine(th, g, e.left, textWidth))
+			out = append(out, gb.String())
+			// the virtual line takes a screen row from the text below
+			height--
+		}
 	}
 	return out
+}
+
+// renderGhostLine draws one line of a ghost below the cursor's, faint.
+func renderGhostLine(th *theme, g string, left, width int) string {
+	var b strings.Builder
+	x, drawn := 0, 0
+	for _, r := range g {
+		w := cellWidth(r)
+		if x+w <= left {
+			x += w
+			continue
+		}
+		if drawn+w > width {
+			break
+		}
+		b.WriteString(displayRune(r))
+		drawn += w
+		x += w
+	}
+	text := th.styleFor(styleGhost).Render(b.String())
+	if drawn < width {
+		text += strings.Repeat(" ", width-drawn)
+	}
+	return text
 }
 
 // longLine is the length past which a line is drawn from the part that is

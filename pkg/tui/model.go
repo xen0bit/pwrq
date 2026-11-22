@@ -639,6 +639,19 @@ func (m *model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return m.handleOverlayKey(msg)
 	}
 
+	// A suggestion showing as ghost text owns Tab, whatever else is open:
+	// what Tab inserts is what the editor shows after the cursor.
+	if m.focus == paneQuery && m.query.Ghost != "" {
+		switch k {
+		case "tab":
+			m.complete = nil
+			return m.acceptGhost()
+		case "ctrl+right", "alt+right":
+			m.complete = nil
+			return m.acceptGhostLine()
+		}
+	}
+
 	if m.complete != nil && m.focus == paneQuery {
 		if cmd, used := m.handleCompleteKey(msg); used {
 			return cmd

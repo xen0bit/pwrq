@@ -51,7 +51,7 @@ make web.build        # the browser editor (needs bun)
 make web.build-native # the native editor (needs bun)
 make web.test         # the editor's browser-side tests (needs bun)
 make d1.lock          # re-pin d1-2B and ONNX Runtime in pkg/d1/assets/d1.lock.json
-make d1.calibrate     # recalibrate suggestions (needs the model; writes harness.json)
+make d1.calibrate     # recalibrate suggestions (needs the model; writes harness.json, slots.json)
 make help
 ```
 
@@ -63,6 +63,19 @@ model must skip unless `PWRQ_TEST_D1_DIR` (the ONNX model folder) and
 `PWRQ_TEST_ORT_LIB` (`libonnxruntime`) are set. Run those locally after any
 change under `pkg/d1`. Changing the suggestion prompt fails
 `TestHarnessMatchesPrompt` until `make d1.calibrate` is rerun.
+
+### Suggestion recipes
+
+The editors write whole queries from a comment by choosing a recipe in
+`pkg/ideengine/recipes.pwrq` and filling its slots from the comment (see the
+file's header for the format and slot kinds), or one made from a catalog
+example (`pkg/ideengine/examplerecipes.go`). A new recipe must compile with
+its defaults (`TestRecipesCompile`) and, if it touches only files, run in the
+scratch directory `TestRecipesRun` builds; otherwise list it in
+`recipesNotRun` with the reason. Add comments that ask for it to
+`internal/tools/d1cal/studies/scripts/eval.jsonl` and rerun `make
+d1.calibrate`. `go run ./internal/tools/d1try '# a comment'` shows what an
+editor would suggest, with the real model.
 
 `make test` needs `bun` for the browser half. The most useful focused runs:
 
@@ -125,6 +138,13 @@ fails one of these is almost always a missing build tag or an untidy `go.mod`.
 6. **Test** it: a table-driven test and a "through the registered function" test
    in the package. If it has both a piped and an explicit form, add it to
    `TestCallingFormsAgree` (`pkg/udf/binding_test.go`).
+7. **Make it suggestible**: every published example is also a suggestion the
+   editors can write from a comment (its literals become slots). Add one line
+   per example to `internal/tools/d1cal/studies/scripts/intents.jsonl` - the
+   comment someone would write to ask for it - and rerun `make d1.calibrate`.
+   `TestEveryExampleHasAnIntent` fails until you do, and
+   `studies/scripts/EXAMPLES.md` lists the examples whose comment did not come
+   back as a working query.
 
 ### Guards that will fail the build
 
@@ -277,6 +297,6 @@ known remaining work, not a pattern to imitate.
 | the command surface or counts | README.md and EXAMPLES.md |
 
 Counts in the docs are easy to get wrong. The current ones: 511 cmdlets (520
-with `PWRQ_CENSYS_WRITE=1`), 699 published examples of which 589 run, 840 CLI
+with `PWRQ_CENSYS_WRITE=1`), 697 published examples of which 586 run, 840 CLI
 corpus cases, 67 rules, 34 grammars. Regenerate outputs rather than editing them
 by hand, and run the guards above before committing.

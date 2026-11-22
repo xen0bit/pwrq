@@ -79,7 +79,8 @@ export class Editor extends EventTarget {
             this.ghost = null;
             this.render();
             this.emit("change");
-            this.maybeComplete();
+            // Taking a suggestion is not typing a name: no list after it.
+            if (!this.acceptingGhost) this.maybeComplete();
         });
 
         this.input.addEventListener("scroll", () => this.syncScroll());
@@ -182,8 +183,15 @@ export class Editor extends EventTarget {
     render() {
         const src = this.input.value;
         this.tokens = this.language === "json" ? tokenizeJSON(src) : tokenizeQuery(src, this.vocabulary);
-        const ghost = this.ghost && this.ghost.at === this.caret ? this.ghost : null;
-        this.highlightCode.innerHTML = src || ghost ? toHTML(src, this.tokens, this.error, ghost) : "";
+        const ghost = this.ghost && this.ghost.at === this.caret ? { at: this.ghost.at, text: this.ghost.shown ?? this.ghost.text } : null;
+        if (ghost && this.ghost.after > 0) {
+            // Draw the text without what the ghost replaces.
+            const shownSrc = src.slice(0, ghost.at) + src.slice(ghost.at + this.ghost.after);
+            const shownTokens = this.language === "json" ? tokenizeJSON(shownSrc) : tokenizeQuery(shownSrc, this.vocabulary);
+            this.highlightCode.innerHTML = toHTML(shownSrc, shownTokens, null, ghost);
+        } else {
+            this.highlightCode.innerHTML = src || ghost ? toHTML(src, this.tokens, this.error, ghost) : "";
+        }
         this.renderGutter(src);
         this.syncHeight();
     }
@@ -280,18 +288,60 @@ export class Editor extends EventTarget {
 
     /* setGhost shows a suggestion at the caret. It is shown only when the
      * caret ends its line with nothing selected: text after the caret would
-     * otherwise be drawn shifted from where the textarea has it. */
-    setGhost(text) {
+     * otherwise be drawn shifted from where the textarea has it. A ghost of
+     * several lines - a whole query under the comment asking for it - is
+     * drawn whole when nothing follows the caret, and as its first line and
+     * an ellipsis when text below would be pushed out of register; Tab
+     * inserts all of it either way. */
+    setGhost(text, after = 0) {
         const { selectionStart: start, selectionEnd: end, value } = this.input;
         const lineEnd = value.indexOf("\n", start);
-        const rest = value.slice(start, lineEnd === -1 ? value.length : lineEnd);
+        // `after` characters past the caret - a bracket the editor closed by
+        // itself - are the ghost's to replace, and hidden while it shows.
+        const rest = value.slice(start + after, lineEnd === -1 ? value.length : lineEnd);
         if (!text || start !== end || rest.trim() !== "") {
             this.clearGhost();
             return;
         }
-        this.ghost = { at: start, text };
+        let shown = text;
+        const nl = text.indexOf("\n", text.search(/[^\n]/));
+        if (nl !== -1 && value.slice(start + after).trim() !== "") {
+            shown = `${text.slice(0, nl)} …`;
+        }
+        this.ghost = { at: start, text, shown, after };
+        // One suggestion at a time: the name list would offer something
+        // else for the same key.
+        this.closeCompletions();
         this.render();
         this.emit("ghost", { text });
+    }
+
+    /* acceptGhostLine inserts the ghost's next line (past a leading line
+     * break), keeping the rest as the ghost. */
+    acceptGhostLine() {
+        if (!this.ghost || this.ghost.at !== this.caret) return false;
+        const { text } = this.ghost;
+        const lead = text.length - text.replace(/^\n+/, "").length;
+        const nl = text.indexOf("\n", lead);
+        const part = nl === -1 ? text : text.slice(0, nl);
+        const rest = text.slice(part.length);
+        const { after } = this.ghost;
+        this.ghost = null;
+        this.acceptingGhost = true;
+        try {
+            if (after > 0) this.input.selectionEnd = this.input.selectionStart + after;
+            this.insert(part);
+        } finally {
+            this.acceptingGhost = false;
+        }
+        if (rest) {
+            this.ghost = { at: this.caret, text: rest, shown: rest, after: 0 };
+            this.render();
+            this.emit("ghost", { text: rest });
+        } else {
+            this.emit("ghost-accepted", { text: part });
+        }
+        return true;
     }
 
     clearGhost() {
@@ -304,18 +354,30 @@ export class Editor extends EventTarget {
     /* acceptGhost inserts the suggestion, reporting whether there was one. */
     acceptGhost() {
         if (!this.ghost || this.ghost.at !== this.caret) return false;
-        const { text } = this.ghost;
+        const { text, after } = this.ghost;
         this.ghost = null;
-        this.insert(text);
+        this.acceptingGhost = true;
+        try {
+            if (after > 0) this.input.selectionEnd = this.input.selectionStart + after;
+            this.insert(text);
+        } finally {
+            this.acceptingGhost = false;
+        }
         this.emit("ghost-accepted", { text });
         return true;
     }
 
     onKeydown(event) {
         if (this.ghost) {
-            if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !this.completionState) {
+            // The ghost owns Tab, whatever else is open: what Tab inserts is
+            // what is drawn after the caret.
+            if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
                 event.preventDefault();
+                this.closeCompletions();
                 if (this.acceptGhost()) return;
+            } else if (event.key === "ArrowRight" && (event.ctrlKey || event.altKey) && !event.shiftKey) {
+                event.preventDefault();
+                if (this.acceptGhostLine()) return;
             } else if (event.key === "Escape") {
                 event.preventDefault();
                 this.clearGhost();

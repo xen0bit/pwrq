@@ -1,0 +1,854 @@
+# Recipes: whole queries for common tasks, which the editor offers when a
+# comment says what the query should do and nothing is written yet, or when
+# what is written so far starts one of them.
+#
+# Each recipe is a block:
+#
+#   ## <id>
+#   # task: <what it does, in the words a comment would use>
+#   # also: <more words a comment might use, for finding it; not shown>
+#   # slot <name> <kind>[: <the question that finds it in a comment>] = <default>
+#   <the query, one stage a line>
+#
+# A {{name}} in the query is a slot. The suggestion engine asks the decision
+# model each slot's question about the author's comment and puts the answer
+# in, or the default when the comment does not say. A slot without a
+# question asks its kind's, which calibration chose (slots.json); text and
+# pattern slots mean something different in every recipe and always say.
+# Kinds:
+#
+#   path    a directory          file    a file name or path
+#   text    words, quoted as is  pattern a regular expression's text
+#   phrase  words a model is asked about at run time, spelling corrected
+#   number  a count              size    a size in bytes ("10MB" is read)
+#   host    a host name          url     a URL
+#   ext     a file extension     field   a property name
+#   ip      an address           days    a number of days
+#
+# A slot inside a string literal is escaped for it; a number, size, days or
+# field slot is written as code. TestRecipesCompile compiles every recipe
+# with its defaults and TestRecipesRun runs the ones that touch nothing but
+# a scratch directory.
+
+## list-files
+# task: list the files in a directory
+# also: ls dir contents what is here
+# slot dir path = .
+get_childitem("{{dir}}")
+| select(.Mode | startswith("d") | not)
+| .Name
+
+## list-directories
+# task: list the subdirectories (folders) in a directory
+# also: subdirs subdirectories folders dirs
+# slot dir path = .
+get_childitem("{{dir}}")
+| select(.Mode | startswith("d"))
+| .Name
+
+## list-files-recursive
+# task: list every file under a directory recursively, including subfolders
+# also: walk tree all paths find every file deep
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Mode | startswith("d") | not)
+| .FullName
+
+## largest-files
+# task: show the largest (biggest) files in a directory, sorted by size
+# also: biggest huge space hogs disk usage sort size
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
+| sort_by(-.Length)
+| .[:{{n}}]
+| map({Name: .FullName, Size: (.Length | human_bytes)})
+
+## files-larger-than
+# task: find files bigger (larger) than a size such as 10MB
+# also: bigger over above exceeding size limit
+# slot dir path = .
+# slot size size = 10MB
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Length > {{size}})
+| {Name: .FullName, Size: (.Length | human_bytes)}
+
+## files-by-extension
+# task: list files of a type or extension, such as Go or Python files
+# also: type kind ending suffix glob language
+# slot dir path = .
+# slot ext ext = txt
+get_childitem("{{dir}}"; {Recurse: true, Filter: "*.{{ext}}"})
+| .FullName
+
+## files-named
+# task: find files by their file name: the name (not the contents) contains some text
+# also: filename called name like matching
+# slot dir path = .
+# slot name text: What text should the file name contain? = report
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Name | ascii_downcase | contains("{{name}}" | ascii_downcase))
+| .FullName
+
+## recent-files
+# task: find files modified (changed) recently, in the last few days
+# also: changed edited updated touched new last week today
+# slot dir path = .
+# slot days days = 7
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Mode | startswith("d") | not)
+| select((.LastWriteTime | date_to_timestamp) > now - {{days}} * 86400)
+| {Name: .FullName, Modified: .LastWriteTime}
+
+## oldest-files
+# task: list the oldest files, least recently modified first
+# also: stale old ancient least recent
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
+| sort_by(.LastWriteTime | date_to_timestamp)
+| .[:{{n}}]
+| map({Name: .FullName, Modified: .LastWriteTime})
+
+## newest-files
+# task: list the newest files, most recently modified first
+# also: latest recently changed modified newest
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
+| sort_by(.LastWriteTime | date_to_timestamp)
+| reverse
+| .[:{{n}}]
+| map({Name: .FullName, Modified: .LastWriteTime})
+
+## empty-files
+# task: find empty files, zero bytes long
+# also: zero byte blank size 0
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select((.Mode | startswith("d") | not) and .Length == 0)
+| .FullName
+
+## hidden-files
+# task: list hidden files and dotfiles
+# also: dotfiles dot hidden
+# slot dir path = .
+get_childitem("{{dir}}"; {Force: true})
+| select(.IsHidden)
+| .Name
+
+## count-files
+# task: count how many files are in a directory
+# also: number how many files total
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
+| length
+
+## count-by-extension
+# task: count files by extension (file type), how many of each kind
+# also: breakdown types kinds histogram extension
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
+| count_by("Extension")
+
+## size-by-extension
+# task: total size of the files of each extension, which kinds use the most space
+# also: space type breakdown
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
+| group_by(.Extension)
+| map({Extension: .[0].Extension, Files: length, Size: (map(.Length) | add | human_bytes)})
+
+## directory-size
+# task: the total size (disk usage) of a directory
+# also: du disk usage total size how big
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | .Length]
+| add
+| human_bytes
+
+## folder-sizes
+# task: size of each subfolder, which folders take the most disk space
+# also: du subfolder subdirectory sizes space
+# slot dir path = .
+[get_childitem("{{dir}}") | select(.Mode | startswith("d"))]
+| map({Name, Size: ([get_childitem(.FullName; {Recurse: true}) | .Length] | add // 0)})
+| sort_by(-.Size)
+| map(.Size |= human_bytes)
+
+## duplicate-files
+# task: find duplicate files with the same content, by hash
+# also: dupes identical same copies
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true})
+  | select((.Mode | startswith("d") | not) and .Length > 0)
+  | {FullName, Hash: (.FullName | sha256(true))}]
+| group_by(.Hash)
+| map(select(length > 1) | map(.FullName))
+
+## images-containing
+# task: use a decision model to list images (pictures, photos) that contain or show something
+# also: photo pics pictures with show depict d1 vision
+# slot dir path = .
+# slot subject phrase: What should the images contain or show? = a cat
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp"))
+| select(invoke_systemone({q: {type: "noul", instructions: "Does the image contain {{subject}}?"}}; {Media: [.FullName]}).q.noul > 0.5)
+| .Name
+
+## images-score
+# task: use a decision model to rate how much each image (picture, photo) shows something, with a probability
+# also: rank likelihood probability score photos d1
+# slot dir path = .
+# slot subject phrase: What should the images contain or show? = a cat
+[get_childitem("{{dir}}")
+  | select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp"))
+  | {Name, Probability: invoke_systemone({q: {type: "noul", instructions: "Does the image show {{subject}}?"}}; {Media: [.FullName]}).q.noul}]
+| sort_by(-.Probability)
+
+## images-count-objects
+# task: use a decision model to count how many of something appear in each image (picture, photo)
+# also: how many count number in each picture d1
+# slot dir path = .
+# slot subject phrase: What should be counted? = people
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp"))
+| {Name, Count: invoke_systemone(null; {n: {type: "boxes", instructions: "Every one of: {{subject}}.", max: 32}}; {Media: [.FullName]}).n.count}
+
+## images-classify
+# task: use a decision model to sort images (pictures, photos) into categories: photo, screenshot, drawing or document
+# also: categorize label kind type screenshot photo d1
+# slot dir path = .
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp"))
+| {Name, Kind: invoke_systemone({k: {type: "choice", instructions: "What kind of image is this?", criteria: {photo: "A photograph", screenshot: "A screenshot of a screen", drawing: "A drawing, diagram or illustration", document: "A scanned page or document"}}}; {Media: [.FullName]}).k.choice}
+
+## list-images
+# task: list the image files (pictures, photos) in a directory
+# also: jpg png pictures photos images
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff"))
+| .FullName
+
+## search-text
+# task: search inside files' contents for text or a pattern (grep), showing file, line number and line
+# also: grep find occurrences where used usage search contents
+# slot dir path = .
+# slot pattern pattern: What text or pattern to search for? = TODO
+select_string("{{dir}}"; "{{pattern}}")
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## files-containing
+# task: list the files whose contents mention some text or pattern
+# also: grep -l mention contain which files contents
+# slot dir path = .
+# slot pattern pattern: What text or pattern to search for? = TODO
+select_string("{{dir}}"; "{{pattern}}"; {List: true})
+| .Path
+
+## count-matches
+# task: count how many times text or a pattern appears in each file
+# also: occurrences how many times per file
+# slot dir path = .
+# slot pattern pattern: What text or pattern to search for? = TODO
+[select_string("{{dir}}"; "{{pattern}}")]
+| count_by("Path")
+
+## todo-comments
+# task: find TODO and FIXME comments in source code
+# also: todo fixme hack xxx notes
+# slot dir path = .
+select_string("{{dir}}"; "TODO|FIXME")
+| {Path, LineNumber, Line: (.Line | ltrimstr(" "))}
+
+## read-file
+# task: read (show, print) the contents of a file
+# also: cat show print open display contents view
+# slot file file = notes.txt
+cat("{{file}}")
+
+## head-file
+# task: the first lines of a file (head)
+# also: first top beginning start
+# slot file file = notes.txt
+# slot n number = 10
+head("{{file}}"; {{n}})
+
+## tail-file
+# task: the last lines of a file (tail), such as the end of a log
+# also: last end bottom recent log
+# slot file file = app.log
+# slot n number = 10
+tail("{{file}}"; {{n}})
+
+## grep-file
+# task: the lines of one file that match text or a pattern
+# also: filter lines matching mention grep
+# slot file file = app.log
+# slot pattern pattern: What text or pattern to search for? = error
+grep_lines("{{file}}"; "{{pattern}}")
+
+## count-lines-matching
+# task: count the lines of a file that contain text, such as errors in a log
+# also: how many errors occurrences count grep -c
+# slot file file = app.log
+# slot pattern pattern: What text or pattern to search for? = error
+grep_lines("{{file}}"; "{{pattern}}")
+| length
+
+## count-lines
+# task: count the lines in a file
+# also: wc -l line count length
+# slot file file = notes.txt
+wc_lines("{{file}}")
+
+## lines-of-code
+# task: count lines of code in all files of a type, per file and in total
+# also: loc sloc code size how much code
+# slot dir path = .
+# slot ext ext = go
+[get_childitem("{{dir}}"; {Recurse: true, Filter: "*.{{ext}}"}) | {File: .FullName, Lines: wc_lines(.FullName)}]
+| {Files: ., Total: (map(.Lines) | add)}
+
+## word-count
+# task: count the words in a file
+# also: wc -w words
+# slot file file = notes.txt
+cat("{{file}}")
+| word_count
+
+## word-frequency
+# task: the most common (frequent) words in a file
+# also: most common frequent words top terms
+# slot file file = notes.txt
+# slot n number = 10
+cat("{{file}}")
+| [splits("[^A-Za-z']+") | ascii_downcase | select(length > 2)]
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:{{n}}]
+| map({word: .key, count: .value})
+
+## log-levels
+# task: count the lines of a log file by level, how many errors, warnings and info
+# also: errors warnings info severity breakdown
+# slot file file = app.log
+cat("{{file}}")
+| split("\n")
+| map(capture("(?<level>ERROR|WARN(ING)?|INFO|DEBUG)"; "i").level // empty | ascii_upcase)
+| value_counts
+
+## file-hash
+# task: the sha256 hash (checksum) of a file
+# also: sha256sum checksum digest hash
+# slot file file = notes.txt
+"{{file}}"
+| sha256(true)
+
+## file-md5
+# task: the md5 hash (checksum) of a file
+# also: md5sum md5 checksum
+# slot file file = notes.txt
+"{{file}}"
+| md5(true)
+
+## hash-all-files
+# task: the sha256 checksum of every file in a directory
+# also: checksums manifest sha256 every
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Mode | startswith("d") | not)
+| {File: .FullName, Sha256: (.FullName | sha256(true))}
+
+## file-type
+# task: detect what kind of file something is from its contents (magic bytes)
+# also: magic mime what kind format detect
+# slot file file = notes.txt
+read_bytes("{{file}}")
+| file_type
+
+## file-entropy
+# task: find high-entropy files that may be compressed, encrypted or packed
+# also: encrypted packed compressed random entropy
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select((.Mode | startswith("d") | not) and .Length > 0)
+| {File: .FullName, Entropy: (.FullName | entropy(true))}
+| select(.Entropy > 7)
+
+## binary-files
+# task: list binary (non-text) files
+# also: non-text binary executables
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select((.Mode | startswith("d") | not) and .Length > 0)
+| select(read_bytes(.FullName) | is_binary)
+| .FullName
+
+## file-exists
+# task: check whether a file or path exists
+# also: exists present test check
+# slot file file = notes.txt
+test_path("{{file}}")
+
+## list-archive
+# task: list the files inside a zip or tar archive without extracting it
+# also: zip tar contents inside list
+# slot file file = archive.zip
+read_archive("{{file}}")
+| map({Name, Size: (.Length | human_bytes)})
+
+## extract-archive
+# task: extract (unzip, untar) an archive into a directory
+# also: unzip untar unpack decompress
+# slot file file = archive.zip
+# slot dir path: Into which directory? = out
+expand_archive("{{file}}"; "{{dir}}")
+
+## make-archive
+# task: compress a directory into a zip (or tar.gz) archive
+# also: zip tar compress pack bundle backup
+# slot dir path = .
+# slot file file: What should the archive be called? = archive.zip
+compress_archive("{{dir}}"; "{{file}}")
+
+## read-csv
+# task: read a CSV file as objects, one per row, keyed by the header
+# also: load parse csv spreadsheet rows
+# slot file file = data.csv
+cat("{{file}}")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+
+## csv-column
+# task: the values of one column of a CSV file
+# also: column field values csv
+# slot file file = data.csv
+# slot column text: Which column? = name
+cat("{{file}}")
+| csv_parse
+| (.[0] | index("{{column}}")) as $i
+| .[1:]
+| map(.[$i])
+
+## csv-to-json
+# task: convert a CSV file to JSON
+# also: convert csv json
+# slot file file = data.csv
+cat("{{file}}")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| tojson
+
+## json-to-csv
+# task: convert JSON (an array of objects) to CSV
+# also: convert csv export
+(.[0] | to_entries | map(.key)) as $header
+| [$header] + map([.[$header[]] | tostring])
+| csv_stringify
+
+## read-json
+# task: read and parse a JSON file
+# also: load parse open json
+# slot file file = data.json
+cat("{{file}}")
+| fromjson
+
+## read-yaml
+# task: read a YAML file as JSON
+# also: load parse open yaml yml
+# slot file file = config.yaml
+cat("{{file}}")
+| yaml_parse
+
+## yaml-to-json
+# task: convert YAML to JSON
+yaml_parse
+
+## json-to-yaml
+# task: convert JSON to YAML
+yaml_stringify
+
+## read-jsonl
+# task: read a JSON Lines (jsonl, ndjson) file into an array
+# also: ndjson jsonl json lines
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+
+## xml-to-json
+# task: convert XML to JSON
+xml_parse
+
+## sqlite-tables
+# task: list the tables in a SQLite database
+# also: tables schema sqlite db database
+# slot file file = app.db
+get_sqlite_table("{{file}}")
+| .Name
+
+## sqlite-query
+# task: query (select rows from) a table in a SQLite database
+# also: select rows table sql sqlite
+# slot file file = app.db
+# slot table text: Which table? = users
+invoke_sqlite_query("{{file}}"; "select * from {{table}} limit 10")
+
+## sqlite-count
+# task: count the rows in each table of a SQLite database
+# also: row counts tables sqlite
+# slot file file = app.db
+get_sqlite_table("{{file}}")
+| {Table: .Name, Rows: (invoke_sqlite_query("{{file}}"; "select count(*) as n from \"\(.Name)\"") | .n)}
+
+## top-memory-processes
+# task: the processes using the most memory (RAM)
+# also: ram memory hogs mem usage ps
+# slot n number = 10
+[get_process]
+| sort_by(-.WorkingSet)
+| .[:{{n}}]
+| map({Id, Name, Memory: (.WorkingSet | human_bytes)})
+
+## top-cpu-processes
+# task: the processes using the most CPU
+# also: cpu hogs busy load ps top
+# slot n number = 10
+[get_process]
+| sort_by(-.CPU)
+| .[:{{n}}]
+| map({Id, Name, CPU})
+
+## find-process
+# task: find running processes by name
+# also: running pid ps grep process is running
+# slot name text: Which process or program? = bash
+get_process
+| select(.Name | test("{{name}}"; "i"))
+| {Id, Name, Memory: (.WorkingSet | human_bytes), StartTime}
+
+## count-processes
+# task: count the running processes, and how many of each program
+# also: how many processes running ps
+[get_process]
+| {Total: length, ByName: (count_by("Name") | to_entries | sort_by(-.value) | .[:10] | from_entries)}
+
+## running-services
+# task: list the running system services
+# also: systemd daemons services running
+get_service
+| select(.Status == "Running")
+| .Name
+
+## which-command
+# task: find where a program (executable command) is installed on the PATH
+# also: which where installed path binary executable
+# slot name text: Which program or command? = git
+which("{{name}}")
+
+## path-entries
+# task: list the directories on the PATH environment variable
+# also: PATH directories
+$ENV.PATH
+| split(":")
+
+## environment-variables
+# task: list the environment variables
+# also: env vars environment
+$ENV
+| to_entries
+| map("\(.key)=\(.value)")
+
+## run-command
+# task: run a shell command and get its output
+# also: shell exec run execute
+# slot command text: Which shell command? = uname -a
+sh("{{command}}")
+
+## current-date
+# task: the current date and time, today's date
+# also: today date time now clock
+get_date
+| {Date, Time, DayOfWeek, Timezone}
+
+## current-directory
+# task: the current (working) directory
+# also: pwd cwd working directory where am i
+get_location
+| .Path
+
+## resolve-host
+# task: resolve a host name (domain) to its IP addresses, a DNS lookup
+# also: dns lookup ip address resolve nslookup dig
+# slot host host = example.com
+resolve_host("{{host}}")
+
+## reverse-dns
+# task: reverse DNS lookup, the host name of an IP address
+# also: ptr hostname reverse lookup name of ip
+# slot ip ip = 8.8.8.8
+reverse_dns("{{ip}}")
+
+## ping-host
+# task: ping a host, check whether it is reachable
+# also: ping reachable alive up
+# slot host host = example.com
+test_connection("{{host}}")
+
+## port-open
+# task: check whether a TCP port is open on a host
+# also: port open listening tcp nc
+# slot host host = example.com
+# slot port number: Which port? = 443
+test_connection("{{host}}"; {TcpPort: {{port}}, Quiet: true})
+
+## http-status
+# task: check whether a website is up, its HTTP status code
+# also: up down status website online curl
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| {StatusCode, Status, ContentType}
+
+## http-headers
+# task: the HTTP response headers of a URL
+# also: headers response curl -I
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Headers
+
+## fetch-json
+# task: fetch JSON from a REST API endpoint
+# also: api rest get json curl
+# slot url url = https://api.github.com
+invoke_rest_method("{{url}}")
+
+## page-links
+# task: extract the links (URLs) from a web page
+# also: links hrefs urls scrape
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+| extract_urls
+| unique
+
+## download-file
+# task: download a file from a URL and save it
+# also: download save wget curl -o fetch
+# slot url url = https://example.com
+# slot file file: Where should it be saved? = page.html
+invoke_web_request("{{url}}"; {OutFile: "{{file}}"})
+| {StatusCode, Saved: "{{file}}"}
+
+## ip-info
+# task: whether an IP address is private, public or loopback, and its version
+# also: private public address rfc1918
+# slot ip ip = 192.168.1.10
+"{{ip}}"
+| {ip: ., version: ip_version, private: is_private_ip, loopback: is_loopback}
+
+## cidr-info
+# task: the range of a CIDR subnet: network, broadcast, first and last host, size
+# also: subnet cidr range hosts netmask
+# slot cidr text: Which CIDR range or subnet? = 10.0.0.0/24
+"{{cidr}}"
+| {network: cidr_network, broadcast: cidr_broadcast, first: cidr_first_host, last: cidr_last_host, size: cidr_size}
+
+## count-items
+# task: count the items (elements, entries) of the input
+# also: length count how many size
+length
+
+## object-keys
+# task: list the keys (fields, properties) of the input
+# also: keys fields properties columns
+if type == "array" then map(keys) | add | unique else keys end
+
+## filter-by-field
+# task: keep only the items whose field equals a value
+# also: where equals filter only matching
+# slot field field = status
+# slot value text: Which value? = active
+map(select(.{{field}} == "{{value}}"))
+
+## filter-greater-than
+# task: keep only the items whose numeric field is above (greater than) a number
+# also: older bigger above more than greater over
+# slot field field = age
+# slot number number: Above what number? = 30
+map(select(.{{field}} > {{number}}))
+
+## sort-by-field
+# task: sort the items by a field
+# also: sort order arrange by
+# slot field field = name
+sort_by(.{{field}})
+
+## top-by-field
+# task: the top items with the largest value of a field
+# also: top highest best most largest
+# slot field field = score
+# slot n number = 5
+sort_by(-.{{field}})
+| .[:{{n}}]
+
+## group-count
+# task: count the items by (grouped by) a field, how many of each value
+# also: count per by group tally histogram
+# slot field field = status
+count_by("{{field}}")
+
+## group-by-field
+# task: group the items by a field
+# also: group bucket by
+# slot field field = status
+group_by(.{{field}})
+| map({key: (.[0].{{field}} | tostring), value: .})
+| from_entries
+
+## sum-field
+# task: the total (sum) of a numeric field
+# also: total sum add up
+# slot field field = amount
+map(.{{field}})
+| add
+
+## average-field
+# task: the average (mean) of a numeric field
+# also: average mean avg
+# slot field field = amount
+map(.{{field}})
+| add / length
+
+## stats-field
+# task: statistics of a numeric field: min, max, mean, median, standard deviation
+# also: statistics min max median stddev summary
+# slot field field = amount
+map(.{{field}})
+| summary
+
+## unique-values
+# task: the distinct (unique) values of a field
+# also: distinct unique values set
+# slot field field = status
+map(.{{field}})
+| unique
+
+## pluck-field
+# task: the value of one field from every item
+# also: just only extract values field ids names
+# slot field field = name
+map(.{{field}})
+
+## remove-duplicates
+# task: remove duplicate items
+# also: dedupe duplicates unique
+unique
+
+## flatten-json
+# task: flatten nested JSON into dotted keys
+# also: flatten nested dotted
+flatten_keys
+
+## as-table
+# task: show the items as a table
+# also: table format pretty
+format_table(.)
+
+## extract-emails
+# task: extract the email addresses from text
+# also: emails addresses
+extract_emails
+| unique
+
+## extract-urls
+# task: extract the URLs (links) from text
+# also: urls links
+extract_urls
+| unique
+
+## extract-ips
+# task: extract the IP addresses from text
+# also: ip addresses
+extract_ips
+| unique
+
+## base64-decode
+# task: decode base64
+# also: base64 decode
+base64_decode
+
+## base64-encode
+# task: encode as base64
+# also: base64 encode
+base64_encode
+
+## jwt-decode
+# task: decode a JWT (JSON web token)
+# also: jwt token claims
+jwt_decode
+
+## url-decode
+# task: decode a URL-encoded (percent-encoded) string
+# also: percent decode unescape
+url_decode
+
+## text-lines
+# task: split text into lines, dropping blank ones
+# also: lines split newline
+split("\n")
+| map(select(test("\\S")))
+
+## sha256-text
+# task: the sha256 hash of the input text
+# also: hash sha256 string
+sha256
+
+## timestamps-to-dates
+# task: convert Unix timestamps (epoch seconds) to readable dates
+# also: epoch unix timestamps dates
+if type == "array" then map(todate) else todate end
+
+## sentiment
+# task: use a decision model to tell the sentiment of text: positive, neutral or negative
+# also: positive negative tone mood d1
+invoke_systemone({sentiment: {type: "choice", instructions: "What is the sentiment of the text?", criteria: {positive: null, neutral: null, negative: null}}})
+| .sentiment.choice
+
+## text-yes-no
+# task: use a decision model to answer a yes or no question about the input text
+# also: ask d1 decision question yes no
+# slot question phrase: What question should be asked? = Is this urgent?
+invoke_systemone({q: {type: "noul", instructions: "{{question}}"}})
+| .q.noul
+
+## classify-lines
+# task: use a decision model to flag the lines of a file that match a description
+# also: d1 lines about flag classify
+# slot file file = app.log
+# slot subject phrase: What should the lines be about? = a failure
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map({line: ., p: invoke_systemone({q: {type: "noul", instructions: "Is this line about {{subject}}?"}}).q.noul})
+| map(select(.p > 0.5) | .line)
+
+## summarize-file
+# task: summarize a file with a language model (LLM)
+# also: summary tldr llm
+# slot file file = notes.txt
+cat("{{file}}")
+| invoke_llm("Summarize this in three sentences:\n\n\(.)")
+
+## code-rules
+# task: scan source code for security problems with the pwrgrep rules
+# also: security scan vulnerabilities audit pwrgrep lint
+# slot dir path = .
+# slot language text: Which programming language? = go
+invoke_pwrgrep("{{dir}}"; "{{language}}")
+| {RuleId, Path, LineNumber, Message}

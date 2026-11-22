@@ -47,6 +47,8 @@ var fixtures = map[string]string{
 	"out.log":      "an existing line\n",
 	"run.log":      "an existing line\n",
 	"events.jsonl": "{\"a\":1}\n{\"a\":2}\n",
+	"data.csv":     "name,age\nada,36\nbob,25\n",
+	"config.yaml":  "name: ada\nrole: engineer\n",
 	"a.bin":        "\x00\x01\x02\x03binary sample\n",
 	"draft.txt":    "a draft\n",
 	"b.bin":        "\x00\x01\x02\x04binary sample\n",

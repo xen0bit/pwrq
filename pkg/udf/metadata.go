@@ -55,27 +55,27 @@ func allFunctionMetadata() []FunctionMetadata {
 
 		// Encoding/Decoding
 		{"base64_encode", 0, 2, "Encode to base64 (optional file arg)", "Encoding", []string{`"hello" | base64_encode`, `"file.txt" | base64_encode(true)`}},
-		{"base64_decode", 0, 2, "Decode from base64 (optional file arg)", "Encoding", []string{`"aGVsbG8=" | base64_decode`, `"hello" | base64_encode | base64_decode`}},
+		{"base64_decode", 0, 2, "Decode from base64 (optional file arg)", "Encoding", []string{`"aGVsbG8=" | base64_decode`}},
 		{"hex_encode", 0, 2, "Encode to hexadecimal (optional file arg)", "Encoding", []string{`"hello" | hex_encode`, `"file.txt" | hex_encode(true)`}},
-		{"hex_decode", 0, 2, "Decode from hexadecimal (optional file arg)", "Encoding", []string{`"68656c6c6f" | hex_decode`, `"hello" | hex_encode | hex_decode`}},
+		{"hex_decode", 0, 2, "Decode from hexadecimal (optional file arg)", "Encoding", []string{`"68656c6c6f" | hex_decode`}},
 		{"base32_encode", 0, 2, "Encode to base32 (optional file arg)", "Encoding", []string{`"hello" | base32_encode`, `"file.txt" | base32_encode(true)`}},
-		{"base32_decode", 0, 2, "Decode from base32 (optional file arg)", "Encoding", []string{`"NBSWY3DP" | base32_decode`, `"hello" | base32_encode | base32_decode`}},
+		{"base32_decode", 0, 2, "Decode from base32 (optional file arg)", "Encoding", []string{`"NBSWY3DP" | base32_decode`}},
 		{"base85_encode", 0, 2, "Encode to base85 (optional file arg)", "Encoding", []string{`"hello" | base85_encode`, `"file.txt" | base85_encode(true)`}},
-		{"base85_decode", 0, 2, "Decode from base85 (optional file arg)", "Encoding", []string{`"BOu!rDZ" | base85_decode`, `"hello" | base85_encode | base85_decode`}},
+		{"base85_decode", 0, 2, "Decode from base85 (optional file arg)", "Encoding", []string{`"BOu!rDZ" | base85_decode`}},
 		{"binary_encode", 0, 2, "Encode to binary (optional file arg)", "Encoding", []string{`"hi" | binary_encode`, `"file.txt" | binary_encode(true)`}},
-		{"binary_decode", 0, 2, "Decode from binary (optional file arg)", "Encoding", []string{`"01101000 01101001" | binary_decode`, `"hi" | binary_encode | binary_decode`}},
+		{"binary_decode", 0, 2, "Decode from binary (optional file arg)", "Encoding", []string{`"01101000 01101001" | binary_decode`}},
 		{"url_encode", 0, 2, "URL encode (optional file arg)", "Encoding", []string{`"a b&c" | url_encode`, `"file.txt" | url_encode(true)`}},
-		{"url_decode", 0, 2, "URL decode (optional file arg)", "Encoding", []string{`"a%20b%26c" | url_decode`, `"a b&c" | url_encode | url_decode`}},
+		{"url_decode", 0, 2, "URL decode (optional file arg)", "Encoding", []string{`"a%20b%26c" | url_decode`}},
 		{"html_encode", 0, 2, "HTML entity encode (optional file arg)", "Encoding", []string{`"<b>hi</b>" | html_encode`, `"file.txt" | html_encode(true)`}},
-		{"html_decode", 0, 2, "HTML entity decode (optional file arg)", "Encoding", []string{`"&lt;b&gt;hi&lt;/b&gt;" | html_decode`, `"<b>hi</b>" | html_encode | html_decode`}},
+		{"html_decode", 0, 2, "HTML entity decode (optional file arg)", "Encoding", []string{`"&lt;b&gt;hi&lt;/b&gt;" | html_decode`}},
 
 		// Compression
 		{"gzip_compress", 0, 2, "Compress with gzip (optional file arg)", "Compression", []string{`"hello" | gzip_compress`, `"file.txt" | gzip_compress(true)`}},
-		{"gzip_decompress", 0, 2, "Decompress gzip (optional file arg)", "Compression", []string{`"hello" | gzip_compress | gzip_decompress`, `"file.txt" | gzip_compress(true) | gzip_decompress`}},
+		{"gzip_decompress", 0, 2, "Decompress gzip (optional file arg)", "Compression", []string{`"hello" | gzip_compress | gzip_decompress`}},
 		{"zlib_compress", 0, 2, "Compress with zlib (optional file arg)", "Compression", []string{`"hello" | zlib_compress`, `"file.txt" | zlib_compress(true)`}},
-		{"zlib_decompress", 0, 2, "Decompress zlib (optional file arg)", "Compression", []string{`"hello" | zlib_compress | zlib_decompress`, `"file.txt" | zlib_compress(true) | zlib_decompress`}},
+		{"zlib_decompress", 0, 2, "Decompress zlib (optional file arg)", "Compression", []string{`"hello" | zlib_compress | zlib_decompress`}},
 		{"deflate_compress", 0, 2, "Compress with deflate (optional file arg)", "Compression", []string{`"hello" | deflate_compress`, `"file.txt" | deflate_compress(true)`}},
-		{"deflate_decompress", 0, 2, "Decompress deflate (optional file arg)", "Compression", []string{`"hello" | deflate_compress | deflate_decompress`, `"file.txt" | deflate_compress(true) | deflate_decompress`}},
+		{"deflate_decompress", 0, 2, "Decompress deflate (optional file arg)", "Compression", []string{`"hello" | deflate_compress | deflate_decompress`}},
 
 		// String operations
 		{"replace", 2, 4, "Replace substring (old, new, [input], [file])", "String", []string{`"old dog" | replace("old"; "new")`, `replace("old"; "new"; "old text")`}},
@@ -109,7 +109,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"json_stringify", 0, 2, "Convert to JSON string (optional file arg)", "JSON", []string{`json_stringify`, `{"key":"value"} | json_stringify`}},
 
 		// CSV operations
-		{"csv_parse", 0, 3, "Parse CSV (delimiter, [input], [file])", "CSV", []string{`"a,b,c" | csv_parse`, `"a;b;c" | csv_parse(";")`, `csv_parse(","; "a,b,c")`}},
+		{"csv_parse", 0, 3, "Parse CSV (delimiter, [input], [file])", "CSV", []string{`"a,b,c" | csv_parse`, `"a;b;c" | csv_parse(";")`, `csv_parse(","; "a,b,c")`, `cat("data.csv") | csv_parse`}},
 		{"csv_stringify", 0, 3, "Convert to CSV (delimiter, [input], [file])", "CSV", []string{`[["a","b"],["1","2"]] | csv_stringify`, `[["a","b"],["1","2"]] | csv_stringify(";")`}},
 
 		// XML operations
@@ -253,7 +253,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"shared_chunks", 1, 3, "Byte ranges of one value that occur verbatim in another, plus coverage", "Similarity", []string{`shared_chunks("the quick brown fox"; "the quick red fox")`, `read_bytes("suspect.bin") | shared_chunks(read_bytes("known.bin")) | .Coverage`}},
 
 		// YAML
-		{"yaml_parse", 0, 2, "A YAML document to a JSON value", "YAML", []string{`"name: ada\nrole: engineer\n" | yaml_parse`}},
+		{"yaml_parse", 0, 2, "A YAML document to a JSON value", "YAML", []string{`"name: ada\nrole: engineer\n" | yaml_parse`, `cat("config.yaml") | yaml_parse`}},
 		{"yaml_stringify", 0, 1, "A value to a YAML document", "YAML", []string{`{name: "ada"} | yaml_stringify`}},
 
 		// Checksums
@@ -270,8 +270,8 @@ func allFunctionMetadata() []FunctionMetadata {
 		// Line-oriented log readers (CLI only)
 		{"head", 0, 2, "The first n lines of a file (path, [n])", "File Operations", []string{`head("app.log")`, `head("app.log"; 5)`}},
 		{"tail", 0, 2, "The last n lines of a file (path, [n])", "File Operations", []string{`tail("app.log"; 5)`}},
-		{"grep_lines", 1, 2, "The lines of a file matching a pattern (path, pattern)", "File Operations", []string{`grep_lines("app.log"; "error")`}},
-		{"select_string", 1, 3, `Matching lines across a file or tree, with path, line number and context (pattern, [options]). The pattern is a jq string literal first and a regex second, so a backslash must be doubled: "\\.html", "join\\(".`, "File Operations", []string{`select_string("src"; "TODO") | .Path`, `[select_string("src"; "panic"; {Include: "*.go", Context: 2})]`, `first(select_string("src"; "\\.html$"))`, `select_string("src"; "join\\(|walk\\(")`}},
+		{"grep_lines", 1, 2, "The lines of a file matching a pattern (path, pattern)", "File Operations", []string{`grep_lines("app.log"; "error")`, `grep_lines("app.log"; "error") | length`}},
+		{"select_string", 1, 3, `Matching lines across a file or tree, with path, line number and context (pattern, [options]). The pattern is a jq string literal first and a regex second, so a backslash must be doubled: "\\.html", "join\\(".`, "File Operations", []string{`select_string("src"; "TODO") | .Path`, `[select_string("src"; "panic"; {Include: "*.go", Context: 2})]`, `first(select_string("src"; "\\.html$"))`, `select_string("src"; "join\\(|walk\\(")`, `select_string("."; "TODO") | "\(.Path):\(.LineNumber): \(.Line)"`}},
 
 		// Structural code search
 		{"select_ast", 1, 3, `Every place a piece of syntax occurs in a file or tree, matched against the parse tree rather than the text (path, pattern, [options]). The pattern is code with holes: $NAME for one node, $$$NAME for a whole list of them, and $$$_ for "and anything else here" - a pattern says how many children a construct has, so f($A, $B) is a call with two arguments. Pass a list of patterns to search for all of them in one walk; each match names in Pattern which one found it. Files in a language no pattern is code in are skipped, so pass Language, or Include to one extension, to have the patterns checked rather than quietly skipped everywhere.`, "File Operations", []string{`select_ast("src"; "func $NAME($$$ARGS) error { $$$BODY }") | .Captures.NAME`, `[select_ast("src"; "if $C { $$$B }"; {Include: "*.go"})] | length`, `[select_ast("src"; ["md5.New()", "sha1.New()"])] | group_by(.Pattern) | map({(.[0].Pattern): length}) | add`, `select_ast("src"; "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}")`}},
@@ -450,7 +450,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"which", 0, 1, "The path to an executable on PATH", "System", []string{`which("go")`}},
 
 		// PowerShell - File System
-		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`}},
+		{"get_childitem", 1, 2, "Get items at a specified location (path, [options])", "PowerShell", []string{`get_childitem(".")`, `get_childitem("src"; {"Recurse": true})`, `get_childitem("."; {Recurse: true, Filter: "*.txt"}) | .FullName`, `[get_childitem("."; {Recurse: true})] | sort_by(-.Length) | .[:5] | map({Name, Length})`}},
 		{"set_content", 1, 3, "Set a file's content, replacing what was there (path, [value], [options])", "PowerShell", []string{`"content" | set_content("file.txt")`, `set_content("file.txt"; "content")`}},
 		{"add_content", 1, 3, "Append a value to a file, creating it if absent (path, [value], [options])", "PowerShell", []string{`"a line" | add_content("out.log")`, `add_content("out.log"; "a line")`}},
 		{"out_file", 1, 3, "Write a value to a file and pass it on (path, [value], [options])", "PowerShell", []string{`"a line" | out_file("report.txt")`, `"a line" | out_file("run.log"; {Append: true})`}},
@@ -486,7 +486,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		{"pop_location", 0, 1, "Pop a location off the stack and change to it", "PowerShell", []string{`pop_location`}},
 
 		// PowerShell - Processes
-		{"get_process", 0, 2, "List running processes ([name], [options])", "PowerShell", []string{`get_process`, `[get_process | select(.Name == "go")]`}},
+		{"get_process", 0, 2, "List running processes ([name], [options])", "PowerShell", []string{`get_process`, `[get_process | select(.Name == "go")]`, `[get_process] | sort_by(-.WorkingSet) | .[:5] | map({Id, Name, WorkingSet})`}},
 		{"start_process", 1, 2, "Start a process (path, [options])", "PowerShell", []string{`start_process("echo"; {"ArgumentList": ["hi"], "PassThru": true})`}},
 		{"stop_process", 1, 2, "Stop a process (id or name, [options])", "PowerShell", []string{`stop_process(1234)`}},
 
@@ -498,7 +498,7 @@ func allFunctionMetadata() []FunctionMetadata {
 		// PowerShell - Web
 		{"invoke_web_request", 1, 2, "Make an HTTP request returning a response object (uri, [options])", "PowerShell", []string{`invoke_web_request("https://example.com")`, `invoke_web_request("https://example.com") | .StatusCode`}},
 		{"invoke_rest_method", 1, 2, "Call a REST endpoint, parsing JSON responses (uri, [options])", "PowerShell", []string{`invoke_rest_method("https://api.example.com/items")`}},
-		{"test_connection", 1, 2, "Test network connectivity to a host (host, [options])", "PowerShell", []string{`test_connection("example.com")`}},
+		{"test_connection", 1, 2, "Test network connectivity to a host (host, [options])", "PowerShell", []string{`test_connection("example.com")`, `test_connection("example.com"; {TcpPort: 443, Quiet: true})`}},
 
 		// PowerShell - Date and Time
 		{"get_date", 0, 2, "Get the current date and time as an object ([options])", "PowerShell", []string{`get_date`, `get_date | .Year`}},

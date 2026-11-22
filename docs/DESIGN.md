@@ -236,15 +236,47 @@ answers end to end.
 - **Tests never download.** CI sets `PWRQ_D1_OFFLINE=1` and `PWRQ_SUGGEST=off`;
   the model-gated tests run only with `PWRQ_TEST_D1_DIR`/`PWRQ_TEST_ORT_LIB`.
 
-The editors use the same model for next-step suggestions: the engine builds up
-to 16 candidates (BM25 over help text against the query's `#` comments, plus
-staples), and d1 picks one with each option described by its help and first
-example. `pkg/d1/suggest/harness.json` holds the wording and the temperatures
-`make d1.calibrate` fitted (see `internal/tools/d1cal/studies/completion`), and
-`TestHarnessMatchesPrompt` fails when the prompt changes without recalibrating.
-The measured top-1 is low, so ghost text appears on its own only above a high
-bar; Ctrl+Space asks explicitly. Formatting keeps comments for this reason:
-they are the best statement of intent a suggestion has.
+The editors use the same model to write queries. Picking the next name out
+of hundreds, one stage at a time, was the first design and it failed: top-1
+was 14% on the gallery and the ghost text was nonsense. What works is to let
+the model choose between *whole queries* and read the values out of the
+comment:
+
+- **Recipes.** `pkg/ideengine/recipes.pwrq` holds about a hundred and ten
+  queries for common tasks, one stage a line, each with a task sentence and
+  typed slots (`{{dir}}`, `{{subject}}`, `{{size}}`). Every recipe compiles
+  with its defaults, and the ones that touch only files run in a test.
+- **A comment asks for a query.** With nothing written but comments, the
+  engine prefilters recipes by BM25 over their task and keywords, and d1 is
+  asked, in one forward pass, which task the comment describes and each slot
+  question ("Which directory or folder?", "What should the images contain?")
+  as a span of the comment. The answer is a multi-line ghost under the
+  comment; Tab takes it all, Ctrl+→ a line at a time.
+- **Slot values are read, then checked.** A span is normalized for its kind
+  (`10MB` is 10485760, `the src folder` is `src`, `Python files` are `py`); a
+  number, size, URL or address the model missed but the comment spells
+  plainly is taken by pattern; and words that go into a question the model is
+  asked again at run time are spell-corrected against its tokenizer, because
+  "Does the image contain shimp?" scores every picture alike.
+- **Every example is a recipe too.** The catalog's ~680 runnable examples are
+  turned into recipes automatically: the description is the task, and file
+  names, paths, URLs, hosts, addresses and counts become slots; a value fed
+  in as the first stage is optional, and without one the query works on the
+  editor's input. The model chooses between hand recipes and whole cmdlets,
+  then - a second small pass - between a cmdlet's examples by their code,
+  asking again for any slot the first pass left empty. Each example has a
+  comment in `intents.jsonl`, so adding a cmdlet adds its calibration.
+- **Written code continues a recipe.** Once part of a query is written, the
+  recipes that start the same way offer their rest, beside the single names
+  and the fields the previous cmdlet's declared shape has.
+
+`make d1.calibrate` runs three studies (`internal/tools/d1cal`): each slot
+kind's question, the whole-query question against labelled comments split
+dev/test, and the step-by-step question against the gallery. The fitted
+wording, temperatures and ghost bars go to `pkg/d1/suggest/harness.json` and
+`pkg/ideengine/slots.json`, and `TestHarnessMatchesPrompt` fails when the
+prompt changes without recalibrating. Formatting keeps comments for this
+reason: they are the best statement of intent a suggestion has.
 
 ### What running a model actually taught
 
@@ -324,9 +356,10 @@ refused unless `PWRQ_MCP_TOKEN` is set.
 - Phase-5 LLM work deliberately unbuilt: an MCP client, multi-turn sessions,
   streaming tokens, conversation compaction. (Multimodal input exists for
   System One, through d1-2B; audio does not.)
-- Suggestion quality is the weak point of the d1 integration: top-1 is about
-  14% on the gallery. A better candidate set or a larger harness search is the
-  next lever, not more temperature fitting.
+- Suggestions are as good as the recipes and examples: a task none does falls
+  back to one name at a time, which is weak (the prefilter's order beats the
+  model at it). Composing recipes - a source, a filter, a shape - is the next
+  lever, planned as its own change.
 - The old "call every function at its minimum arity and watch for a crash" sweep
   is still the right way to find the next `deep_merge`-style panic.
 

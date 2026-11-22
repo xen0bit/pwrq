@@ -97,6 +97,10 @@ function buildEditors() {
     queryEditor.addEventListener("change", () => scheduleSuggest(false));
     queryEditor.addEventListener("suggest-request", () => scheduleSuggest(true));
     queryEditor.addEventListener("ghost", renderSuggestStatus);
+    queryEditor.addEventListener("ghost-accepted", () => {
+        suggestState.top = null;
+        renderSuggestStatus();
+    });
 
     inputEditor.addEventListener("change", () => {
         checkInput();
@@ -1226,7 +1230,9 @@ const SHORTCUTS = [
     ["Ctrl/⌘ + Shift + I", "Tidy the input JSON"],
     ["Ctrl/⌘ + S", "Copy a share link"],
     ["Ctrl/⌘ + /", "Comment or uncomment the selected lines"],
-    ["Ctrl + Space", "Suggest a cmdlet"],
+    ["Ctrl + Space", "Suggest what comes next"],
+    ["Tab", "Take the suggestion shown after the caret"],
+    ["Ctrl + →", "Take one line of the suggestion"],
     ["Ctrl/⌘ + 1…5", "Switch to a tab"],
     ["Escape", "Close whatever is open"],
     ["?", "This list"],
@@ -1518,7 +1524,7 @@ boot();
  * accepts. The WASM page has no model; the engine says so once and the page
  * never asks again. */
 
-const SUGGEST_DELAY_MS = 600;
+const SUGGEST_DELAY_MS = 350;
 
 const suggestState = {
     enabled: false,
@@ -1592,7 +1598,7 @@ async function suggest(explicit) {
         suggestState.status = resp.status || suggestState.status;
         if (queryEditor.value !== query || queryEditor.caret !== caretUnits) return;
         suggestState.top = resp.ranked && resp.items && resp.items.length ? resp.items[0] : null;
-        queryEditor.setGhost(resp.ghost || "");
+        queryEditor.setGhost(resp.ghost || "", resp.ghostAfter || 0);
     } catch (err) {
         if (!isNoise(err) && seq === suggestState.seq) suggestState.top = null;
     } finally {
@@ -1626,9 +1632,12 @@ function renderSuggestStatus() {
         case st.state === "error":
             label = `d1: ${st.detail || "failed"}`;
             break;
-        case Boolean(queryEditor.ghost && suggestState.top):
-            label = `Tab ⇥ ${suggestState.top.display} ${Math.round(suggestState.top.probability * 100)}%`;
+        case Boolean(queryEditor.ghost && suggestState.top): {
+            const d = suggestState.top.display;
+            const short = d.length > 48 ? `${d.slice(0, 47)}…` : d;
+            label = `Tab ⇥ ${short} ${Math.round(suggestState.top.probability * 100)}%`;
             break;
+        }
         default:
             label = st.device ? `d1 · ${st.device}` : "d1";
     }

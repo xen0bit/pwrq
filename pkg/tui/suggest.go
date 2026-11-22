@@ -19,7 +19,7 @@ import (
 // suggestDelay is the pause in typing that asks for a suggestion: long
 // enough not to ask at every keystroke, short enough to feel like it was
 // waiting.
-const suggestDelay = 600 * time.Millisecond
+const suggestDelay = 350 * time.Millisecond
 
 // spinnerFrames draw the model's progress in the status line.
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -107,7 +107,12 @@ func (m *model) finishSuggest(msg suggestMsg) tea.Cmd {
 	if msg.of != m.query.Version || m.focus != paneQuery {
 		return nil
 	}
-	m.query.Ghost = msg.resp.Ghost
+	m.query.Ghost, m.query.GhostAfter = msg.resp.Ghost, msg.resp.GhostAfter
+	if m.query.Ghost != "" {
+		// One suggestion at a time: the name list would offer a different
+		// thing for the same key.
+		m.complete = nil
+	}
 	m.sugg.top = nil
 	if len(msg.resp.Items) > 0 && msg.resp.Ranked {
 		top := msg.resp.Items[0]
@@ -146,6 +151,20 @@ func (m *model) acceptGhost() tea.Cmd {
 	return tea.Batch(m.scheduleValidate(), m.scheduleSuggest(false))
 }
 
+// acceptGhostLine inserts the suggestion's next line, keeping the rest.
+func (m *model) acceptGhostLine() tea.Cmd {
+	if !m.query.AcceptGhostLine() {
+		return nil
+	}
+	if m.query.Ghost != "" {
+		// The rest is still the suggestion: the text it was for has only
+		// grown by the part taken.
+		return m.scheduleValidate()
+	}
+	m.sugg.top = nil
+	return tea.Batch(m.scheduleValidate(), m.scheduleSuggest(false))
+}
+
 // suggestIndicator is the status line's word on suggestions.
 func (m *model) suggestIndicator() string {
 	if !m.sugg.enabled {
@@ -167,7 +186,11 @@ func (m *model) suggestIndicator() string {
 	case st.State == "error":
 		return th.danger.Render("d1: " + st.Detail)
 	case m.query.Ghost != "" && m.sugg.top != nil:
-		return th.muted.Render(fmt.Sprintf("Tab ⇥ %s %d%%", m.sugg.top.Display, int(math.Round(100*m.sugg.top.Probability))))
+		label := m.sugg.top.Display
+		if r := []rune(label); len(r) > 48 {
+			label = string(r[:47]) + "…"
+		}
+		return th.muted.Render(fmt.Sprintf("Tab ⇥ %s %d%%", label, int(math.Round(100*m.sugg.top.Probability))))
 	}
 	return th.faint.Render("d1 " + st.Device)
 }

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/xen0bit/pwrq/pkg/udf"
 )
 
 // fakeRanker prefers the candidate named by favourite, and records what it
@@ -22,6 +24,7 @@ type fakeRanker struct {
 	delay     time.Duration
 	seen      []SuggestContext
 	warmed    int
+	slots     map[string]string // slot question -> the words "found"
 }
 
 func (f *fakeRanker) Rank(ctx context.Context, sc SuggestContext) (Ranking, error) {
@@ -47,7 +50,19 @@ func (f *fakeRanker) Rank(ctx context.Context, sc SuggestContext) (Ranking, erro
 			probs[i] = (1 - f.prob) / float64(len(sc.Candidates))
 		}
 	}
-	return Ranking{Probabilities: probs, Continue: f.cont, Threshold: f.threshold}, nil
+	return f.withSlots(sc, Ranking{Probabilities: probs, Continue: f.cont, Threshold: f.threshold}), nil
+}
+
+// slots answers every slot question the way a model reading the comment
+// would, for the tests that check filling.
+func (f *fakeRanker) withSlots(sc SuggestContext, r Ranking) Ranking {
+	r.Slots = map[string]string{}
+	for _, q := range sc.SlotQuestions {
+		if v, ok := f.slots[q]; ok {
+			r.Slots[q] = v
+		}
+	}
+	return r
 }
 
 func (f *fakeRanker) Status() SuggestStatus {
@@ -70,7 +85,7 @@ func TestSuggestPositions(t *testing.T) {
 	for _, c := range []struct {
 		query, input, position, partial, call string
 	}{
-		{"", "", PosStage, "", ""},
+		{"", "", "", "", ""}, // nothing written and nothing asked for
 		{".items | ", "", PosStage, "", ""},
 		{".items | sel", "", PosStage, "sel", ""},
 		{".items ", "", PosAfter, "", ""},
@@ -78,7 +93,10 @@ func TestSuggestPositions(t *testing.T) {
 		{".na", `{"name": 1, "size": 2}`, PosField, "na", ""},
 		{"map(", "", PosArgument, "", "map"},
 		{"select(.a) | sort_by(", "", PosArgument, "", "sort_by"},
-		{"# just prose here", "", "", "", ""},
+		{"# list the big files", "", PosScript, "", ""},
+		{"# list the big files\n", "", PosScript, "", ""},
+		{"# a comment\n.items ", "", PosAfter, "", ""},
+		{"get_childitem(\".\")", "", PosAfter, "", ""},
 		{`"inside a string `, "", "", "", ""},
 	} {
 		sc := webEngine(Config{}).suggestContext(SuggestRequest{Query: c.query, Cursor: -1, Input: c.input})
@@ -194,5 +212,105 @@ func TestSuggestStatusWarmsTheRanker(t *testing.T) {
 	st := webEngine(Config{Ranker: r}).SuggestStatus()
 	if st.State != "ready" || r.warmed != 1 {
 		t.Fatalf("status %+v, warmed %d", st, r.warmed)
+	}
+}
+
+// TestCommentWritesTheQuery: a comment and nothing else asks for a whole
+// query - the recipe the ranker picks, its slots filled from the comment,
+// on the line after the comment, ready for Tab.
+func TestCommentWritesTheQuery(t *testing.T) {
+	r := &fakeRanker{favourite: "images-containing", prob: 0.95, cont: 1, threshold: 0.5,
+		slots: map[string]string{"What should the images contain or show?": "a shrimp", "Which directory or folder?": "current directory"}}
+	e := New(Config{Registry: webEngine(Config{}).config.Registry, Ranker: r})
+	query := "# Use a decision model to list images in the current directory that contain a shrimp"
+	sc := e.SuggestContext(SuggestRequest{Query: query, Cursor: -1})
+	if sc.Position != PosScript || sc.Lead != "\n" || len(sc.SlotQuestions) == 0 {
+		t.Fatalf("context %+v", sc)
+	}
+	found := false
+	for _, c := range sc.Candidates {
+		found = found || c.Name == "images-containing"
+	}
+	if !found {
+		t.Fatalf("the prefilter lost the images recipe: %+v", sc.Candidates)
+	}
+	resp := e.Suggest(context.Background(), SuggestRequest{Query: query, Cursor: -1})
+	want := "\nget_childitem(\".\")\n| select("
+	if !strings.HasPrefix(resp.Ghost, want) || !strings.Contains(resp.Ghost, `Does the image contain a shrimp?`) {
+		t.Fatalf("ghost %q", resp.Ghost)
+	}
+	if resp.Items[0].Kind != "recipe" || !strings.Contains(resp.Items[0].Display, "images") {
+		t.Fatalf("items %+v", resp.Items)
+	}
+	// The cursor in the middle of the comment is still writing it.
+	if sc := e.SuggestContext(SuggestRequest{Query: query, Cursor: 5}); len(sc.Candidates) != 0 {
+		t.Fatalf("suggested mid-comment: %+v", sc.Position)
+	}
+}
+
+// TestRecipeContinues: written code that starts a recipe is offered the
+// recipe's rest.
+func TestRecipeContinues(t *testing.T) {
+	e := webEngine(Config{})
+	sc := e.SuggestContext(SuggestRequest{Query: "# images that contain a cat\nget_childitem(\".\")\n", Cursor: -1})
+	if sc.Position != PosAfter {
+		t.Fatalf("position %q", sc.Position)
+	}
+	ok := false
+	for _, c := range sc.Candidates {
+		if c.Kind == "recipe" && c.Name == "images-containing" && strings.HasPrefix(c.Insert, "| select(.Extension") {
+			ok = true
+		}
+	}
+	if !ok {
+		t.Fatalf("no continuation among %+v", sc.Candidates)
+	}
+}
+
+// TestFieldsComeFromTheCmdletsShape: with no input sample, the fields after
+// a dot are what the stage before declares it emits.
+func TestFieldsComeFromTheCmdletsShape(t *testing.T) {
+	e := New(Config{Registry: webEngine(Config{}).config.Registry})
+	for _, q := range []string{`get_childitem(".") | select(.`, `[get_childitem(".") | select(.Length > 0)] | sort_by(.`, `get_childitem(".") | .`} {
+		sc := e.SuggestContext(SuggestRequest{Query: q, Cursor: -1})
+		var names []string
+		for _, c := range sc.Candidates {
+			names = append(names, c.Name)
+		}
+		if !strings.Contains(strings.Join(names, " "), "Length") {
+			t.Errorf("%s: fields %v", q, names)
+		}
+	}
+}
+
+func TestLexicalSlots(t *testing.T) {
+	cases := []struct{ kind, comment, want string }{
+		{"number", "top 20 largest files", "20"},
+		{"number", "files over 10MB in the last 3 days", ""},
+		{"days", "changed in the past 3 days", "3"},
+		{"days", "files modified this week", "7"},
+		{"size", "anything over 1.5 GB", "1.5 GB"},
+		{"ip", "who is 10.0.0.1", "10.0.0.1"},
+		{"url", "fetch https://example.com/a.json.", "https://example.com/a.json"},
+	}
+	for _, c := range cases {
+		got, _ := lexicalSlot(c.kind, c.comment)
+		if got != c.want {
+			t.Errorf("lexicalSlot(%s, %q) = %q, want %q", c.kind, c.comment, got, c.want)
+		}
+	}
+}
+
+// TestRecipeTakesItsFirstNamesPlace: the model picking get_process, with a
+// recipe that writes get_process and goes on, offers the recipe.
+func TestRecipeTakesItsFirstNamesPlace(t *testing.T) {
+	r := &fakeRanker{favourite: "get_process", prob: 0.6, cont: 1, threshold: 0.5}
+	e := New(Config{Registry: udf.DefaultRegistry(), Ranker: r})
+	resp := e.Suggest(context.Background(), SuggestRequest{Query: "# the processes using the most memory\n[get_pr]", Cursor: len([]rune("# the processes using the most memory\n[get_pr"))})
+	if len(resp.Items) == 0 || resp.Items[0].Kind != "recipe" || !strings.HasPrefix(resp.Items[0].Insert, "get_process]\n| sort_by(") {
+		t.Fatalf("items %+v", resp.Items)
+	}
+	if resp.GhostAfter != 1 || !strings.HasPrefix(resp.Ghost, "ocess]\n") {
+		t.Fatalf("ghost %q after %d; top %+v", resp.Ghost, resp.GhostAfter, resp.Items[0])
 	}
 }
