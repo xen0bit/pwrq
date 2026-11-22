@@ -170,3 +170,23 @@
 {"id": "s169", "comment": "compare two versions with semver", "recipe": "", "slots": {}, "split": "test"}
 {"id": "s170", "comment": "ssdeep hash of every file", "recipe": "", "slots": {}, "split": "dev"}
 {"id": "s171", "comment": "roll a die", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s172", "comment": "does clip.mp4 show a dog", "recipe": "video-shows", "slots": {"file": "clip.mp4", "subject": "dog"}, "split": "dev"}
+{"id": "s173", "comment": "ask d1 whether holiday.mov shows the beach", "recipe": "video-shows", "slots": {"file": "holiday.mov", "subject": "beach"}, "split": "test"}
+{"id": "s174", "comment": "is there a person in the video recording.mp4", "recipe": "video-shows", "slots": {"file": "recording.mp4", "subject": "person"}, "split": "dev"}
+{"id": "s175", "comment": "use the decision model to check if a car crashes in dashcam.mp4", "recipe": "video-shows", "slots": {"file": "dashcam.mp4", "subject": "car crashes"}, "split": "test"}
+{"id": "s176", "comment": "does the video show someone dancing", "recipe": "video-shows", "slots": {"subject": "someone dancing"}, "split": "dev"}
+{"id": "s177", "comment": "watch match.mov and tell me if a goal is scored", "recipe": "video-shows", "slots": {"file": "match.mov", "subject": "goal is scored"}, "split": "test"}
+{"id": "s178", "comment": "which videos in ~/Videos show my cat", "recipe": "videos-containing", "slots": {"dir": "~/Videos", "subject": "my cat"}, "split": "dev"}
+{"id": "s179", "comment": "list the clips here that show fireworks", "recipe": "videos-containing", "slots": {"subject": "fireworks"}, "split": "test"}
+{"id": "s180", "comment": "find recordings with people talking", "recipe": "videos-containing", "slots": {"subject": "people talking"}, "split": "dev"}
+{"id": "s181", "comment": "use a decision model to find movies in ./footage showing snow", "recipe": "videos-containing", "slots": {"dir": "./footage", "subject": "snow"}, "split": "test"}
+{"id": "s182", "comment": "does talk.webm show slides, extract the frames with ffmpeg", "recipe": "video-frames-ffmpeg", "slots": {"file": "talk.webm", "subject": "slides"}, "split": "dev"}
+{"id": "s183", "comment": "use ffmpeg to get frames from game.mkv and ask d1 if there is a crowd", "recipe": "video-frames-ffmpeg", "slots": {"file": "game.mkv", "subject": "crowd"}, "split": "test"}
+{"id": "s184", "comment": "check whether old.avi shows a birthday cake", "recipe": "video-frames-ffmpeg", "slots": {"file": "old.avi", "subject": "birthday cake"}, "split": "dev"}
+{"id": "s185", "comment": "ffmpeg the webm into frames and see if anyone waves", "recipe": "video-frames-ffmpeg", "slots": {"subject": "anyone waves"}, "split": "test"}
+{"id": "s186", "comment": "when does a dog appear in walk.mp4", "recipe": "video-when", "slots": {"file": "walk.mp4", "subject": "dog"}, "split": "dev"}
+{"id": "s187", "comment": "at what times is the door open in cam.mp4", "recipe": "video-when", "slots": {"file": "cam.mp4", "subject": "the door open"}, "split": "test"}
+{"id": "s188", "comment": "find the moments in match.mov where a goal is scored", "recipe": "video-when", "slots": {"file": "match.mov", "subject": "goal is scored"}, "split": "dev"}
+{"id": "s189", "comment": "timestamps of the clip where someone falls", "recipe": "video-when", "slots": {"subject": "someone falls"}, "split": "test"}
+{"id": "s190", "comment": "use d1 to find when the cat shows up in the recording", "recipe": "video-when", "slots": {"subject": "the cat"}, "split": "dev"}
+{"id": "s191", "comment": "where in lecture.mp4 are slides shown", "recipe": "video-when", "slots": {"file": "lecture.mp4", "subject": "slides"}, "split": "test"}

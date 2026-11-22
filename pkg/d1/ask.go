@@ -15,6 +15,10 @@ type Media struct {
 	Picture *vision.Picture   // a picture
 	Frames  []*vision.Picture // a video's frames, all one size
 	FPS     float64           // the frames' rate
+	// Times, when set, says Frames are already the sample the model reads,
+	// resized by vision.VideoSize - as pkg/d1/video decodes a file - each at
+	// this many seconds into the clip; FPS is then unused.
+	Times []float64
 }
 
 // Request is a state, its questions, and its media.
@@ -77,6 +81,8 @@ func (m *Model) Ask(ctx context.Context, req Request) (*Response, error) {
 		switch {
 		case md.Picture != nil:
 			vm, err = vision.Image(md.Picture, cfg.VisionMax, cfg.ImageToken)
+		case len(md.Frames) > 0 && md.Times != nil:
+			vm, err = vision.VideoAt(md.Frames, md.Times, cfg.VideoToken)
 		case len(md.Frames) > 0:
 			vm, err = vision.Video(md.Frames, md.FPS, cfg.VideoToken)
 		default:

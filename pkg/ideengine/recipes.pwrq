@@ -196,6 +196,43 @@ get_childitem("{{dir}}")
 | select(invoke_systemone({q: {type: "noul", instructions: "Does the image contain {{subject}}?"}}; {Media: [.FullName]}).q.noul > 0.5)
 | .Name
 
+## video-shows
+# task: use a decision model to tell whether a video (clip, movie, recording) shows something or something happens in it
+# also: mp4 mov footage film d1 vision watch happening
+# slot file file = clip.mp4
+# slot subject phrase: What should the video show? = a dog
+invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: ["{{file}}"]}).q.noul
+
+## video-when
+# task: use a decision model to find when in a video (clip, movie, recording) something happens or is shown, reading it in segments at full detail
+# also: timestamps moments where time find in footage mp4 mov d1 vision when does
+# slot file file = clip.mp4
+# slot subject phrase: What should the video show? = a dog
+invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: [{Type: "video", Path: "{{file}}", Segment: 10}]}).q.segments[]
+| select(.noul > 0.5)
+| {start, end}
+
+## videos-containing
+# task: use a decision model to list the videos (clips, movies, recordings) in a directory that show something
+# also: mp4 mov footage films which videos d1 vision
+# slot dir path = .
+# slot subject phrase: What should the videos show? = a dog
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".mp4", ".mov", ".m4v"))
+| select(invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: [.FullName]}).q.noul > 0.5)
+| .Name
+
+## video-frames-ffmpeg
+# task: extract a video's frames with ffmpeg (webm, mkv, avi or any format) and ask a decision model whether it shows something
+# also: ffprobe frames extract convert webm mkv avi wmv flv d1 vision
+# slot file file = clip.webm
+# slot subject phrase: What should the video show? = a dog
+sh("ffprobe -v error -show_entries format=duration -of csv=p=0 '{{file}}'") | tonumber as $secs
+| ([2, 768 / $secs] | min) as $fps
+| sh("d=$(mktemp -d) && ffmpeg -loglevel error -i '{{file}}' -vf fps=\($fps) $d/%05d.png && echo $d")
+| [get_childitem(.; {Filter: "*.png"}) | .FullName] | sort
+| invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: [{Type: "video", Frames: ., FPS: $fps}]}).q.noul
+
 ## images-score
 # task: use a decision model to rate how much each image (picture, photo) shows something, with a probability
 # also: rank likelihood probability score photos d1

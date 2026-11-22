@@ -46,12 +46,14 @@ require (
 )
 
 require (
+	github.com/Eyevinn/mp4ff v0.63.0
 	github.com/censys/censys-sdk-go v0.25.30
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/dlclark/regexp2 v1.11.4
 	github.com/ebitengine/purego v0.11.1
+	github.com/gen2brain/h265 v0.2.7
 	github.com/glaslos/ssdeep v0.4.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/jsonschema-go v0.4.3
@@ -63,6 +65,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/muesli/termenv v0.16.0
 	github.com/odvcencio/gotreesitter v0.51.0
+	github.com/oops1/go.264 v1.14.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.48.0
 	golang.org/x/net v0.62.0

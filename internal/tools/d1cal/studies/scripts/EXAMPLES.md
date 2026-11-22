@@ -4,11 +4,11 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 
 | example | comment | got |
 |---|---|---|
-| find#1 | find all the files under src | list-files-recursive |
 | find#2 | list directories here, at most 2 levels deep | list-directories |
 | cat#3 | dump the contents of every file in this directory | list-files |
 | cat#4 | show the last 20 lines of app.log | tail-file (not a candidate) |
-| binary_decode#1 | convert the bits 01101000 01101001 back to text | quoted_printable_decode#1 (not a candidate) |
+| read_bytes#2 | how many bytes is a.bin | human_bytes#1 |
+| binary_decode#1 | convert the bits 01101000 01101001 back to text | hamming_weight#1 (not a candidate) |
 | url_encode#1 | percent-encode a b&c for a url | slots: `"a b\u0026c" \| url_encode → "b\u0026c" \| url_encode` |
 | url_decode#1 | url decode a%20b%26c | url-decode |
 | html_encode#1 | escape <b>hi</b> for html | slots: `u003e" \| html_encode → u003e" \| html_encode` |
@@ -43,7 +43,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | chacha20#2 | chacha20 the file a.bin | file_type#1 |
 | slugify#1 | slugify Hello World! | slots: `llo World" \| slugify → llo World" \| slugify` |
 | camel_case#1 | convert hello world to camelCase | json_stringify#1 (not a candidate) |
-| pascal_case#1 | PascalCase hello world | search-text (not a candidate) |
+| pascal_case#1 | PascalCase hello world | newest-files (not a candidate) |
 | title_case#1 | title case the quick brown fox | slots: `"the quick brown fox" \| title_c → "quick brown fox" \| title_case` |
 | pad_left#1 | zero pad 5 to 3 digits | slots: `"5" \| pad_left(3; "0") → pad_left(5; "0")` |
 | pad_right#1 | pad 5 on the right with zeros to width 3 | slots: `"5" \| pad_right(3; "0") → pad_right(5; "0")` |
@@ -53,7 +53,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | human_bytes#1 | 1048576 bytes in human readable units | human_number#1 |
 | percentage#1 | what percent is 40 of 200 | similarity_percent#1 (not a candidate) |
 | basename#1 | file name of /tmp/data/file.txt | stem#1 (not a candidate) |
-| dirname#1 | directory part of /tmp/data/file.txt | current-directory (not a candidate) |
+| dirname#1 | directory part of /tmp/data/file.txt | list-directories (not a candidate) |
 | mean#1 | average of these numbers | average-field (not a candidate) |
 | human_duration#1 | 3661 seconds as a readable duration | iso_duration#1 |
 | parse_duration#1 | how many seconds is 2h30m | parse_duration#3 |
@@ -62,29 +62,30 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | base64url_encode#1 | url-safe base64 encode hello? | slots: `" \| base64url_encode → " \| base64url_encode` |
 | rot13#1 | rot13 hello | slots: `"hello" \| rot13 → rot13` |
 | to_timezone#1 | convert 2026-08-11T12:00:00Z to london time | slots: `"2026-08-11T12:00:00Z" \| to_tim → "london" \| to_timezone("Europe/` |
+| to_timezone#2 | show a timestamp in Asia/Tokyo time | current-date |
 | format_date#2 | format a unix time as rfc1123 in UTC | timestamp_to_date#2 |
-| parse_date#1 | parse 11/08/2026 as day/month/year | month_name#1 (not a candidate) |
+| parse_date#1 | parse 11/08/2026 as day/month/year | day_of_year#1 (not a candidate) |
 | list_timezones#2 | which timezone is Tokyo | to_timezone#2 (not a candidate) |
 | deep_diff#1 | what's different between two json objects | compare_object#1 (not a candidate) |
 | rncd_compare#3 | rank the files in samples by similarity | similarity_percent#1 |
 | shared_chunks#1 | what text do two strings share | where_same#1 (not a candidate) |
 | shared_chunks#2 | how much of known.bin is inside suspect.bin | directory-size (not a candidate) |
-| select_string#4 | find calls to join or walk in src | find#1 (not a candidate) |
+| select_string#4 | find calls to join or walk in src | invoke_pwrgrep#1 (not a candidate) |
 | select_ast#1 | names of go functions in src that return an error | invoke_pwrgrep#1 (not a candidate) |
 | select_ast#2 | count the if statements in go files under src | lines-of-code (not a candidate) |
-| select_ast#3 | find md5 and sha1 use in src grouped by pattern | group-by-field |
+| select_ast#3 | find md5 and sha1 use in src grouped by pattern | sha1#1 |
 | select_ast#4 | find tls configs that skip certificate verification | ini_parse#1 (not a candidate) |
 | ast_pattern#2 | metavariables of an ast pattern | select_ast#4 |
 | ast_pattern#3 | check a php ast pattern for problems | select_ast#4 |
 | get_ast_language#2 | file extensions for the go grammar | file_extension#1 |
 | wc_lines#1 | line count of app.log | line_count#1 (not a candidate) |
-| invoke_pwrgrep#1 | list the go functions in src with pwrgrep | get_pwrgrep_rule#1 |
-| invoke_pwrgrep#3 | count go flow findings in src by rule | get_pwrgrep_rule#1 (not a candidate) |
+| invoke_pwrgrep#2 | run the go and python rules on src | scan_ast#1 |
+| invoke_pwrgrep#3 | count go flow findings in src by rule | scan_ast#1 (not a candidate) |
 | get_pwrgrep_rule#2 | how many pwrgrep rules are there | code-rules |
 | get_pwrgrep_rule#3 | ids of the python rules | invoke_pwrgrep#2 |
 | of#2 | scan src for weak hashes and keep only md5 | md5#1 (not a candidate) |
 | within#1 | matches that are inside another match | where_capture_ast#1 |
-| outside#1 | matches not inside a given region | in_files_without#1 |
+| in_files_with#1 | matches in files that also contain something else | select_ast#4 |
 | not_at#1 | drop matches at the same place as others | at_same_place#1 |
 | where_capture_not#1 | drop matches whose algorithm is sha256 | hash-all-files |
 | scan_regex#2 | count passwords in yaml files under src | yaml_parse#2 (not a candidate) |
@@ -99,10 +100,9 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | ip_version#1 | is 192.168.1.1 ipv4 or ipv6 | is_ip#1 (not a candidate) |
 | keccak_256#1 | keccak256 of hello | duplicate-files (not a candidate) |
 | human_number#1 | 1500 as 1.5k | largest-files (not a candidate) |
-| rescale#1 | rescale 5 from 0-10 to 0-100 | slots: `5 \| rescale(0; 10; 0; 100) → 5 \| rescale(5; 5; 5; 5)` |
-| subnet_of#1 | is 10.0.0.0/24 a subnet of 10.0.0.0/8 | slots: `"10.0.0.0/24" \| subnet_of("10. → subnet_of("10.0.0.0/8")` |
-| n_grams#1 | bigrams of hello | search-text (not a candidate) |
-| get_childitem#1 | list the current directory | current-directory (not a candidate) |
+| rescale#1 | rescale 5 from 0-10 to 0-100 | slots: `5 \| rescale(0; 10; 0; 100) → 0 \| rescale(5; 5; 5; 5)` |
+| subnet_of#1 | is 10.0.0.0/24 a subnet of 10.0.0.0/8 | slots: `"10.0.0.0/24" \| subnet_of("10.0.0.0/8") → "10.0.0.0/8" \| subnet_of("10.0.0.0/8")` |
+| n_grams#1 | bigrams of hello | files-named (not a candidate) |
 | set_content#2 | overwrite file.txt with some text | search-text (not a candidate) |
 | out_file#1 | save the output to report.txt | report#1 (not a candidate) |
 | out_file#2 | append the output to run.log | add_content#2 (not a candidate) |
@@ -128,7 +128,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | invoke_llm_batch#2 | summarize each item with an llm | summarize-file |
 | invoke_systemone#3 | read the invoice total and date with the decision model | sum-field |
 | invoke_systemone#4 | count the cups in kitchen.jpg | images-count-objects (not a candidate) |
-| invoke_systemone#5 | ask the remote jev model which team | get_llm_model#1 |
+| invoke_systemone#9 | ask the remote jev model which team | get_llm_model#1 |
 | invoke_systemone_batch#1 | flag spam in each item with the decision model | classify-lines (not a candidate) |
 | get_llm_context#2 | context length of gpt-4o | count-files |
 | get_llm_usage#2 | total tokens used | sum-field (not a candidate) |
@@ -152,7 +152,6 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | age_in_years#1 | how old is someone born 2000-06-15 | count-items (not a candidate) |
 | has_path#1 | does it have the key a | rename_keys#1 (not a candidate) |
 | del_path#1 | delete the field a.b | object-keys (not a candidate) |
-| invoke_sqlite_query#3 | find a user by email in app.db | sqlite-tables |
 | invoke_sqlite_command#2 | delete user 42 from app.db | sqlite-tables |
 | get_sqlite_schema#2 | schema of every table in app.db | sqlite-tables |
 | get_sqlite_schema#3 | primary key of users in app.db | object-keys (not a candidate) |
@@ -161,4 +160,4 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | get_censys_host#2 | what censys saw on 1.1.1.1 at the start of 2026 | get_censys_host_timeline#1 |
 | search_censys#2 | censys hosts in chile | get_censys_aggregate#1 |
 
-156 of 679 examples missed.
+155 of 682 examples missed.

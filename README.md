@@ -499,9 +499,14 @@ The question types are d1's:
 | `box`, `boxes` | `.box` {top, bottom, left, right} in fractions of the picture, `.found`, `.confidence`; `.boxes`, `.count` | where something is in the one picture of `Media` |
 
 A state is text, any JSON document (rendered as the model was trained on it),
-or `null` with pictures alone. Pictures and video frames go in `Media`: a path,
-a `get_childitem` object, `{Data: base64}`, or `{Type: "video", Frames: [...],
-FPS: n}`:
+or `null` with pictures alone. Pictures and video go in `Media`: a path, a
+`get_childitem` object, `{Data: base64}`, `{Type: "video", Path, Start, End}`,
+or `{Type: "video", Frames: [...], FPS: n}`. An MP4 or QuickTime video (H.264
+or HEVC) is decoded in Go and read at two frames a second, within one pixel
+budget, so a long clip's frames are small; `Segment: 10` reads it ten seconds
+at a time at full detail and combines the answers, with `.segments` saying
+when. Any other format is passed as its frames, which `sh` and ffmpeg can
+extract (see [EXAMPLES.md](EXAMPLES.md)):
 
 ```console
 $ pwrq -nc 'invoke_systemone(null; {red: {type: "noul", instructions: "Is there a red square?"},
@@ -996,7 +1001,7 @@ trip each time. Seven things it used to have to guess:
   derived from gojq's own `builtins`, so it cannot drift from what actually
   compiles.
 - **Whether an example works.** Every published example is compiled, and each
-  one that can run is run, by a test that proves it: 697 example strings across
+  one that can run is run, by a test that proves it: 701 example strings across
   the catalogue, of which 586 run. A hundred did not when the test was first
   added: `e.g.
   md5` was the whole example for `md5`, `aes_encrypt("data"; "key")` used a

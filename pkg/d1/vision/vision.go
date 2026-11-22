@@ -44,7 +44,15 @@ const (
 	imageMinPixels = 65536
 	imageMaxPixels = 16777216
 	videoMinPixels = 4096
-	videoMaxPixels = 25165824
+	// VideoMaxPixels is the pixels a clip's sampled frames are resized to in
+	// all - the processor's size.longest_edge - and so its tokens: one per
+	// 32x32 pixels of each pair of frames, 4096 here. The checkpoint's own
+	// is 25165824, about 12k tokens, and the decoder's attention over that
+	// many asks for 9.5 GB at once: measured on a 16 GB GPU, ten seconds of
+	// 1080p failed to allocate. A third of it fits beside the model on such
+	// a card and in a few GB of RAM, and a clip under it - most clips below
+	// HD, or a few seconds of HD - is read exactly as the checkpoint would.
+	VideoMaxPixels = 8388608
 	videoFPS       = 2.0
 	minFrames      = 4
 	maxFrames      = 768
@@ -288,8 +296,8 @@ func videoSmartResize(frames, height, width int) (int, int, error) {
 	hBar := int(pyRound(float64(height)/factor)) * factor
 	wBar := int(pyRound(float64(width)/factor)) * factor
 	tBar := int(pyRound(float64(frames)/temporal)) * temporal
-	if tBar*hBar*wBar > videoMaxPixels {
-		beta := math.Sqrt(float64(frames*height*width) / videoMaxPixels)
+	if tBar*hBar*wBar > VideoMaxPixels {
+		beta := math.Sqrt(float64(frames*height*width) / VideoMaxPixels)
 		hBar = max(factor, int(math.Floor(float64(height)/beta/factor))*factor)
 		wBar = max(factor, int(math.Floor(float64(width)/beta/factor))*factor)
 	} else if tBar*hBar*wBar < videoMinPixels {
@@ -418,15 +426,47 @@ func Video(frames []*Picture, fps float64, videoToken string) (Media, error) {
 		}
 	}
 	indices := SampleFrames(len(frames), fps)
-	h, w, err := videoSmartResize(len(indices), frames[0].H, frames[0].W)
+	h, w, err := VideoSize(len(indices), frames[0].H, frames[0].W)
 	if err != nil {
 		return Media{}, err
 	}
 	sampled := make([]*Picture, len(indices))
+	times := make([]float64, len(indices))
 	for i, idx := range indices {
 		sampled[i] = frames[idx].ResizeTorch(w, h)
+		times[i] = float64(idx) / fps
 	}
-	stamps := append([]int(nil), indices...)
+	return VideoAt(sampled, times, videoToken)
+}
+
+// VideoSize is the size the processor resizes each of a clip's n sampled
+// frames to, from the frames' own height and width: smart_resize over the
+// whole clip within VideoMaxPixels, so a longer clip's frames are smaller. A caller decoding a
+// video file resizes each frame to it as it is decoded, rather than holding
+// hundreds of full-size frames to resize later.
+func VideoSize(n, height, width int) (h, w int, err error) {
+	return videoSmartResize(n, height, width)
+}
+
+// VideoAt prepares frames already sampled from a clip and resized by
+// VideoSize, each with its time in seconds from the start of the clip.
+func VideoAt(frames []*Picture, times []float64, videoToken string) (Media, error) {
+	if len(frames) == 0 {
+		return Media{}, fmt.Errorf("a video has no frames")
+	}
+	if len(times) != len(frames) {
+		return Media{}, fmt.Errorf("a video has %d frames and %d times", len(frames), len(times))
+	}
+	for _, f := range frames {
+		if f.W != frames[0].W || f.H != frames[0].H {
+			return Media{}, fmt.Errorf("a video's frames must share one size: %dx%d and %dx%d", frames[0].W, frames[0].H, f.W, f.H)
+		}
+	}
+	if frames[0].W%factor != 0 || frames[0].H%factor != 0 {
+		return Media{}, fmt.Errorf("a sampled video's frames must be sized by VideoSize, got %dx%d", frames[0].W, frames[0].H)
+	}
+	sampled := append([]*Picture(nil), frames...)
+	stamps := append([]float64(nil), times...)
 	for len(sampled)%temporal != 0 {
 		sampled = append(sampled, sampled[len(sampled)-1])
 		stamps = append(stamps, stamps[len(stamps)-1])
@@ -437,7 +477,7 @@ func Video(frames []*Picture, fps float64, videoToken string) (Media, error) {
 	for t := 0; t < len(sampled); t += temporal {
 		in := patchify([temporal]*Picture{sampled[t], sampled[t+1]})
 		m.Inputs = append(m.Inputs, in)
-		at := (float64(stamps[t])/fps + float64(stamps[t+1])/fps) / 2
+		at := (stamps[t] + stamps[t+1]) / 2
 		fmt.Fprintf(&b, "<%.1f seconds>", at)
 		b.WriteString("<|vision_start|>" + strings.Repeat(videoToken, in.Tokens()) + "<|vision_end|>")
 	}

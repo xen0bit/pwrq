@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/xen0bit/pwrq/pkg/d1"
 	"github.com/xen0bit/pwrq/pkg/d1/assets"
 	"github.com/xen0bit/pwrq/pkg/d1/prompt"
+	"github.com/xen0bit/pwrq/pkg/d1/video"
 	"github.com/xen0bit/pwrq/pkg/d1/vision"
 	"github.com/xen0bit/pwrq/pkg/udf/common"
 )
@@ -114,6 +116,14 @@ type localRequest struct {
 	media     []d1.Media
 	digest    []string // the media's sha256s, for the cache key
 	raw       any      // the questions as given, for the cache key
+	seg       *segmented
+}
+
+// close releases a video read in segments.
+func (r *localRequest) close() {
+	if r != nil && r.seg != nil {
+		r.seg.close()
+	}
 }
 
 // parseLocal checks a call's state, questions and media.
@@ -122,41 +132,63 @@ func parseLocal(op string, state any, rawQuestions any, o options) (*localReques
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	media, digest, err := parseMedia(op, o.Media)
+	media, digest, seg, err := parseMedia(op, o.Media)
 	if err != nil {
+		return nil, err
+	}
+	req := &localRequest{media: media, digest: digest, seg: seg}
+	fail := func(err error) (*localRequest, error) {
+		req.close()
 		return nil, err
 	}
 	switch s := state.(type) {
 	case nil:
 		if len(media) == 0 {
-			return nil, fmt.Errorf("%s: the state is null and there is no Media; pass text, a document, or {Media: [...]}", op)
+			return fail(fmt.Errorf("%s: the state is null and there is no Media; pass text, a document, or {Media: [...]}", op))
 		}
 	case string:
 		if strings.TrimSpace(s) == "" && len(media) == 0 {
-			return nil, fmt.Errorf("%s: state is empty", op)
+			return fail(fmt.Errorf("%s: state is empty", op))
 		}
 	case map[string]any, []any:
 	default:
-		return nil, fmt.Errorf("%s: state must be text, an object, an array, or null with Media, got %s; it comes from the pipeline, or the first of three arguments", op, jsonType(state))
+		return fail(fmt.Errorf("%s: state must be text, an object, an array, or null with Media, got %s; it comes from the pipeline, or the first of three arguments", op, jsonType(state)))
 	}
-	return &localRequest{state: state, questions: questions, media: media, digest: digest, raw: rawQuestions}, nil
+	req.state, req.questions, req.raw = state, questions, rawQuestions
+	return req, nil
 }
 
-// parseMedia reads the Media option: each item a picture's path, a
-// get_childitem object, {Type: "image", Path | Data}, or {Type: "video",
-// Frames: [path | Data...], FPS}. Data is base64.
-func parseMedia(op string, items []any) ([]d1.Media, []string, error) {
-	var out []d1.Media
-	var digest []string
+// parseMedia reads the Media option: each item a picture's or a video
+// file's path, a get_childitem object, {Type: "image", Path | Data},
+// {Type: "video", Path, Start, End} for a video file, or {Type: "video",
+// Frames: [path | Data...], FPS} for frames extracted already. Data is
+// base64. A path is a video when it is an MP4 or QuickTime file (by its
+// extension, or its first box when the extension says nothing).
+func parseMedia(op string, items []any) (out []d1.Media, digest []string, seg *segmented, err error) {
+	defer func() {
+		if err != nil && seg != nil {
+			seg.close()
+			seg = nil
+		}
+	}()
 	for i, item := range items {
-		fail := func(err error) ([]d1.Media, []string, error) {
-			return nil, nil, fmt.Errorf("%s: Media[%d]: %w", op, i, err)
+		fail := func(err error) ([]d1.Media, []string, *segmented, error) {
+			return nil, nil, seg, fmt.Errorf("%s: Media[%d]: %w", op, i, err)
 		}
 		obj, isObj := common.BindValue(item).(map[string]any)
-		kind := "image"
+		kind := ""
 		if isObj {
 			if t, ok := field(obj, "Type").(string); ok && t != "" {
 				kind = strings.ToLower(t)
+			}
+		}
+		path, hasPath := mediaPath(item)
+		if kind == "" {
+			kind = "image"
+			if hasPath && video.IsVideo(path) {
+				kind = "video"
+			} else if hasPath && otherVideo[strings.ToLower(filepath.Ext(path))] {
+				return fail(fmt.Errorf("%s is a video pwrq does not decode (it reads MP4 and QuickTime with H.264 or HEVC); pass its frames instead, {Type: \"video\", Frames: [...], FPS: n} - get_help(\"invoke_systemone\") shows how with ffmpeg", filepath.Base(path)))
 			}
 		}
 		switch kind {
@@ -172,13 +204,49 @@ func parseMedia(op string, items []any) ([]d1.Media, []string, error) {
 			out = append(out, d1.Media{Picture: p})
 			digest = append(digest, sha(raw))
 		case "video":
+			var segment float64
+			if isObj {
+				if v := field(obj, "Segment"); v != nil {
+					var ok bool
+					if segment, ok = optFloat(v); !ok || segment < 1 {
+						return fail(errors.New("a Segment is the seconds of video read at a time: 1 or more"))
+					}
+					if seg != nil {
+						return fail(fmt.Errorf("one video a call is read in segments"))
+					}
+				}
+			}
 			frames, _ := field(obj, "Frames").([]any)
 			if len(frames) == 0 {
-				return fail(fmt.Errorf(`a video is {Type: "video", Frames: [paths or base64 pictures], FPS: n}; pwrq does not decode video files, so pass their frames`))
+				if !hasPath {
+					return fail(fmt.Errorf(`a video is a file's path, {Type: "video", Path, Start, End}, or {Type: "video", Frames: [paths or base64 pictures], FPS: n}`))
+				}
+				var start, end float64
+				if isObj {
+					start, _ = optFloat(field(obj, "Start"))
+					end, _ = optFloat(field(obj, "End"))
+				}
+				if segment > 0 {
+					s, d, err := segmentFile(path, start, end, segment)
+					if err != nil {
+						return fail(err)
+					}
+					seg, s.at = s, len(out)
+					out = append(out, d1.Media{}) // each segment's frames in turn
+					digest = append(digest, d)
+					continue
+				}
+				m, d, err := videoFile(path, start, end)
+				if err != nil {
+					return fail(err)
+				}
+				out = append(out, m)
+				digest = append(digest, d)
+				continue
 			}
 			fps, ok := optFloat(field(obj, "FPS"))
 			if !ok || fps <= 0 {
-				return fail(fmt.Errorf("a video needs its frame rate, FPS, above 0"))
+				return fail(fmt.Errorf("a video's frames need their frame rate, FPS, above 0"))
 			}
 			m := d1.Media{FPS: fps}
 			h := sha256.New()
@@ -194,6 +262,13 @@ func parseMedia(op string, items []any) ([]d1.Media, []string, error) {
 				m.Frames = append(m.Frames, p)
 				h.Write(raw)
 			}
+			if segment > 0 {
+				seg = segmentFrames(m.Frames, fps, segment)
+				seg.at = len(out)
+				out = append(out, d1.Media{})
+				digest = append(digest, fmt.Sprintf("video-segments:%g:%g:%x", fps, segment, h.Sum(nil)))
+				continue
+			}
 			out = append(out, m)
 			digest = append(digest, fmt.Sprintf("video:%g:%x", fps, h.Sum(nil)))
 		case "audio":
@@ -202,7 +277,50 @@ func parseMedia(op string, items []any) ([]d1.Media, []string, error) {
 			return fail(fmt.Errorf("media type %q is not image or video", kind))
 		}
 	}
-	return out, digest, nil
+	return out, digest, seg, nil
+}
+
+// otherVideo are video containers pwrq does not decode, refused by name
+// rather than as a picture that would not decode.
+var otherVideo = map[string]bool{".webm": true, ".mkv": true, ".avi": true, ".wmv": true, ".flv": true,
+	".mpg": true, ".mpeg": true, ".ts": true, ".m2ts": true, ".mts": true, ".ogv": true}
+
+// videoFile reads a video file as d1 reads video: two frames a second
+// between start and end seconds (end 0: to the end), at least four and at
+// most 768, decoded in Go. Its cache key is the frames read.
+func videoFile(path string, start, end float64) (d1.Media, string, error) {
+	c, err := video.Open(filepath.Clean(path))
+	if err != nil {
+		return d1.Media{}, "", err
+	}
+	defer func() { _ = c.Close() }()
+	frames, err := c.Sample(start, end)
+	if err != nil {
+		return d1.Media{}, "", fmt.Errorf("%s: %w", filepath.Base(path), err)
+	}
+	m := d1.Media{Times: make([]float64, 0, len(frames))}
+	h := sha256.New()
+	for _, f := range frames {
+		m.Frames = append(m.Frames, f.Picture)
+		m.Times = append(m.Times, f.Time)
+		h.Write(f.Picture.Pix)
+	}
+	return m, fmt.Sprintf("video-file:%x", h.Sum(nil)), nil
+}
+
+// mediaPath is an item's file path, if it names one: a path, a file
+// object, or an object's Path.
+func mediaPath(item any) (string, bool) {
+	if obj, ok := common.BindValue(item).(map[string]any); ok {
+		if p, ok := field(obj, "Path").(string); ok && p != "" {
+			return p, true
+		}
+		if d, ok := field(obj, "Data").(string); ok && d != "" {
+			return "", false
+		}
+	}
+	p, ok := common.BindPath(item)
+	return p, ok && p != ""
 }
 
 func field(obj map[string]any, name string) any {
@@ -277,11 +395,20 @@ func askLocal(ctx context.Context, op string, req *localRequest, o options) (*re
 	if err != nil {
 		return nil, d1.Info{}, fmt.Errorf("%s: loading d1-2B: %w", op, err)
 	}
-	resp, err := model.Ask(ctx, d1.Request{
-		State: req.state, Questions: req.questions, Media: req.media,
-		SetSize: o.SetSize, Answer: answer, Uncalibrated: o.Uncalibrated,
-	})
-	if err != nil {
+	ask := func(media []d1.Media) (*d1.Response, error) {
+		return model.Ask(ctx, d1.Request{
+			State: req.state, Questions: req.questions, Media: media,
+			SetSize: o.SetSize, Answer: answer, Uncalibrated: o.Uncalibrated,
+		})
+	}
+	var resp *d1.Response
+	if req.seg != nil {
+		answers, tokens, seconds, err := askSegments(ctx, req, ask, o.ScoreReadout)
+		if err != nil {
+			return nil, model.Info(), fmt.Errorf("%s: %w", op, err)
+		}
+		resp = &d1.Response{Answers: answers, InputTokens: tokens, Seconds: seconds}
+	} else if resp, err = ask(req.media); err != nil {
 		return nil, model.Info(), fmt.Errorf("%s: %w", op, err)
 	}
 	out := &response{

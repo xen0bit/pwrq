@@ -123,7 +123,8 @@ var (
 	argNumberRe   = regexp.MustCompile(`([(;]\s*)(\d+)\s*[;)]`)
 	fileExtension = map[string]bool{"txt": true, "log": true, "json": true, "jsonl": true, "csv": true, "zip": true, "gz": true,
 		"tar": true, "bin": true, "db": true, "go": true, "py": true, "md": true, "pdf": true, "jpg": true, "png": true,
-		"html": true, "xml": true, "yaml": true, "yml": true, "sqlite": true, "toml": true}
+		"html": true, "xml": true, "yaml": true, "yml": true, "sqlite": true, "toml": true,
+		"mp4": true, "mov": true, "m4v": true, "webm": true, "mkv": true, "avi": true}
 )
 
 // isConstantInput reports whether a stage is a literal value: strings,
