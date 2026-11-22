@@ -13,19 +13,33 @@ import (
 // track is a video file's first video track: where each sample's bytes
 // are, when it is shown, and what its decoder needs before the first one.
 type track struct {
-	codec      string // "h264" or "hevc"
+	codec      string // "h264", "hevc", "vp8", "vp9" or "av1"
 	timescale  float64
 	samples    []sample // in decoding order
-	params     [][]byte // parameter set NAL units (VPS, SPS, PPS)
+	params     [][]byte // parameter set NAL units (VPS, SPS, PPS), or AV1's configuration OBUs
 	lengthSize int      // bytes of the length before each NAL unit in a sample
 	rotation   int      // degrees clockwise the picture is turned when shown
+
+	// The container's colour description, where the bitstream may not
+	// carry one: matrix is the CICP code (1 BT.709, 5/6 BT.601, 0/2
+	// unspecified).
+	matrix    int
+	fullRange bool
 }
+
+// inOrder reports whether the codec shows frames in the order they are
+// decoded: VP8, VP9 and AV1 hide what they reorder inside a sample.
+func (t *track) inOrder() bool { return t.codec == "vp8" || t.codec == "vp9" || t.codec == "av1" }
+
+// otherCodecs is what is said of a codec pwrq does not decode.
+const otherCodecs = "pwrq decodes H.264, HEVC (H.265), VP8, VP9 and AV1 itself, and anything else through its frames: get_help(\"invoke_systemone\") shows how with ffmpeg"
 
 type sample struct {
 	offset uint64
 	size   uint32
 	pts    int64 // presentation time, in timescale units
 	sync   bool  // decoding can start here
+	hidden bool  // decoded as a reference, never shown (a VP8 alt-ref frame)
 }
 
 // errFragmented and errNoVideo are the shapes of file the reader refuses
@@ -85,12 +99,25 @@ func readVideoTrak(trak *mp4.TrakBox) (*track, error) {
 		for _, a := range c.NaluArrays {
 			t.params = append(t.params, a.Nalus...)
 		}
+	case stbl.Stsd.Av01 != nil:
+		t.codec = "av1"
+		if c := stbl.Stsd.Av01.Av1C; c != nil && len(c.ConfigOBUs) > 0 {
+			t.params = [][]byte{c.ConfigOBUs}
+		}
+	case stbl.Stsd.VpXX != nil:
+		t.codec = map[string]string{"vp08": "vp8", "vp09": "vp9"}[stbl.Stsd.VpXX.Type()]
+		if t.codec == "" {
+			return nil, fmt.Errorf("the video is %s; %s", stbl.Stsd.VpXX.Type(), otherCodecs)
+		}
+		if c := stbl.Stsd.VpXX.VppC; c != nil {
+			t.matrix, t.fullRange = int(c.MatrixCoefficients), c.VideoFullRangeFlag == 1
+		}
 	default:
 		name := "unknown"
 		if len(stbl.Stsd.Children) > 0 {
 			name = stbl.Stsd.Children[0].Type()
 		}
-		return nil, fmt.Errorf("the video is %s; pwrq decodes H.264 and HEVC (H.265) itself, and anything else through its frames: get_help(\"invoke_systemone\") shows how with ffmpeg", name)
+		return nil, fmt.Errorf("the video is %s; %s", name, otherCodecs)
 	}
 	if stbl.Stsz == nil || stbl.Stsc == nil || stbl.Stts == nil || (stbl.Stco == nil && stbl.Co64 == nil) {
 		return nil, errors.New("the video track's sample table is incomplete")
@@ -179,11 +206,13 @@ func rotation(m [9]int32) int {
 	return ((deg % 360) + 360) % 360
 }
 
-// order is the samples in presentation order.
+// order is the samples shown, in presentation order.
 func (t *track) order() []int {
-	idx := make([]int, len(t.samples))
-	for i := range idx {
-		idx[i] = i
+	idx := make([]int, 0, len(t.samples))
+	for i, s := range t.samples {
+		if !s.hidden {
+			idx = append(idx, i)
+		}
 	}
 	sort.SliceStable(idx, func(a, b int) bool { return t.samples[idx[a]].pts < t.samples[idx[b]].pts })
 	return idx

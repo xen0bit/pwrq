@@ -183,10 +183,15 @@
 {"id": "s182", "comment": "does talk.webm show slides, extract the frames with ffmpeg", "recipe": "video-frames-ffmpeg", "slots": {"file": "talk.webm", "subject": "slides"}, "split": "dev"}
 {"id": "s183", "comment": "use ffmpeg to get frames from game.mkv and ask d1 if there is a crowd", "recipe": "video-frames-ffmpeg", "slots": {"file": "game.mkv", "subject": "crowd"}, "split": "test"}
 {"id": "s184", "comment": "check whether old.avi shows a birthday cake", "recipe": "video-frames-ffmpeg", "slots": {"file": "old.avi", "subject": "birthday cake"}, "split": "dev"}
-{"id": "s185", "comment": "ffmpeg the webm into frames and see if anyone waves", "recipe": "video-frames-ffmpeg", "slots": {"subject": "anyone waves"}, "split": "test"}
+{"id": "s185", "comment": "ffmpeg the avi into frames and see if anyone waves", "recipe": "video-frames-ffmpeg", "slots": {"subject": "anyone waves"}, "split": "test"}
 {"id": "s186", "comment": "when does a dog appear in walk.mp4", "recipe": "video-when", "slots": {"file": "walk.mp4", "subject": "dog"}, "split": "dev"}
 {"id": "s187", "comment": "at what times is the door open in cam.mp4", "recipe": "video-when", "slots": {"file": "cam.mp4", "subject": "the door open"}, "split": "test"}
 {"id": "s188", "comment": "find the moments in match.mov where a goal is scored", "recipe": "video-when", "slots": {"file": "match.mov", "subject": "goal is scored"}, "split": "dev"}
 {"id": "s189", "comment": "timestamps of the clip where someone falls", "recipe": "video-when", "slots": {"subject": "someone falls"}, "split": "test"}
 {"id": "s190", "comment": "use d1 to find when the cat shows up in the recording", "recipe": "video-when", "slots": {"subject": "the cat"}, "split": "dev"}
 {"id": "s191", "comment": "where in lecture.mp4 are slides shown", "recipe": "video-when", "slots": {"file": "lecture.mp4", "subject": "slides"}, "split": "test"}
+{"id": "s192", "comment": "does call.webm show a whiteboard", "recipe": "video-shows", "slots": {"file": "call.webm", "subject": "whiteboard"}, "split": "dev"}
+{"id": "s193", "comment": "ask d1 if the screen recording demo.webm shows an error dialog", "recipe": "video-shows", "slots": {"file": "demo.webm", "subject": "error dialog"}, "split": "test"}
+{"id": "s194", "comment": "is anyone on stage in concert.mkv", "recipe": "video-shows", "slots": {"file": "concert.mkv", "subject": "anyone on stage"}, "split": "dev"}
+{"id": "s195", "comment": "when is a screen shared in meeting.webm", "recipe": "video-when", "slots": {"file": "meeting.webm", "subject": "a screen shared"}, "split": "test"}
+{"id": "s196", "comment": "find the moments in episode.mkv where it is night", "recipe": "video-when", "slots": {"file": "episode.mkv", "subject": "it is night"}, "split": "dev"}

@@ -921,8 +921,9 @@ $ pwrq -nc 'invoke_systemone({shape: {type: "choice", instructions: "Which shape
 {"choice":"square","confidence":0.993654021142056}
 ```
 
-An MP4 or QuickTime video (H.264 or HEVC, what phones and cameras write) is
-decoded in Go — no ffmpeg — and read at two frames a second, as the model was
+A video file — MP4, QuickTime, Matroska or WebM, holding H.264, HEVC, VP8,
+VP9 or AV1: what phones, cameras, browsers and video sites write — is decoded
+in Go, with no ffmpeg, and read at two frames a second, as the model was
 trained:
 
 ```console
@@ -930,6 +931,16 @@ $ pwrq -nc 'invoke_systemone(null; {what: {type: "choice", instructions: "What d
     criteria: {bars: "Colour bars or a test pattern", people: "People", nature: "A landscape"}}};
     {Media: ["pkg/d1/video/testdata/h264.mp4"]}) | .what | {choice, confidence}'
 {"choice":"bars","confidence":0.9975197713530337}
+```
+
+A WebM — a browser's screen or camera recording, a downloaded clip — is read
+the same way:
+
+```console
+$ pwrq -nc 'invoke_systemone(null; {what: {type: "choice", instructions: "What does the video show?",
+    criteria: {bars: "Colour bars or a test pattern", people: "People", nature: "A landscape"}}};
+    {Media: ["pkg/d1/video/testdata/vp9.webm"]}) | .what | {choice, confidence}'
+{"choice":"bars","confidence":0.9985115949521443}
 ```
 
 A clip is read within one budget of pixels, so the longer it is the smaller
@@ -954,14 +965,14 @@ GPU), 2-second segments at 0.99 in exactly the three that show it (90 passes).
 A choice averaged over time says what the video *mostly* is; to ask what is
 shown at any point, read `.segments`.
 
-Any other format (WebM, MKV, AVI) goes through its frames. With ffmpeg
+Any other format (AVI, WMV, MPEG-TS, 10-bit VP9) goes through its frames. With ffmpeg
 installed, `sh` extracts them at the rate d1 reads — two a second, fewer for a
 clip over 6.4 minutes so it stays within 768 frames — and passes that rate on:
 
 ```console
-$ pwrq -n 'sh("ffprobe -v error -show_entries format=duration -of csv=p=0 talk.webm") | tonumber as $secs
+$ pwrq -n 'sh("ffprobe -v error -show_entries format=duration -of csv=p=0 talk.avi") | tonumber as $secs
     | ([2, 768 / $secs] | min) as $fps
-    | sh("d=$(mktemp -d) && ffmpeg -loglevel error -i talk.webm -vf fps=\($fps) $d/%05d.png && echo $d")
+    | sh("d=$(mktemp -d) && ffmpeg -loglevel error -i talk.avi -vf fps=\($fps) $d/%05d.png && echo $d")
     | [get_childitem(.; {Filter: "*.png"}) | .FullName] | sort
     | invoke_systemone(null; {slides: {type: "noul", instructions: "Does the speaker show slides?"}};
         {Media: [{Type: "video", Frames: ., FPS: $fps}]}) | .slides.noul'

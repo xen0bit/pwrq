@@ -221,9 +221,17 @@ generated from the Python reference, and the model-gated test matches its
 answers end to end.
 
 - **Video files are decoded in Go** (`pkg/d1/video`): MP4 and QuickTime
-  through mp4ff, H.264 through go.264, HEVC through gen2brain/h265 — no cgo
-  and no ffmpeg, so every release architecture reads the videos phones write,
-  and the fixtures' luma planes match ffmpeg's byte for byte. Only the frames
+  through mp4ff, Matroska and WebM through a reader of its own (it has to
+  read the unknown-size clusters a browser's MediaRecorder writes); H.264
+  through go.264, HEVC through gen2brain/h265, VP8 and VP9 through govpx, AV1
+  through gen2brain/gav1d — no cgo and no ffmpeg, so every release
+  architecture reads the videos phones, browsers and video sites write, and
+  the fixtures' luma planes match ffmpeg's byte for byte.
+- **VP9 has two decoders, in order.** On six ordinary libvpx encodes govpx
+  was bit-exact wherever it decoded and refused two at an inter frame (an
+  entropy desync); mgvs/go-vp9 decoded those two bit-exact but two others
+  silently wrong. govpx goes first and a group of pictures it refuses goes to
+  go-vp9: a refusal is safe to act on, a wrong picture is not detectable. Only the frames
   the processor samples are decoded, each group of pictures from its sync
   sample to its last wanted frame, the groups in parallel, each frame resized
   as it comes out: a minute of 1080p reads in seconds and never holds

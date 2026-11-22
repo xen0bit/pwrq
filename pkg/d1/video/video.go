@@ -1,19 +1,23 @@
 // Package video reads video files for d1 in pure Go: MP4 and QuickTime
-// (.mp4, .m4v, .mov) holding H.264 or HEVC, which is what phones, cameras
-// and screen recorders write. It decodes only the frames d1 reads - two a
+// (.mp4, .m4v, .mov) and Matroska and WebM (.mkv, .webm) holding H.264,
+// HEVC, VP8, VP9 or AV1 - what phones, cameras, screen recorders, browsers
+// and video sites write. It decodes only the frames d1 reads - two a
 // second, at least four and at most 768, as the checkpoint's video
 // processor samples - and resizes each to the processor's size as it comes
 // out, so a long recording costs neither hours of decoding nor gigabytes of
 // full-size frames.
 //
-// The codecs are go.264 (BSD-2) and gen2brain/h265 (MIT), both decoders
+// The codecs are go.264 (BSD-2), gen2brain/h265 (MIT), govpx (BSD-3, VP8
+// and VP9 profile 0) and gen2brain/gav1d (BSD-2, a port of dav1d), all
 // written in Go and checked bit-exact against ffmpeg on this package's
-// fixtures; the container is mp4ff. No cgo and no ffmpeg, so every release
-// architecture can read video. Anything else - WebM, MKV, AVI, VP9, AV1 -
-// is refused with a pointer to passing its frames instead.
+// fixtures; MP4 is read with mp4ff and Matroska here. No cgo and no
+// ffmpeg, so every release architecture can read video. Anything else -
+// AVI, MPEG-TS, ProRes, 10-bit VP9 - is refused with a pointer to passing
+// its frames instead.
 package video
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -28,7 +32,7 @@ import (
 
 // Info describes a video file's picture track.
 type Info struct {
-	Codec    string  // "h264" or "hevc"
+	Codec    string  // "h264", "hevc", "vp8", "vp9" or "av1"
 	Frames   int     // frames in the track
 	FPS      float64 // their average rate
 	Duration float64 // seconds
@@ -50,7 +54,13 @@ func Open(path string) (*Clip, error) {
 	if err != nil {
 		return nil, err
 	}
-	t, err := readTrack(f)
+	t, err := readAny(f)
+	if err == nil {
+		err = markHidden(f, t)
+	}
+	if err == nil && len(t.order()) == 0 {
+		err = errors.New("the video track shows no frames")
+	}
 	if err != nil {
 		_ = f.Close()
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -74,6 +84,23 @@ func Open(path string) (*Clip, error) {
 	}
 	c.info = Info{Codec: t.codec, Frames: n, FPS: fps, Duration: dur, Rotation: t.rotation}
 	return c, nil
+}
+
+// readAny reads the track of an MP4/QuickTime or a Matroska/WebM file,
+// told apart by their first bytes.
+func readAny(f *os.File) (*track, error) {
+	st, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	var head [4]byte
+	if _, err := f.ReadAt(head[:], 0); err != nil {
+		return nil, fmt.Errorf("not a video file: %w", err)
+	}
+	if isMatroska(head[:]) {
+		return readMatroska(f, st.Size())
+	}
+	return readTrack(f)
 }
 
 // Info describes the clip.
@@ -200,8 +227,15 @@ func (c *Clip) decodeAt(idx []int, use func(at, i int, p planes)) error {
 	}
 
 	got := make([]bool, len(idx))
-	decode := func(r run) error {
-		dec, err := newDecoder(t)
+	decode := func(r run, alt bool) (err error) {
+		// A decoder written for well-formed streams may panic on a damaged
+		// one; that is this file's error, not the process's end.
+		defer func() {
+			if p := recover(); p != nil {
+				err = fmt.Errorf("the decoder failed: %v", p)
+			}
+		}()
+		dec, err := newDecoder(t, alt)
 		if err != nil {
 			return err
 		}
@@ -233,8 +267,30 @@ func (c *Clip) decodeAt(idx []int, use func(at, i int, p planes)) error {
 			if _, err := c.f.ReadAt(b, int64(s.offset)); err != nil {
 				return fmt.Errorf("reading frame %d: %w", pos, err)
 			}
-			pending = insertByPTS(pending, pos, t)
+			if !s.hidden {
+				pending = insertByPTS(pending, pos, t)
+			}
 			pics, err := dec.decode(b)
+			if s.hidden && t.inOrder() {
+				// Decoded for reference only; a decoder that hands it out
+				// anyway is not showing it.
+				for _, p := range pics {
+					if p.release != nil {
+						p.release()
+					}
+				}
+				pics = nil
+			}
+			if len(pics) == 0 && t.inOrder() && !s.hidden && err == nil {
+				// Shown, by its header, and yet nothing came out: it is
+				// not waiting behind a reordering, so nothing will.
+				for k, q := range pending {
+					if q == pos {
+						pending = append(pending[:k], pending[k+1:]...)
+						break
+					}
+				}
+			}
 			take(pics)
 			if err != nil {
 				return c.decodeErr(err)
@@ -281,7 +337,13 @@ func (c *Clip) decodeAt(idx []int, use func(at, i int, p planes)) error {
 				r := runs[next]
 				next++
 				mu.Unlock()
-				if err := decode(r); err != nil {
+				err := decode(r, false)
+				if err != nil && t.codec == "vp9" {
+					// Frames already taken from the first decoder are
+					// not taken again: claim keeps the first.
+					err = decode(r, true)
+				}
+				if err != nil {
 					mu.Lock()
 					errs = append(errs, err)
 					mu.Unlock()
@@ -417,12 +479,12 @@ func upright(p *vision.Picture, deg int) *vision.Picture {
 	return out
 }
 
-// IsVideo reports whether a file looks like an MP4 or QuickTime video: an
-// extension that says so, or else an ftyp box first whose brand is not a
-// HEIF or AVIF picture's (those are ISO files too).
+// IsVideo reports whether a file looks like a video this package reads: an
+// extension that says so, or else an EBML header, or an ftyp box first
+// whose brand is not a HEIF or AVIF picture's (those are ISO files too).
 func IsVideo(path string) bool {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".mp4", ".m4v", ".mov", ".qt", ".3gp":
+	case ".mp4", ".m4v", ".mov", ".qt", ".3gp", ".webm", ".mkv":
 		return true
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".heic", ".heif", ".avif":
 		return false
@@ -435,6 +497,9 @@ func IsVideo(path string) bool {
 	var head [12]byte
 	if _, err := f.ReadAt(head[:], 0); err != nil {
 		return false
+	}
+	if isMatroska(head[:]) {
+		return true
 	}
 	switch string(head[4:8]) {
 	case "moov", "mdat", "wide":

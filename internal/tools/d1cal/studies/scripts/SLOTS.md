@@ -22,10 +22,10 @@ Each kind's phrasings, asked of every dev comment whose recipe has a slot of tha
 | field | Which property of the items is it about? | 4 | 6 |
 | field | Which attribute or column? | 5 | 6 |
 | field | Which key? | 1 | 6 |
-| file | Which file? | 67 | 79 |
-| file | Which file name? | 68 | 79 |
-| file | What file is named? | 69 | 79 |
-| file | Which file (name or path)? | 70 | 79 |
+| file | Which file? | 70 | 82 |
+| file | Which file name? | 71 | 82 |
+| file | What file is named? | 72 | 82 |
+| file | Which file (name or path)? | 73 | 82 |
 | host | Which host, domain or URL? | 5 | 5 |
 | host | Which host name? | 5 | 5 |
 | host | What server or domain? | 5 | 5 |
@@ -65,7 +65,7 @@ Chosen:
 - days: "How many days?" (2 of 2)
 - ext: "Which programming language or file extension?" (3 of 3)
 - field: "Which attribute or column?" (5 of 6)
-- file: "Which file (name or path)?" (70 of 79)
+- file: "Which file (name or path)?" (73 of 82)
 - host: "Which host, domain or URL?" (5 of 5)
 - input: "What text or value should it work on?" (56 of 89)
 - ip: "Which IP address?" (12 of 12)

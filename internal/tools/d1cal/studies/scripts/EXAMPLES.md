@@ -4,6 +4,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 
 | example | comment | got |
 |---|---|---|
+| find#1 | find all the files under src | list-files-recursive |
 | find#2 | list directories here, at most 2 levels deep | list-directories |
 | cat#3 | dump the contents of every file in this directory | list-files |
 | cat#4 | show the last 20 lines of app.log | tail-file (not a candidate) |
@@ -43,7 +44,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | chacha20#2 | chacha20 the file a.bin | file_type#1 |
 | slugify#1 | slugify Hello World! | slots: `llo World" \| slugify → llo World" \| slugify` |
 | camel_case#1 | convert hello world to camelCase | json_stringify#1 (not a candidate) |
-| pascal_case#1 | PascalCase hello world | newest-files (not a candidate) |
+| pascal_case#1 | PascalCase hello world | list-files-recursive (not a candidate) |
 | title_case#1 | title case the quick brown fox | slots: `"the quick brown fox" \| title_c → "quick brown fox" \| title_case` |
 | pad_left#1 | zero pad 5 to 3 digits | slots: `"5" \| pad_left(3; "0") → pad_left(5; "0")` |
 | pad_right#1 | pad 5 on the right with zeros to width 3 | slots: `"5" \| pad_right(3; "0") → pad_right(5; "0")` |
@@ -70,7 +71,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | rncd_compare#3 | rank the files in samples by similarity | similarity_percent#1 |
 | shared_chunks#1 | what text do two strings share | where_same#1 (not a candidate) |
 | shared_chunks#2 | how much of known.bin is inside suspect.bin | directory-size (not a candidate) |
-| select_string#4 | find calls to join or walk in src | invoke_pwrgrep#1 (not a candidate) |
+| select_string#4 | find calls to join or walk in src | find#1 (not a candidate) |
 | select_ast#1 | names of go functions in src that return an error | invoke_pwrgrep#1 (not a candidate) |
 | select_ast#2 | count the if statements in go files under src | lines-of-code (not a candidate) |
 | select_ast#3 | find md5 and sha1 use in src grouped by pattern | sha1#1 |
@@ -83,9 +84,9 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | invoke_pwrgrep#3 | count go flow findings in src by rule | scan_ast#1 (not a candidate) |
 | get_pwrgrep_rule#2 | how many pwrgrep rules are there | code-rules |
 | get_pwrgrep_rule#3 | ids of the python rules | invoke_pwrgrep#2 |
+| scan_ast#2 | count eval calls in js and ts files under src | lines-of-code |
 | of#2 | scan src for weak hashes and keep only md5 | md5#1 (not a candidate) |
 | within#1 | matches that are inside another match | where_capture_ast#1 |
-| in_files_with#1 | matches in files that also contain something else | select_ast#4 |
 | not_at#1 | drop matches at the same place as others | at_same_place#1 |
 | where_capture_not#1 | drop matches whose algorithm is sha256 | hash-all-files |
 | scan_regex#2 | count passwords in yaml files under src | yaml_parse#2 (not a candidate) |
@@ -103,6 +104,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | rescale#1 | rescale 5 from 0-10 to 0-100 | slots: `5 \| rescale(0; 10; 0; 100) → 0 \| rescale(5; 5; 5; 5)` |
 | subnet_of#1 | is 10.0.0.0/24 a subnet of 10.0.0.0/8 | slots: `"10.0.0.0/24" \| subnet_of("10.0.0.0/8") → "10.0.0.0/8" \| subnet_of("10.0.0.0/8")` |
 | n_grams#1 | bigrams of hello | files-named (not a candidate) |
+| get_childitem#1 | list the current directory | current-directory (not a candidate) |
 | set_content#2 | overwrite file.txt with some text | search-text (not a candidate) |
 | out_file#1 | save the output to report.txt | report#1 (not a candidate) |
 | out_file#2 | append the output to run.log | add_content#2 (not a candidate) |
@@ -126,7 +128,6 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | invoke_llm#3 | classify with an llm and get json back | invoke_llm_request#1 |
 | invoke_llm_request#2 | llm call with caching | get_llm_usage#1 |
 | invoke_llm_batch#2 | summarize each item with an llm | summarize-file |
-| invoke_systemone#3 | read the invoice total and date with the decision model | sum-field |
 | invoke_systemone#4 | count the cups in kitchen.jpg | images-count-objects (not a candidate) |
 | invoke_systemone#9 | ask the remote jev model which team | get_llm_model#1 |
 | invoke_systemone_batch#1 | flag spam in each item with the decision model | classify-lines (not a candidate) |
@@ -135,7 +136,7 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | get_command#3 | names of the powershell cmdlets | select_object#1 (not a candidate) |
 | get_help#2 | what does gci do | file-type (not a candidate) |
 | avg_by#1 | average pay by department | average-field (not a candidate) |
-| convert_unit#2 | 5 miles in km | count-files (not a candidate) |
+| convert_unit#2 | 5 miles in km | largest-files (not a candidate) |
 | convert_unit#3 | 90 minutes in hours | count-files (not a candidate) |
 | present_value#1 | present value of a future amount | net_present_value#1 |
 | cumulative_max#1 | running maximum | largest-files (not a candidate) |
@@ -160,4 +161,4 @@ Every catalog example has a comment in intents.jsonl. These are the ones whose c
 | get_censys_host#2 | what censys saw on 1.1.1.1 at the start of 2026 | get_censys_host_timeline#1 |
 | search_censys#2 | censys hosts in chile | get_censys_aggregate#1 |
 
-155 of 682 examples missed.
+156 of 682 examples missed.

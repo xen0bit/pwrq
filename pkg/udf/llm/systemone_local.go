@@ -188,7 +188,7 @@ func parseMedia(op string, items []any) (out []d1.Media, digest []string, seg *s
 			if hasPath && video.IsVideo(path) {
 				kind = "video"
 			} else if hasPath && otherVideo[strings.ToLower(filepath.Ext(path))] {
-				return fail(fmt.Errorf("%s is a video pwrq does not decode (it reads MP4 and QuickTime with H.264 or HEVC); pass its frames instead, {Type: \"video\", Frames: [...], FPS: n} - get_help(\"invoke_systemone\") shows how with ffmpeg", filepath.Base(path)))
+				return fail(fmt.Errorf("%s is a video pwrq does not decode (it reads MP4, QuickTime, Matroska and WebM with H.264, HEVC, VP8, VP9 or AV1); pass its frames instead, {Type: \"video\", Frames: [...], FPS: n} - get_help(\"invoke_systemone\") shows how with ffmpeg", filepath.Base(path)))
 			}
 		}
 		switch kind {
@@ -282,7 +282,7 @@ func parseMedia(op string, items []any) (out []d1.Media, digest []string, seg *s
 
 // otherVideo are video containers pwrq does not decode, refused by name
 // rather than as a picture that would not decode.
-var otherVideo = map[string]bool{".webm": true, ".mkv": true, ".avi": true, ".wmv": true, ".flv": true,
+var otherVideo = map[string]bool{".avi": true, ".wmv": true, ".flv": true,
 	".mpg": true, ".mpeg": true, ".ts": true, ".m2ts": true, ".mts": true, ".ogv": true}
 
 // videoFile reads a video file as d1 reads video: two frames a second

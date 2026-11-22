@@ -501,8 +501,9 @@ The question types are d1's:
 A state is text, any JSON document (rendered as the model was trained on it),
 or `null` with pictures alone. Pictures and video go in `Media`: a path, a
 `get_childitem` object, `{Data: base64}`, `{Type: "video", Path, Start, End}`,
-or `{Type: "video", Frames: [...], FPS: n}`. An MP4 or QuickTime video (H.264
-or HEVC) is decoded in Go and read at two frames a second, within one pixel
+or `{Type: "video", Frames: [...], FPS: n}`. An MP4, QuickTime, Matroska or
+WebM video (H.264, HEVC, VP8, VP9 or AV1) is decoded in Go and read at two
+frames a second, within one pixel
 budget, so a long clip's frames are small; `Segment: 10` reads it ten seconds
 at a time at full detail and combines the answers, with `.segments` saying
 when. Any other format is passed as its frames, which `sh` and ffmpeg can

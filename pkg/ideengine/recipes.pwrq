@@ -198,14 +198,14 @@ get_childitem("{{dir}}")
 
 ## video-shows
 # task: use a decision model to tell whether a video (clip, movie, recording) shows something or something happens in it
-# also: mp4 mov footage film d1 vision watch happening
+# also: mp4 mov webm mkv footage film d1 vision watch happening
 # slot file file = clip.mp4
 # slot subject phrase: What should the video show? = a dog
 invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: ["{{file}}"]}).q.noul
 
 ## video-when
 # task: use a decision model to find when in a video (clip, movie, recording) something happens or is shown, reading it in segments at full detail
-# also: timestamps moments where time find in footage mp4 mov d1 vision when does
+# also: timestamps moments where time find in footage mp4 mov webm mkv d1 vision when does
 # slot file file = clip.mp4
 # slot subject phrase: What should the video show? = a dog
 invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: [{Type: "video", Path: "{{file}}", Segment: 10}]}).q.segments[]
@@ -214,18 +214,18 @@ invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{s
 
 ## videos-containing
 # task: use a decision model to list the videos (clips, movies, recordings) in a directory that show something
-# also: mp4 mov footage films which videos d1 vision
+# also: mp4 mov webm mkv footage films which videos d1 vision
 # slot dir path = .
 # slot subject phrase: What should the videos show? = a dog
 get_childitem("{{dir}}")
-| select(.Extension | ascii_downcase | IN(".mp4", ".mov", ".m4v"))
+| select(.Extension | ascii_downcase | IN(".mp4", ".mov", ".m4v", ".webm", ".mkv"))
 | select(invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: [.FullName]}).q.noul > 0.5)
 | .Name
 
 ## video-frames-ffmpeg
-# task: extract a video's frames with ffmpeg (webm, mkv, avi or any format) and ask a decision model whether it shows something
-# also: ffprobe frames extract convert webm mkv avi wmv flv d1 vision
-# slot file file = clip.webm
+# task: extract a video's frames with ffmpeg (avi, wmv, mpeg-ts or any format pwrq does not decode) and ask a decision model whether it shows something
+# also: ffprobe frames extract convert avi wmv flv mpg ts d1 vision
+# slot file file = clip.avi
 # slot subject phrase: What should the video show? = a dog
 sh("ffprobe -v error -show_entries format=duration -of csv=p=0 '{{file}}'") | tonumber as $secs
 | ([2, 768 / $secs] | min) as $fps

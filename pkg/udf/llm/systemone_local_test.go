@@ -179,7 +179,7 @@ func TestLocalReadsAPicture(t *testing.T) {
 	}
 }
 
-// TestMediaReadsVideoFiles: an MP4 or QuickTime path is a video, decoded
+// TestMediaReadsVideoFiles: an MP4, QuickTime, Matroska or WebM path is a video, decoded
 // here and sampled as d1 samples, by path, file object or {Type, Path,
 // Start, End}; another container is refused with the way out, before any
 // model is loaded.
@@ -210,10 +210,16 @@ func TestMediaReadsVideoFiles(t *testing.T) {
 		t.Errorf("1s..2s: %d frames from %v, want 4 from 0", n, media[0].Times[0])
 	}
 
-	webm := filepath.Join("..", "..", "d1", "video", "testdata", "vp9.webm")
-	_, _, _, err = parseMedia("invoke_systemone", []any{webm})
+	for _, name := range []string{"vp9.webm", "av1.webm", "h264.mkv"} {
+		media, _, _, err := parseMedia("invoke_systemone", []any{filepath.Join("..", "..", "d1", "video", "testdata", name)})
+		if err != nil || len(media[0].Frames) < 4 {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	avi := filepath.Join("..", "..", "d1", "video", "testdata", "other.avi")
+	_, _, _, err = parseMedia("invoke_systemone", []any{avi})
 	if err == nil || !strings.Contains(err.Error(), "Frames") || !strings.Contains(err.Error(), "ffmpeg") {
-		t.Errorf("a WebM: %v, want the frames route and ffmpeg named", err)
+		t.Errorf("an AVI: %v, want the frames route and ffmpeg named", err)
 	}
 	_, _, _, err = parseMedia("invoke_systemone", []any{map[string]any{"Type": "video"}})
 	if err == nil {
