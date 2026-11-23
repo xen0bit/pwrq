@@ -121,3 +121,25 @@ func TestAddContentRejectsUnknownOption(t *testing.T) {
 		t.Errorf("unknown option should be an error, got %v", v)
 	}
 }
+
+// TestOutFileWritesStructuredValuesAsJSON: an object or an array of objects
+// must come back through fromjson, not as Go's map[a:1] formatting.
+func TestOutFileWritesStructuredValuesAsJSON(t *testing.T) {
+	dir := t.TempDir()
+	cases := map[string]string{
+		`{a: 1, b: [2, "x"]}`: `{"a":1,"b":[2,"x"]}`,
+		`[{n: 1}, {n: 2.5}]`:  "{\"n\":1}\n{\"n\":2.5}",
+		`["plain", "lines"]`:  "plain\nlines",
+		`1000000`:             "1000000",
+	}
+	i := 0
+	for in, want := range cases {
+		path := filepath.Join(dir, fmt.Sprintf("out%d", i))
+		i++
+		arun(t, fmt.Sprintf(`%s | out_file(%q)`, in, path), nil)
+		got, _ := os.ReadFile(path)
+		if string(got) != want {
+			t.Errorf("%s | out_file wrote %q, want %q", in, got, want)
+		}
+	}
+}

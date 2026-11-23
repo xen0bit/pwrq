@@ -314,3 +314,19 @@ func TestRecipeTakesItsFirstNamesPlace(t *testing.T) {
 		t.Fatalf("ghost %q after %d; top %+v", resp.Ghost, resp.GhostAfter, resp.Items[0])
 	}
 }
+
+// TestBuiltinHelpNamesBuiltins: the help table is written by hand, and once
+// advertised leaf_paths, which this gojq does not define - a suggestion made
+// from it could never compile. Every name it describes must be a builtin.
+func TestBuiltinHelpNamesBuiltins(t *testing.T) {
+	arities := builtinArities()
+	// input_filename is no gojq builtin: the CLI and the engine's run each
+	// register it, with the input's name.
+	arities["input_filename"] = 0
+	for name := range builtinHelp {
+		base := strings.TrimSuffix(name, "[]")
+		if _, ok := arities[base]; !ok {
+			t.Errorf("builtinHelp describes %q, which is not a gojq builtin", name)
+		}
+	}
+}

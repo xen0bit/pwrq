@@ -321,7 +321,12 @@ func RegisterSetContent() gojq.CompilerOption {
 }
 
 // renderContent turns a value into the text to write. A string goes as-is, an
-// array becomes one line per element, and anything else is formatted.
+// array becomes one line per element, and anything else is written as JSON.
+//
+// JSON, not Go's %v: an object written with %v came out as map[a:1 b:[2]],
+// which nothing - fromjson included - can read back, so every pipeline that
+// saved structured data had to remember a tojson first. gojq's own encoder
+// writes numbers the way the CLI prints them.
 //
 // Every element is bound first, so a stream of cmdlet output writes its values
 // rather than its object representation. That is what this comment always
@@ -336,10 +341,22 @@ func renderContent(value any) string {
 	case []any:
 		parts := make([]string, len(v))
 		for i, item := range v {
-			parts[i] = fmt.Sprintf("%v", common.BindValue(item))
+			parts[i] = renderScalar(common.BindValue(item))
 		}
 		return strings.Join(parts, getNewLine())
 	default:
+		return renderScalar(v)
+	}
+}
+
+// renderScalar is one value's text: a string as-is, anything else its JSON.
+func renderScalar(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	b, err := gojq.Marshal(typed.NormalizeJSON(v))
+	if err != nil {
 		return fmt.Sprintf("%v", v)
 	}
+	return string(b)
 }
