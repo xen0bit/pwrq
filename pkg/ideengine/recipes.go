@@ -74,6 +74,9 @@ func Recipes() ([]Recipe, error) {
 	return recipes, recipesErr
 }
 
+// fileListSep separates the files of a span that names more than one.
+var fileListSep = regexp.MustCompile(`(?i)\s+(?:and|or|vs\.?|versus|with|&)\s+|\s*,\s*`)
+
 var (
 	slotLineRe = regexp.MustCompile(`^# slot ([a-z_]+) ([a-z]+)(?:: (.+?))? = (.*)$`)
 	slotRefRe  = regexp.MustCompile(`\{\{([a-z_][a-z0-9_]*)\}\}`)
@@ -312,6 +315,11 @@ func normalizeSlot(kind, raw string) (string, bool) {
 		return v, true
 	case "file":
 		v = pathNoise.ReplaceAllString(v, "")
+		// "a.txt and b.txt" is the answer a comparison's "Which is the first
+		// file?" gets: the span names both, and the first is the one asked.
+		if parts := fileListSep.Split(v, 2); len(parts) == 2 {
+			v = strings.TrimSpace(parts[0])
+		}
 		if strings.ContainsAny(v, " \t") || !strings.ContainsAny(v, "./\\") {
 			return "", false
 		}

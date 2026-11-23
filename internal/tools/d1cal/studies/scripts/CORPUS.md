@@ -1,0 +1,1135 @@
+# The feat/corpus workflows: what became a recipe
+
+Branch `feat/corpus` (7c08664) proposed 1,089 workflow entries in
+recipes.pwrq's format, written by another agent against the installed
+binary. This records which of them became recipes in `pkg/ideengine/recipes.pwrq`
+and why the rest did not, so the branch can be closed without losing the
+reasoning.
+
+## How they were judged
+
+An entry became a recipe when it was all of:
+
+- a task someone would write a comment for, reading their own files, logs,
+  databases, hosts or processes - not a demonstration of one cmdlet on a
+  literal value, which the catalog's example recipes already offer with the
+  input optional (a hand recipe cannot make its first stage optional);
+- not already done by a hand or example recipe: a second recipe for the same
+  task splits the model's choice between two right answers and makes a
+  wrong-looking pick out of a right one;
+- slotted, so a comment's directory, file, pattern or count reaches the query
+  (153 of the candidates had no slots at all);
+- runnable from its defaults in `TestRecipesRun`'s scratch directory, or
+  listed in `recipesNotRun` with the reason (network, a model, the service
+  manager, the process table, /proc, the shell);
+- free of setup: an entry that first creates tables in `app.db`, writes the
+  file it then reads, or names the corpus harness's `/tmp/opencode` was cut.
+
+Every absorbed entry was rewritten: slotted, renamed to the library's
+convention, and checked by hand against fixtures, not only for running. Two
+corpus files (`code.pwrq`, `net.pwrq`) did not parse with the recipe parser
+as committed.
+
+The first pass sorted by rule - exact duplicates (the filled query equals a
+shipped recipe's), constant-input first stages, task words overlapping a hand
+recipe's - and the last group below is judgment.
+
+## Absorbed: 136 entries as 124 recipes
+
+- `access-log-to-csv` <- `chain-log-to-csv`, `flow-log-to-csv`
+- `append-line` <- `io-append-file`
+- `ask-llm` <- `ai-llm-ask`
+- `backup-file-dated` <- `io-backup-datestamped`
+- `backup-folder-dated` <- `flow-config-backup`
+- `bytes-served` <- `log-access-bytes-total`
+- `check-links` <- `chain-search-fetch-found-urls`
+- `cleanup-candidates` <- `flow-cleanup-candidates`
+- `cmdlet-help` <- `meta-help-one`
+- `compare-json-files` <- `formats-config-drift`, `formats-deep-diff`
+- `copy-directory` <- `io-copy-tree`
+- `copy-file` <- `io-copy-file`
+- `count-directories` <- `fs-count-dirs`
+- `cpu-count` <- `sys-cpu-count`
+- `csv-column-stats` <- `chain-formats-csv-column-stats`
+- `csv-row-counts` <- `chain-fs-csv-row-counts`
+- `csv-to-sqlite` <- `chain-formats-csv-to-sqlite`
+- `current-user` <- `sys-env-user`
+- `decrypt-file` <- `cipher-file-unseal`
+- `dedupe-csv` <- `chain-formats-csv-dedupe`
+- `delete-directory` <- `io-delete-dir`
+- `delete-file` <- `io-delete-file`
+- `directory-overview` <- `flow-first-look`
+- `disk-free` <- `sys-disk-usage`
+- `distinct-errors` <- `log-dedup-errors`
+- `download-url-list` <- `chain-fetch-url-list-hashes`
+- `duplicate-space` <- `fs-dupes-report`
+- `emails-in-files` <- `search-emails-in-tree`
+- `encrypt-file` <- `cipher-file-seal`
+- `env-var` <- `sys-env-one`
+- `error-rate` <- `log-error-rate`
+- `errors-in-logs` <- `search-errors-in-logs`
+- `errors-per-log` <- `chain-fs-errors-per-log`
+- `errors-per-service` <- `log-jsonl-error-rate-by-service`
+- `events-per-day` <- `log-jsonl-bucket-day`
+- `events-per-hour` <- `log-jsonl-bucket-hour`
+- `failed-requests` <- `log-access-errors`
+- `fetch-json-field` <- `net-fetch-field`
+- `fetch-page` <- `net-http-body`
+- `file-details` <- `fs-file-details`
+- `file-types-tree` <- `fs-file-types`
+- `files-excluding` <- `fs-list-excluding`
+- `files-identical` <- `hash-two-files-same`, `sim-files-identical`
+- `files-max-depth` <- `fs-list-depth-limited`
+- `files-modified-today` <- `fs-modified-today`
+- `files-older-than` <- `fs-older-than`
+- `files-smaller-than` <- `fs-smaller-than`
+- `find-archives` <- `fs-archives-in-tree`
+- `find-secrets` <- `search-secrets`
+- `findings-per-rule` <- `code-count-findings`
+- `folder-file-counts` <- `fs-subdir-file-count`
+- `fuzzy-compare` <- `hash-ssdeep-compare`
+- `generate-password` <- `ids-random-password`
+- `grep-invert` <- `search-file-invert`
+- `hmac-file` <- `hash-hmac-file`
+- `invalid-emails` <- `validate-column-report`
+- `ips-in-files` <- `search-ips-in-tree`
+- `jsonl-errors` <- `log-jsonl-errors`
+- `kill-by-name` <- `sys-killall-name`
+- `kill-process` <- `sys-kill-process`
+- `last-errors` <- `log-last-errors`
+- `line-number` <- `search-sed-address`
+- `list-functions` <- `code-ast-functions`
+- `listing-to-sqlite` <- `db-save-pipeline`, `flow-tree-inventory-sqlite`
+- `load-average` <- `chain-sys-loadavg`
+- `loc-by-language` <- `code-loc-by-language`
+- `log-between-times` <- `log-jsonl-window`
+- `long-lines` <- `search-long-lines`
+- `long-listing` <- `fs-list-long`
+- `make-directory` <- `io-mkdir`
+- `memory-info` <- `sys-memory-info`
+- `merge-yaml-files` <- `chain-fs-merge-yamls`
+- `move-file` <- `io-move-into-dir`, `io-rename`
+- `move-files-by-extension` <- `flow-organize-downloads`, `io-organize-by-type`
+- `move-images-containing` <- `chain-ai-move-blue-images`
+- `number-lines` <- `io-read-numbered`
+- `page-title` <- `net-page-title`
+- `parse-access-log` <- `log-access-parse`
+- `ping-hosts-file` <- `chain-sys-hosts-health`
+- `post-json` <- `net-post-json`
+- `random-key` <- `cipher-key-generate`, `ids-random-hex-token`
+- `read-ini` <- `formats-ini-parse`
+- `read-logfmt` <- `log-fmt-parse`
+- `read-properties` <- `formats-properties-parse`
+- `read-tsv` <- `formats-tsv-parse`
+- `readonly-files` <- `fs-readonly-files`
+- `rename-extension` <- `fs-rename-extension`
+- `rename-with-date` <- `chain-fs-date-rename-recent`, `flow-rename-dated`
+- `replace-in-file` <- `io-replace-in-file`
+- `request-with-header` <- `net-post-custom-header`
+- `requests-per-minute` <- `log-access-per-minute`
+- `resolve-hosts-file` <- `chain-search-resolve-hosts-file`
+- `reverse-lines` <- `io-read-reversed`
+- `same-name-files` <- `fs-dupes-name`
+- `save-checksums` <- `hash-manifest-save`, `io-save-hashes`
+- `save-json-response` <- `net-fetch-save-json`
+- `save-search-results` <- `chain-search-matches-json-file`, `search-results-as-json`
+- `search-file-type` <- `search-tree-include`
+- `search-in-archive` <- `io-archive-extract-search`
+- `search-with-context` <- `search-tree-context`
+- `slowest-events` <- `log-jsonl-slowest`
+- `smallest-files` <- `fs-smallest-files`
+- `sqlite-execute` <- `db-delete-rows`, `db-update-rows`
+- `sqlite-schema` <- `db-table-schema`
+- `sqlite-to-csv` <- `db-export-csv`
+- `sqlite-to-json` <- `db-export-json`
+- `start-service` <- `sys-service-start`
+- `status-code-counts` <- `log-access-status-counts`
+- `stop-service` <- `sys-service-stop`
+- `stopped-services` <- `sys-service-stopped`
+- `text-files` <- `fs-text-files`
+- `time-in-zone` <- `time-to-timezone`
+- `todos-per-file` <- `chain-fs-find-todos`
+- `top-client-ips` <- `log-access-top-ips`
+- `top-paths` <- `log-access-top-paths`
+- `triage-errors` <- `chain-search-errors-ai-triage`
+- `unique-visitors` <- `log-access-unique-visitors`
+- `unix-timestamp` <- `sys-date-epoch`, `time-now-epoch`
+- `uptime` <- `sys-uptime`
+- `urgent-todos` <- `chain-search-ai-urgency`
+- `validate-json-files` <- `validate-json-file`
+- `verify-checksums` <- `hash-manifest-verify`
+- `words-per-file` <- `chain-fs-words-per-file`
+- `write-file` <- `io-write-file`
+
+## Not absorbed
+
+## Exact duplicate of a recipe already shipped (207)
+
+- `ai-llm-request` [ai] a full llm call with its token usage -> `invoke_llm_request#1`
+- `ai-llm-usage` [ai] how many tokens have I used so far -> `get_llm_usage#1`
+- `censys-aggregate` [censys] which countries run the most hosts on port 443 -> `get_censys_aggregate#1`
+- `censys-collections` [censys] my censys collections -> `get_censys_collection#1`
+- `censys-context` [censys] which censys organization am I acting as -> `get_censys_context#1`
+- `censys-credits` [censys] how many censys credits do I have -> `get_censys_credits#1`
+- `censys-enrichment` [censys] enrich this ip with what censys knows -> `get_censys_enrichment#1`
+- `censys-host-at-time` [censys] what censys saw on this ip at the start of the year -> `get_censys_host#2`
+- `censys-host-detail` [censys] everything censys knows about this ip -> `get_censys_host#1`
+- `censys-host-services` [censys] the services censys saw on this host -> `get_censys_host_service#1`
+- `censys-organization` [censys] my censys organization's details -> `get_censys_organization#1`
+- `censys-tags` [censys] my censys tags and the assets under them -> `get_censys_tag#1`
+- `censys-threats` [censys] the threats censys currently tracks -> `get_censys_threat#1`
+- `censys-webproperty` [censys] the web property censys built for this site -> `get_censys_webproperty#1`
+- `code-ast-error-returning` [code] the go functions that return an error -> `select_ast#1`
+- `code-ast-if-count` [code] how many if statements are in the go files -> `select_ast#2`
+- `code-ast-tls-skip` [code] tls configurations that skip certificate verification -> `select_ast#4`
+- `code-ast-weak-hashes` [code] find md5 and sha1 usage in this code -> `select_ast#3`
+- `code-language-extensions` [code] which file extensions does the go grammar read -> `get_ast_language#2`
+- `code-rule-count` [code] how many rules ship in total -> `get_pwrgrep_rule#2`
+- `code-rule-detail` [code] what does the go-functions rule look for -> `get_pwrgrep_rule#1`
+- `code-rule-focus` [code] report a capture's line instead of the match's own -> `focus#1`
+- `code-rule-where-capture` [code] keep the matches whose capture matches a pattern -> `where_capture#1`
+- `code-rule-where-capture-ast` [code] keep matches whose capture is itself a certain kind of call -> `where_capture_ast#1`
+- `code-rule-where-capture-compare` [code] keep the matches whose numeric capture fails the comparison -> `where_capture_compare#1`
+- `code-rule-where-capture-not` [code] drop the matches whose capture matches a pattern -> `where_capture_not#1`
+- `code-rule-where-capture-redos` [code] flag captures that are a regex with catastrophic backtracking -> `where_capture_redos#1`
+- `code-rule-where-different` [code] matches whose two captures disagree -> `where_different#1`
+- `code-rule-where-same` [code] matches whose two captures agree with each other -> `where_same#1`
+- `code-rule-where-text` [code] keep matches whose whole text mentions these words -> `where_text#1`
+- `code-rule-where-text-not` [code] drop matches whose text is just a comment -> `where_text_not#1`
+- `codecs-base32-decode` [codecs] decode base32 -> `base32_decode#1`
+- `codecs-base32-encode` [codecs] encode as base32 -> `base32_encode#1`
+- `codecs-base85-decode` [codecs] decode ascii85 -> `base85_decode#1`
+- `codecs-base85-encode` [codecs] encode as ascii85 -> `base85_encode#1`
+- `codecs-binary-decode` [codecs] decode these bits back into text -> `binary_decode#1`
+- `codecs-binary-encode` [codecs] this text as ones and zeros -> `binary_encode#1`
+- `codecs-hex-decode` [codecs] decode these hex bytes back to text -> `hex_decode#1`
+- `codecs-hex-encode` [codecs] this text as hex bytes -> `hex_encode#1`
+- `codecs-is-base64` [codecs] is this string valid base64 at all -> `is_base64#1`
+- `codecs-is-base64url` [codecs] is this valid url-safe base64 -> `is_base64url#1`
+- `coll-all-equal` [coll] are all these the same value -> `all_equal#1`
+- `coll-group-object` [coll] group objects by a property, the PowerShell way -> `group_object#1`
+- `coll-rotate-list` [coll] move the first items to the end -> `rotate#1`
+- `coll-union-lists` [coll] everything in either list, without repeats -> `union#1`
+- `db-list-tables` [db] the tables in this sqlite database -> `sqlite-tables`
+- `db-select-rows` [db] read the rows of a table -> `invoke_sqlite_query#1`
+- `io-archive-list` [file-io] list what is inside a zip without extracting it -> `list-archive`
+- `io-line-count` [file-io] count the lines in a file -> `count-lines`
+- `io-read-file` [file-io] print the contents of a file -> `read-file`
+- `io-read-head` [file-io] the first lines of a file -> `head-file`
+- `io-read-tail` [file-io] the last lines of a file, the end of a log -> `tail#1`
+- `io-word-count` [file-io] count the words in a file -> `word-count`
+- `formats-csv-objects` [formats] a CSV as objects keyed by its header row -> `read-csv`
+- `formats-csv-parse` [formats] read a CSV as rows -> `csv_parse#4`
+- `formats-dotted-delete` [formats] delete the value at a dotted path -> `del_path#1`
+- `formats-dotted-get` [formats] the value at this dotted path -> `get_path#1`
+- `formats-dotted-set` [formats] set a value at a dotted path, creating the way there -> `set_path#2`
+- `formats-tsv-write` [formats] these rows as tab-separated text -> `tsv_stringify#1`
+- `fs-file-exists` [fs] check whether a file exists -> `file-exists`
+- `fs-home-dir` [fs] where is my home directory -> `home_dir#1`
+- `fs-list-by-extension` [fs] list the files of one type, such as the txt files -> `get_childitem#3`
+- `fs-list-hidden` [fs] list hidden files and dotfiles -> `hidden-files`
+- `fs-path-basename` [fs] the file name part of a path -> `basename#1`
+- `fs-path-dirname` [fs] the directory part of a path -> `dirname#1`
+- `fs-path-extension` [fs] a path's file extension, the part after the final dot -> `file_extension#1`
+- `fs-path-normalize` [fs] clean up a messy path with doubled slashes and dot segments -> `normalize_path#1`
+- `fs-total-size` [fs] the total size of a directory, its disk usage -> `directory-size`
+- `hash-blake2` [hash] the blake2b-256 of this text -> `blake2b_256#1`
+- `hash-keccak` [hash] the keccak-256 of this text, the ethereum one -> `keccak_256#1`
+- `hash-md5-file` [hash] the md5 of a file, like md5sum -> `file-md5`
+- `hash-md5-text` [hash] the md5 of this text -> `md5#1`
+- `hash-salt-generate` [hash] generate a random salt in hex -> `random_hex#1`
+- `hash-sha1-text` [hash] the sha1 of this text -> `sha1#1`
+- `hash-sha224-text` [hash] the sha224 of this text -> `sha224#1`
+- `hash-sha256-file` [hash] the sha256 of a file, like sha256sum -> `file-hash`
+- `hash-sha256-text` [hash] the sha256 of this text -> `sha256#1`
+- `hash-sha3` [hash] the sha3-256 of this text -> `sha3_256#1`
+- `hash-sha384-text` [hash] the sha384 of this text -> `sha384#1`
+- `hash-sha512-text` [hash] the sha512 of this text -> `sha512#1`
+- `ids-nanoid` [ids] a short nanoid for a url -> `nanoid#1`
+- `ids-punycode-decode` [ids] the human-readable form of this punycode domain -> `punycode_decode#1`
+- `ids-punycode-encode` [ids] the punycode form of this international domain -> `punycode_encode#1`
+- `ids-random-float` [ids] a random number between ten and twenty -> `random_float#2`
+- `ids-random-int` [ids] roll a six-sided die -> `random_int#1`
+- `ids-random-string` [ids] a random sixteen-character string -> `random_string#1`
+- `ids-uuid4` [ids] generate a random uuid -> `uuid4#1`
+- `ids-uuid7` [ids] a time-ordered uuid, sortable by creation -> `uuid7#1`
+- `log-jsonl-read` [log] read a JSON-lines log into an array -> `jsonl_parse#1`
+- `log-line-count` [log] how many lines are in the log -> `wc_lines#1`
+- `net-fetch-json` [net] fetch JSON from an API endpoint -> `fetch-json`
+- `net-http-headers` [net] the response headers of a URL -> `http-headers`
+- `net-http-status` [net] check that a website is up, its status code -> `http-status`
+- `net-int-to-ip` [net] a number back into an IP address -> `int_to_ip#1`
+- `net-ip-in-cidr` [net] is this address inside that subnet -> `in_cidr#1`
+- `net-ip-to-int` [net] an IP address as a plain number -> `ip_to_int#1`
+- `net-ipv6-expand` [net] expand a shortened ipv6 address to its full form -> `ipv6_expand#1`
+- `net-is-public` [net] is this a public, internet-routable address -> `is_public_ip#1`
+- `net-mac-normalize` [net] write a MAC address in its canonical form -> `mac_normalize#1`
+- `net-method-get` [net] make an explicit GET request -> `http#1`
+- `net-page-links` [net] the links on a web page -> `page-links`
+- `net-port-name` [net] which service usually runs on this port -> `port_name#1`
+- `net-port-open` [net] is this TCP port open on that host -> `test_connection#2`
+- `net-resolve` [net] resolve a host name to its IP addresses -> `resolve_host#1`
+- `net-reverse-dns` [net] the host name behind an IP address -> `reverse_dns#1`
+- `net-reverse-ip` [net] the reversed form of this address, as dns ptr records use it -> `reverse_ip#1`
+- `net-subnet-of` [net] is this subnet inside that one -> `subnet_of#1`
+- `num-bearing` [num] which way is san francisco from los angeles -> `bearing#1`
+- `num-cagr` [num] the yearly growth rate from 100 to 200 in one year -> `cagr#1`
+- `num-clamp` [num] keep this value between 0 and 10 -> `clamp#1`
+- `num-compound-interest` [num] compound interest on 100 at 10 percent over 10 years -> `compound_interest#1`
+- `num-from-base` [num] what number is the hex 2a -> `from_base#1`
+- `num-future-value` [num] what 100 invested at 10 percent is worth in 10 years -> `future_value#1`
+- `num-gcd` [num] the greatest common divisor of 12 and 18 -> `gcd#1`
+- `num-geo-midpoint` [num] the point halfway between these two places -> `geo_midpoint#1`
+- `num-geohash-decode` [num] where is the geohash ezs42 -> `geohash_decode#1`
+- `num-geohash-encode` [num] the geohash of this point, six characters -> `geohash_encode#1`
+- `num-group-digits` [num] put thousand separators in this number -> `group_digits#1`
+- `num-hamming-weight` [num] how many one bits in 255 -> `hamming_weight#1`
+- `num-haversine` [num] the distance from london to new york -> `haversine_distance#1`
+- `num-hex-number` [num] this number as 0x-style hex -> `to_hex_number#1`
+- `num-hex-parse` [num] the ff hex string back into a number -> `from_hex_number#1`
+- `num-human-bytes` [num] 1048576 bytes in readable units -> `human_bytes#1`
+- `num-human-number` [num] 1500 as 1.5k -> `human_number#1`
+- `num-lcm` [num] the least common multiple of 4 and 6 -> `lcm#1`
+- `num-monthly-payment` [num] the monthly payment on a 10000 loan at 6 percent over 36 months -> `monthly_payment#1`
+- `num-npv` [num] the net present value of these cash flows at 10 percent -> `net_present_value#1`
+- `num-parse-size` [num] how many bytes is 1.5 MiB -> `parse_size#1`
+- `num-percentage` [num] what percent is 40 of 200 -> `percentage#1`
+- `num-present-value` [num] what 259.37 promised in 10 years is worth today at 10 percent -> `present_value#1`
+- `num-rescale` [num] rescale 5 from the 0 to 10 range into 0 to 100 -> `rescale#1`
+- `num-simple-interest` [num] simple interest on 100 at 10 percent for 3 years -> `simple_interest#1`
+- `num-to-base` [num] 42 in hexadecimal -> `to_base#1`
+- `num-to-binary` [num] 255 as ones and zeros -> `to_base#2`
+- `num-unit-distance` [num] 5 miles in kilometers -> `convert_unit#2`
+- `num-unit-temperature` [num] 20 celsius in fahrenheit -> `convert_unit#1`
+- `num-unit-time` [num] 90 minutes in hours -> `convert_unit#3`
+- `num-within-radius` [num] is this point within a kilometer of that one -> `within_radius#1`
+- `search-todo-by-file` [search] count TODOs per file -> `count-matches`
+- `search-todo-comments` [search] find the TODO and FIXME comments in the source tree -> `todo-comments`
+- `search-tree-count-per-file` [search] how many matches are in each file -> `count-matches`
+- `search-tree-files-with-matches` [search] the files that contain the text -> `files-containing`
+- `search-tree-grep` [search] search a whole tree for text, showing file, line number and line -> `select_string#5`
+- `sim-hamming` [sim] how many positions differ between these two strings -> `hamming_distance#1`
+- `sim-jaccard` [sim] how much do these two lists have in common -> `jaccard#1`
+- `sim-jaro-winkler` [sim] how close are these names, jaro-winkler style -> `jaro_winkler#1`
+- `sim-levenshtein` [sim] how many edits apart are kitten and sitting -> `levenshtein#1`
+- `sim-percent-alike` [sim] how similar are these two strings, as a percentage -> `similarity_percent#1`
+- `sim-shared-chunks` [sim] what text do these two strings have in common -> `shared_chunks#1`
+- `stats-iqr` [stats] the interquartile range, the middle fifty percent -> `iqr#1`
+- `stats-kurtosis` [stats] how heavy are the tails of this distribution -> `kurtosis#1`
+- `stats-moving-average` [stats] a three-point moving average -> `moving_average#1`
+- `stats-moving-max` [stats] the peak of each three-value window -> `moving_max#1`
+- `stats-moving-min` [stats] the floor of each three-value window -> `moving_min#1`
+- `stats-moving-stdev` [stats] the rolling deviation, how jittery each window is -> `moving_stdev#1`
+- `stats-normalize` [stats] rescale these numbers into the zero to one range -> `normalize#1`
+- `stats-quartiles` [stats] the quartiles of these numbers -> `quartiles#1`
+- `stats-skewness` [stats] is this distribution lopsided -> `skewness#1`
+- `stats-stdev` [stats] the standard deviation of these numbers -> `stdev#1`
+- `stats-variance` [stats] how spread out these numbers are -> `variance#1`
+- `sys-date-now` [sys] today's date and time -> `current-date`
+- `sys-date-year` [sys] what year is it -> `get_date#2`
+- `sys-env-list` [sys] list the environment variables -> `environment-variables`
+- `sys-env-path` [sys] the directories on my PATH, one per line -> `path-entries`
+- `sys-location` [sys] which directory am I in -> `current-directory`
+- `sys-path-separator` [sys] the path separator on this platform -> `path_sep#1`
+- `sys-run-command` [sys] run a shell command and get its output -> `run-command`
+- `sys-service-running` [sys] the services that are running -> `running-services`
+- `sys-which` [sys] where is this program installed -> `which-command`
+- `text-acronym` [text] the initials of this organization name -> `acronym#1`
+- `text-after-first` [text] the part after the @ of an address -> `after_first#1`
+- `text-before-first` [text] the part before the @ of an address -> `before_first#1`
+- `text-glob-to-regex` [text] what regex this glob is -> `glob_to_regex#1`
+- `text-is-alphanumeric` [text] is this all letters and digits -> `is_alphanumeric#1`
+- `text-is-blank` [text] is this string only whitespace -> `is_blank#1`
+- `text-is-numeric` [text] is this string actually a number -> `is_numeric_string#1`
+- `text-match-glob` [text] does this file name match the glob -> `match_glob#1`
+- `text-occurrences` [text] how many times does this substring appear -> `count_occurrences#1`
+- `text-quoted-printable-decode` [text] decode this quoted-printable text -> `quoted_printable_decode#1`
+- `text-title-case` [text] Capitalize The First Letter Of Every Word -> `title_case#1`
+- `text-unicode-unescape` [text] turn the unicode escapes back into characters -> `unicode_unescape#1`
+- `time-add-months` [time] one month from this date -> `add_months#1`
+- `time-add-years` [time] this date two years on -> `add_years#1`
+- `time-age-in-years` [time] how old is someone born on this date -> `age_in_years#1`
+- `time-ago` [time] how long ago was this timestamp -> `time_ago#1`
+- `time-date-to-epoch` [time] the epoch seconds for this date -> `date_to_timestamp#1`
+- `time-day-of-year` [time] the day number of this date within its year -> `day_of_year#1`
+- `time-days-between` [time] days between these two dates -> `days_between#1`
+- `time-days-in-month` [time] how many days in february 2024 -> `days_in_month#1`
+- `time-duration-between` [time] how long from this date to that one -> `duration_between#1`
+- `time-duration-roundtrip` [time] a duration in words, parsed back to seconds -> `parse_duration#3`
+- `time-epoch-to-date-cmdlet` [time] this unix timestamp as a date, the cmdlet way -> `timestamp_to_date#1`
+- `time-find-timezone` [time] what is the exact name of the Tokyo zone -> `list_timezones#2`
+- `time-format-plain` [time] this date in the iso date style -> `format_date#1`
+- `time-is-weekend` [time] is this date a weekend -> `is_weekend#1`
+- `time-leap-year` [time] is 2024 a leap year -> `is_leap_year#1`
+- `time-list-timezones` [time] the timezone names for europe -> `list_timezones#1`
+- `time-month-name` [time] the name of this month number -> `month_name#1`
+- `time-parse-datetime` [time] parse this date and time text into a real timestamp -> `parse_date#2`
+- `time-parse-day-first` [time] parse a day-month-year date like 11/08/2026 -> `parse_date#1`
+- `time-parse-duration` [time] how many seconds is two and a half hours -> `parse_duration#1`
+- `time-parse-iso-duration` [time] the seconds in the iso duration P1DT2H3M4S -> `parse_duration#2`
+- `time-shift-timezone` [time] show this meeting time in london time -> `to_timezone#1`
+- `time-start-of-week` [time] the monday this week started on -> `start_of_week#1`
+- `time-week-of-year` [time] which week of the year is this -> `week_of_year#1`
+- `time-weekday` [time] what day of the week is this date -> `weekday#1`
+- `validate-email` [validate] is this a valid email address -> `is_email#1`
+
+## Same task as an existing hand recipe (39)
+
+- `ai-flag-lines` [ai] flag the lines of a log that are about a failure -> `classify-lines`
+- `ai-llm-summarize` [ai] summarize this text with a language model -> `summarize-file`
+- `code-scan-go` [code] run the go code rules over this tree -> `code-rules`
+- `coll-csv-cut-column` [coll] one column of a CSV file, as a list -> `csv-column`
+- `db-count-per-table` [db] the row count of every table in the database -> `sqlite-count`
+- `io-archive-create` [file-io] zip a folder into an archive -> `make-archive`
+- `io-archive-extract` [file-io] unzip an archive into a directory -> `extract-archive`
+- `io-lines-of-code` [file-io] lines of code per source file, and the total -> `lines-of-code`
+- `formats-csv-column` [formats] one column of a CSV file -> `csv-column`
+- `formats-csv-to-json-file` [formats] turn a CSV file into a JSON file -> `csv-to-json`
+- `formats-read-json` [formats] read a JSON file -> `read-json`
+- `fs-bigger-than` [fs] find files larger than a size such as 500B -> `files-larger-than`
+- `fs-binary-files` [fs] list the binary, non-text files in a tree -> `binary-files`
+- `fs-count-by-extension` [fs] count the files by extension, how many of each kind -> `count-by-extension`
+- `fs-count-files` [fs] how many files are under a directory -> `count-files`
+- `fs-dir-exists` [fs] check whether a path is a directory that exists -> `file-exists`
+- `fs-dupes-content` [fs] find duplicate files by their content, by hash -> `duplicate-files`
+- `fs-empty-files` [fs] find the empty files, zero bytes long -> `empty-files`
+- `fs-entropy-high` [fs] find high-entropy files that may be encrypted or packed -> `file-entropy`
+- `fs-find-named` [fs] find files whose name contains some text -> `files-named`
+- `fs-largest-files` [fs] the largest files in a tree, biggest first -> `largest-files`
+- `fs-list-dirs` [fs] list the subdirectories (folders) in a directory -> `list-directories`
+- `fs-list-everything-recursive` [fs] every file under a directory, including subfolders -> `list-files-recursive`
+- `fs-list-files` [fs] list the files in a directory -> `list-files`
+- `fs-media-files` [fs] list the pictures and video files in a tree -> `list-images`
+- `fs-newest-files` [fs] the most recently modified files, newest first -> `newest-files`
+- `fs-oldest-files` [fs] the oldest files, least recently modified first -> `oldest-files`
+- `fs-recent-files` [fs] files modified in the last few days -> `recent-files`
+- `fs-size-by-type` [fs] which file types use the most space in a tree -> `size-by-extension`
+- `hash-tree-manifest` [hash] the sha256 of every file in this tree -> `hash-all-files`
+- `jq-read-file` [json] read and parse a JSON file -> `read-json`
+- `log-level-counts` [log] count the log lines by level, how many errors and warnings -> `log-levels`
+- `net-download` [net] download a file from the web -> `download-file`
+- `search-file-count` [search] count the matching lines in a file -> `count-lines-matching`
+- `search-file-lines` [search] the lines of a file that match some text -> `grep-file`
+- `sys-command-count-words` [sys] run a command and count its words -> `run-command`
+- `sys-command-lines` [sys] run a command and take its output as lines -> `run-command`
+- `sys-env-path-count` [sys] how many directories are on the PATH -> `count-items`
+- `sys-service-list` [sys] list the system services -> `running-services`
+
+## Constant-input demo (catalog example recipes already cover these, with the input optional) (458)
+
+- `ai-agent-outlier` [ai] which row is the outlier, let the agent decide
+- `ai-batch-questions` [ai] ask one question about each of several items
+- `ai-classify-choice` [ai] which team should handle this ticket
+- `ai-embedding` [ai] turn this sentence into a vector
+- `ai-embedding-similar` [ai] which of these sentences is closest to the query one
+- `ai-llm-batch` [ai] run a language model over each item in a list
+- `ai-multi-question` [ai] ask two questions about this message at once
+- `ai-read-date` [ai] read the date out of this text
+- `ai-read-number` [ai] read the total out of this invoice text
+- `ai-sentiment` [ai] is this review positive, neutral or negative
+- `ai-systemone-request` [ai] one raw systemone request, with the response shape spelled out
+- `ai-urgency-score` [ai] how urgent is this message, on a scale
+- `ai-yes-no` [ai] ask a yes or no question about this text
+- `chain-ai-confidence-stats` [chain-ai] how confident the model is across these questions
+- `chain-ai-scores-to-sqlite` [chain-ai] refund scores for these messages, stored in a database
+- `chain-ai-sentiment-table` [chain-ai] these reviews with their sentiment, as a table
+- `chain-ai-spam-report` [chain-ai] flag the spam in these messages and write a csv report
+- `chain-ai-two-questions` [chain-ai] filter the complaints out, then sort them by kind
+- `chain-cipher-key-rotation` [chain-cipher] rotate the key: open the message with the old key and seal it with the new one
+- `chain-cipher-seal-manifest` [chain-cipher] seal a message and record both it and the sealed form's checksum
+- `chain-cipher-vault-db` [chain-cipher] store a batch of sealed messages in a database
+- `chain-cipher-wrong-key-rejected` [chain-cipher] prove the sealed message only opens with the right key
+- `chain-codecs-hex-to-file` [chain-codecs] these hex bytes are really a text file - write it out
+- `chain-codecs-rot13-read` [chain-codecs] decode the rot13 and count what it says
+- `chain-formats-query-to-fetch` [chain-formats] build the query string and fetch the url that carries it
+- `chain-log-rotated-merge` [chain-log] merge the rotated logs with the current one and count errors in each
+- `chain-net-dns-counts` [chain-net] how many addresses each of these hosts resolves to
+- `chain-net-gzip-post` [chain-net] compress a message, ship it as base64, and unpack it on the other side
+- `chain-net-sealed-post` [chain-net] seal a message, post it to the echo service, and read it back at the far end
+- `chain-net-status-stats` [chain-net] check a few sites and summarize their status codes
+- `chain-sys-binary-exists` [chain-sys] the busiest processes, and whether their binaries are on disk
+- `chain-sys-cpu-stats` [chain-sys] statistics of cpu usage across all processes
+- `chain-sys-memory-percentiles` [chain-sys] how memory use is distributed across processes
+- `chain-sys-snapshot-db` [chain-sys] land a process snapshot in a database
+- `chain-time-ages-table` [chain-time] these birth dates as an age table
+- `chain-time-days-to-db` [chain-time] these dates with their weekdays, stored in a database
+- `chain-time-deadlines` [chain-time] how many days until each deadline
+- `chain-time-durations-summary` [chain-time] these durations, summarized in plain units
+- `chain-time-meeting-zones` [chain-time] one meeting time shown in london, tokyo and new york at once
+- `chain-triple-ship-reviews-aggregate` [chain-triples] ship the reviews out, get them back, sentiment each, and tally the verdicts
+- `cipher-3des-roundtrip` [cipher] triple des, round trip
+- `cipher-aes-base64-wrapped` [cipher] the ciphertext comes out base64-wrapped, ready for a message
+- `cipher-aes-ecb` [cipher] aes in ecb mode, no iv, for when that is all you have
+- `cipher-aes-encrypt` [cipher] encrypt this with aes-256-cbc
+- `cipher-aes-hex-key` [cipher] encrypt with the key given as hex bytes
+- `cipher-aes-roundtrip` [cipher] encrypt with aes and decrypt it back round trip
+- `cipher-aes-unwrap` [cipher] unwrap a received base64 aes payload back into text
+- `cipher-blowfish-roundtrip` [cipher] blowfish encryption, round trip
+- `cipher-cbc-random-iv` [cipher] prove the random iv makes cbc output differ every time
+- `cipher-chacha20-encrypt` [cipher] encrypt this with chacha20 and a 32 byte key
+- `cipher-chacha20-fixed-nonce` [cipher] chacha20 with an explicit nonce, so the same input gives the same output
+- `cipher-cipher-length` [cipher] how much longer is the ciphertext than the text
+- `cipher-compare-modes` [cipher] the same text under aes cbc and ecb side by side
+- `cipher-des-roundtrip` [cipher] old des encryption, round trip
+- `cipher-rc4-stream` [cipher] rc4 both ways, the same operation encrypts and decrypts
+- `cipher-rc4-vs-aes` [cipher] the same message through rc4 and through aes
+- `cipher-xor-key` [cipher] xor this text against a repeating key, both directions at once
+- `code-rule-at-same-place` [code] which of these matches fire at exactly the same place
+- `code-rule-in-files-with` [code] keep matches from files that also contain the other thing
+- `code-rule-in-files-without` [code] keep matches from files that do not contain the other thing
+- `code-rule-not-at` [code] drop the matches that fire where another already did
+- `code-rule-outside` [code] keep the matches that sit outside another match
+- `code-rule-reaches` [code] which subprocess calls are fed by request arguments
+- `code-rule-where-capture-entropy` [code] flag captures that look like high-entropy secrets
+- `code-rule-within` [code] keep the matches that sit inside a surrounding match
+- `code-scan-ast-direct` [code] scan the python files for subprocess and system calls
+- `code-scan-multi-language` [code] scan with the go and python rules together
+- `code-semver-older-than` [code] which releases are older than 2.0.0
+- `code-semver-parts` [code] the pieces of this version string
+- `code-semver-sort` [code] sort these release tags newest first
+- `code-semver-valid` [code] which of these are proper semver strings
+- `codecs-base64-decode` [codecs] decode this base64
+- `codecs-base64-encode` [codecs] encode this text as base64
+- `codecs-base64-file` [codecs] the base64 of a file's contents
+- `codecs-base64-then-gunzip` [codecs] decode a base64 gzip blob from a log and read it
+- `codecs-base64url-decode` [codecs] decode url-safe base64
+- `codecs-base64url-encode` [codecs] url-safe base64, for tokens and filenames
+- `codecs-bytes-length-encoded` [codecs] how big is this text once base64 encoded
+- `codecs-deflate-raw` [codecs] raw deflate compression, no wrapper
+- `codecs-encode-cycle` [codecs] take this through base64 and hex and back again
+- `codecs-gzip-roundtrip` [codecs] compress this with gzip and get it back
+- `codecs-gzip-size` [codecs] how much gzip saves on this text
+- `codecs-gzip-then-base64` [codecs] compress and encode this for putting in a payload
+- `codecs-hex-file` [codecs] a hex dump of this file
+- `codecs-html-decode` [codecs] unescape html entities
+- `codecs-html-encode` [codecs] escape this for safe html
+- `codecs-rot-n` [codecs] rotate these letters by three places, a caesar shift
+- `codecs-rot13` [codecs] rot13 this text
+- `codecs-two-way-print` [codecs] this text side by side with its base64
+- `codecs-unicode-escape-text` [codecs] escape every non-ascii character
+- `codecs-url-decode` [codecs] decode percent-encoding
+- `codecs-url-encode` [codecs] percent-encode this for a url
+- `codecs-which-are-base64` [codecs] which of these strings are valid base64 and which are not
+- `codecs-zlib-roundtrip` [codecs] compress with zlib and decompress again
+- `coll-avg-by-group` [coll] the average of a field per group
+- `coll-bottom-by-field` [coll] the worst rows by a field
+- `coll-cartesian-product` [coll] every combination of these two lists
+- `coll-chunk-list` [coll] split a list into pairs
+- `coll-column-pick` [coll] the second column of a grid
+- `coll-count-by-field` [coll] count the rows by a field
+- `coll-dedupe-keep-order` [coll] remove repeats, keeping the first seen
+- `coll-deep-merge-objects` [coll] merge two configs, nested fields included
+- `coll-difference-lists` [coll] what is in the first list but not the second
+- `coll-flatten-keys` [coll] flatten nested JSON into dotted keys
+- `coll-format-list` [coll] one object's fields, one per line
+- `coll-format-table` [coll] show this data as a table
+- `coll-format-table-columns` [coll] a table with just the columns I choose
+- `coll-group-by-key` [coll] group rows by a field, as a map
+- `coll-has-duplicates` [coll] does this list repeat anything
+- `coll-index-by-key` [coll] a lookup table keyed by one field
+- `coll-interleave-lists` [coll] weave two lists together, one from each
+- `coll-intersection-lists` [coll] what is in both lists
+- `coll-join-by-key` [coll] join two lists on a shared field
+- `coll-lookup-row` [coll] find the row where the field has this value
+- `coll-measure-object` [coll] count, sum and average of a list
+- `coll-measure-property` [coll] statistics of one property across objects
+- `coll-natural-sort-versions` [coll] sort these version strings naturally
+- `coll-pivot-rows` [coll] pivot long rows into a wide table, one column per year
+- `coll-prune-empty` [coll] drop the empty and null parts of a structure
+- `coll-rename-keys` [coll] rename the fields of an object
+- `coll-select-object-props` [coll] just these properties of each object
+- `coll-sliding-windows` [coll] every run of three consecutive items
+- `coll-sort-object` [coll] sort objects by a property, the PowerShell way
+- `coll-sum-by-group` [coll] the total of a field per group
+- `coll-summarize-by-group` [coll] full statistics of a field, per group
+- `coll-symmetric-difference` [coll] what is in exactly one of the two lists
+- `coll-top-by-field` [coll] the top rows by a field
+- `coll-top-values` [coll] the two biggest values
+- `coll-transpose-matrix` [coll] flip rows into columns
+- `coll-unflatten-keys` [coll] expand dotted keys back into nested objects
+- `coll-unpivot-table` [coll] melt a wide table back into long rows
+- `coll-value-counts` [coll] how many times each value appears
+- `coll-where-object-op` [coll] people older than 26, by property and operator
+- `coll-where-object-script` [coll] the numbers greater than ten, the PowerShell way
+- `coll-zip-two-lists` [coll] pair up two lists, position by position
+- `io-append-output` [file-io] append the output to a growing log file
+- `io-save-output` [file-io] save the pipeline output to a file and pass it on
+- `io-tee-file` [file-io] keep a copy of the data in a file while passing it on
+- `io-tee-stderr` [file-io] show the data on stderr while it keeps flowing
+- `io-write-csv` [file-io] save rows as a CSV file
+- `io-write-json` [file-io] save data as a JSON file
+- `io-write-yaml` [file-io] save data as a YAML file
+- `flow-release-diff` [flow] what changed between the shipped versions and the current ones
+- `formats-csv-delimiter` [formats] parse this semicolon-separated file
+- `formats-csv-write` [formats] these rows as CSV text
+- `formats-dotted-has` [formats] is there anything at this dotted path
+- `formats-flatten-dotted` [formats] flatten this nested config into dotted keys
+- `formats-ini-write` [formats] write this config as ini text
+- `formats-json-pointer-get` [formats] the value at this JSON pointer path
+- `formats-json-pointer-set` [formats] set a value through a JSON pointer path
+- `formats-json-stringify` [formats] this object as a JSON string through the cmdlet
+- `formats-json-to-yaml` [formats] convert this JSON to YAML
+- `formats-jsonl-parse` [formats] read JSON-lines text as an array
+- `formats-jsonl-write` [formats] this array as JSON-lines text, one per line
+- `formats-logfmt-parse` [formats] parse one logfmt line into fields
+- `formats-logfmt-write` [formats] these fields as one logfmt line
+- `formats-objects-to-csv` [formats] objects into a CSV file, header included
+- `formats-properties-write` [formats] these settings as a properties file
+- `formats-query-string-build` [formats] build a query string out of these parameters
+- `formats-query-string-parse` [formats] parse a url query string into fields
+- `formats-unflatten-dotted` [formats] rebuild the nested structure from dotted keys
+- `formats-xml-parse` [formats] read this XML as JSON
+- `formats-xml-write` [formats] this data back as XML
+- `formats-yaml-to-json` [formats] read this YAML as JSON
+- `fs-path-absolute` [fs] which of these paths are absolute
+- `fs-path-expand-home` [fs] expand the tilde in a path to the home directory
+- `fs-path-has-extension` [fs] which of these file names have an extension at all
+- `fs-path-is-dir` [fs] which of these paths are directories
+- `fs-path-relative` [fs] a path as relative to some base directory
+- `fs-path-stem` [fs] a file name without its extension
+- `fs-path-with-extension` [fs] the same file name with a different extension
+- `hash-argon2` [hash] hash this password with argon2id
+- `hash-bcrypt-new` [hash] hash this password the right way, with bcrypt
+- `hash-bcrypt-reject` [hash] prove bcrypt rejects the wrong password
+- `hash-bcrypt-roundtrip` [hash] hash a password with bcrypt and verify it round trip
+- `hash-crc` [hash] all the small checksums of this text at once
+- `hash-crc32-file` [hash] the crc32 of a file
+- `hash-file-entropy` [hash] the entropy of this file's bytes
+- `hash-hmac-family` [hash] this message under every hmac flavor
+- `hash-hmac-rare-flavors` [hash] this message under the less common hmac flavors
+- `hash-hmac-sha256` [hash] the hmac-sha256 of a message with my key
+- `hash-pbkdf2` [hash] derive a key from this password with pbkdf2
+- `hash-sha512-variants` [hash] the truncated sha512 variants of this text
+- `hash-ssdeep-file` [hash] the fuzzy hash of a file, for near-duplicates
+- `hash-text-entropy` [hash] the entropy of this text
+- `hash-wide-digests` [hash] the wider digest widths of this text
+- `ids-base58-decode` [ids] decode this base58
+- `ids-base58-encode` [ids] this text as base58, the bitcoin alphabet
+- `ids-is-jwt` [ids] which of these strings look like jwts
+- `ids-is-uuid` [ids] which of these are valid uuids
+- `ids-jwt-decode` [ids] read the claims inside this jwt without verifying it
+- `ids-jwt-expiry` [ids] has this jwt expired yet
+- `ids-jwt-structure` [ids] the header and payload of this jwt side by side
+- `ids-random-choice` [ids] pick one of these at random
+- `ids-sample-without-replacement` [ids] draw three winners from the list, without repeats
+- `ids-shuffle` [ids] shuffle this playlist
+- `ids-uuid-version` [ids] which uuid version is this
+- `jq-add-computed` [json] add a field computed from the others
+- `jq-alternative-default` [json] a value or its default when missing
+- `jq-any-all` [json] whether any item passes, and whether all do
+- `jq-bind-variable` [json] name the data and use the name
+- `jq-capture-groups` [json] pull named pieces out of text
+- `jq-case-convert` [json] lowercase this text
+- `jq-compact` [json] the compact one-line form of this data
+- `jq-concat-arrays` [json] join two arrays together
+- `jq-contains-check` [json] does the array contain this value
+- `jq-count-items` [json] how many items are in the array
+- `jq-count-per-group` [json] how many items in each group
+- `jq-deep-merge` [json] merge nested objects, deep inside too
+- `jq-delete-field` [json] remove a field from every item
+- `jq-delete-missing-values` [json] strip the null fields from an object, recursively
+- `jq-either-condition` [json] items that pass either test
+- `jq-empty-check` [json] is this list empty
+- `jq-entries` [json] an object as key and value pairs
+- `jq-error-caught` [json] raise an error on purpose and catch it
+- `jq-find-key-anywhere` [json] find every object that has this key, however deep
+- `jq-first-last` [json] the first and last item of a list
+- `jq-first-match` [json] the first item that passes the test
+- `jq-flatten-arrays` [json] flatten nested arrays into one
+- `jq-from-entries` [json] build an object back from key and value pairs
+- `jq-get-at-path` [json] the value at a known deep path
+- `jq-group-by-field` [json] group the items by a field
+- `jq-gsub-all` [json] replace every occurrence in text
+- `jq-has-field` [json] does the object have this field
+- `jq-if-classify` [json] sort items into buckets with if, elif and else
+- `jq-index-of` [json] where in the list this value first appears
+- `jq-indices-of` [json] every position where the value appears
+- `jq-interpolate` [json] build a sentence out of the fields
+- `jq-keys` [json] the field names of the input
+- `jq-leaf-values` [json] the path to every leaf value in the structure
+- `jq-limit-outputs` [json] only the first few of a stream
+- `jq-merge-objects` [json] overlay one object on another
+- `jq-merge-patch` [json] apply an RFC 7386 merge patch
+- `jq-min-max-by` [json] the smallest and largest item by a field
+- `jq-natural-sort` [json] sort version numbers the way people expect
+- `jq-nested-access` [json] a field deep inside nested JSON
+- `jq-nested-safe` [json] a deep field that may be missing, with a fallback
+- `jq-number-to-string` [json] the numbers as text, joined with commas
+- `jq-parse-string` [json] parse text that holds JSON
+- `jq-paths-list` [json] every path through this nested structure
+- `jq-pick-fields` [json] keep only some fields of each item
+- `jq-pluck-field` [json] one field from every item
+- `jq-pretty` [json] pretty print compact JSON
+- `jq-reduce-sum` [json] add up a list with reduce
+- `jq-rename-fields` [json] rename a field
+- `jq-restructure` [json] build a new object out of old fields
+- `jq-reverse-array` [json] the items the other way around
+- `jq-scan-all` [json] every regex match in the text
+- `jq-select-above` [json] keep the items whose number is over a threshold
+- `jq-select-contains` [json] keep the items whose field contains some text
+- `jq-select-equals` [json] keep only the items where a field equals a value
+- `jq-select-in-set` [json] keep items whose field is one of several values
+- `jq-select-nonnull` [json] drop the items where the field is missing
+- `jq-select-not-equals` [json] keep the items where the field is something else
+- `jq-select-regex` [json] keep the items whose text matches a pattern
+- `jq-select-type` [json] keep only the numbers in a mixed list
+- `jq-slice-array` [json] a slice of the list, items two and three
+- `jq-sort-array` [json] sort the items
+- `jq-sort-by-field` [json] sort the items by a field
+- `jq-sort-descending` [json] sort by a field, biggest first
+- `jq-sort-multi-key` [json] sort by two fields, one then the other
+- `jq-split-join` [json] split a line apart and put it back together differently
+- `jq-splits-stream` [json] split on a pattern and get the pieces as a stream
+- `jq-starts-ends` [json] does the text start or end with that
+- `jq-string-to-number` [json] text that is really a number
+- `jq-stringify` [json] turn data back into a JSON string
+- `jq-sub-first` [json] replace only the first occurrence
+- `jq-test-pattern` [json] does the text match the pattern
+- `jq-to-yaml` [json] show this JSON as YAML
+- `jq-top-n` [json] the top few items by a field
+- `jq-trim-prefix` [json] strip a prefix and a suffix from text
+- `jq-try-catch` [json] try a conversion and carry on when it fails
+- `jq-two-conditions` [json] items that pass two tests at once
+- `jq-type` [json] what kind of value is this
+- `jq-unique-by` [json] one item per distinct key value
+- `jq-unique-items` [json] the distinct values of a list
+- `jq-update-conditional` [json] update a field only where a condition holds
+- `jq-update-field` [json] update a field in every item
+- `jq-values` [json] just the values, in order
+- `jq-walk-redact` [json] redact a field everywhere it appears
+- `jq-with-entries` [json] rewrite each key and value of an object
+- `meta-by-category` [meta] how many cmdlets are in each category
+- `meta-categories` [meta] the category names, all of them
+- `meta-count-cmdlets` [meta] how many cmdlets does pwrq have
+- `meta-find-by-keyword` [meta] find the cmdlets about archives
+- `meta-list-names` [meta] the names of the first cmdlets
+- `meta-search-descriptions` [meta] which cmdlets mention entropy in their help
+- `meta-streaming-cmdlets` [meta] which cmdlets stream their output
+- `net-check-sites` [net] are these sites up, check them all
+- `net-cidr-classify` [net] label each of these CIDRs as private, public or loopback
+- `net-cidr-info` [net] the details of a CIDR block: network, broadcast, first and last host, size
+- `net-cidr-size` [net] how many addresses are in this subnet
+- `net-hosts-port-check` [net] is this port open on each of these hosts
+- `net-ip-classify` [net] is this IP private, public or loopback
+- `net-ip-next` [net] the next address after this one
+- `net-ip-valid` [net] which of these are valid IP addresses at all
+- `net-ip-version` [net] is this an ipv4 or ipv6 address
+- `net-ips-classify` [net] sort these addresses into private and public
+- `net-ips-in-cidr` [net] which of these addresses belong to the subnet
+- `net-ipv4-or-ipv6` [net] which of these addresses are ipv4 and which are ipv6
+- `net-mac-valid` [net] which of these are valid MAC addresses
+- `net-ports-sweep` [net] which of these ports are open on the host
+- `net-resolve-many` [net] resolve several host names at once
+- `net-serve` [net] serve a value over HTTP so I can fetch it from elsewhere
+- `num-combinations` [num] how many ways to choose 3 of 10
+- `num-currency` [num] this amount as US dollars
+- `num-digit-sum` [num] the sum of the digits of 9875
+- `num-factorial` [num] 10 factorial
+- `num-fixed` [num] always show two decimals, like money
+- `num-is-even` [num] which of these are even
+- `num-is-prime` [num] is 97 a prime number
+- `num-lerp` [num] the point a third of the way from 0 to 30
+- `num-next-prime` [num] the first prime after 1000
+- `num-ordinal` [num] 21 as a position, like twenty-first
+- `num-parity` [num] which of these numbers are odd
+- `num-parse-coords` [num] read this coordinate pair text into numbers
+- `num-pct-change` [num] the percent change from 80 to 100
+- `num-permutations` [num] how many ways to arrange 3 of 10 in order
+- `num-power-of-two` [num] which of these are powers of two
+- `num-prime-factors` [num] factor 360 into primes
+- `num-round-places` [num] pi to four decimal places
+- `num-round-thousands` [num] round this to the nearest thousand
+- `search-multiple-files` [search] search several named files and count each
+- `sim-closest-match` [sim] which of these words is closest to the one I meant
+- `sim-cosine-docs` [sim] which document matches the query best
+- `sim-diff-lines` [sim] a line-by-line diff of these two texts
+- `sim-group-by-sound` [sim] group these names by how they sound
+- `sim-n-grams` [sim] the bigrams of this text
+- `sim-soundex` [sim] do these names sound the same
+- `sim-which-file-changed` [sim] which of these copies no longer matches the original
+- `stats-autocorrelation` [stats] does this series repeat itself, is there a cycle
+- `stats-correlation` [stats] do these two series move together
+- `stats-covariance` [stats] how much these two series vary together
+- `stats-cumsum` [stats] the running total of these numbers
+- `stats-cumulative-max` [stats] the highest value seen so far, step by step
+- `stats-cumulative-min` [stats] the lowest value seen so far, step by step
+- `stats-deltas` [stats] the change from each value to the next
+- `stats-ema` [stats] the smoothed series, an exponential moving average
+- `stats-fill-forward` [stats] carry the last value across the gaps
+- `stats-geomean` [stats] the geometric mean, for growth rates
+- `stats-harmonic` [stats] the harmonic mean, for rates and speeds
+- `stats-histogram` [stats] bucket these response times and count each bucket
+- `stats-lag` [stats] each value paired with the one before it
+- `stats-latency-grade` [stats] grade these response times: how many are fast, okay or slow
+- `stats-mad` [stats] the median absolute deviation, robust to outliers
+- `stats-mean` [stats] the average of these numbers
+- `stats-median` [stats] the middle value of these numbers
+- `stats-mode` [stats] the most frequent value
+- `stats-normal-check` [stats] how many of these values sit within one deviation
+- `stats-outliers` [stats] which of these values are outliers, more than three deviations out
+- `stats-per-group` [stats] statistics of a field per group, all at once
+- `stats-percentile` [stats] the 90th percentile of these response times
+- `stats-percentile-rank` [stats] where does this value fall among the others
+- `stats-product` [stats] all these numbers multiplied together
+- `stats-rms` [stats] the root mean square of these numbers
+- `stats-standardize` [stats] standardize to z-scores, how far each is from the mean
+- `stats-summary` [stats] the whole picture: count, min, max, mean, median and deviation
+- `stats-top-and-bottom` [stats] the extremes on both ends of the series
+- `stats-trimmed` [stats] the average with the extremes trimmed off
+- `stats-weighted` [stats] the weighted average of scores with weights
+- `sys-date-human` [sys] how long ago was a timestamp, in human words
+- `sys-newest-process` [sys] the most recently started process
+- `sys-oldest-process` [sys] the longest running process, started first
+- `sys-process-count` [sys] how many processes are running
+- `sys-process-count-by-name` [sys] how many processes each program has running
+- `sys-process-ids` [sys] the process ids, the first few
+- `sys-process-list` [sys] list the running processes
+- `sys-process-threads` [sys] the processes with the most threads
+- `sys-service-count` [sys] how many services are in each state
+- `sys-top-cpu` [sys] the processes using the most CPU
+- `sys-top-memory` [sys] the processes using the most memory
+- `text-banner` [text] a banner line around this title
+- `text-camel` [text] camelCase this phrase
+- `text-capitalize` [text] capitalize the first letter only
+- `text-char-count` [text] how many characters is this text
+- `text-char-frequencies` [text] how often each letter appears
+- `text-clean-pasted-text` [text] clean up text pasted from a terminal: strip colors and doubled spaces
+- `text-consonants` [text] how many consonants in this text
+- `text-csv-line-to-fields` [text] split a comma-separated line into fields, trimming each
+- `text-dedent` [text] remove the common leading indentation
+- `text-diff-two-texts` [text] what changed between these two texts
+- `text-drop-blank-lines` [text] remove the empty lines from this text
+- `text-first-lines` [text] the first two lines only
+- `text-indent` [text] indent these lines by four spaces
+- `text-initials-list` [text] the initials of each of these names
+- `text-is-alphabetic` [text] is this all letters
+- `text-is-ascii` [text] is this text plain ascii
+- `text-is-lowercase` [text] is this all lowercase
+- `text-is-uppercase` [text] is this all uppercase
+- `text-join-words` [text] these words as one comma-separated line
+- `text-kebab` [text] kebab-case this phrase
+- `text-last-lines` [text] the last two lines only
+- `text-line-count` [text] how many lines in this text
+- `text-lower` [text] all lowercase
+- `text-mask` [text] hide the middle of this secret
+- `text-mask-custom` [text] redact all but the last four digits
+- `text-normalize-space` [text] collapse all the doubled spaces and tabs
+- `text-pad-center` [text] center this title in a fixed width
+- `text-pad-left` [text] zero-pad this number to four digits
+- `text-pad-right` [text] right-pad this label to ten characters
+- `text-pascal` [text] PascalCase this phrase
+- `text-prefix-lines` [text] quote these lines for a markdown reply
+- `text-quoted-printable-encode` [text] encode this as quoted-printable, for old mail headers
+- `text-regex-valid` [text] is this a valid regular expression at all
+- `text-remove-accents` [text] plain ASCII letters for these accented names
+- `text-replace-everywhere` [text] replace every occurrence, not just the first
+- `text-replace-substring` [text] replace one substring with another
+- `text-reverse-lines` [text] these lines in the opposite order
+- `text-reverse-words` [text] the words of this sentence in reverse order
+- `text-sentence-case` [text] fix this sentence so only its first word is capitalized
+- `text-slugify` [text] a url-safe slug for this title
+- `text-snake` [text] snake_case this phrase
+- `text-sort-lines` [text] sort these lines alphabetically
+- `text-strip-ansi` [text] remove the color codes from terminal output
+- `text-strip-quotes` [text] drop the surrounding quotation marks
+- `text-surround` [text] wrap this in brackets
+- `text-swap-case` [text] flip every letter's case
+- `text-truncate` [text] cut this preview to 20 characters with an ellipsis
+- `text-truncate-words` [text] the first five words of this paragraph only
+- `text-unicode-escape` [text] escape the non-ascii characters of this text
+- `text-unique-lines` [text] drop the repeated lines
+- `text-upper` [text] shout this in capitals
+- `text-vowels` [text] how many vowels in this text
+- `text-word-count` [text] how many words in this text
+- `text-word-frequency` [text] the most common words in this text
+- `text-wrap` [text] wrap this paragraph at 20 columns
+- `time-add-days` [time] the date two weeks from this one
+- `time-add-seconds` [time] an hour from this epoch time
+- `time-ago-days` [time] how long ago in days was this timestamp
+- `time-calendar-week` [time] the dates of each day this week
+- `time-countdown` [time] how many days until new year
+- `time-end-of-day` [time] the last moment of this day
+- `time-epoch-to-date` [time] turn this unix timestamp into a readable date
+- `time-format-named` [time] this timestamp as an rfc1123 date
+- `time-human-duration` [time] how do you say 93784 seconds
+- `time-iso-duration` [time] this many seconds as an iso 8601 duration
+- `time-log-bucket-hour` [time] bucket these log timestamps by hour of day
+- `time-parse-iso` [time] is this a valid iso date
+- `validate-cidr` [validate] is this a proper cidr block
+- `validate-credit-card` [validate] is this credit card number well-formed
+- `validate-date` [validate] does this text hold a date
+- `validate-domain` [validate] is this a real-looking domain name
+- `validate-email-clean` [validate] keep only the good email addresses
+- `validate-emails-batch` [validate] which of these emails are broken
+- `validate-extract-dates` [validate] the dates mentioned in this text
+- `validate-extract-everything` [validate] every email, url and ip in this text at once
+- `validate-hex` [validate] is this string really hex
+- `validate-hex-colors` [validate] which of these are hex color codes
+- `validate-ip` [validate] is this a valid ip address
+- `validate-iso` [validate] is this a proper iso 8601 timestamp
+- `validate-iso-batch` [validate] find the malformed timestamps in this event stream
+- `validate-json` [validate] is this text valid json at all
+- `validate-numeric` [validate] which of these strings are really numbers
+- `validate-port` [validate] is this a legal port number
+- `validate-slug` [validate] is this already a clean slug
+- `validate-strip-tags` [validate] the plain text out of this html fragment
+- `validate-url` [validate] is this a proper url
+- `validate-urls-batch` [validate] check this list of links and drop the broken ones
+
+## Needs credentials or a remote model (Censys, LLM, agent) (14)
+
+- `ai-agent-count-files` [ai] have an agent answer a question about this directory
+- `ai-agent-request` [ai] an agent run with the full response, steps and all
+- `ai-llm-context` [ai] how many tokens of context does this model have
+- `ai-llm-models` [ai] what models can I call
+- `ai-llm-structured` [ai] get structured JSON back from a language model
+- `censys-censeye-job` [censys] start a censeye job on this host
+- `censys-censeye-result` [censys] read the censeye result for this job
+- `censys-certificate` [censys] the certificate censys saw for this fingerprint
+- `censys-collection-events` [censys] the events of one collection
+- `censys-host-timeline` [censys] how this host changed over time
+- `censys-search-country` [censys] censys hosts located in chile
+- `censys-search-hosts` [censys] search censys for hosts running ssh
+- `censys-tag-assets` [censys] the assets tagged with one of my tags
+- `censys-webproperty-timeline` [censys] how this web property changed over time
+
+## Builds its own fixture (creates tables, writes files first) (5)
+
+- `chain-db-events-per-month` [chain-db] events per month, straight out of the database
+- `chain-db-sites-resolve` [chain-db] the hosts in my sites table, resolved
+- `db-create-and-insert` [db] make a table, insert a row, and read it back
+- `db-join-two-tables` [db] join two tables by a shared column, without SQL
+- `io-write-read-back` [file-io] write a file and read it back to confirm
+
+## Judgment: narrow, fixture-specific, or a variant of something kept (230)
+
+- `ai-image-contains` [ai] does this image contain what I am looking for
+- `ai-image-count` [ai] count the objects of one kind in this image
+- `ai-image-kind` [ai] what kind of image is this, photo, screenshot, drawing or document
+- `ai-image-rate` [ai] how likely is it that this image shows something
+- `ai-systemone-status` [ai] where will the decision model run and how fast did it load
+- `ai-video-shows` [ai] does this video show what I expect
+- `ai-video-when` [ai] find the moments in this video when something happens
+- `chain-ai-segments-table` [chain-ai] the moments in this video, scored, as a table
+- `chain-ai-urgent-logs` [chain-ai] which log files the model finds urgent
+- `chain-ai-videos-motion-list` [chain-ai] the videos that show motion, written to a list
+- `chain-cipher-seal-and-archive` [chain-cipher] seal the config files and pack the sealed copies into an archive
+- `chain-cipher-unseal-archive` [chain-cipher] unpack the sealed archive and open every file inside
+- `chain-codecs-b64-to-json` [chain-codecs] this base64 file decodes to JSON - read it as data
+- `chain-codecs-blob-gunzip-save` [chain-codecs] unpack the compressed payload and save what it says
+- `chain-codecs-decode-date` [chain-codecs] the decoded text is a date - what weekday was it
+- `chain-codecs-decode-to-db` [chain-codecs] store the recovered secret in a database
+- `chain-codecs-decode-url-fetch` [chain-codecs] the decoded text turns out to be a url - go fetch it
+- `chain-codecs-recovered-checksum` [chain-codecs] the recovered message and its checksum together
+- `chain-db-export-yaml` [chain-db] the table out as a YAML file
+- `chain-db-rows-ai` [chain-db] which users look like team accounts to the model
+- `chain-db-rows-to-files` [chain-db] one JSON file per row of the users table
+- `chain-db-seats-stats` [chain-db] statistics of the seats column across the table
+- `chain-db-table-report` [chain-db] the table rendered as a report
+- `chain-db-validate-plans` [chain-db] check every plan value in the table is one we know
+- `chain-formats-csv-ai-cities` [chain-formats] which rows of this csv look like london users to the model
+- `chain-formats-jsonl-flatten` [chain-formats] the jsonl rows flattened into dotted keys and saved
+- `chain-formats-properties-to-yaml` [chain-formats] this properties file re-saved as yaml
+- `chain-formats-xml-prices-sum` [chain-formats] the total of the prices inside this xml catalog
+- `chain-formats-yaml-to-ini` [chain-formats] this yaml config re-saved as an ini file
+- `chain-fs-archive-biggest-entries` [chain-fs] the biggest files inside each archive here
+- `chain-fs-biggest-log-errors` [chain-fs] the biggest log file and how many errors are in it
+- `chain-fs-configs-with-secrets` [chain-fs] which config files mention a password or token
+- `chain-fs-csv-age-valid` [chain-fs] check every csv in the tree for rows whose age column is not a number
+- `chain-fs-decode-and-save` [chain-fs] pull the hidden payload out of the files and save what it says
+- `chain-fs-decode-blobs` [chain-fs] find the base64 payloads hidden in these text files and decode them
+- `chain-fs-hash-biggest` [chain-fs] checksums for just the biggest files
+- `chain-fs-images-blue-move` [chain-fs] find the images that are mostly blue and list them
+- `chain-fs-images-region-count` [chain-fs] how many distinct color regions each image has
+- `chain-fs-merge-inis` [chain-fs] join all the ini files in this folder into one
+- `chain-fs-seal-tree` [chain-fs] encrypt every text file in this folder
+- `chain-fs-size-quantiles` [chain-fs] how file sizes are distributed across this tree
+- `chain-fs-size-zscore` [chain-fs] which files are unusually large for this tree
+- `chain-fs-unseal-tree` [chain-fs] open every sealed file in this folder back into text
+- `chain-fs-videos-motion-when` [chain-fs] for each video, the moments something moves
+- `chain-log-ai-payment-issue` [chain-log] the unique error messages, and which are about payments
+- `chain-log-config-port-live` [chain-log] the port the config says the database is on - is anything listening there
+- `chain-log-error-span` [chain-log] how long the incident lasted, first error to last
+- `chain-log-ips-classify` [chain-log] the log's clients split into internal and external
+- `chain-log-minute-rates` [chain-log] the request rate per minute, smoothed
+- `chain-log-slowest-ai-cause` [chain-log] the slowest requests, and whether each looks like a timeout
+- `chain-log-to-sqlite` [chain-log] land the structured log in a database for ad-hoc queries
+- `chain-log-weekday-rhythm` [chain-log] on which weekdays do these events land
+- `chain-log-whois-top-talkers` [chain-log] the busiest clients in the log and who they belong to
+- `chain-net-api-validate-fields` [chain-net] fetch the api and check that its url fields are real urls
+- `chain-net-download-age` [chain-net] download a file and see how fresh the copy on disk is
+- `chain-net-headers-to-sqlite` [chain-net] save this response's headers as a database table
+- `chain-net-json-to-sqlite` [chain-net] fetch the api and land its fields in a database
+- `chain-net-links-secure` [chain-net] fetch the page and see which of its links are https
+- `chain-net-page-d1` [chain-net] fetch the page and ask the model what it is about
+- `chain-net-page-stats` [chain-net] fetch the page and get its word statistics
+- `chain-net-port-then-fetch` [chain-net] if the port is open, fetch the page behind it
+- `chain-net-resolve-then-portcheck` [chain-net] resolve the host and check the port on every address it has
+- `chain-search-dates-timeline` [chain-search] search out the dates in this text and lay them on a line
+- `chain-search-gzip-blob-recover` [chain-search] find the compressed payload in my files and read it
+- `chain-search-json-lines` [chain-search] find the lines that look like JSON and parse them
+- `chain-search-longest-match` [chain-search] the longest line my search found
+- `chain-search-matches-csv` [chain-search] the matches as a CSV file
+- `chain-search-matches-per-file-stats` [chain-search] search the tree and summarize how many hits each file got
+- `chain-search-matches-report` [chain-search] search results as one tidy text report
+- `chain-search-matches-to-sqlite` [chain-search] save every match as a row in a database for later queries
+- `chain-search-panics-by-file` [chain-search] which files panic, and how many times
+- `chain-search-whois-log-ips` [chain-search] the client IPs in the access log and who they belong to
+- `chain-sys-disk-threshold` [chain-sys] how full is the disk, and is that over my threshold
+- `chain-sys-env-snapshot` [chain-sys] a snapshot of the interesting environment variables, saved
+- `chain-time-daily-counts-csv` [chain-time] events per day, written out as a CSV
+- `chain-time-todays-changes-bundle` [chain-time] everything changed today, packed into one dated archive
+- `chain-time-touched-this-week` [chain-time] files touched this week and how many days old they are
+- `chain-triple-db-ai-file` [chain-triples] query the users, ask the model which look like pro accounts, and write them to a file
+- `chain-triple-decode-fetch-links` [chain-triples] decode the hidden url, fetch the page behind it, and save the links it contains
+- `chain-triple-fetch-word-stats` [chain-triples] fetch the page, split it into words, and get the statistics
+- `chain-triple-find-search-urgent` [chain-triples] find the log files, search their error lines, and ask the model which are urgent
+- `chain-triple-log-hour-trend` [chain-triples] the log bucketed by hour, with the trend between buckets
+- `chain-triple-logs-errors-db` [chain-triples] every log's error lines, gathered into one database table
+- `chain-triple-manifest-db` [chain-triples] hash the config folder and land the manifest in a database
+- `chain-triple-ping-db` [chain-triples] ping every host in my hosts file and record the results in a database
+- `chain-triple-search-fetch-hash` [chain-triples] find the urls in my notes, download each, and checksum what landed
+- `cipher-key-pair-generate` [cipher] two fresh keys, one for each side
+- `cipher-rc4-file` [cipher] rc4 a whole file's bytes, both ways
+- `code-findings-by-file` [code] which files have the most findings
+- `code-list-rules` [code] what go rules are available to scan with
+- `code-pattern-check` [code] is this ast pattern even valid for go
+- `code-regex-api-keys` [code] api keys and tokens in config files
+- `code-regex-count` [code] count the eval calls in the javascript here
+- `code-regex-passwords` [code] passwords committed in config files
+- `code-rule-finding` [code] turn a raw match into a finding with a rule name
+- `code-scan-flow-only` [code] only the flow rules, the data-reaching-effects ones
+- `code-scan-one-rule` [code] where does input from outside reach an effect, in this go tree
+- `code-scan-python` [code] run the python rules over this tree
+- `code-scan-swallowed` [code] where does this go code swallow its errors
+- `code-semver-compare` [code] is 1.2.10 newer than 1.2.9
+- `code-todo-tech-debt` [code] the todo comments across the source, as a debt list
+- `code-write-rule` [code] write my own scanning rule and run it immediately
+- `codecs-gzip-file-verify` [codecs] decompress this file and hash it to be sure what is inside
+- `coll-compare-lists` [coll] what was added and removed between two lists
+- `db-count-rows` [db] how many rows are in the table
+- `db-group-in-sql` [db] count the rows by plan, straight in SQL
+- `db-max-value` [db] the largest seats value in the table
+- `db-primary-key` [db] which column is the primary key of users
+- `db-query-limited` [db] the first few rows of a table
+- `db-rows-to-objects` [db] the rows reshaped into just name and seats
+- `db-where-clause` [db] the rows where plan is pro
+- `db-where-parameter` [db] a query with a parameter, no string building
+- `io-append-dated` [file-io] append a line with today's date to a run log
+- `io-archive-create-list` [file-io] zip a specific list of files
+- `io-byte-length` [file-io] how many bytes long is a file
+- `io-copy-verify` [file-io] copy a file and prove the copy is identical
+- `io-new-dir` [file-io] create an empty directory
+- `io-read-all-of-type` [file-io] read every go file under src into one array of contents
+- `io-read-tail-option` [file-io] read a file from the end, its last few lines
+- `io-save-stdin` [file-io] save what arrives on stdin to a file
+- `io-temp-dir` [file-io] make a temporary scratch directory
+- `io-write-new-file` [file-io] create a new file with content in one step
+- `flow-annotated-media-list` [flow] a media inventory with types and sizes, sorted biggest first
+- `flow-api-harvest` [flow] pull items from an API, keep the good ones, and save them
+- `flow-archive-sweep` [flow] extract every archive here and search inside all of them
+- `flow-contact-list` [flow] every email address in this tree, deduplicated, as a CSV
+- `flow-dedupe-move-aside` [flow] find duplicate files and move the extras into a dupes folder
+- `flow-disk-report` [flow] what is using the disk: size per file type, saved as a CSV report
+- `flow-download-verify` [flow] download a page and record its checksum for later comparison
+- `flow-durations-report` [flow] response time statistics per service, as a table
+- `flow-encoding-sweep` [flow] which files here are not utf-8 text
+- `flow-extend-users` [flow] read the users file, check the emails, and save an annotated copy
+- `flow-health-snapshot` [flow] a health snapshot of this machine: processes, memory hogs and the time
+- `flow-log-triage` [flow] a triage table of errors per service from the structured log
+- `flow-log-weekly-summary` [flow] log entries per day of the week, a weekly rhythm report
+- `flow-photo-rank` [flow] rank the photos in this folder by how likely they show something
+- `flow-security-audit` [flow] a code audit: findings per rule, saved as a report
+- `flow-verify-download` [flow] check the downloaded copy against the checksum it should have
+- `flow-word-frequency-tree` [flow] word counts across every text file in this tree
+- `formats-xml-file-titles` [formats] the titles inside this XML file
+- `formats-yaml-file-flatten` [formats] read a YAML config file as one flat JSON object
+- `fs-entropy-rank` [fs] rank the files by entropy, the most random first
+- `fs-list-dirs-depth` [fs] the directories under a path, only one level deep
+- `fs-list-multiple-types` [fs] list the files of several types at once, like txt and csv together
+- `fs-list-names-only` [fs] just the names of everything in a directory, one per line
+- `fs-path-join` [fs] join a directory and a file name into one path
+- `fs-path-split` [fs] split a path into its directory, name and extension
+- `fs-subdir-sizes` [fs] the size of each subfolder, biggest first
+- `hash-blob-in-log` [hash] the sha256 of every base64-looking blob in a log line
+- `hash-empty-vs-content` [hash] prove an empty file and a one-character file hash differently
+- `hash-find-changed` [hash] watch which file changes when something writes
+- `ids-nanoid-short` [ids] an even shorter id, eight characters
+- `ids-random-binary-string` [ids] a random string of just ones and zeros, thirty two bits
+- `ids-random-file` [ids] pick one file from this directory at random
+- `ids-uuid-count` [ids] ten fresh uuids at once
+- `jq-range-numbers` [json] the numbers from one to ten
+- `log-access-avg-bytes-by-status` [log] the average response size per status code
+- `log-access-method-counts` [log] how many GET and POST requests
+- `log-access-report` [log] a summary report of the access log: requests, errors and bytes
+- `log-access-slowest` [log] the slowest requests in the access log
+- `log-access-status-class` [log] requests grouped by status class: success, client error, server error
+- `log-errors-only` [log] just the error lines of the log
+- `log-errors-with-context` [log] the error lines with the line before and after
+- `log-first-error` [log] the first error in the log
+- `log-fmt-by-level` [log] the logfmt lines that are errors or warnings
+- `log-fmt-by-service` [log] log entries per service
+- `log-fmt-duration-stats` [log] statistics of the request durations in a logfmt log
+- `log-fmt-msg-counts` [log] which messages repeat most in the log
+- `log-fmt-slowest` [log] the slowest requests in a logfmt log
+- `log-fmt-timeline` [log] when the log starts and ends, first and last entry times
+- `log-fmt-to-json` [log] convert a logfmt log to a JSON array
+- `log-jsonl-annotate` [log] rewrite a JSON-lines log with a computed ok field per event
+- `meta-command-detail` [meta] everything about select_string, its arity and options
+- `meta-command-examples` [meta] the examples for the get_childitem cmdlet
+- `net-fetch-reshape` [net] fetch an API response and reshape it into what I need
+- `net-http-request` [net] the whole response object, every field
+- `net-page-emails` [net] the email addresses on a page
+- `net-ping` [net] ping a host and see the round trips
+- `net-ping-count` [net] ping once, not four times
+- `net-ping-reachable` [net] is this host reachable at all
+- `net-ping-summary` [net] the average and spread of ping times
+- `net-resolve-first` [net] the first IP a host resolves to
+- `num-fibonacci` [num] the first ten fibonacci numbers
+- `num-primes-in-range` [num] the primes under fifty
+- `num-seq` [num] the numbers one through ten
+- `num-seq-step` [num] count by fives to fifty
+- `num-sign` [num] is this positive, negative or zero
+- `search-awk-field` [search] the second field of every matching line, like awk
+- `search-blank-lines` [search] how many blank lines each file has
+- `search-file-any` [search] does the file mention this at all
+- `search-file-first` [search] the first line of a file that mentions something
+- `search-file-ignore-case` [search] the lines that match, ignoring case
+- `search-file-word` [search] the lines where a whole word appears, not inside another word
+- `search-in-yaml` [search] search only the yaml files
+- `search-keys-in-config` [search] which config files set a timeout
+- `search-match-shape` [search] show what a search match looks like, all its fields
+- `search-paths-only` [search] just the file paths with matches, deduplicated
+- `search-skip-vendor` [search] search a tree but skip results under vendor folders
+- `search-tree-alternation` [search] search for either of two words, TODO or FIXME
+- `search-tree-first-match` [search] the first place in a tree where something appears
+- `search-tree-ignore-case` [search] search a tree case-insensitively
+- `search-tree-last-match` [search] the last place in a tree where something appears
+- `search-tree-literal-dot` [search] find lines mentioning example.com, matching the dot literally
+- `search-tree-nth` [search] the third match in a tree
+- `search-tree-total` [search] how many matches across the whole tree
+- `search-urls-in-tree` [search] find every web address mentioned in a tree
+- `sim-cosine-vectors` [sim] how aligned are these two vectors
+- `sim-deep-diff-objects` [sim] exactly what changed between these two objects
+- `sim-n-gram-overlap` [sim] how many bigrams these two texts share
+- `sim-rncd` [sim] rank these files by how alike their bytes are
+- `sim-shared-coverage` [sim] how much of the suspect file is inside the known one
+- `sys-cd-look` [sys] change into a directory and confirm where I landed
+- `sys-command-json` [sys] run a command that prints JSON and parse it
+- `sys-date-formatted` [sys] the current time in my own format
+- `sys-date-iso` [sys] the current moment in ISO format, UTC
+- `sys-env-has` [sys] is this environment variable set at all
+- `sys-env-home` [sys] where is my home directory
+- `sys-find-process` [sys] find the processes with this name
+- `sys-push-pop` [sys] cd into a directory, remember, and come back
+- `sys-resolve-path` [sys] the full absolute path of where I am
+- `sys-service-find` [sys] find a service by name
+- `sys-start-process` [sys] start a program and get the process back
+- `sys-timespan` [sys] two hours as a timespan, in minutes
+- `sys-var-list` [sys] list the session variables
+- `sys-var-remove` [sys] remove a session variable
+- `sys-var-set-get` [sys] set a session variable and read it back
+- `text-escape-regex` [text] escape this text so it can be searched as a literal
+- `text-is-balanced` [text] are these brackets balanced
+- `time-now-iso` [time] the current moment in ISO format
+- `time-start-of-day` [time] midnight at the start of this day

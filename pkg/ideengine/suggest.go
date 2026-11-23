@@ -1026,7 +1026,7 @@ var builtinHelp = map[string]string{
 	"del": "Delete a path", "to_entries[]": "Each key/value pair", "flatten": "Flatten nested arrays",
 	"range": "A range of numbers", "reverse": "Reverse an array or string", "limit": "The first n outputs",
 	"empty": "Produce nothing", "error": "Raise an error", "type": "The JSON type of the input",
-	"paths": "Every path in the input", "leaf_paths": "Paths to every scalar", "any": "Whether any element is true",
+	"paths": "Every path in the input", "any": "Whether any element is true",
 	"all": "Whether every element is true", "env": "Environment variables", "input": "The next input",
 	"inputs": "All remaining inputs", "debug": "Print the input to stderr and pass it on",
 	"splits": "Split on a regex", "sub": "Replace the first regex match", "gsub": "Replace every regex match",

@@ -11,7 +11,7 @@
   "script_option_style": "task+query",
   "script_temperature": 0.863,
   "script_threshold": 0.49,
-  "continue_threshold": 0.18,
+  "continue_threshold": 0.14,
   "member": "",
   "prompt_digest": "590f13794b99eb6c"
 }
