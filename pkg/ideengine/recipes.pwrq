@@ -54,6 +54,30 @@ get_childitem("{{dir}}"; {Recurse: true})
 | select(.Mode | startswith("d") | not)
 | .FullName
 
+## long-listing
+# task: a long listing of a directory, like ls -l, as a table with mode, time and size
+# also: ls -l long details permissions table
+# slot dir path = .
+[get_childitem("{{dir}}") | {Mode, LastWriteTime, Length, Name}]
+| format_table(.)
+
+## files-max-depth
+# task: list the files under a directory only a few levels deep
+# also: maxdepth depth levels shallow find -maxdepth
+# slot dir path = .
+# slot depth number = 2
+[find("{{dir}}"; "file"; {{depth}})]
+| sort
+
+## files-excluding
+# task: list files recursively but skip (exclude) one type of file
+# also: exclude ignore skip except without not
+# slot dir path = .
+# slot ext ext = log
+get_childitem("{{dir}}"; {Recurse: true, Exclude: ["*.{{ext}}"]})
+| select(.Mode | startswith("d") | not)
+| .FullName
+
 ## largest-files
 # task: show the largest (biggest) files in a directory, sorted by size
 # also: biggest huge space hogs disk usage sort size
@@ -64,6 +88,16 @@ get_childitem("{{dir}}"; {Recurse: true})
 | .[:{{n}}]
 | map({Name: .FullName, Size: (.Length | human_bytes)})
 
+## smallest-files
+# task: show the smallest non-empty files in a directory, sorted by size
+# also: tiny smallest least space sort size ascending
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select((.Mode | startswith("d") | not) and .Length > 0)]
+| sort_by(.Length)
+| .[:{{n}}]
+| map({Name: .FullName, Size: (.Length | human_bytes)})
+
 ## files-larger-than
 # task: find files bigger (larger) than a size such as 10MB
 # also: bigger over above exceeding size limit
@@ -71,6 +105,15 @@ get_childitem("{{dir}}"; {Recurse: true})
 # slot size size = 10MB
 get_childitem("{{dir}}"; {Recurse: true})
 | select(.Length > {{size}})
+| {Name: .FullName, Size: (.Length | human_bytes)}
+
+## files-smaller-than
+# task: find files smaller than a size such as 1KB
+# also: smaller under below less than tiny size limit
+# slot dir path = .
+# slot size size = 1KB
+get_childitem("{{dir}}"; {Recurse: true})
+| select((.Mode | startswith("d") | not) and .Length < {{size}})
 | {Name: .FullName, Size: (.Length | human_bytes)}
 
 ## files-by-extension
@@ -99,6 +142,36 @@ get_childitem("{{dir}}"; {Recurse: true})
 | select(.Mode | startswith("d") | not)
 | select((.LastWriteTime | date_to_timestamp) > now - {{days}} * 86400)
 | {Name: .FullName, Modified: .LastWriteTime}
+
+## files-older-than
+# task: find files not modified (touched) in more than some number of days, stale files
+# also: stale untouched old older than unchanged since days ago find -mtime
+# slot dir path = .
+# slot days days = 30
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Mode | startswith("d") | not)
+| select((.LastWriteTime | date_to_timestamp) < now - {{days}} * 86400)
+| {Name: .FullName, Modified: .LastWriteTime}
+
+## files-modified-today
+# task: list the files changed today, since midnight
+# also: today changed edited since midnight this morning
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Mode | startswith("d") | not)
+| select((.LastWriteTime | date_to_timestamp) > (now | start_of_day))
+| .FullName
+
+## cleanup-candidates
+# task: cleanup candidates - files that are big and have not been touched in a long time
+# also: clean up reclaim space big old stale free disk
+# slot dir path = .
+# slot size size = 1MB
+# slot days days = 90
+get_childitem("{{dir}}"; {Recurse: true})
+| select((.Mode | startswith("d") | not) and .Length > {{size}})
+| select((.LastWriteTime | date_to_timestamp) < now - {{days}} * 86400)
+| {Name: .FullName, Size: (.Length | human_bytes), Modified: .LastWriteTime}
 
 ## oldest-files
 # task: list the oldest files, least recently modified first
@@ -144,6 +217,31 @@ get_childitem("{{dir}}"; {Force: true})
 [get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
 | length
 
+## count-directories
+# task: count how many folders (subdirectories) are under a directory
+# also: number of folders subdirs directories total
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d"))]
+| length
+
+## folder-file-counts
+# task: how many files each subfolder holds, most first
+# also: per folder count files in each subdirectory
+# slot dir path = .
+[get_childitem("{{dir}}") | select(.Mode | startswith("d"))]
+| map({Folder: .Name, Files: ([get_childitem(.FullName; {Recurse: true}) | select(.Mode | startswith("d") | not)] | length)})
+| sort_by(-.Files)
+
+## directory-overview
+# task: a first look at a directory - how many files, what kinds, the biggest and the newest
+# also: overview summary first look inventory what is in here
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)] as $files
+| {Files: ($files | length),
+   ByExtension: ($files | count_by("Extension")),
+   Biggest: ($files | max_by(.Length) | {Name, Size: (.Length | human_bytes)}),
+   Newest: ($files | max_by(.LastWriteTime | date_to_timestamp) | {Name, Modified: .LastWriteTime})}
+
 ## count-by-extension
 # task: count files by extension (file type), how many of each kind
 # also: breakdown types kinds histogram extension
@@ -186,6 +284,31 @@ get_childitem("{{dir}}"; {Force: true})
 | group_by(.Hash)
 | map(select(length > 1) | map(.FullName))
 
+## same-name-files
+# task: find files that share the same name in different folders
+# also: duplicate names same filename copies collisions
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not)]
+| group_by(.Name)
+| map(select(length > 1) | {Name: .[0].Name, Copies: map(.FullName)})
+
+## duplicate-space
+# task: how much disk space duplicate files waste
+# also: wasted space duplicates reclaim dedupe savings
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select((.Mode | startswith("d") | not) and .Length > 0) | {Path: .FullName, Length, Hash: (.FullName | sha256(true))}]
+| group_by(.Hash)
+| map(select(length > 1))
+| map({Files: map(.Path), Wasted: ((length - 1) * .[0].Length)})
+| {Groups: ., TotalWasted: (map(.Wasted) | add // 0 | human_bytes)}
+
+## files-identical
+# task: check whether two files are byte for byte identical
+# also: same identical equal compare diff cmp two files
+# slot first file: Which is the first file? = notes.txt
+# slot second file: Which is the second file? = notes.txt
+("{{first}}" | sha256(true)) == ("{{second}}" | sha256(true))
+
 ## images-containing
 # task: use a decision model to list images (pictures, photos) that contain or show something
 # also: photo pics pictures with show depict d1 vision
@@ -195,6 +318,17 @@ get_childitem("{{dir}}")
 | select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp"))
 | select(invoke_systemone({q: {type: "noul", instructions: "Does the image contain {{subject}}?"}}; {Media: [.FullName]}).q.noul > 0.5)
 | .Name
+
+## move-images-containing
+# task: use a decision model to move the images that show something into a folder
+# also: sort photos move pictures with into folder d1 organize
+# slot dir path = .
+# slot subject phrase: What should the images contain or show? = a cat
+# slot dest path: Which folder should they go into? = cats
+mkdir("{{dest}}")
+| [get_childitem("{{dir}}") | select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp"))]
+| map(select(invoke_systemone({q: {type: "noul", instructions: "Does the image show {{subject}}?"}}; {Media: [.FullName]}).q.noul > 0.5))
+| map(move_item(.FullName; "{{dest}}/\(.Name)"))
 
 ## video-shows
 # task: use a decision model to tell whether a video (clip, movie, recording) shows something or something happens in it
@@ -299,11 +433,75 @@ select_string("{{dir}}"; "{{pattern}}"; {List: true})
 select_string("{{dir}}"; "TODO|FIXME")
 | {Path, LineNumber, Line: (.Line | ltrimstr(" "))}
 
+## todos-per-file
+# task: count the TODO comments in each source file
+# also: how many todos per file tech debt count
+# slot dir path = .
+# slot ext ext = go
+[get_childitem("{{dir}}"; {Recurse: true, Filter: "*.{{ext}}"})]
+| map({File: .FullName, Todos: (grep_lines(.FullName; "TODO|FIXME") | length)})
+| map(select(.Todos > 0))
+| sort_by(-.Todos)
+
 ## read-file
 # task: read (show, print) the contents of a file
 # also: cat show print open display contents view
 # slot file file = notes.txt
 cat("{{file}}")
+
+## number-lines
+# task: print a file with line numbers
+# also: cat -n nl numbered line numbers
+# slot file file = notes.txt
+cat("{{file}}")
+| rtrimstr("\n")
+| split("\n")
+| to_entries
+| map("\(.key + 1)\t\(.value)")
+| join("\n")
+
+## reverse-lines
+# task: print a file's lines in reverse order, last line first
+# also: tac reverse bottom to top backwards
+# slot file file = notes.txt
+cat("{{file}}")
+| rtrimstr("\n")
+| split("\n")
+| reverse
+| join("\n")
+
+## line-number
+# task: print one particular line of a file by its line number
+# also: sed -n p nth line line number
+# slot file file = notes.txt
+# slot n number = 2
+cat("{{file}}")
+| split("\n")
+| .[{{n}} - 1]
+
+## write-file
+# task: write text to a file, replacing what was there
+# also: save write overwrite create file echo >
+# slot file file = greeting.txt
+# slot content text: What text should the file contain? = hello world
+set_content("{{file}}"; "{{content}}")
+
+## append-line
+# task: append a line of text to the end of a file
+# also: append add >> end of file log
+# slot file file = run.log
+# slot content text: What text should be appended? = another run done
+add_content("{{file}}"; "{{content}}")
+
+## replace-in-file
+# task: find and replace text in a file, writing the file back (sed -i)
+# also: sed replace substitute find and replace edit in place
+# slot file file = notes.txt
+# slot old text: What text should be replaced? = fox
+# slot new text: What should it be replaced with? = cat
+cat("{{file}}")
+| gsub("{{old}}"; "{{new}}")
+| set_content("{{file}}"; .)
 
 ## head-file
 # task: the first lines of a file (head)
@@ -319,12 +517,170 @@ head("{{file}}"; {{n}})
 # slot n number = 10
 tail("{{file}}"; {{n}})
 
+## make-directory
+# task: create a directory, with any missing parent directories
+# also: mkdir -p create folder new directory
+# slot dir path = new/folder
+mkdir("{{dir}}")
+
+## copy-file
+# task: copy a file to a new name or place
+# also: cp copy duplicate file
+# slot from file = notes.txt
+# slot to file: Where should it go? = notes-copy.txt
+copy_item("{{from}}"; "{{to}}")
+
+## copy-directory
+# task: copy a whole folder with everything inside it
+# also: cp -r copy folder recursively directory tree
+# slot from path = src
+# slot to path: Where should it go? = src-copy
+copy_item("{{from}}"; "{{to}}"; {Recurse: true})
+
+## move-file
+# task: move or rename a file
+# also: mv rename move file to folder
+# slot from file = draft.txt
+# slot to file: Where should it go? = final.txt
+move_item("{{from}}"; "{{to}}")
+
+## delete-file
+# task: delete a file
+# also: rm remove delete erase file
+# slot file file = old.txt
+rm("{{file}}"; "file")
+
+## delete-directory
+# task: delete a folder and everything in it
+# also: rm -rf remove folder delete directory
+# slot dir path = scratch
+rm("{{dir}}"; "folder")
+
+## backup-file-dated
+# task: back up a file by copying it with today's date in the name
+# also: backup copy dated today date stamp
+# slot file file = config.yaml
+copy_item("{{file}}"; "{{file}}.\(now | todate | .[0:10])")
+
+## rename-extension
+# task: rename every file of one extension in a folder to another extension
+# also: change extension rename txt to md bulk rename
+# slot dir path = docs
+# slot from text: Which extension are the files renamed from? = txt
+# slot to text: Which extension are the files renamed to? = md
+("{{from}}" | ltrimstr(".")) as $from
+| ("{{to}}" | ltrimstr(".")) as $to
+| get_childitem("{{dir}}"; {Recurse: true, Filter: "*.\($from)"})
+| select(.Mode | startswith("d") | not)
+| move_item(.FullName; .FullName | with_extension(".\($to)"))
+
+## move-files-by-extension
+# task: move the files of one type into another folder
+# also: organize sort tidy move all files of type into folder
+# slot dir path = downloads
+# slot ext ext = pdf
+# slot dest path: Which folder should they go into? = downloads/pdf
+mkdir("{{dest}}")
+| [get_childitem("{{dir}}"; {Filter: "*.{{ext}}"}) | select(.Mode | startswith("d") | not)]
+| map(move_item(.FullName; "{{dest}}/\(.Name)"))
+
+## rename-with-date
+# task: rename the files in a folder to start with their modified date
+# also: prefix date rename dated file names
+# slot dir path = photos
+get_childitem("{{dir}}")
+| select(.Mode | startswith("d") | not)
+| move_item(.FullName; "\(.FullName | dirname)/\(.LastWriteTime | .[0:10])-\(.Name)")
+
 ## grep-file
 # task: the lines of one file that match text or a pattern
 # also: filter lines matching mention grep
 # slot file file = app.log
 # slot pattern pattern: What text or pattern to search for? = error
 grep_lines("{{file}}"; "{{pattern}}")
+
+## grep-invert
+# task: the lines of a file that do not match text or a pattern (grep -v)
+# also: grep -v invert exclude without not matching lines
+# slot file file = app.log
+# slot pattern pattern: What text or pattern to search for? = DEBUG
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0 and (test("{{pattern}}") | not)))
+
+## search-with-context
+# task: search files for text and show the lines around each match (grep -C)
+# also: context before after surrounding lines grep -C
+# slot dir path = .
+# slot pattern pattern: What text or pattern to search for? = TODO
+select_string("{{dir}}"; "{{pattern}}"; {Context: 2})
+| {Path, LineNumber, Before, Line, After}
+
+## search-file-type
+# task: search inside only the files of one type, such as Python or Go files, for text or a pattern (grep --include)
+# also: grep --include only in go python files of type
+# slot dir path = .
+# slot ext ext = go
+# slot pattern pattern: What text or pattern to search for? = TODO
+select_string("{{dir}}"; "{{pattern}}"; {Include: "*.{{ext}}"})
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## errors-in-logs
+# task: find the error lines across all the log files in a directory
+# also: errors logs all log files grep error
+# slot dir path = .
+# slot pattern pattern: What text or pattern to search for? = ERROR
+select_string("{{dir}}"; "{{pattern}}"; {Include: "*.log"})
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## errors-per-log
+# task: count the errors in each log file, most first
+# also: error counts per log file which log has most errors
+# slot dir path = .
+# slot pattern pattern: What text or pattern to search for? = ERROR
+[get_childitem("{{dir}}"; {Recurse: true, Filter: "*.log"})]
+| map({Log: .FullName, Errors: (grep_lines(.FullName; "{{pattern}}") | length)})
+| sort_by(-.Errors)
+
+## find-secrets
+# task: find passwords, tokens and API keys written in files
+# also: secrets credentials leaked password api key token hardcoded
+# slot dir path = .
+select_string("{{dir}}"; "(?i)(password|passwd|secret|api[_-]?key|token)\\s*[=:]")
+| {Path, LineNumber, Line}
+
+## emails-in-files
+# task: find the email addresses mentioned in files
+# also: emails addresses contacts grep emails tree
+# slot dir path = .
+[select_string("{{dir}}"; "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}") | .Line | extract_emails[]]
+| unique
+
+## ips-in-files
+# task: find the IP addresses mentioned in files
+# also: ip addresses grep ips tree mentioned
+# slot dir path = .
+[select_string("{{dir}}"; "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b") | .Line | extract_ips[]]
+| unique
+
+## long-lines
+# task: find lines longer than some number of characters
+# also: long lines over width wide characters line length
+# slot dir path = .
+# slot n number = 100
+select_string("{{dir}}"; ".")
+| select(.Line | length > {{n}})
+| {Path, LineNumber, Length: (.Line | length)}
+
+## save-search-results
+# task: search files and save the matches to a JSON file
+# also: save matches results to file export grep output
+# slot dir path = .
+# slot pattern pattern: What text or pattern to search for? = TODO
+# slot out file: Where should it be saved? = matches.json
+[select_string("{{dir}}"; "{{pattern}}") | {Path, LineNumber, Line}]
+| tojson
+| out_file("{{out}}")
 
 ## count-lines-matching
 # task: count the lines of a file that contain text, such as errors in a log
@@ -348,12 +704,31 @@ wc_lines("{{file}}")
 [get_childitem("{{dir}}"; {Recurse: true, Filter: "*.{{ext}}"}) | {File: .FullName, Lines: wc_lines(.FullName)}]
 | {Files: ., Total: (map(.Lines) | add)}
 
+## loc-by-language
+# task: lines of code per language in a source tree
+# also: loc cloc sloc per language breakdown lines
+# slot dir path = .
+[find("{{dir}}"; "file")]
+| map({Language: (file_extension | ltrimstr(".")), Lines: wc_lines(.)})
+| group_by(.Language)
+| map({Language: .[0].Language, Files: length, Lines: (map(.Lines) | add)})
+| sort_by(-.Lines)
+
 ## word-count
 # task: count the words in a file
 # also: wc -w words
 # slot file file = notes.txt
 cat("{{file}}")
 | word_count
+
+## words-per-file
+# task: a word count for every text file, as a table
+# also: wc -w each file words per file table
+# slot dir path = .
+# slot ext ext = txt
+[get_childitem("{{dir}}"; {Recurse: true, Filter: "*.{{ext}}"}) | {File: .FullName, Words: (cat(.FullName) | word_count)}]
+| sort_by(-.Words)
+| format_table(.)
 
 ## word-frequency
 # task: the most common (frequent) words in a file
@@ -377,6 +752,204 @@ cat("{{file}}")
 | map(capture("(?<level>ERROR|WARN(ING)?|INFO|DEBUG)"; "i").level // empty | ascii_upcase)
 | value_counts
 
+## error-rate
+# task: what percentage of a log's lines are errors
+# also: error rate share percent ratio failures
+# slot file file = app.log
+# slot pattern pattern: What text or pattern to search for? = ERROR
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| {Lines: length, Errors: (map(select(test("{{pattern}}"))) | length)}
+| . + {Percent: (.Errors * 100 / .Lines | round_to(1))}
+
+## last-errors
+# task: the most recent error lines of a log, the last few
+# also: latest recent last errors tail
+# slot file file = app.log
+# slot pattern pattern: What text or pattern to search for? = ERROR
+# slot n number = 5
+grep_lines("{{file}}"; "{{pattern}}")
+| .[-{{n}}:]
+
+## distinct-errors
+# task: the distinct error messages in a log and how often each repeats
+# also: unique errors repeated messages dedupe count sort uniq -c
+# slot file file = app.log
+# slot pattern pattern: What text or pattern to search for? = ERROR
+grep_lines("{{file}}"; "{{pattern}}")
+| value_counts
+| to_entries
+| sort_by(-.value)
+| map({Message: .key, Count: .value})
+
+## read-logfmt
+# task: read a logfmt (key=value) log as objects, one per line
+# also: logfmt key=value structured log parse
+# slot file file = app.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | logfmt_parse)
+
+## jsonl-errors
+# task: the error events in a JSON-lines log
+# also: jsonl json lines log errors level error events
+# slot file file = events.jsonl
+# slot field field = level
+# slot value text: Which value marks an error? = error
+cat("{{file}}")
+| jsonl_parse
+| map(select(.{{field}} == "{{value}}"))
+
+## errors-per-service
+# task: error counts per service in a JSON-lines log
+# also: per service errors breakdown which service fails most
+# slot file file = events.jsonl
+# slot group field: Which field names the service? = svc
+cat("{{file}}")
+| jsonl_parse
+| group_by(.{{group}})
+| map({Service: .[0].{{group}}, Events: length, Errors: (map(select(.level == "error")) | length)})
+| sort_by(-.Errors)
+
+## slowest-events
+# task: the slowest events in a JSON-lines log, by a duration field
+# also: slowest longest latency duration slow requests
+# slot file file = events.jsonl
+# slot field field = dur_ms
+# slot n number = 5
+cat("{{file}}")
+| jsonl_parse
+| sort_by(-.{{field}})
+| .[:{{n}}]
+
+## events-per-hour
+# task: count the events in a JSON-lines log per hour
+# also: hourly per hour histogram bucket timeline
+# slot file file = events.jsonl
+# slot field field = ts
+cat("{{file}}")
+| jsonl_parse
+| map(.{{field}} | .[0:13])
+| value_counts
+
+## events-per-day
+# task: count the events in a JSON-lines log per day
+# also: daily per day histogram bucket timeline date
+# slot file file = events.jsonl
+# slot field field = ts
+cat("{{file}}")
+| jsonl_parse
+| map(.{{field}} | .[0:10])
+| value_counts
+
+## log-between-times
+# task: the log entries between two times
+# also: window between from to time range during
+# slot file file = events.jsonl
+# slot from text: From what time? = 2026-08-11T09:00:00Z
+# slot to text: Until what time? = 2026-08-11T10:00:00Z
+cat("{{file}}")
+| jsonl_parse
+| map(select(.ts >= "{{from}}" and .ts <= "{{to}}"))
+
+## parse-access-log
+# task: parse a web server access log into structured requests
+# also: access log apache nginx combined parse requests
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0)
+  | capture("^(?<ip>\\S+) \\S+ \\S+ \\[(?<time>[^\\]]+)\\] \"(?<method>\\S+) (?<path>\\S+)[^\"]*\" (?<status>\\d{3}) (?<bytes>\\d+|-)"))
+
+## status-code-counts
+# task: how many requests each HTTP status code got in an access log
+# also: status codes 200 404 500 count access log
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | capture("\" (?<status>\\d{3}) ").status)
+| value_counts
+
+## top-client-ips
+# task: the client IPs sending the most requests in an access log
+# also: top talkers busiest clients visitors ips most requests
+# slot file file = access.log
+# slot n number = 10
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | capture("^(?<ip>\\S+)").ip)
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:{{n}}]
+| map({IP: .key, Requests: .value})
+
+## unique-visitors
+# task: how many distinct clients (unique IPs) are in an access log
+# also: unique visitors distinct ips clients count
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | capture("^(?<ip>\\S+)").ip)
+| unique
+| length
+
+## top-paths
+# task: the most requested paths (URLs) in an access log
+# also: popular pages top urls endpoints hits
+# slot file file = access.log
+# slot n number = 10
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | capture("\"\\S+ (?<path>\\S+)").path)
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:{{n}}]
+| map({Path: .key, Requests: .value})
+
+## failed-requests
+# task: list the failed requests (4xx and 5xx status lines) in a web server access log
+# also: errors 404 500 failed client server errors
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(test("\" [45]\\d\\d ")))
+
+## bytes-served
+# task: how many bytes a web server sent in total, from its access log
+# also: bandwidth traffic total bytes transferred
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | capture("\" \\d{3} (?<bytes>\\d+)").bytes | tonumber)
+| add
+| human_bytes
+
+## requests-per-minute
+# task: requests per minute in an access log, to find the busiest moment
+# also: rate per minute traffic spike busiest time
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | capture("\\[[^:]+:(?<minute>\\d\\d:\\d\\d)").minute)
+| value_counts
+
+## access-log-to-csv
+# task: convert an access log to a CSV file
+# also: export access log csv spreadsheet
+# slot file file = access.log
+# slot out file: Where should it be saved? = access.csv
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0)
+  | capture("^(?<ip>\\S+) \\S+ \\S+ \\[(?<time>[^\\]]+)\\] \"(?<method>\\S+) (?<path>\\S+)[^\"]*\" (?<status>\\d{3})")
+  | [.ip, .time, .method, .path, .status])
+| [["ip", "time", "method", "path", "status"]] + .
+| csv_stringify
+| out_file("{{out}}")
+
 ## file-hash
 # task: the sha256 hash (checksum) of a file
 # also: sha256sum checksum digest hash
@@ -398,6 +971,69 @@ cat("{{file}}")
 get_childitem("{{dir}}"; {Recurse: true})
 | select(.Mode | startswith("d") | not)
 | {File: .FullName, Sha256: (.FullName | sha256(true))}
+
+## save-checksums
+# task: hash every file under a directory and save the checksums to a manifest file
+# also: manifest sha256sum save checksums baseline
+# slot dir path = .
+# slot out file: Where should it be saved? = checksums.json
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not) | {File: .FullName, Sha256: (.FullName | sha256(true))}]
+| tojson
+| out_file("{{out}}")
+
+## verify-checksums
+# task: verify the files against a saved checksum manifest, which changed
+# also: sha256sum -c verify integrity changed tampered manifest
+# slot file file = checksums.json
+cat("{{file}}")
+| fromjson
+| map(. + {Same: ((.File | sha256(true)) == .Sha256)})
+| map(select(.Same | not) | .File)
+
+## hmac-file
+# task: sign a file with an HMAC-SHA256 key
+# also: hmac sign signature mac key
+# slot file file = notes.txt
+# slot key text: What is the key? = my-secret-key
+read_bytes("{{file}}")
+| hmac_sha256("{{key}}")
+
+## fuzzy-compare
+# task: how similar two files are by fuzzy hash (ssdeep)
+# also: ssdeep fuzzy similarity near duplicate malware
+# slot first file: Which is the first file? = sample1.bin
+# slot second file: Which is the second file? = sample2.bin
+ssdeep_compare(ssdeep("{{first}}"; true); ssdeep("{{second}}"; true))
+
+## encrypt-file
+# task: encrypt a file with AES and save the encrypted copy
+# also: encrypt aes seal protect cipher file
+# slot file file = notes.txt
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+# slot out file: Where should it be saved? = notes.txt.enc
+read_bytes("{{file}}")
+| aes_encrypt(.; "{{key}}")
+| out_file("{{out}}")
+
+## decrypt-file
+# task: decrypt an AES-encrypted file back into text
+# also: decrypt aes open unseal cipher file
+# slot file file = notes.txt.enc
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+cat("{{file}}")
+| aes_decrypt(.; "{{key}}")
+
+## generate-password
+# task: generate a random password
+# also: random password strong secret generate pwgen
+# slot n number = 20
+random_string({{n}})
+
+## random-key
+# task: generate a random key or token in hex
+# also: random hex key token secret openssl rand
+# slot n number = 32
+random_hex({{n}})
 
 ## file-type
 # task: detect what kind of file something is from its contents (magic bytes)
@@ -424,11 +1060,44 @@ get_childitem("{{dir}}"; {Recurse: true})
 | select(read_bytes(.FullName) | is_binary)
 | .FullName
 
+## text-files
+# task: list the plain text (UTF-8) files in a directory tree
+# also: text readable utf8 not binary
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select((.Mode | startswith("d") | not) and .Length > 0)
+| select(read_bytes(.FullName) | is_utf8)
+| .FullName
+
+## file-types-tree
+# task: what kind of file each file in a tree is, by its magic bytes
+# also: file types magic detect identify every file
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select((.Mode | startswith("d") | not) and .Length > 0)
+| {Name: .FullName, Type: (.FullName | read_bytes | file_type)}
+
+## readonly-files
+# task: list the read-only files
+# also: readonly read only write protected permissions
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.IsReadOnly)
+| .FullName
+
 ## file-exists
 # task: check whether a file or path exists
 # also: exists present test check
 # slot file file = notes.txt
 test_path("{{file}}")
+
+## file-details
+# task: the details of one file - its size, times and permissions (stat)
+# also: stat info details size modified created mode
+# slot file file = notes.txt
+get_childitem("{{file}}" | dirname)
+| select(.Name == ("{{file}}" | basename))
+| {Name: .FullName, Size: (.Length | human_bytes), Created: .CreationTime, Modified: .LastWriteTime, Mode}
 
 ## list-archive
 # task: list the files inside a zip or tar archive without extracting it
@@ -436,6 +1105,23 @@ test_path("{{file}}")
 # slot file file = archive.zip
 read_archive("{{file}}")
 | map({Name, Size: (.Length | human_bytes)})
+
+## find-archives
+# task: find the archive files (zip, tar, gz) in a directory tree
+# also: archives zips tarballs compressed packages
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Extension | ascii_downcase | IN(".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z"))
+| {Name: .FullName, Size: (.Length | human_bytes)}
+
+## search-in-archive
+# task: extract an archive and search inside its files for text
+# also: grep inside zip unzip and search archive contents
+# slot file file = archive.zip
+# slot pattern pattern: What text or pattern to search for? = hi
+expand_archive("{{file}}"; "{{file}}.d") as $written
+| select_string("{{file}}.d"; "{{pattern}}")
+| "\(.Path):\(.LineNumber): \(.Line)"
 
 ## extract-archive
 # task: extract (unzip, untar) an archive into a directory
@@ -451,6 +1137,13 @@ expand_archive("{{file}}"; "{{dir}}")
 # slot file file: What should the archive be called? = archive.zip
 compress_archive("{{dir}}"; "{{file}}")
 
+## backup-folder-dated
+# task: back up a folder into a zip archive with today's date in its name
+# also: backup snapshot dated zip archive today
+# slot dir path = src
+compress_archive("{{dir}}"; "{{dir}}-\(now | todate | .[0:10]).zip")
+| {Archive: .FullName, Size: (.Length | human_bytes)}
+
 ## read-csv
 # task: read a CSV file as objects, one per row, keyed by the header
 # also: load parse csv spreadsheet rows
@@ -460,6 +1153,57 @@ cat("{{file}}")
 | .[0] as $header
 | .[1:]
 | map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+
+## read-tsv
+# task: read a TSV (tab-separated) file as rows
+# also: tsv tab separated parse rows
+# slot file file = data.tsv
+cat("{{file}}")
+| tsv_parse
+
+## csv-row-counts
+# task: how many rows each CSV file in a tree has
+# also: rows per csv count lines csv files
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true, Filter: "*.csv"})
+| {File: .FullName, Rows: ((cat(.FullName) | csv_parse | length) - 1)}
+
+## csv-column-stats
+# task: statistics (min, max, mean) of a numeric column of a CSV file
+# also: column stats average mean min max csv numbers
+# slot file file = data.csv
+# slot column text: Which column? = age
+cat("{{file}}")
+| csv_parse
+| (.[0] | index("{{column}}")) as $i
+| .[1:]
+| map(.[$i] | tonumber)
+| summary
+
+## dedupe-csv
+# task: remove duplicate rows from a CSV file and save it
+# also: dedupe unique rows csv duplicates
+# slot file file = data.csv
+# slot out file: Where should it be saved? = dedup.csv
+cat("{{file}}")
+| csv_parse
+| [.[0]] + (.[1:] | unique)
+| csv_stringify
+| out_file("{{out}}")
+
+## csv-to-sqlite
+# task: import a CSV file into a SQLite table
+# also: import csv into database table sqlite
+# slot file file = data.csv
+# slot db file: Which database file? = import.db
+# slot table text: Which table? = rows
+cat("{{file}}")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| out_sqlite("{{db}}"; "{{table}}")
+| .RowCount
 
 ## csv-column
 # task: the values of one column of a CSV file
@@ -504,6 +1248,53 @@ cat("{{file}}")
 cat("{{file}}")
 | yaml_parse
 
+## read-ini
+# task: read an INI config file
+# also: ini config sections parse
+# slot file file = config.ini
+cat("{{file}}")
+| ini_parse
+
+## read-properties
+# task: read a Java properties (key=value) file
+# also: properties key value java config parse
+# slot file file = app.properties
+cat("{{file}}")
+| properties_parse
+
+## merge-yaml-files
+# task: merge every YAML file in a folder into one config
+# also: merge combine configs yaml overlay deep merge
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true, Filter: "*.yaml"})]
+| map(cat(.FullName) | yaml_parse)
+| reduce .[] as $c ({}; deep_merge($c))
+
+## compare-json-files
+# task: what differs between two JSON files
+# also: diff compare json configs changes drift
+# slot first file: Which is the first file? = data.json
+# slot second file: Which is the second file? = data.json
+deep_diff(cat("{{first}}") | fromjson; cat("{{second}}") | fromjson)
+
+## validate-json-files
+# task: check which JSON files in a tree do not parse
+# also: validate invalid broken json lint syntax check
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true, Filter: "*.json"})
+| {File: .FullName, Valid: (cat(.FullName) | is_json)}
+| select(.Valid | not)
+| .File
+
+## invalid-emails
+# task: the records in a JSON file whose email address is not valid
+# also: validate email check bad invalid addresses
+# slot file file = users.json
+# slot field field = email
+cat("{{file}}")
+| fromjson
+| map(select(.{{field}} | is_email | not))
+
 ## yaml-to-json
 # task: convert YAML to JSON
 yaml_parse
@@ -544,6 +1335,50 @@ invoke_sqlite_query("{{file}}"; "select * from {{table}} limit 10")
 get_sqlite_table("{{file}}")
 | {Table: .Name, Rows: (invoke_sqlite_query("{{file}}"; "select count(*) as n from \"\(.Name)\"") | .n)}
 
+## sqlite-schema
+# task: the columns (schema) of a table in a SQLite database
+# also: schema columns describe table sqlite types
+# slot file file = app.db
+# slot table text: Which table? = users
+get_sqlite_schema("{{file}}"; "{{table}}")
+
+## sqlite-to-csv
+# task: export a table of a SQLite database (.db) to a CSV file
+# also: export sqlite csv dump table
+# slot file file = app.db
+# slot table text: Which table? = users
+# slot out file: Where should it be saved? = users.csv
+[invoke_sqlite_query("{{file}}"; "select * from {{table}}") | del(.PwrqType)]
+| (.[0] | keys) as $cols
+| [$cols] + map([.[$cols[]] | tostring])
+| csv_stringify
+| out_file("{{out}}")
+
+## sqlite-to-json
+# task: export a SQLite table as JSON
+# also: export sqlite json dump table
+# slot file file = app.db
+# slot table text: Which table? = users
+[invoke_sqlite_query("{{file}}"; "select * from {{table}}") | del(.PwrqType)]
+| tojson
+
+## sqlite-execute
+# task: run an insert, update or delete statement on a SQLite database
+# also: insert update delete exec sql statement modify
+# slot file file = app.db
+# slot sql text: Which complete SQL statement should run? = update users set name = 'ada' where id = 1
+invoke_sqlite_command("{{file}}"; "{{sql}}")
+| .RowsAffected
+
+## listing-to-sqlite
+# task: save a directory listing into a SQLite table
+# also: inventory files database sqlite index catalog
+# slot dir path = .
+# slot db file: Which database file? = files.db
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Mode | startswith("d") | not) | {Name: .FullName, Extension, Bytes: .Length, Modified: .LastWriteTime}]
+| out_sqlite("{{db}}"; "files")
+| .RowCount
+
 ## top-memory-processes
 # task: the processes using the most memory (RAM)
 # also: ram memory hogs mem usage ps
@@ -570,6 +1405,19 @@ get_process
 | select(.Name | test("{{name}}"; "i"))
 | {Id, Name, Memory: (.WorkingSet | human_bytes), StartTime}
 
+## kill-process
+# task: kill (stop) a process by its id
+# also: kill pid stop terminate process
+# slot pid number = 12345
+stop_process({{pid}})
+
+## kill-by-name
+# task: stop every process with a given name (killall)
+# also: killall pkill stop all processes named
+# slot name text: Which process or program? = sleep
+[get_process | select(.Name == "{{name}}") | .Id]
+| map(stop_process(.))
+
 ## count-processes
 # task: count the running processes, and how many of each program
 # also: how many processes running ps
@@ -582,6 +1430,25 @@ get_process
 get_service
 | select(.Status == "Running")
 | .Name
+
+## stopped-services
+# task: list the system services that are not running
+# also: stopped inactive dead failed services
+get_service
+| select(.Status != "Running")
+| .Name
+
+## start-service
+# task: start a system service
+# also: systemctl start service enable run
+# slot name text: Which service? = cron
+start_service("{{name}}")
+
+## stop-service
+# task: stop a system service
+# also: systemctl stop service halt
+# slot name text: Which service? = cron
+stop_service("{{name}}")
 
 ## which-command
 # task: find where a program (executable command) is installed on the PATH
@@ -602,6 +1469,56 @@ $ENV
 | to_entries
 | map("\(.key)=\(.value)")
 
+## env-var
+# task: the value an environment variable is set to, such as $HOME
+# also: env var echo $ getenv variable value set to what is
+# slot name text: Which environment variable? = HOME
+$ENV["{{name}}"]
+
+## current-user
+# task: who am I - the current user name
+# also: whoami user username logged in
+$ENV.USER
+
+## disk-free
+# task: how full the disk is, used and available space (df)
+# also: df disk free space full usage partition
+# slot dir path = /
+sh("df -h {{dir}} | tail -1")
+| [splits("\\s+")]
+| {Filesystem: .[0], Size: .[1], Used: .[2], Available: .[3], UsePercent: .[4]}
+
+## memory-info
+# task: how much memory the machine has, total and available
+# also: free -h ram memory total available
+cat("/proc/meminfo")
+| split("\n")
+| map(capture("^(?<key>MemTotal|MemFree|MemAvailable):\\s+(?<kb>\\d+) kB") | {(.key): (.kb | tonumber * 1024 | human_bytes)})
+| add
+
+## load-average
+# task: the machine's load averages
+# also: load average uptime cpu load busy
+cat("/proc/loadavg")
+| split(" ")
+| .[0:3]
+| map(tonumber)
+| {Load1: .[0], Load5: .[1], Load15: .[2]}
+
+## uptime
+# task: how long the machine has been up
+# also: uptime boot running since
+cat("/proc/uptime")
+| split(" ") | .[0]
+| tonumber
+| {Seconds: ., Days: (. / 86400 | floor), Hours: (. % 86400 / 3600 | floor)}
+
+## cpu-count
+# task: how many CPUs (cores) the machine has
+# also: nproc cores cpus processors
+sh("nproc")
+| tonumber
+
 ## run-command
 # task: run a shell command and get its output
 # also: shell exec run execute
@@ -613,6 +1530,18 @@ sh("{{command}}")
 # also: today date time now clock
 get_date
 | {Date, Time, DayOfWeek, Timezone}
+
+## unix-timestamp
+# task: the current time as a Unix timestamp (epoch seconds)
+# also: epoch unix time seconds now timestamp
+now
+| floor
+
+## time-in-zone
+# task: what time it is now in another time zone, such as Asia/Tokyo
+# also: timezone time zone what time is it in
+# slot zone text: Which time zone? = Asia/Tokyo
+to_timezone(now; "{{zone}}")
 
 ## current-directory
 # task: the current (working) directory
@@ -638,6 +1567,22 @@ reverse_dns("{{ip}}")
 # slot host host = example.com
 test_connection("{{host}}")
 
+## resolve-hosts-file
+# task: resolve every host name listed in a file
+# also: dns lookup each host list resolve all
+# slot file file = hosts.txt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | {Host: ., Addresses: resolve_host(.)})
+
+## ping-hosts-file
+# task: check which hosts listed in a file are reachable
+# also: health check ping all hosts list up down
+# slot file file = hosts.txt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | {Host: ., Reachable: test_connection(.; {Count: 1, Quiet: true})})
+
 ## port-open
 # task: check whether a TCP port is open on a host
 # also: port open listening tcp nc
@@ -658,6 +1603,72 @@ invoke_web_request("{{url}}")
 # slot url url = https://example.com
 invoke_web_request("{{url}}")
 | .Headers
+
+## fetch-page
+# task: fetch a web page and get its text (curl)
+# also: curl wget get page html body content
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+
+## page-title
+# task: the title of a web page
+# also: title html page heading
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+| capture("<title>(?<title>[^<]*)</title>").title
+
+## fetch-json-field
+# task: fetch JSON from an API and take one field
+# also: api field json value rest
+# slot url url = https://api.github.com
+# slot field field = current_user_url
+invoke_rest_method("{{url}}")
+| .{{field}}
+
+## post-json
+# task: POST JSON to a URL and see the response
+# also: post send json body api request curl -X POST
+# slot url url = https://httpbin.org/post
+# slot body text: What JSON should be sent? = {"name": "ada"}
+invoke_web_request("{{url}}"; {Method: "POST", Body: "{{body}}", ContentType: "application/json"})
+| {StatusCode, Content}
+
+## request-with-header
+# task: send a web request with a custom header, such as an authorization token
+# also: header authorization bearer token custom headers curl -H
+# slot url url = https://httpbin.org/headers
+# slot name text: Which header? = Authorization
+# slot value text: What is the header's value? = Bearer TOKEN
+invoke_web_request("{{url}}"; {Headers: {"{{name}}": "{{value}}"}})
+| .Content
+
+## save-json-response
+# task: download JSON from an API and save it to a file on disk
+# also: save api response json to file
+# slot url url = https://api.github.com
+# slot out file: Where should it be saved? = response.json
+invoke_rest_method("{{url}}")
+| tojson
+| out_file("{{out}}")
+
+## check-links
+# task: check every URL mentioned in a file and show each one's HTTP status
+# also: link checker dead links broken urls status
+# slot file file = links.txt
+cat("{{file}}")
+| extract_urls
+| unique
+| map(. as $u | {Url: $u, Status: (try (invoke_web_request($u; {TimeoutSec: 10}) | .StatusCode) catch "failed")})
+
+## download-url-list
+# task: download every URL listed in a file
+# also: download all urls list batch wget -i
+# slot file file = urls.txt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0) | . as $u | invoke_web_request($u; {OutFile: ($u | split("/") | last)}) | {Url: $u, Saved: .Path})
 
 ## fetch-json
 # task: fetch JSON from a REST API endpoint
@@ -875,12 +1886,35 @@ cat("{{file}}")
 | map({line: ., p: invoke_systemone({q: {type: "noul", instructions: "Is this line about {{subject}}?"}}).q.noul})
 | map(select(.p > 0.5) | .line)
 
+## triage-errors
+# task: use a decision model to triage the errors in a log by severity, most urgent first
+# also: triage severity urgent errors d1 prioritize
+# slot file file = app.log
+# slot pattern pattern: What text or pattern to search for? = ERROR
+grep_lines("{{file}}"; "{{pattern}}")
+| unique
+| map({Error: ., Severity: invoke_systemone({s: {type: "choice", instructions: "How severe is this error?", criteria: {urgent: "Needs action now", soon: "Should be fixed soon", noise: "Harmless noise"}}}).s.choice})
+| sort_by(.Severity)
+
+## urgent-todos
+# task: use a decision model to find which TODO comments are urgent
+# also: urgent todos prioritize d1 important fixme
+# slot dir path = .
+[select_string("{{dir}}"; "TODO|FIXME") | {Path, LineNumber, Line}]
+| map(select(.Line | invoke_systemone({q: {type: "noul", instructions: "Is this an urgent task?"}}).q.noul > 0.5))
+
 ## summarize-file
 # task: summarize a file with a language model (LLM)
 # also: summary tldr llm
 # slot file file = notes.txt
 cat("{{file}}")
 | invoke_llm("Summarize this in three sentences:\n\n\(.)")
+
+## ask-llm
+# task: ask a language model (LLM) a question
+# also: llm ask chatgpt claude prompt question
+# slot question text: What question should be asked? = What is jq?
+invoke_llm("{{question}}")
 
 ## code-rules
 # task: scan source code for security problems with the pwrgrep rules
@@ -889,3 +1923,24 @@ cat("{{file}}")
 # slot language text: Which programming language? = go
 invoke_pwrgrep("{{dir}}"; "{{language}}")
 | {RuleId, Path, LineNumber, Message}
+
+## findings-per-rule
+# task: how many findings each pwrgrep security rule produced
+# also: findings count per rule audit summary
+# slot dir path = .
+# slot language text: Which programming language? = go
+[invoke_pwrgrep("{{dir}}"; "{{language}}")]
+| count_by("RuleId")
+
+## list-functions
+# task: outline Go source code: the names of the functions it defines
+# also: functions defined func names symbols outline
+# slot dir path = .
+select_ast("{{dir}}"; "func $NAME($$$ARGS) { $$$BODY }")
+| .Captures.NAME
+
+## cmdlet-help
+# task: how to use a pwrq cmdlet or function: show its help and usage
+# also: help usage how to use man page documentation
+# slot name text: Which cmdlet? = get_childitem
+get_help("{{name}}")

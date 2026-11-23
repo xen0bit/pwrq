@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/itchyny/gojq"
 	"github.com/xen0bit/pwrq/pkg/udf"
@@ -157,6 +158,16 @@ var recipesNotRun = map[string]string{
 	"run-command": "the shell", "which-command": "PATH", "code-rules": "scans the tree it is given",
 	"top-memory-processes": "the process table", "top-cpu-processes": "the process table",
 	"find-process": "the process table", "count-processes": "the process table",
+	"move-images-containing": "needs the d1 model", "triage-errors": "needs the d1 model", "urgent-todos": "needs the d1 model",
+	"ask-llm":    "needs a language model",
+	"fetch-page": "network", "page-title": "network", "fetch-json-field": "network", "post-json": "network",
+	"request-with-header": "network", "save-json-response": "network", "check-links": "network",
+	"download-url-list": "network", "resolve-hosts-file": "network", "ping-hosts-file": "network",
+	"stopped-services": "the service manager", "start-service": "the service manager", "stop-service": "the service manager",
+	"kill-process": "the process table", "kill-by-name": "the process table",
+	"disk-free": "the shell", "cpu-count": "the shell",
+	"memory-info": "Linux's /proc", "load-average": "Linux's /proc", "uptime": "Linux's /proc",
+	"findings-per-rule": "scans the tree it is given",
 }
 
 // TestRecipesRun runs every recipe that needs only files, in a scratch
@@ -173,9 +184,25 @@ func TestRecipesRun(t *testing.T) {
 		"data.csv":            "name,age\nada,36\nbob,25\n",
 		"data.json":           `{"a":1}`,
 		"config.yaml":         "name: ada\n",
-		"events.jsonl":        "{\"a\":1}\n{\"a\":2}\n",
 		"src/main.go":         "package main\n// TODO: more\nfunc main() {}\n",
 		"src/report-2026.txt": "",
+		// The recipes below read or change files of their own: a recipe
+		// that moves or deletes runs once, on a file nothing else reads.
+		"events.jsonl": "{\"ts\":\"2026-08-11T09:15:00Z\",\"level\":\"error\",\"svc\":\"api\",\"dur_ms\":120}\n" +
+			"{\"ts\":\"2026-08-11T09:40:00Z\",\"level\":\"info\",\"svc\":\"web\",\"dur_ms\":30}\n",
+		"access.log": `10.0.0.1 - - [11/Aug/2026:09:15:01 +0000] "GET /index.html HTTP/1.1" 200 512` + "\n" +
+			`10.0.0.2 - - [11/Aug/2026:09:15:40 +0000] "POST /login HTTP/1.1" 500 64` + "\n",
+		"app.logfmt":     "ts=2026-08-11T09:15:00Z level=error msg=\"db down\"\n",
+		"data.tsv":       "name\tage\nada\t36\n",
+		"config.ini":     "[server]\nport = 8080\n",
+		"app.properties": "db.url=postgres://db\npassword=hunter2\n",
+		"users.json":     `[{"name":"ada","email":"ada@example.com"},{"name":"bob","email":"not-an-email"}]`,
+		"bad.json":       "{not json",
+		"draft.txt":      "draft",
+		"old.txt":        "old",
+		"scratch/x.txt":  "x",
+		"docs/a.txt":     "a",
+		"photos/p.txt":   "p",
 	}
 	for name, body := range files {
 		p := filepath.Join(dir, name)
@@ -185,6 +212,19 @@ func TestRecipesRun(t *testing.T) {
 		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// ssdeep needs 4096 bytes; the stale, big file is what cleanup finds.
+	for name, size := range map[string]int{"sample1.bin": 8192, "sample2.bin": 8192, "stale.bin": 2 << 20} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(strings.Repeat("pwrq sample text ", size/17+1))[:size], 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := time.Now().AddDate(0, 0, -400)
+	if err := os.Chtimes(filepath.Join(dir, "stale.bin"), old, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "locked.txt"), []byte("ro"), 0o444); err != nil {
+		t.Fatal(err)
 	}
 	zf, err := os.Create(filepath.Join(dir, "archive.zip"))
 	if err != nil {
@@ -295,6 +335,7 @@ func TestNormalizeSlot(t *testing.T) {
 		{"number", "top 10", "10"}, {"number", "five", "5"}, {"days", "3 days", "3"},
 		{"size", "500KB", "512000"}, {"path", "~/Downloads", "~/Downloads"}, {"path", "here", "."},
 		{"file", "README.md", "README.md"},
+		{"file", "a.txt and b.txt", "a.txt"}, {"file", "old.json, new.json", "old.json"},
 	}
 	for _, c := range cases {
 		if got, ok := normalizeSlot(c.kind, c.in); !ok || got != c.want {

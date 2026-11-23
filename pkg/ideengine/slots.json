@@ -1,8 +1,8 @@
 {
   "cidr": "Which CIDR range or subnet?",
   "days": "How many days?",
-  "ext": "Which programming language or file extension?",
-  "field": "Which attribute or column?",
+  "ext": "Which file extension or language?",
+  "field": "What is the name of the field it is about?",
   "file": "Which file (name or path)?",
   "host": "Which host, domain or URL?",
   "input": "What text or value should it work on?",

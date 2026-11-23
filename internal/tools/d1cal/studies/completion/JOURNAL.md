@@ -1,6 +1,6 @@
 # Journal: calibrating the IDE's suggestion questions to d1-2B
 
-Run 2026-11-22 on gpu (q4f16, ONNX Runtime 1.30.0), 500 samples.
+Run 2026-11-23 on gpu (q4f16, ONNX Runtime 1.30.0), 500 samples.
 
 | variant | covered | top-1 | top-3 | lexical top-1 | NLL | ECE | Brier | more acc | p50 s | p95 s |
 |---|---|---|---|---|---|---|---|---|---|---|

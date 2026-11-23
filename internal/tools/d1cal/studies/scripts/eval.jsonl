@@ -160,7 +160,7 @@
 {"id": "s159", "comment": "scan for security issues in this python project", "recipe": "code-rules", "slots": {"language": "python"}, "split": "test"}
 {"id": "s160", "comment": "compute the first 20 fibonacci numbers", "recipe": "", "slots": {}, "split": "dev"}
 {"id": "s161", "comment": "convert 100 fahrenheit to celsius", "recipe": "", "slots": {}, "split": "test"}
-{"id": "s162", "comment": "generate a random password", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s162", "comment": "generate a random password", "recipe": "generate-password", "slots": {}, "split": "dev"}
 {"id": "s163", "comment": "what's the distance between Paris and Berlin", "recipe": "", "slots": {}, "split": "test"}
 {"id": "s164", "comment": "encrypt this with aes", "recipe": "", "slots": {}, "split": "dev"}
 {"id": "s165", "comment": "calculate a monthly mortgage payment", "recipe": "", "slots": {}, "split": "test"}
@@ -195,3 +195,257 @@
 {"id": "s194", "comment": "is anyone on stage in concert.mkv", "recipe": "video-shows", "slots": {"file": "concert.mkv", "subject": "anyone on stage"}, "split": "dev"}
 {"id": "s195", "comment": "when is a screen shared in meeting.webm", "recipe": "video-when", "slots": {"file": "meeting.webm", "subject": "a screen shared"}, "split": "test"}
 {"id": "s196", "comment": "find the moments in episode.mkv where it is night", "recipe": "video-when", "slots": {"file": "episode.mkv", "subject": "it is night"}, "split": "dev"}
+{"id": "s197", "comment": "ls -l of /etc as a table", "recipe": "long-listing", "slots": {"dir": "/etc"}, "split": "dev"}
+{"id": "s198", "comment": "detailed listing with permissions and sizes", "recipe": "long-listing", "slots": {}, "split": "test"}
+{"id": "s199", "comment": "files in src but only 3 levels deep", "recipe": "files-max-depth", "slots": {"dir": "src", "depth": "3"}, "split": "dev"}
+{"id": "s200", "comment": "list files no deeper than 1 level", "recipe": "files-max-depth", "slots": {"depth": "1"}, "split": "test"}
+{"id": "s201", "comment": "all files except the log files", "recipe": "files-excluding", "slots": {"ext": "log"}, "split": "dev"}
+{"id": "s202", "comment": "everything under build skipping .o files", "recipe": "files-excluding", "slots": {"dir": "build", "ext": "o"}, "split": "test"}
+{"id": "s203", "comment": "the 5 smallest files in docs", "recipe": "smallest-files", "slots": {"dir": "docs", "n": "5"}, "split": "dev"}
+{"id": "s204", "comment": "tiniest files here", "recipe": "smallest-files", "slots": {}, "split": "test"}
+{"id": "s205", "comment": "files under 1KB", "recipe": "files-smaller-than", "slots": {"size": "1KB"}, "split": "dev"}
+{"id": "s206", "comment": "find files smaller than 10 KB in assets", "recipe": "files-smaller-than", "slots": {"dir": "assets", "size": "10KB"}, "split": "test"}
+{"id": "s207", "comment": "files not touched in 90 days", "recipe": "files-older-than", "slots": {"days": "90"}, "split": "dev"}
+{"id": "s208", "comment": "stale files in /var/tmp older than a 60 days", "recipe": "files-older-than", "slots": {"dir": "/var/tmp", "days": "60"}, "split": "test"}
+{"id": "s209", "comment": "what changed today", "recipe": "files-modified-today", "slots": {}, "split": "dev"}
+{"id": "s210", "comment": "files i edited today in src", "recipe": "files-modified-today", "slots": {"dir": "src"}, "split": "test"}
+{"id": "s211", "comment": "what can I clean up: big files nobody has touched in ages", "recipe": "cleanup-candidates", "slots": {}, "split": "dev"}
+{"id": "s212", "comment": "files over 100MB not modified in 180 days in ~/Downloads", "recipe": "cleanup-candidates", "slots": {"dir": "~/Downloads", "size": "104857600", "days": "180"}, "split": "test"}
+{"id": "s213", "comment": "how many folders are under src", "recipe": "count-directories", "slots": {"dir": "src"}, "split": "dev"}
+{"id": "s214", "comment": "number of subdirectories", "recipe": "count-directories", "slots": {}, "split": "test"}
+{"id": "s215", "comment": "how many files in each subfolder", "recipe": "folder-file-counts", "slots": {}, "split": "dev"}
+{"id": "s216", "comment": "file count per directory in ~/Music", "recipe": "folder-file-counts", "slots": {"dir": "~/Music"}, "split": "test"}
+{"id": "s217", "comment": "give me a quick overview of this folder", "recipe": "directory-overview", "slots": {}, "split": "dev"}
+{"id": "s218", "comment": "summarize what's in ~/projects/site, counts, kinds, biggest", "recipe": "directory-overview", "slots": {"dir": "~/projects/site"}, "split": "test"}
+{"id": "s219", "comment": "files with the same name in different folders", "recipe": "same-name-files", "slots": {}, "split": "dev"}
+{"id": "s220", "comment": "find duplicate filenames under docs", "recipe": "same-name-files", "slots": {"dir": "docs"}, "split": "test"}
+{"id": "s221", "comment": "how much space do duplicate files waste", "recipe": "duplicate-space", "slots": {}, "split": "dev"}
+{"id": "s222", "comment": "space wasted by dupes in ~/Pictures", "recipe": "duplicate-space", "slots": {"dir": "~/Pictures"}, "split": "test"}
+{"id": "s223", "comment": "are a.txt and b.txt identical", "recipe": "files-identical", "slots": {"first": "a.txt", "second": "b.txt"}, "split": "dev"}
+{"id": "s224", "comment": "check if backup.tar is byte for byte the same as orig.tar", "recipe": "files-identical", "slots": {"first": "backup.tar", "second": "orig.tar"}, "split": "test"}
+{"id": "s225", "comment": "which files are plain text", "recipe": "text-files", "slots": {}, "split": "dev"}
+{"id": "s226", "comment": "list the utf-8 text files in vendor", "recipe": "text-files", "slots": {"dir": "vendor"}, "split": "test"}
+{"id": "s227", "comment": "what type is every file in uploads, by magic bytes", "recipe": "file-types-tree", "slots": {"dir": "uploads"}, "split": "dev"}
+{"id": "s228", "comment": "detect the real file type of each file here", "recipe": "file-types-tree", "slots": {}, "split": "test"}
+{"id": "s229", "comment": "which files are read only", "recipe": "readonly-files", "slots": {}, "split": "dev"}
+{"id": "s230", "comment": "write protected files in /srv", "recipe": "readonly-files", "slots": {"dir": "/srv"}, "split": "test"}
+{"id": "s231", "comment": "stat notes.txt", "recipe": "file-details", "slots": {"file": "notes.txt"}, "split": "dev"}
+{"id": "s232", "comment": "when was report.pdf created and modified, and how big is it", "recipe": "file-details", "slots": {"file": "report.pdf"}, "split": "test"}
+{"id": "s233", "comment": "find all the zip and tar files", "recipe": "find-archives", "slots": {}, "split": "dev"}
+{"id": "s234", "comment": "any tarballs under ~/Downloads?", "recipe": "find-archives", "slots": {"dir": "~/Downloads"}, "split": "test"}
+{"id": "s235", "comment": "search inside logs.zip for timeout", "recipe": "search-in-archive", "slots": {"file": "logs.zip", "pattern": "timeout"}, "split": "dev"}
+{"id": "s236", "comment": "unzip bundle.zip and grep it for password", "recipe": "search-in-archive", "slots": {"file": "bundle.zip", "pattern": "password"}, "split": "test"}
+{"id": "s237", "comment": "zip up the config folder with today's date", "recipe": "backup-folder-dated", "slots": {"dir": "config"}, "split": "dev"}
+{"id": "s238", "comment": "make a dated backup archive of src", "recipe": "backup-folder-dated", "slots": {"dir": "src"}, "split": "test"}
+{"id": "s239", "comment": "show main.go with line numbers", "recipe": "number-lines", "slots": {"file": "main.go"}, "split": "dev"}
+{"id": "s240", "comment": "cat -n notes.txt", "recipe": "number-lines", "slots": {"file": "notes.txt"}, "split": "test"}
+{"id": "s241", "comment": "print app.log backwards, newest line first", "recipe": "reverse-lines", "slots": {"file": "app.log"}, "split": "dev"}
+{"id": "s242", "comment": "tac history.txt", "recipe": "reverse-lines", "slots": {"file": "history.txt"}, "split": "test"}
+{"id": "s243", "comment": "show line 42 of server.go", "recipe": "line-number", "slots": {"file": "server.go", "n": "42"}, "split": "dev"}
+{"id": "s244", "comment": "what is on line 7 of config.yaml", "recipe": "line-number", "slots": {"file": "config.yaml", "n": "7"}, "split": "test"}
+{"id": "s245", "comment": "write hello world to greeting.txt", "recipe": "write-file", "slots": {"file": "greeting.txt", "content": "hello world"}, "split": "dev"}
+{"id": "s246", "comment": "save the text done into status.txt", "recipe": "write-file", "slots": {"file": "status.txt", "content": "done"}, "split": "test"}
+{"id": "s247", "comment": "append build finished to run.log", "recipe": "append-line", "slots": {"file": "run.log", "content": "build finished"}, "split": "dev"}
+{"id": "s248", "comment": "add a line saying deployed to notes.txt", "recipe": "append-line", "slots": {"file": "notes.txt", "content": "deployed"}, "split": "test"}
+{"id": "s249", "comment": "replace foo with bar in config.txt", "recipe": "replace-in-file", "slots": {"file": "config.txt", "old": "foo", "new": "bar"}, "split": "dev"}
+{"id": "s250", "comment": "in README.md change localhost to example.com", "recipe": "replace-in-file", "slots": {"file": "README.md", "old": "localhost", "new": "example.com"}, "split": "test"}
+{"id": "s251", "comment": "create the folder build/out", "recipe": "make-directory", "slots": {"dir": "build/out"}, "split": "dev"}
+{"id": "s252", "comment": "mkdir -p logs/2026/11", "recipe": "make-directory", "slots": {"dir": "logs/2026/11"}, "split": "test"}
+{"id": "s253", "comment": "copy notes.txt to notes.bak", "recipe": "copy-file", "slots": {"from": "notes.txt", "to": "notes.bak"}, "split": "dev"}
+{"id": "s254", "comment": "duplicate config.yaml as config.old.yaml", "recipe": "copy-file", "slots": {"from": "config.yaml", "to": "config.old.yaml"}, "split": "test"}
+{"id": "s255", "comment": "copy the whole src folder to src-backup", "recipe": "copy-directory", "slots": {"from": "src", "to": "src-backup"}, "split": "dev"}
+{"id": "s256", "comment": "cp -r assets public/assets", "recipe": "copy-directory", "slots": {"from": "assets", "to": "public/assets"}, "split": "test"}
+{"id": "s257", "comment": "rename draft.txt to final.txt", "recipe": "move-file", "slots": {"from": "draft.txt", "to": "final.txt"}, "split": "dev"}
+{"id": "s258", "comment": "move report.pdf into archive/report.pdf", "recipe": "move-file", "slots": {"from": "report.pdf", "to": "archive/report.pdf"}, "split": "test"}
+{"id": "s259", "comment": "delete old.log", "recipe": "delete-file", "slots": {"file": "old.log"}, "split": "dev"}
+{"id": "s260", "comment": "rm temp.txt", "recipe": "delete-file", "slots": {"file": "temp.txt"}, "split": "test"}
+{"id": "s261", "comment": "remove the build folder and everything in it", "recipe": "delete-directory", "slots": {"dir": "build"}, "split": "dev"}
+{"id": "s262", "comment": "rm -rf node_modules", "recipe": "delete-directory", "slots": {"dir": "node_modules"}, "split": "test"}
+{"id": "s263", "comment": "back up config.yaml with today's date", "recipe": "backup-file-dated", "slots": {"file": "config.yaml"}, "split": "dev"}
+{"id": "s264", "comment": "make a dated copy of nginx.conf", "recipe": "backup-file-dated", "slots": {"file": "nginx.conf"}, "split": "test"}
+{"id": "s265", "comment": "rename all .txt files in docs to .md", "recipe": "rename-extension", "slots": {"dir": "docs", "from": "txt", "to": "md"}, "split": "dev"}
+{"id": "s266", "comment": "change every jpeg extension to jpg in photos", "recipe": "rename-extension", "slots": {"dir": "photos", "from": "jpeg", "to": "jpg"}, "split": "test"}
+{"id": "s267", "comment": "move all the pdfs from downloads into downloads/pdf", "recipe": "move-files-by-extension", "slots": {"dir": "downloads", "ext": "pdf", "dest": "downloads/pdf"}, "split": "dev"}
+{"id": "s268", "comment": "put the mp3 files in ~/Downloads into ~/Music", "recipe": "move-files-by-extension", "slots": {"dir": "~/Downloads", "ext": "mp3", "dest": "~/Music"}, "split": "test"}
+{"id": "s269", "comment": "prefix each file in photos with its modified date", "recipe": "rename-with-date", "slots": {"dir": "photos"}, "split": "dev"}
+{"id": "s270", "comment": "rename scans so they start with the date", "recipe": "rename-with-date", "slots": {"dir": "scans"}, "split": "test"}
+{"id": "s271", "comment": "lines of app.log that don't contain DEBUG", "recipe": "grep-invert", "slots": {"file": "app.log", "pattern": "DEBUG"}, "split": "dev"}
+{"id": "s272", "comment": "grep -v healthcheck access.log", "recipe": "grep-invert", "slots": {"file": "access.log", "pattern": "healthcheck"}, "split": "test"}
+{"id": "s273", "comment": "find TODO with two lines of context around it", "recipe": "search-with-context", "slots": {"pattern": "TODO"}, "split": "dev"}
+{"id": "s274", "comment": "grep -C for panic in src", "recipe": "search-with-context", "slots": {"dir": "src", "pattern": "panic"}, "split": "test"}
+{"id": "s275", "comment": "search only the python files for import requests", "recipe": "search-file-type", "slots": {"ext": "py", "pattern": "import requests"}, "split": "dev"}
+{"id": "s276", "comment": "grep the .go files in pkg for context.TODO", "recipe": "search-file-type", "slots": {"dir": "pkg", "ext": "go", "pattern": "context.TODO"}, "split": "test"}
+{"id": "s277", "comment": "find errors in all the log files", "recipe": "errors-in-logs", "slots": {}, "split": "dev"}
+{"id": "s278", "comment": "grep every .log under /var/log for FATAL", "recipe": "errors-in-logs", "slots": {"dir": "/var/log", "pattern": "FATAL"}, "split": "test"}
+{"id": "s279", "comment": "which log file has the most errors", "recipe": "errors-per-log", "slots": {}, "split": "dev"}
+{"id": "s280", "comment": "count ERROR lines in each log in logs", "recipe": "errors-per-log", "slots": {"dir": "logs"}, "split": "test"}
+{"id": "s281", "comment": "find hardcoded passwords or api keys", "recipe": "find-secrets", "slots": {}, "split": "dev"}
+{"id": "s282", "comment": "scan the config dir for leaked secrets and tokens", "recipe": "find-secrets", "slots": {"dir": "config"}, "split": "test"}
+{"id": "s283", "comment": "find all email addresses in these files", "recipe": "emails-in-files", "slots": {}, "split": "dev"}
+{"id": "s284", "comment": "which emails are mentioned anywhere in docs", "recipe": "emails-in-files", "slots": {"dir": "docs"}, "split": "test"}
+{"id": "s285", "comment": "ip addresses mentioned in the config files", "recipe": "ips-in-files", "slots": {}, "split": "dev"}
+{"id": "s286", "comment": "pull every IP out of the files in /etc", "recipe": "ips-in-files", "slots": {"dir": "/etc"}, "split": "test"}
+{"id": "s287", "comment": "lines longer than 120 characters", "recipe": "long-lines", "slots": {"n": "120"}, "split": "dev"}
+{"id": "s288", "comment": "find overly long lines in src", "recipe": "long-lines", "slots": {"dir": "src"}, "split": "test"}
+{"id": "s289", "comment": "search for TODO and save the results to todos.json", "recipe": "save-search-results", "slots": {"pattern": "TODO", "out": "todos.json"}, "split": "dev"}
+{"id": "s290", "comment": "save every match of deprecated to a json file", "recipe": "save-search-results", "slots": {"pattern": "deprecated"}, "split": "test"}
+{"id": "s291", "comment": "how many TODOs in each go file", "recipe": "todos-per-file", "slots": {"ext": "go"}, "split": "dev"}
+{"id": "s292", "comment": "count todo comments per python file", "recipe": "todos-per-file", "slots": {"ext": "py"}, "split": "test"}
+{"id": "s293", "comment": "lines of code by language", "recipe": "loc-by-language", "slots": {}, "split": "dev"}
+{"id": "s294", "comment": "cloc for ~/code/app", "recipe": "loc-by-language", "slots": {"dir": "~/code/app"}, "split": "test"}
+{"id": "s295", "comment": "word count of every txt file as a table", "recipe": "words-per-file", "slots": {"ext": "txt"}, "split": "dev"}
+{"id": "s296", "comment": "how many words in each markdown file", "recipe": "words-per-file", "slots": {"ext": "md"}, "split": "test"}
+{"id": "s297", "comment": "what percent of app.log is errors", "recipe": "error-rate", "slots": {"file": "app.log"}, "split": "dev"}
+{"id": "s298", "comment": "error rate of server.log", "recipe": "error-rate", "slots": {"file": "server.log"}, "split": "test"}
+{"id": "s299", "comment": "the last 10 errors in app.log", "recipe": "last-errors", "slots": {"file": "app.log", "n": "10"}, "split": "dev"}
+{"id": "s300", "comment": "most recent errors in worker.log", "recipe": "last-errors", "slots": {"file": "worker.log"}, "split": "test"}
+{"id": "s301", "comment": "unique error messages in app.log and how often each happens", "recipe": "distinct-errors", "slots": {"file": "app.log"}, "split": "dev"}
+{"id": "s302", "comment": "which errors repeat most in api.log", "recipe": "distinct-errors", "slots": {"file": "api.log"}, "split": "test"}
+{"id": "s303", "comment": "parse app.logfmt into objects", "recipe": "read-logfmt", "slots": {"file": "app.logfmt"}, "split": "dev"}
+{"id": "s304", "comment": "read the key=value log heroku.log", "recipe": "read-logfmt", "slots": {"file": "heroku.log"}, "split": "test"}
+{"id": "s305", "comment": "error events from events.jsonl", "recipe": "jsonl-errors", "slots": {"file": "events.jsonl"}, "split": "dev"}
+{"id": "s306", "comment": "the entries in audit.jsonl where level is fatal", "recipe": "jsonl-errors", "slots": {"file": "audit.jsonl", "value": "fatal"}, "split": "test"}
+{"id": "s307", "comment": "error count per service in events.jsonl", "recipe": "errors-per-service", "slots": {"file": "events.jsonl"}, "split": "dev"}
+{"id": "s308", "comment": "which service fails most in the json log app.jsonl", "recipe": "errors-per-service", "slots": {"file": "app.jsonl"}, "split": "test"}
+{"id": "s309", "comment": "slowest 10 requests in events.jsonl", "recipe": "slowest-events", "slots": {"file": "events.jsonl", "n": "10"}, "split": "dev"}
+{"id": "s310", "comment": "the events in traces.jsonl with the highest latency_ms", "recipe": "slowest-events", "slots": {"file": "traces.jsonl", "field": "latency_ms"}, "split": "test"}
+{"id": "s311", "comment": "events per hour in events.jsonl", "recipe": "events-per-hour", "slots": {"file": "events.jsonl"}, "split": "dev"}
+{"id": "s312", "comment": "hourly histogram of the json log", "recipe": "events-per-hour", "slots": {}, "split": "test"}
+{"id": "s313", "comment": "how many events each day in events.jsonl", "recipe": "events-per-day", "slots": {"file": "events.jsonl"}, "split": "dev"}
+{"id": "s314", "comment": "daily counts from audit.jsonl", "recipe": "events-per-day", "slots": {"file": "audit.jsonl"}, "split": "test"}
+{"id": "s315", "comment": "log entries between 2026-08-11T09:00:00Z and 2026-08-11T10:00:00Z", "recipe": "log-between-times", "slots": {"from": "2026-08-11T09:00:00Z", "to": "2026-08-11T10:00:00Z"}, "split": "dev"}
+{"id": "s316", "comment": "events in events.jsonl from 2026-01-01 to 2026-01-02", "recipe": "log-between-times", "slots": {"file": "events.jsonl", "from": "2026-01-01", "to": "2026-01-02"}, "split": "test"}
+{"id": "s317", "comment": "parse access.log into requests", "recipe": "parse-access-log", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s318", "comment": "turn the nginx log into structured fields", "recipe": "parse-access-log", "slots": {}, "split": "test"}
+{"id": "s319", "comment": "count status codes in access.log", "recipe": "status-code-counts", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s320", "comment": "how many 404s and 500s did the server return", "recipe": "status-code-counts", "slots": {}, "split": "test"}
+{"id": "s321", "comment": "top 5 ips hitting the server in access.log", "recipe": "top-client-ips", "slots": {"file": "access.log", "n": "5"}, "split": "dev"}
+{"id": "s322", "comment": "busiest clients in the apache log", "recipe": "top-client-ips", "slots": {}, "split": "test"}
+{"id": "s323", "comment": "how many unique visitors in access.log", "recipe": "unique-visitors", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s324", "comment": "count distinct client ips in the nginx log", "recipe": "unique-visitors", "slots": {}, "split": "test"}
+{"id": "s325", "comment": "most requested urls in access.log", "recipe": "top-paths", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s326", "comment": "top 20 pages by hits", "recipe": "top-paths", "slots": {"n": "20"}, "split": "test"}
+{"id": "s327", "comment": "failed requests in access.log", "recipe": "failed-requests", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s328", "comment": "show me the 4xx and 5xx responses", "recipe": "failed-requests", "slots": {}, "split": "test"}
+{"id": "s329", "comment": "total bandwidth served according to access.log", "recipe": "bytes-served", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s330", "comment": "how many bytes did nginx send", "recipe": "bytes-served", "slots": {}, "split": "test"}
+{"id": "s331", "comment": "requests per minute in access.log", "recipe": "requests-per-minute", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s332", "comment": "when was the traffic spike", "recipe": "requests-per-minute", "slots": {}, "split": "test"}
+{"id": "s333", "comment": "export access.log as csv", "recipe": "access-log-to-csv", "slots": {"file": "access.log"}, "split": "dev"}
+{"id": "s334", "comment": "convert the web log to a spreadsheet requests.csv", "recipe": "access-log-to-csv", "slots": {"out": "requests.csv"}, "split": "test"}
+{"id": "s335", "comment": "save sha256 checksums of everything here to a manifest", "recipe": "save-checksums", "slots": {}, "split": "dev"}
+{"id": "s336", "comment": "make a checksum baseline of /etc into etc.json", "recipe": "save-checksums", "slots": {"dir": "/etc", "out": "etc.json"}, "split": "test"}
+{"id": "s337", "comment": "check the files against checksums.json", "recipe": "verify-checksums", "slots": {"file": "checksums.json"}, "split": "dev"}
+{"id": "s338", "comment": "which files changed since the manifest baseline.json", "recipe": "verify-checksums", "slots": {"file": "baseline.json"}, "split": "test"}
+{"id": "s339", "comment": "hmac sign release.tar with key s3cret", "recipe": "hmac-file", "slots": {"file": "release.tar", "key": "s3cret"}, "split": "dev"}
+{"id": "s340", "comment": "hmac-sha256 of notes.txt", "recipe": "hmac-file", "slots": {"file": "notes.txt"}, "split": "test"}
+{"id": "s341", "comment": "how similar are a.bin and b.bin by ssdeep", "recipe": "fuzzy-compare", "slots": {"first": "a.bin", "second": "b.bin"}, "split": "dev"}
+{"id": "s342", "comment": "fuzzy hash compare malware1.exe and malware2.exe", "recipe": "fuzzy-compare", "slots": {"first": "malware1.exe", "second": "malware2.exe"}, "split": "test"}
+{"id": "s343", "comment": "encrypt secrets.txt with aes", "recipe": "encrypt-file", "slots": {"file": "secrets.txt"}, "split": "dev"}
+{"id": "s344", "comment": "aes encrypt notes.txt into notes.enc", "recipe": "encrypt-file", "slots": {"file": "notes.txt", "out": "notes.enc"}, "split": "test"}
+{"id": "s345", "comment": "decrypt notes.enc", "recipe": "decrypt-file", "slots": {"file": "notes.enc"}, "split": "dev"}
+{"id": "s346", "comment": "open the aes encrypted file secrets.txt.enc", "recipe": "decrypt-file", "slots": {"file": "secrets.txt.enc"}, "split": "test"}
+{"id": "s347", "comment": "generate a 32 character password", "recipe": "generate-password", "slots": {"n": "32"}, "split": "dev"}
+{"id": "s348", "comment": "make me a strong random password", "recipe": "generate-password", "slots": {}, "split": "test"}
+{"id": "s349", "comment": "random 16 byte hex key", "recipe": "random-key", "slots": {"n": "16"}, "split": "dev"}
+{"id": "s350", "comment": "generate a hex token", "recipe": "random-key", "slots": {}, "split": "test"}
+{"id": "s351", "comment": "read data.tsv", "recipe": "read-tsv", "slots": {"file": "data.tsv"}, "split": "dev"}
+{"id": "s352", "comment": "parse the tab separated file export.tsv", "recipe": "read-tsv", "slots": {"file": "export.tsv"}, "split": "test"}
+{"id": "s353", "comment": "how many rows in each csv file", "recipe": "csv-row-counts", "slots": {}, "split": "dev"}
+{"id": "s354", "comment": "row count of every csv under data", "recipe": "csv-row-counts", "slots": {"dir": "data"}, "split": "test"}
+{"id": "s355", "comment": "min max and average of the price column in sales.csv", "recipe": "csv-column-stats", "slots": {"file": "sales.csv", "column": "price"}, "split": "dev"}
+{"id": "s356", "comment": "stats of age in people.csv", "recipe": "csv-column-stats", "slots": {"file": "people.csv", "column": "age"}, "split": "test"}
+{"id": "s357", "comment": "remove duplicate rows from data.csv", "recipe": "dedupe-csv", "slots": {"file": "data.csv"}, "split": "dev"}
+{"id": "s358", "comment": "dedupe contacts.csv into clean.csv", "recipe": "dedupe-csv", "slots": {"file": "contacts.csv", "out": "clean.csv"}, "split": "test"}
+{"id": "s359", "comment": "import data.csv into a sqlite database", "recipe": "csv-to-sqlite", "slots": {"file": "data.csv"}, "split": "dev"}
+{"id": "s360", "comment": "load sales.csv into the orders table of shop.db", "recipe": "csv-to-sqlite", "slots": {"file": "sales.csv", "db": "shop.db", "table": "orders"}, "split": "test"}
+{"id": "s361", "comment": "read config.ini", "recipe": "read-ini", "slots": {"file": "config.ini"}, "split": "dev"}
+{"id": "s362", "comment": "parse the ini file php.ini", "recipe": "read-ini", "slots": {"file": "php.ini"}, "split": "test"}
+{"id": "s363", "comment": "read app.properties", "recipe": "read-properties", "slots": {"file": "app.properties"}, "split": "dev"}
+{"id": "s364", "comment": "parse the java properties file gradle.properties", "recipe": "read-properties", "slots": {"file": "gradle.properties"}, "split": "test"}
+{"id": "s365", "comment": "merge all the yaml files into one config", "recipe": "merge-yaml-files", "slots": {}, "split": "dev"}
+{"id": "s366", "comment": "combine every yaml under k8s into one", "recipe": "merge-yaml-files", "slots": {"dir": "k8s"}, "split": "test"}
+{"id": "s367", "comment": "diff old.json and new.json", "recipe": "compare-json-files", "slots": {"first": "old.json", "second": "new.json"}, "split": "dev"}
+{"id": "s368", "comment": "what changed between package.json and package.old.json", "recipe": "compare-json-files", "slots": {"first": "package.json", "second": "package.old.json"}, "split": "test"}
+{"id": "s369", "comment": "which json files are invalid", "recipe": "validate-json-files", "slots": {}, "split": "dev"}
+{"id": "s370", "comment": "find broken json under config", "recipe": "validate-json-files", "slots": {"dir": "config"}, "split": "test"}
+{"id": "s371", "comment": "records in users.json with a bad email", "recipe": "invalid-emails", "slots": {"file": "users.json"}, "split": "dev"}
+{"id": "s372", "comment": "check the emails in customers.json are valid", "recipe": "invalid-emails", "slots": {"file": "customers.json"}, "split": "test"}
+{"id": "s373", "comment": "columns of the users table in app.db", "recipe": "sqlite-schema", "slots": {"file": "app.db", "table": "users"}, "split": "dev"}
+{"id": "s374", "comment": "describe the orders table in shop.db", "recipe": "sqlite-schema", "slots": {"file": "shop.db", "table": "orders"}, "split": "test"}
+{"id": "s375", "comment": "export the users table to csv", "recipe": "sqlite-to-csv", "slots": {"table": "users"}, "split": "dev"}
+{"id": "s376", "comment": "dump orders from shop.db as orders.csv", "recipe": "sqlite-to-csv", "slots": {"file": "shop.db", "table": "orders", "out": "orders.csv"}, "split": "test"}
+{"id": "s377", "comment": "the users table as json", "recipe": "sqlite-to-json", "slots": {"table": "users"}, "split": "dev"}
+{"id": "s378", "comment": "export the events table of log.db to json", "recipe": "sqlite-to-json", "slots": {"file": "log.db", "table": "events"}, "split": "test"}
+{"id": "s379", "comment": "delete from sessions where expired = 1 in app.db", "recipe": "sqlite-execute", "slots": {"file": "app.db", "sql": "delete from sessions where expired = 1"}, "split": "dev"}
+{"id": "s380", "comment": "run an update statement on the database", "recipe": "sqlite-execute", "slots": {}, "split": "test"}
+{"id": "s381", "comment": "save a listing of this folder into a sqlite table", "recipe": "listing-to-sqlite", "slots": {}, "split": "dev"}
+{"id": "s382", "comment": "index every file in ~/Documents into docs.db", "recipe": "listing-to-sqlite", "slots": {"dir": "~/Documents", "db": "docs.db"}, "split": "test"}
+{"id": "s383", "comment": "kill pid 4242", "recipe": "kill-process", "slots": {"pid": "4242"}, "split": "dev"}
+{"id": "s384", "comment": "stop process 991", "recipe": "kill-process", "slots": {"pid": "991"}, "split": "test"}
+{"id": "s385", "comment": "killall firefox", "recipe": "kill-by-name", "slots": {"name": "firefox"}, "split": "dev"}
+{"id": "s386", "comment": "stop every node process", "recipe": "kill-by-name", "slots": {"name": "node"}, "split": "test"}
+{"id": "s387", "comment": "which services are not running", "recipe": "stopped-services", "slots": {}, "split": "dev"}
+{"id": "s388", "comment": "list stopped services", "recipe": "stopped-services", "slots": {}, "split": "test"}
+{"id": "s389", "comment": "start the nginx service", "recipe": "start-service", "slots": {"name": "nginx"}, "split": "dev"}
+{"id": "s390", "comment": "systemctl start docker", "recipe": "start-service", "slots": {"name": "docker"}, "split": "test"}
+{"id": "s391", "comment": "stop the postgresql service", "recipe": "stop-service", "slots": {"name": "postgresql"}, "split": "dev"}
+{"id": "s392", "comment": "systemctl stop cron", "recipe": "stop-service", "slots": {"name": "cron"}, "split": "test"}
+{"id": "s393", "comment": "what is $GOPATH set to", "recipe": "env-var", "slots": {"name": "GOPATH"}, "split": "dev"}
+{"id": "s394", "comment": "value of the EDITOR environment variable", "recipe": "env-var", "slots": {"name": "EDITOR"}, "split": "test"}
+{"id": "s395", "comment": "whoami", "recipe": "current-user", "slots": {}, "split": "dev"}
+{"id": "s396", "comment": "which user am I running as", "recipe": "current-user", "slots": {}, "split": "test"}
+{"id": "s397", "comment": "how much disk space is left", "recipe": "disk-free", "slots": {}, "split": "dev"}
+{"id": "s398", "comment": "df -h for /home", "recipe": "disk-free", "slots": {"dir": "/home"}, "split": "test"}
+{"id": "s399", "comment": "how much ram is free", "recipe": "memory-info", "slots": {}, "split": "dev"}
+{"id": "s400", "comment": "total memory on this machine", "recipe": "memory-info", "slots": {}, "split": "test"}
+{"id": "s401", "comment": "what's the load average", "recipe": "load-average", "slots": {}, "split": "dev"}
+{"id": "s402", "comment": "system load right now", "recipe": "load-average", "slots": {}, "split": "test"}
+{"id": "s403", "comment": "how long has this box been up", "recipe": "uptime", "slots": {}, "split": "dev"}
+{"id": "s404", "comment": "uptime", "recipe": "uptime", "slots": {}, "split": "test"}
+{"id": "s405", "comment": "how many cores do I have", "recipe": "cpu-count", "slots": {}, "split": "dev"}
+{"id": "s406", "comment": "nproc", "recipe": "cpu-count", "slots": {}, "split": "test"}
+{"id": "s407", "comment": "current unix timestamp", "recipe": "unix-timestamp", "slots": {}, "split": "dev"}
+{"id": "s408", "comment": "epoch seconds now", "recipe": "unix-timestamp", "slots": {}, "split": "test"}
+{"id": "s409", "comment": "what time is it in Europe/Berlin", "recipe": "time-in-zone", "slots": {"zone": "Europe/Berlin"}, "split": "dev"}
+{"id": "s410", "comment": "current time in America/New_York", "recipe": "time-in-zone", "slots": {"zone": "America/New_York"}, "split": "test"}
+{"id": "s411", "comment": "resolve every host in hosts.txt", "recipe": "resolve-hosts-file", "slots": {"file": "hosts.txt"}, "split": "dev"}
+{"id": "s412", "comment": "dns lookup for each domain listed in domains.txt", "recipe": "resolve-hosts-file", "slots": {"file": "domains.txt"}, "split": "test"}
+{"id": "s413", "comment": "which hosts in servers.txt are up", "recipe": "ping-hosts-file", "slots": {"file": "servers.txt"}, "split": "dev"}
+{"id": "s414", "comment": "ping all the hosts listed in hosts.txt", "recipe": "ping-hosts-file", "slots": {"file": "hosts.txt"}, "split": "test"}
+{"id": "s415", "comment": "curl https://example.com", "recipe": "fetch-page", "slots": {"url": "https://example.com"}, "split": "dev"}
+{"id": "s416", "comment": "get the html of https://go.dev", "recipe": "fetch-page", "slots": {"url": "https://go.dev"}, "split": "test"}
+{"id": "s417", "comment": "title of https://go.dev", "recipe": "page-title", "slots": {"url": "https://go.dev"}, "split": "dev"}
+{"id": "s418", "comment": "what is the page title of example.com", "recipe": "page-title", "slots": {"url": "https://example.com"}, "split": "test"}
+{"id": "s419", "comment": "get the current_user_url field from https://api.github.com", "recipe": "fetch-json-field", "slots": {"url": "https://api.github.com", "field": "current_user_url"}, "split": "dev"}
+{"id": "s420", "comment": "fetch https://api.example.com/status and take its version", "recipe": "fetch-json-field", "slots": {"url": "https://api.example.com/status", "field": "version"}, "split": "test"}
+{"id": "s421", "comment": "post {\"name\": \"ada\"} to https://httpbin.org/post", "recipe": "post-json", "slots": {"url": "https://httpbin.org/post", "body": "{\"name\": \"ada\"}"}, "split": "dev"}
+{"id": "s422", "comment": "send a json POST to https://api.example.com/users", "recipe": "post-json", "slots": {"url": "https://api.example.com/users"}, "split": "test"}
+{"id": "s423", "comment": "request https://api.example.com with an Authorization header", "recipe": "request-with-header", "slots": {"url": "https://api.example.com", "name": "Authorization"}, "split": "dev"}
+{"id": "s424", "comment": "call https://httpbin.org/headers with X-Api-Key set to abc123", "recipe": "request-with-header", "slots": {"url": "https://httpbin.org/headers", "name": "X-Api-Key", "value": "abc123"}, "split": "test"}
+{"id": "s425", "comment": "fetch https://api.github.com and save it to github.json", "recipe": "save-json-response", "slots": {"url": "https://api.github.com", "out": "github.json"}, "split": "dev"}
+{"id": "s426", "comment": "save the api response to a file", "recipe": "save-json-response", "slots": {}, "split": "test"}
+{"id": "s427", "comment": "check the links in README.md for dead ones", "recipe": "check-links", "slots": {"file": "README.md"}, "split": "dev"}
+{"id": "s428", "comment": "status of every url in links.txt", "recipe": "check-links", "slots": {"file": "links.txt"}, "split": "test"}
+{"id": "s429", "comment": "download every url in urls.txt", "recipe": "download-url-list", "slots": {"file": "urls.txt"}, "split": "dev"}
+{"id": "s430", "comment": "wget -i downloads.txt", "recipe": "download-url-list", "slots": {"file": "downloads.txt"}, "split": "test"}
+{"id": "s431", "comment": "move the photos with dogs into a dogs folder", "recipe": "move-images-containing", "slots": {"subject": "dogs", "dest": "dogs"}, "split": "dev"}
+{"id": "s432", "comment": "use d1 to sort pictures showing receipts in scans into scans/receipts", "recipe": "move-images-containing", "slots": {"dir": "scans", "subject": "receipts", "dest": "scans/receipts"}, "split": "test"}
+{"id": "s433", "comment": "triage the errors in app.log by severity", "recipe": "triage-errors", "slots": {"file": "app.log"}, "split": "dev"}
+{"id": "s434", "comment": "ask the model which errors in worker.log are urgent", "recipe": "triage-errors", "slots": {"file": "worker.log"}, "split": "test"}
+{"id": "s435", "comment": "which TODOs are urgent", "recipe": "urgent-todos", "slots": {}, "split": "dev"}
+{"id": "s436", "comment": "use the decision model to prioritize the todos in src", "recipe": "urgent-todos", "slots": {"dir": "src"}, "split": "test"}
+{"id": "s437", "comment": "ask an llm what a monad is", "recipe": "ask-llm", "slots": {"question": "what a monad is"}, "split": "dev"}
+{"id": "s438", "comment": "ask claude to explain kubernetes", "recipe": "ask-llm", "slots": {"question": "explain kubernetes"}, "split": "test"}
+{"id": "s439", "comment": "how many findings per pwrgrep rule", "recipe": "findings-per-rule", "slots": {}, "split": "dev"}
+{"id": "s440", "comment": "count security findings by rule for the python code in app", "recipe": "findings-per-rule", "slots": {"dir": "app", "language": "python"}, "split": "test"}
+{"id": "s441", "comment": "list the functions in this go code", "recipe": "list-functions", "slots": {}, "split": "dev"}
+{"id": "s442", "comment": "what funcs are defined in pkg/server", "recipe": "list-functions", "slots": {"dir": "pkg/server"}, "split": "test"}
+{"id": "s443", "comment": "how do I use select_string", "recipe": "cmdlet-help", "slots": {"name": "select_string"}, "split": "dev"}
+{"id": "s444", "comment": "help for get_childitem", "recipe": "cmdlet-help", "slots": {"name": "get_childitem"}, "split": "test"}
+{"id": "s445", "comment": "chmod +x every script in bin", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s446", "comment": "set the modified time of notes.txt to yesterday", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s447", "comment": "split big.log into 100MB chunks", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s448", "comment": "create a symlink from current to releases/v2", "recipe": "", "slots": {}, "split": "test"}
+{"id": "s449", "comment": "extract printable strings from firmware.bin", "recipe": "", "slots": {}, "split": "dev"}
+{"id": "s450", "comment": "watch the build status every 5 seconds", "recipe": "", "slots": {}, "split": "test"}
