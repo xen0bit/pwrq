@@ -1,0 +1,180 @@
+# Encryption: the openssl-style stories. AES, DES, 3DES, Blowfish, RC4,
+# ChaCha20 and XOR, with round trips, the base64-wrapped ciphertexts the
+# ciphers emit, key material and a file sealed end to end.
+
+## cipher-aes-encrypt
+# task: encrypt this with aes-256-cbc
+# also: aes encrypt cbc secret openssl enc
+# slot data text: What should be encrypted? = the launch code
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"{{data}}"
+| aes_encrypt(.; "{{key}}")
+
+## cipher-aes-roundtrip
+# task: encrypt with aes and decrypt it back round trip
+# also: aes decrypt round trip cbc both ways
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"attack at dawn"
+| aes_encrypt(.; "{{key}}")
+| aes_decrypt(.; "{{key}}")
+
+## cipher-aes-ecb
+# task: aes in ecb mode, no iv, for when that is all you have
+# also: aes ecb mode simple no iv
+# slot data text: What should be encrypted? = ecb is fine here
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"{{data}}"
+| aes_encrypt(.; "{{key}}"; "ECB")
+
+## cipher-aes-base64-wrapped
+# task: the ciphertext comes out base64-wrapped, ready for a message
+# also: encrypt base64 transport wrap encode payload
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"the password is hunter2"
+| aes_encrypt(.; "{{key}}")
+| . as $sealed
+| "the password is hunter2"
+| {Sealed: $sealed, LooksBase64: ($sealed | is_base64)}
+
+## cipher-aes-unwrap
+# task: unwrap a received base64 aes payload back into text
+# also: decrypt base64 unwrap decode payload received
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"the password is hunter2"
+| aes_encrypt(.; "{{key}}")
+| aes_decrypt(.; "{{key}}")
+| {Recovered: ., Matches: (. == "the password is hunter2")}
+
+## cipher-aes-hex-key
+# task: encrypt with the key given as hex bytes
+# also: keyformat hex aes key raw bytes
+# slot data text: What should be encrypted? = hex keyed secret
+# slot key text: The hex key? = 0123456789abcdef0123456789abcdef
+"{{data}}"
+| aes_encrypt(.; "{{key}}"; "CBC"; "hex")
+
+## cipher-des-roundtrip
+# task: old des encryption, round trip
+# also: des legacy encrypt decrypt 8 byte key
+# slot key text: What is the 8 byte key? = 8bytekey
+"meet me at noon"
+| des_encrypt(.; "{{key}}")
+| des_decrypt(.; "{{key}}")
+
+## cipher-3des-roundtrip
+# task: triple des, round trip
+# also: 3des triple des legacy 24 byte key
+# slot key text: What is the 24 byte key? = 0123456789abcdef01234567
+"old banking protocol"
+| triple_des_encrypt(.; "{{key}}")
+| triple_des_decrypt(.; "{{key}}")
+
+## cipher-blowfish-roundtrip
+# task: blowfish encryption, round trip
+# also: blowfish encrypt decrypt fast block
+# slot key text: What is the key? = blowfishkey
+"swim fast past the reef"
+| blowfish_encrypt(.; "{{key}}")
+| blowfish_decrypt(.; "{{key}}")
+
+## cipher-rc4-stream
+# task: rc4 both ways, the same operation encrypts and decrypts
+# also: rc4 stream arc4 symmetric xor keystream
+# slot data text: What should be encrypted? = stream cipher message
+# slot key text: What is the key? = rc4key
+"{{data}}"
+| rc4("{{key}}")
+| rc4("{{key}}")
+
+## cipher-rc4-file
+# task: rc4 a whole file's bytes, both ways
+# also: rc4 file encrypt bytes blob
+# slot key text: What is the key? = rc4key
+# slot file file = notes.txt
+read_bytes("{{file}}")
+| rc4("{{key}}")
+| rc4("{{key}}")
+| utf8bytelength
+
+## cipher-chacha20-encrypt
+# task: encrypt this with chacha20 and a 32 byte key
+# also: chacha20 stream modern salsa encrypt
+# slot key text: What is the 32 byte key? = 0123456789abcdef0123456789abcdef
+"modern stream cipher"
+| chacha20("{{key}}")
+
+## cipher-chacha20-fixed-nonce
+# task: chacha20 with an explicit nonce, so the same input gives the same output
+# also: chacha20 nonce deterministic fixed repeat
+# slot key text: What is the 32 byte key? = 0123456789abcdef0123456789abcdef
+"modern stream cipher"
+| {First: chacha20("{{key}}"; "000000000002030405060708"), Second: chacha20("{{key}}"; "000000000002030405060708")}
+| .First == .Second
+
+## cipher-xor-key
+# task: xor this text against a repeating key, both directions at once
+# also: xor repeating key simple obfuscate decode
+# slot data text: What should be xored? = xor me please
+# slot key text: What is the key? = xorkey
+"{{data}}"
+| xor("{{key}}")
+| xor("{{key}}")
+
+## cipher-compare-modes
+# task: the same text under aes cbc and ecb side by side
+# also: modes compare cbc ecb blocks difference
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"same plaintext twice same plaintext twice"
+| {CBC: aes_encrypt(.; "{{key}}"; "CBC"), ECB: aes_encrypt(.; "{{key}}"; "ECB")}
+
+## cipher-key-generate
+# task: generate a fresh 32-byte key in hex
+# also: generate key random hex new material
+random_hex(32)
+
+## cipher-key-pair-generate
+# task: two fresh keys, one for each side
+# also: generate keys pair both random
+{Alice: random_hex(16), Bob: random_hex(16)}
+
+## cipher-file-seal
+# task: encrypt a file's contents and save the sealed result
+# also: seal file encrypt save protect archive
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+# slot file file = notes.txt
+read_bytes("{{file}}")
+| aes_encrypt(.; "{{key}}")
+| out_file("notes.sealed")
+
+## cipher-file-unseal
+# task: open the sealed file back into text
+# also: unseal open decrypt restore file
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+cat("notes.sealed")
+| aes_decrypt(.; "{{key}}")
+
+## cipher-cipher-length
+# task: how much longer is the ciphertext than the text
+# also: size overhead expansion padding length
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"a short note"
+| . as $plain
+| aes_encrypt(.; "{{key}}")
+| utf8bytelength
+| . as $cipher
+| {PlainBytes: ($plain | utf8bytelength), CipherBytes: $cipher, Overhead: ($cipher - ($plain | utf8bytelength))}
+
+## cipher-rc4-vs-aes
+# task: the same message through rc4 and through aes
+# also: compare rc4 aes two algorithms different
+# slot key text: What is the rc4 key? = rc4key
+"aes takes a 32 byte key, rc4 any"
+| {RC4: rc4("{{key}}"), AES: aes_encrypt(.; "0123456789abcdef0123456789abcdef")}
+
+## cipher-cbc-random-iv
+# task: prove the random iv makes cbc output differ every time
+# also: iv random different each time cbc nonce proof
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"same message"
+| {First: aes_encrypt(.; "{{key}}"), Second: aes_encrypt(.; "{{key}}")}
+| .First != .Second

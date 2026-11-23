@@ -1,0 +1,325 @@
+# Source-code scanning: the pwrgrep rules, the AST patterns and the regex
+# sweeps, plus the semver stories for version strings. The src fixture
+# tree is small go and python on purpose; the rules answer on any tree.
+
+## code-scan-go
+# task: run the go code rules over this tree
+# also: pwrgrep scan audit rules go security lint
+# slot dir path = src
+invoke_pwrgrep("{{dir}}"; "go")
+| {RuleId, Path, LineNumber, Message}
+
+## code-scan-one-rule
+# task: where does input from outside reach an effect, in this go tree
+# also: input reaches effect taint flow sink security
+# slot dir path = src
+invoke_pwrgrep("{{dir}}"; "go-input-reaches-effect")
+| {Path, LineNumber, Message}
+
+## code-scan-python
+# task: run the python rules over this tree
+# also: pwrgrep scan audit python rules
+# slot dir path = src
+invoke_pwrgrep("{{dir}}"; "python")
+| {RuleId, Path, LineNumber, Message}
+
+## code-scan-multi-language
+# task: scan with the go and python rules together
+# also: several languages both multi rules scan
+"src"
+| invoke_pwrgrep(["go", "python"])
+| {RuleId, Path, LineNumber}
+
+## code-scan-flow-only
+# task: only the flow rules, the data-reaching-effects ones
+# also: flow kind category rules filter scan
+[invoke_pwrgrep("src"; "go/flow")]
+| group_by(.RuleId)
+| map({Rule: .[0].RuleId, Findings: length})
+
+## code-scan-swallowed
+# task: where does this go code swallow its errors
+# also: swallowed errors ignored err hotspot
+# slot dir path = src
+invoke_pwrgrep("{{dir}}"; "go-swallowed-errors")
+| {Path, LineNumber, Message}
+
+## code-count-findings
+# task: how many findings each rule produced
+# also: count per rule grouped tally audit
+[invoke_pwrgrep("src"; ["go", "python"])]
+| count_by("RuleId")
+
+## code-findings-by-file
+# task: which files have the most findings
+# also: per file count ranking hotspot most
+[invoke_pwrgrep("src"; ["go", "python"])]
+| count_by("Path")
+| to_entries
+| sort_by(-.value)
+| .[:3]
+
+## code-list-rules
+# task: what go rules are available to scan with
+# also: list rules available which go catalogue
+[get_pwrgrep_rule("go")]
+| map(.Id)
+
+## code-rule-count
+# task: how many rules ship in total
+# also: count rules total catalogue
+[get_pwrgrep_rule]
+| length
+
+## code-rule-detail
+# task: what does the go-functions rule look for
+# also: rule detail describe help one rules
+get_pwrgrep_rule("go-functions")
+
+## code-ast-functions
+# task: the go functions in this tree, by name
+# also: ast functions declared defs names go
+# slot dir path = src
+select_ast("{{dir}}"; "func $NAME($$$ARGS) { $$$BODY }")
+| .Captures.NAME
+
+## code-ast-error-returning
+# task: the go functions that return an error
+# also: ast functions return error signature go
+# slot dir path = src
+select_ast("{{dir}}"; "func $NAME($$$ARGS) error { $$$BODY }")
+| .Captures.NAME
+
+## code-ast-if-count
+# task: how many if statements are in the go files
+# also: ast count ifs branches statements go
+[select_ast("src"; "if $C { $$$B }"; {Include: "*.go"})]
+| length
+
+## code-ast-weak-hashes
+# task: find md5 and sha1 usage in this code
+# also: weak hashes md5 sha1 usage patterns deprecated
+[select_ast("src"; ["md5.New()", "sha1.New()"])]
+| group_by(.Pattern)
+| map({(.[0].Pattern): length})
+| add
+
+## code-ast-tls-skip
+# task: tls configurations that skip certificate verification
+# also: insecure tls skip verify certificate mitm
+# slot dir path = src
+select_ast("{{dir}}"; "tls.Config{$$$_, InsecureSkipVerify: true, $$$_}")
+
+## code-regex-passwords
+# task: passwords committed in config files
+# also: secrets passwords yaml regex scan hardcoded
+# slot dir path = configs
+scan_regex("{{dir}}"; ["*.yml", "*.yaml", "*.properties"]; "password\\s*[=:]\\s*\\S+")
+| .[]
+| {Path, LineNumber, Match: .Text}
+
+## code-regex-api-keys
+# task: api keys and tokens in config files
+# also: api keys tokens secrets scan credentials
+# slot dir path = configs
+[scan_regex("{{dir}}"; ["*.properties", "*.ini"]; "(?i)(api[_-]?key|token)\\s*=\\s*\\S+")]
+| length
+
+## code-regex-count
+# task: count the eval calls in the javascript here
+# also: eval count javascript dangerous dynamic
+# slot dir path = web
+[scan_regex("{{dir}}"; ["*.html"]; "eval\\(")]
+| length
+
+## code-semver-sort
+# task: sort these release tags newest first
+# also: semver versions sort releases tags order
+["2.0.0", "1.10.0", "1.9.0", "2.0.0-rc.1", "1.2.10", "1.2.9"]
+| natural_sort
+| reverse
+
+## code-semver-compare
+# task: is 1.2.10 newer than 1.2.9
+# also: newer older compare semver greater version
+semver_compare("1.2.10"; "1.2.9")
+
+## code-semver-older-than
+# task: which releases are older than 2.0.0
+# also: older before previous below releases filter
+["1.10.0", "1.9.0", "2.0.0", "2.1.0"]
+| map(select(semver_compare(.; "2.0.0") < 0))
+
+## code-semver-parts
+# task: the pieces of this version string
+# also: semver parts major minor patch parse breakdown
+"2.0.0-rc.1"
+| semver_parts
+
+## code-semver-valid
+# task: which of these are proper semver strings
+# also: valid semver check format versions
+["1.2.3", "v1.2", "1.2.3-beta+build1"]
+| map(is_semver)
+
+## code-loc-by-language
+# task: lines of code per language in the source tree
+# also: loc lines code count per language sloc
+[find("src"; "file")]
+| map({Language: (basename | file_extension | ltrimstr(".")), Lines: wc_lines(.)})
+| group_by(.Language)
+| map({Language: .[0].Language, Files: length, Lines: (map(.Lines) | add)})
+
+## code-todo-tech-debt
+# task: the todo comments across the source, as a debt list
+# also: todos debt fixme backlog comments scan
+select_string("src"; "TODO|FIXME")
+| {File: .Path, Line: .LineNumber, Note: (.Line | ltrimstr(" /#"))}
+
+# The rule vocabulary itself: the filters and report shapes a rule is
+# written with, demonstrated on plain values the way a rule would see
+# them. Writing a rule with write_pwrgrep_rule lands under PWRQ_RULES,
+# which the harness points at the scratch tree.
+
+## code-scan-ast-direct
+# task: scan the python files for subprocess and system calls
+# also: scan_ast direct subprocess os.system patterns python
+# slot dir path = src
+"{{dir}}"
+| scan_ast("*.py"; ["subprocess.run($$$_)", "os.system($$$_)"])
+| .[]
+| {Path, LineNumber, Pattern}
+
+## code-rule-within
+# task: keep the matches that sit inside a surrounding match
+# also: within inside contained nested scoping rule vocabulary
+[{Path: "src/main.go", Offset: 5, EndOffset: 9}]
+| within([{Path: "src/main.go", Offset: 0, EndOffset: 20}])
+
+## code-rule-outside
+# task: keep the matches that sit outside another match
+# also: outside not contained exclude scoping rule vocabulary
+[{Path: "src/main.go", Offset: 5, EndOffset: 9}]
+| outside([{Path: "src/main.go", Offset: 30, EndOffset: 40}])
+
+## code-rule-not-at
+# task: drop the matches that fire where another already did
+# also: not_at same place dedupe overlap rule vocabulary
+[{Path: "src/main.go", Offset: 5, EndOffset: 9}]
+| not_at([{Path: "src/main.go", Offset: 0, EndOffset: 2}])
+
+## code-rule-at-same-place
+# task: which of these matches fire at exactly the same place
+# also: at_same_place coincide overlap same spot rule vocabulary
+[{Path: "src/main.go", Offset: 5, EndOffset: 9}]
+| at_same_place([{Path: "src/main.go", Offset: 5, EndOffset: 9}])
+
+## code-rule-in-files-with
+# task: keep matches from files that also contain the other thing
+# also: in_files_with files containing scoping filter rule vocabulary
+[{Path: "src/main.go", Offset: 5, EndOffset: 9}]
+| in_files_with([{Path: "src/main.go", Offset: 0, EndOffset: 2}])
+
+## code-rule-in-files-without
+# task: keep matches from files that do not contain the other thing
+# also: in_files_without files lacking exclude scoping rule vocabulary
+[{Path: "src/main.go", Offset: 5, EndOffset: 9}]
+| in_files_without([{Path: "src/util/util.go", Offset: 0, EndOffset: 2}])
+
+## code-rule-where-capture
+# task: keep the matches whose capture matches a pattern
+# also: where_capture capture filter regex rule vocabulary
+[{Captures: {P: "/tmp/x"}}]
+| where_capture("P"; "^/tmp/")
+
+## code-rule-where-capture-not
+# task: drop the matches whose capture matches a pattern
+# also: where_capture_not except exclude capture rule vocabulary
+[{Captures: {ALGO: "MD5"}}]
+| where_capture_not("ALGO"; "SHA-?256")
+
+## code-rule-where-capture-ast
+# task: keep matches whose capture is itself a certain kind of call
+# also: where_capture_ast structural nested call rule vocabulary
+[{Language: "python", Captures: {ARG: "os.getenv(\"X\")"}}]
+| where_capture_ast("ARG"; "os.getenv($$$_)")
+
+## code-rule-where-capture-compare
+# task: keep the matches whose numeric capture fails the comparison
+# also: where_capture_compare numeric compare mode rule vocabulary
+[{Captures: {MODE: "0o777"}}]
+| where_capture_compare("$MODE >= 0o666")
+
+## code-rule-where-capture-entropy
+# task: flag captures that look like high-entropy secrets
+# also: where_capture_entropy secret token random rule vocabulary
+[{Captures: {V: "AKIAIOSFODNN7EXAMPLE"}}]
+| where_capture_entropy("V")
+
+## code-rule-where-capture-redos
+# task: flag captures that are a regex with catastrophic backtracking
+# also: where_capture_redos re-dos backtracking regex rule vocabulary
+[{Captures: {R: "(a+)+$"}}]
+| where_capture_redos("R")
+
+## code-rule-where-same
+# task: matches whose two captures agree with each other
+# also: where_same equal agree both same rule vocabulary
+[{Captures: {A: "x", B: "x"}}]
+| where_same("A"; "B")
+
+## code-rule-where-different
+# task: matches whose two captures disagree
+# also: where_different differ unequal mismatch rule vocabulary
+[{Captures: {A: "x", B: "y"}}]
+| where_different("A"; "B")
+
+## code-rule-where-text
+# task: keep matches whose whole text mentions these words
+# also: where_text text contains mention rule vocabulary
+[{Text: "getenv(\"PASSWORD\")"}]
+| where_text("PASSWORD|SECRET")
+
+## code-rule-where-text-not
+# task: drop matches whose text is just a comment
+# also: where_text_not comment exclude text rule vocabulary
+[{Text: "x = 1"}]
+| where_text_not("^//")
+
+## code-rule-finding
+# task: turn a raw match into a finding with a rule name
+# also: finding report result label rule vocabulary
+[{Path: "src/main.go", LineNumber: 3, Text: "md5.New()", Captures: {}}]
+| finding("go-weak-hash"; "this hash is not collision resistant")
+
+## code-rule-focus
+# task: report a capture's line instead of the match's own
+# also: focus capture line report rule vocabulary
+[{LineNumber: 1, Captures: {T: "True"}, CaptureSpans: {T: {LineNumber: 2, Column: 27}}}]
+| focus("T")
+
+## code-rule-reaches
+# task: which subprocess calls are fed by request arguments
+# also: reaching flows taint from to dataflow rule vocabulary
+"src"
+| scan_ast("*.py"; ["request.args.get($$$_)", "subprocess.run($$$_)"]) as $all
+| ($all | of(["subprocess.run($$$_)"]) | reaching($all | of(["request.args.get($$$_)"]); []))
+
+## code-pattern-check
+# task: is this ast pattern even valid for go
+# also: ast_pattern validate check metavariables test
+ast_pattern("func $N($$$A) error { $$$B }"; "go")
+| {Valid, MetaVariables}
+
+## code-write-rule
+# task: write my own scanning rule and run it immediately
+# also: write custom rule own create new scan then run
+write_pwrgrep_rule("mine/no-panic"; "# rules: mine-no-panic\n# languages: go\n\nscan_ast(\"*.go\"; [\"panic($$$_)\"]) | finding(\"mine-no-panic\"; \"a panic call\")")
+| .Ids
+, (invoke_pwrgrep("src"; "mine-no-panic") | {Path, LineNumber, Message})
+
+## code-language-extensions
+# task: which file extensions does the go grammar read
+# also: grammar language extensions files ast which
+get_ast_language("go")
+| .Extensions

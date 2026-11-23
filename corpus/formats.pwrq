@@ -1,0 +1,258 @@
+# Cross-format conversion: JSON, YAML, CSV, TSV, XML, ini, properties,
+# logfmt, JSON-lines and query strings, plus the dotted-path and JSON
+# pointer ways into a nested document. The iconv-adjacent and yq stories.
+
+## formats-read-json
+# task: read a JSON file
+# also: parse load open json file
+# slot file file = users.json
+cat("{{file}}")
+| fromjson
+| length
+
+## formats-json-to-yaml
+# task: convert this JSON to YAML
+# also: yaml convert to transform
+{name: "ada", role: "engineer", labels: {tier: "backend", team: "orders"}}
+| yaml_stringify
+
+## formats-yaml-to-json
+# task: read this YAML as JSON
+# also: yaml parse convert load
+"name: ada\nrole: engineer\nlabels:\n  tier: backend\n"
+| yaml_parse
+
+## formats-yaml-file-flatten
+# task: read a YAML config file as one flat JSON object
+# also: yaml file flatten dotted keys config
+# slot file file = config.yaml
+cat("{{file}}")
+| yaml_parse
+| flatten_keys
+
+## formats-csv-parse
+# task: read a CSV as rows
+# also: csv parse load spreadsheet
+# slot file file = data.csv
+cat("{{file}}")
+| csv_parse
+
+## formats-csv-objects
+# task: a CSV as objects keyed by its header row
+# also: csv header keyed objects dictionary rows
+# slot file file = data.csv
+cat("{{file}}")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+
+## formats-csv-column
+# task: one column of a CSV file
+# also: cut field column csv pick
+# slot file file = data.csv
+# slot column text: Which column by name? = city
+cat("{{file}}")
+| csv_parse
+| (.[0] | index("{{column}}")) as $i
+| .[1:]
+| map(.[$i])
+
+## formats-csv-write
+# task: these rows as CSV text
+# also: csv stringify export write
+[["name", "age"], ["ada", "36"], ["bob", "25"]]
+| csv_stringify
+
+## formats-csv-delimiter
+# task: parse this semicolon-separated file
+# also: csv semicolon delimiter european split
+"a;b;c\n1;2;3"
+| csv_parse(";")
+
+## formats-objects-to-csv
+# task: objects into a CSV file, header included
+# also: export csv header objects write save
+[{"name": "ada", "age": 36}, {"name": "bob", "age": 25}]
+| (.[0] | keys) as $header
+| [$header] + map([.[$header[]] | tostring])
+| csv_stringify
+| out_file("people.csv")
+
+## formats-tsv-parse
+# task: read a TSV as rows
+# also: tsv tabs parse spreadsheet
+# slot file file = data.tsv
+cat("{{file}}")
+| tsv_parse
+
+## formats-tsv-write
+# task: these rows as tab-separated text
+# also: tsv stringify export write
+[["a", "b"], ["1", "2"]]
+| tsv_stringify
+
+## formats-xml-parse
+# task: read this XML as JSON
+# also: xml parse convert load
+"<catalog><book id=\"b1\"><title>Go</title></book></catalog>"
+| xml_parse
+
+## formats-xml-file-titles
+# task: the titles inside this XML file
+# also: xml elements extract titles scan content
+# slot file file = doc.xml
+cat("{{file}}")
+| xml_parse
+| ._content
+| [scan("<title>[^<]*</title>")]
+| map(capture("<title>(?<title>[^<]+)</title>").title)
+
+## formats-xml-write
+# task: this data back as XML
+# also: xml stringify export write
+{_tag: "root", _content: "hello"}
+| xml_stringify
+
+## formats-ini-parse
+# task: read an ini config file
+# also: ini config parse properties sections
+# slot file file = configs/app.ini
+cat("{{file}}")
+| ini_parse
+
+## formats-ini-write
+# task: write this config as ini text
+# also: ini stringify export config write
+{server: {host: "0.0.0.0", port: "8080"}}
+| ini_stringify
+
+## formats-properties-parse
+# task: read a properties file, the key=value kind
+# also: properties env java config parse
+# slot file file = configs/app.properties
+cat("{{file}}")
+| properties_parse
+
+## formats-properties-write
+# task: these settings as a properties file
+# also: properties stringify write export env
+{timeout: "30", retries: "3"}
+| properties_stringify
+
+## formats-logfmt-parse
+# task: parse one logfmt line into fields
+# also: logfmt parse key=value structured
+"ts=2026-08-11T09:12:03Z level=info svc=orders dur_ms=84"
+| logfmt_parse
+
+## formats-logfmt-write
+# task: these fields as one logfmt line
+# also: logfmt stringify write emit
+{level: "info", svc: "orders", dur_ms: 84}
+| logfmt_stringify
+
+## formats-jsonl-parse
+# task: read JSON-lines text as an array
+# also: ndjson jsonl parse lines stream
+"{\"a\":1}\n{\"a\":2}\n{\"a\":3}"
+| jsonl_parse
+
+## formats-jsonl-write
+# task: this array as JSON-lines text, one per line
+# also: ndjson jsonl write serialize export
+[{a: 1}, {a: 2}]
+| map(tojson)
+| join("\n")
+
+## formats-query-string-parse
+# task: parse a url query string into fields
+# also: querystring url params parse arguments
+"a=1&b=two&c=3%204"
+| query_string_parse
+
+## formats-query-string-build
+# task: build a query string out of these parameters
+# also: querystring build encode url params
+{page: 2, size: 50, q: "brown fox"}
+| query_string_build
+
+## formats-json-pointer-get
+# task: the value at this JSON pointer path
+# also: rfc6901 pointer reference path json
+{a: {b: 1, c: [10, 20]}}
+| json_pointer("/a/c/1")
+
+## formats-json-pointer-set
+# task: set a value through a JSON pointer path
+# also: rfc6901 pointer set assign update
+{a: 1, nested: {x: 1}}
+| json_pointer_set("/nested/x"; 99)
+
+## formats-dotted-get
+# task: the value at this dotted path
+# also: dot path getpath lookup dotted drill
+{a: {b: [1, 2]}}
+| get_path("a.b[1]")
+
+## formats-dotted-set
+# task: set a value at a dotted path, creating the way there
+# also: set path assign dotted create update
+{a: {b: [1, 2]}}
+| set_path("a.b[1]"; 9)
+
+## formats-dotted-delete
+# task: delete the value at a dotted path
+# also: del remove dotted path delete field
+{a: {b: 1, c: 2}}
+| del_path("a.b")
+
+## formats-dotted-has
+# task: is there anything at this dotted path
+# also: has exists dotted path check
+{a: {b: 1}}
+| has_path("a.b")
+
+## formats-deep-diff
+# task: what differs between these two configs
+# also: deep diff compare changed recursive
+deep_diff({name: "ada", plan: "free", seats: 1, tags: ["a"]}; {name: "ada", plan: "pro", seats: 1, tags: ["a", "b"]})
+
+## formats-flatten-dotted
+# task: flatten this nested config into dotted keys
+# also: flatten dotted keys env-file export
+{server: {host: "0.0.0.0", tls: {enabled: true}}}
+| flatten_keys
+
+## formats-unflatten-dotted
+# task: rebuild the nested structure from dotted keys
+# also: unflatten nested restore expand dotted
+{"server.host": "0.0.0.0", "server.port": "8080"}
+| unflatten_keys
+
+## formats-csv-to-json-file
+# task: turn a CSV file into a JSON file
+# also: convert csv json export save
+# slot file file = data.csv
+cat("{{file}}")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| tojson
+| out_file("data.json")
+
+## formats-config-drift
+# task: does my config file still match what it should be
+# also: drift compare expected config audit ini
+# slot file file = configs/app.ini
+cat("{{file}}")
+| ini_parse
+| . as $live
+| deep_diff($live; {server: {host: "0.0.0.0", port: "8080", tls: "true"}, database: {url: "postgres://db-01:5432/orders", pool: "21"}})
+
+## formats-json-stringify
+# task: this object as a JSON string through the cmdlet
+# also: json_stringify serialize cmdlet encode
+{key: "value", nested: {n: 1}}
+| json_stringify

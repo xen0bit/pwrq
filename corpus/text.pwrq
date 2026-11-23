@@ -1,0 +1,425 @@
+# Text wrangling: case conversion, whitespace hygiene, shaping, counting,
+# line and word operations, character checks and the regex helpers. The
+# tr, fold, rev, wc, sed and awk stories live here.
+
+## text-capitalize
+# task: capitalize the first letter only
+# also: capitalize first upper initial
+"a memo about pwrq"
+| capitalize_first
+
+## text-title-case
+# task: Capitalize The First Letter Of Every Word
+# also: title case headings capitalize each word
+"the quick brown fox"
+| title_case
+
+## text-sentence-case
+# task: fix this sentence so only its first word is capitalized
+# also: sentence case proper capital first only
+"hELLO wORLD, this is pwrq"
+| sentence_case
+
+## text-upper
+# task: shout this in capitals
+# also: upper uppercase caps ascii_upcase
+"attention please"
+| ascii_upcase
+
+## text-lower
+# task: all lowercase
+# also: lower downcase ascii_downcase
+"混合 ATTENTION Please"
+| ascii_downcase
+
+## text-swap-case
+# task: flip every letter's case
+# also: swap invert flip reverse case
+"HeLLo WoRLd"
+| swap_case
+
+## text-slugify
+# task: a url-safe slug for this title
+# also: slug url safe kebab dash filename seo
+"Hello World! 10 Great Ideas"
+| slugify
+
+## text-snake
+# task: snake_case this phrase
+# also: snake underscores variables python fields
+"FooBar baz qux"
+| snake_case
+
+## text-kebab
+# task: kebab-case this phrase
+# also: kebab dashes hyphens css
+"FooBar baz qux"
+| kebab_case
+
+## text-camel
+# task: camelCase this phrase
+# also: camel javascript json variable hump
+"hello world again"
+| camel_case
+
+## text-pascal
+# task: PascalCase this phrase
+# also: pascal upper camel class type names
+"hello world again"
+| pascal_case
+
+## text-acronym
+# task: the initials of this organization name
+# also: acronym initials abbreviation short
+"International Business Machines"
+| acronym
+
+## text-normalize-space
+# task: collapse all the doubled spaces and tabs
+# also: whitespace normalize collapse spaces clean
+"a   b \t c    d"
+| normalize_whitespace
+
+## text-strip-ansi
+# task: remove the color codes from terminal output
+# also: ansi escape colors clean terminal output
+"\u001b[31mred text\u001b[0m and \u001b[1mbold\u001b[0m"
+| strip_ansi
+
+## text-strip-quotes
+# task: drop the surrounding quotation marks
+# also: unquote quotes strip wrapping
+"\"a quoted phrase\""
+| strip_quotes
+
+## text-remove-accents
+# task: plain ASCII letters for these accented names
+# also: accents diacritics transliterate ascii fold
+"José García and Zoë"
+| remove_accents
+
+## text-dedent
+# task: remove the common leading indentation
+# also: dedent unindent outdent left trim block
+"    line one\n      line two\n    line three"
+| dedent
+
+## text-indent
+# task: indent these lines by four spaces
+# also: indent shift right nesting spaces
+"line one\nline two"
+| indent(4)
+
+## text-prefix-lines
+# task: quote these lines for a markdown reply
+# also: quote prefix markdown reply cite blockquote
+"first point\nsecond point"
+| prefix_lines("> ")
+
+## text-pad-left
+# task: zero-pad this number to four digits
+# also: pad left zeros width align leading
+"42"
+| pad_left(4; "0")
+
+## text-pad-right
+# task: right-pad this label to ten characters
+# also: pad right width align trailing fill
+"go"
+| pad_right(10; ".")
+
+## text-pad-center
+# task: center this title in a fixed width
+# also: pad center middle align banner
+"pwrq"
+| pad_center(10)
+
+## text-truncate
+# task: cut this preview to 20 characters with an ellipsis
+# also: truncate cut shorten ellipsis preview teaser
+"a very long article title that goes on and on"
+| truncate(20; "...")
+
+## text-truncate-words
+# task: the first five words of this paragraph only
+# also: words first truncate excerpt teaser five
+"the quick brown fox jumps over the lazy dog again"
+| truncate_words(5)
+
+## text-wrap
+# task: wrap this paragraph at 20 columns
+# also: wrap fold width columns paragraphs reflow
+"the quick brown fox jumps over the lazy dog and keeps going"
+| wrap_text(20)
+
+## text-mask
+# task: hide the middle of this secret
+# also: mask redact hide censor secret middle
+"sk-live-abcdef123456"
+| mask
+
+## text-mask-custom
+# task: redact all but the last four digits
+# also: redact digits card mask last four keep
+"4111-1111-1111-2345"
+| mask(4)
+
+## text-surround
+# task: wrap this in brackets
+# also: surround wrap enclose brackets decorate
+"important"
+| surround("[ "; " ]")
+
+## text-word-count
+# task: how many words in this text
+# also: wc -w words count length
+"the quick brown fox jumps over the lazy dog"
+| word_count
+
+## text-line-count
+# task: how many lines in this text
+# also: wc -l lines count rows
+"first\nsecond\nthird"
+| line_count
+
+## text-char-count
+# task: how many characters is this text
+# also: length characters chars count wc -m
+"hello world"
+| length
+
+## text-char-frequencies
+# task: how often each letter appears
+# also: letter frequencies per character counts histogram
+"abracadabra"
+| char_frequencies
+
+## text-vowels
+# task: how many vowels in this text
+# also: vowels aeiou count letters
+"the quick brown fox"
+| count_vowels
+
+## text-consonants
+# task: how many consonants in this text
+# also: consonants count letters non-vowel
+"the quick brown fox"
+| count_consonants
+
+## text-occurrences
+# task: how many times does this substring appear
+# also: occurrences substring count times repeated
+"banana"
+| count_occurrences("an")
+
+## text-sort-lines
+# task: sort these lines alphabetically
+# also: sort lines order alphabetically
+"c\na\nb"
+| sort_lines
+
+## text-unique-lines
+# task: drop the repeated lines
+# also: uniq dedupe lines remove duplicates
+"b\na\nb\nc\na"
+| unique_lines
+
+## text-reverse-lines
+# task: these lines in the opposite order
+# also: tac reverse flip backwards lines
+"first\nsecond\nthird"
+| reverse_lines
+
+## text-first-lines
+# task: the first two lines only
+# also: head first top beginning lines
+"one\ntwo\nthree\nfour"
+| first_lines(2)
+
+## text-last-lines
+# task: the last two lines only
+# also: tail last end bottom lines
+"one\ntwo\nthree\nfour"
+| last_lines(2)
+
+## text-drop-blank-lines
+# task: remove the empty lines from this text
+# also: blank empty lines remove skip whitespace
+"one\n\ntwo\n\nthree"
+| split("\n")
+| map(select(test("\\S")))
+| join("\n")
+
+## text-diff-two-texts
+# task: what changed between these two texts
+# also: diff changed added removed compare lines
+"line one\nline two\nline three"
+| diff_lines("line one\nline TWO\nline four")
+
+## text-reverse-words
+# task: the words of this sentence in reverse order
+# also: reverse words backwards flip yoda
+"the quick brown fox"
+| reverse_words
+
+## text-after-first
+# task: the part after the @ of an address
+# also: after following domain suffix rest
+"user@example.com"
+| after_first("@")
+
+## text-before-first
+# task: the part before the @ of an address
+# also: before preceding prefix user part
+"user@example.com"
+| before_first("@")
+
+## text-replace-substring
+# task: replace one substring with another
+# also: replace substitute sed swap text
+"the old way of doing the old thing"
+| replace("old"; "new")
+
+## text-replace-everywhere
+# task: replace every occurrence, not just the first
+# also: gsub all every occurrence global
+"the cat and the hat and the bat"
+| gsub("the"; "a")
+
+## text-is-alphabetic
+# task: is this all letters
+# also: alphabetic letters only check
+"hellopwrq"
+| is_alphabetic
+
+## text-is-alphanumeric
+# task: is this all letters and digits
+# also: alphanumeric letters digits check
+"abc123"
+| is_alphanumeric
+
+## text-is-numeric
+# task: is this string actually a number
+# also: numeric number digits only parse check
+"12345"
+| is_numeric_string
+
+## text-is-ascii
+# task: is this text plain ascii
+# also: ascii plain seven-bit check
+"plain ascii text"
+| is_ascii
+
+## text-is-blank
+# task: is this string only whitespace
+# also: blank empty whitespace only
+"   "
+| is_blank
+
+## text-is-lowercase
+# task: is this all lowercase
+# also: lowercase lower check
+"all lower"
+| is_lowercase
+
+## text-is-uppercase
+# task: is this all uppercase
+# also: uppercase upper caps check
+"ALL CAPS"
+| is_uppercase
+
+## text-is-balanced
+# task: are these brackets balanced
+# also: balanced brackets parens matching check
+"func(a[i], (b))"
+| is_balanced
+
+## text-regex-valid
+# task: is this a valid regular expression at all
+# also: valid regex pattern check parse
+"^[a-z]+\\d{2}$"
+| is_regex_valid
+
+## text-escape-regex
+# task: escape this text so it can be searched as a literal
+# also: escape regex quote literal fixed special
+"a.b*c (d)"
+| escape_regex
+
+## text-glob-to-regex
+# task: what regex this glob is
+# also: glob wildcard pattern translate convert
+"*.txt"
+| glob_to_regex
+
+## text-match-glob
+# task: does this file name match the glob
+# also: glob match wildcard pattern like
+"notes.txt"
+| match_glob("*.txt")
+
+## text-unicode-escape
+# task: escape the non-ascii characters of this text
+# also: unicode escape nonascii javascript
+"héllo wörld"
+| unicode_escape
+
+## text-unicode-unescape
+# task: turn the unicode escapes back into characters
+# also: unicode unescape decode render
+"h\\u00e9llo"
+| unicode_unescape
+
+## text-quoted-printable-encode
+# task: encode this as quoted-printable, for old mail headers
+# also: quoted printable encode mime email escape
+"hello=world and then some"
+| quoted_printable_encode
+
+## text-quoted-printable-decode
+# task: decode this quoted-printable text
+# also: quoted printable decode mime email unescape
+"hello=3Dworld"
+| quoted_printable_decode
+
+## text-word-frequency
+# task: the most common words in this text
+# also: frequency common words top terms tf
+"the quick brown fox jumps over the lazy dog the end"
+| [splits("\\W+") | ascii_downcase | select(length > 2)]
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:5]
+
+## text-initials-list
+# task: the initials of each of these names
+# also: initials acronym each map names
+["Ada Lovelace", "Bob Stone", "Cyd Ashe"]
+| map(acronym)
+
+## text-clean-pasted-text
+# task: clean up text pasted from a terminal: strip colors and doubled spaces
+# also: clean paste terminal ansi normalize
+"\u001b[32m ok \u001b[0m  the   result is   fine"
+| strip_ansi
+| normalize_whitespace
+
+## text-csv-line-to-fields
+# task: split a comma-separated line into fields, trimming each
+# also: csv split fields comma trim awk
+"ada , 36 , london"
+| split(",")
+| map(normalize_whitespace)
+
+## text-banner
+# task: a banner line around this title
+# also: banner header decorated rule
+"section title"
+| surround("=== "; " ===")
+
+## text-join-words
+# task: these words as one comma-separated line
+# also: join combine csv line words together
+["alpha", "beta", "gamma"]
+| join(", ")

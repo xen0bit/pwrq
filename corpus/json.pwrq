@@ -1,0 +1,526 @@
+# The jq heart: reading, filtering, reshaping and writing JSON. Every
+# entry carries its own sample data, so it runs as written; the same
+# stages work on the editor's input with the first stage dropped.
+
+## jq-read-file
+# task: read and parse a JSON file
+# also: load open json file parse
+# slot file file = users.json
+cat("{{file}}")
+| fromjson
+| .[0]
+
+## jq-parse-string
+# task: parse text that holds JSON
+# also: decode fromjson string convert json
+"{\"key\": \"value\", \"n\": 3}"
+| fromjson
+
+## jq-stringify
+# task: turn data back into a JSON string
+# also: encode tojson serialize json text
+{key: "value", n: 3}
+| tojson
+
+## jq-pretty
+# task: pretty print compact JSON
+# also: format indent readable pretty print
+"{\"b\":2,\"a\":{\"c\":3}}"
+| fromjson
+
+## jq-compact
+# task: the compact one-line form of this data
+# also: minify compact oneline json
+{b: 2, a: {c: 3}}
+| tojson
+
+## jq-to-yaml
+# task: show this JSON as YAML
+# also: convert yaml format
+{name: "ada", role: "engineer", tags: ["admin", "pro"]}
+| yaml_stringify
+
+## jq-keys
+# task: the field names of the input
+# also: keys fields properties columns
+{"name": "ada", "age": 36, "plan": "pro"}
+| keys
+
+## jq-values
+# task: just the values, in order
+# also: values contents of fields
+{"name": "ada", "age": 36, "plan": "pro"}
+| [.[]]
+
+## jq-has-field
+# task: does the object have this field
+# also: has exists contains key check
+{"name": "ada", "age": 36}
+| has("email")
+
+## jq-nested-access
+# task: a field deep inside nested JSON
+# also: deep path drill metadata name
+{"metadata": {"name": "orders-api", "namespace": "prod"}}
+| .metadata.name
+
+## jq-nested-safe
+# task: a deep field that may be missing, with a fallback
+# also: optional default missing null safe
+{"metadata": {"name": "orders-api"}}
+| .metadata.labels.team // "no-team"
+
+## jq-pluck-field
+# task: one field from every item
+# also: extract column pluck map name values
+[{"name": "ada", "age": 36}, {"name": "bob", "age": 25}]
+| map(.name)
+
+## jq-count-items
+# task: how many items are in the array
+# also: length count size entries
+[{"a": 1}, {"a": 2}, {"a": 3}]
+| length
+
+## jq-empty-check
+# task: is this list empty
+# also: empty nothing zero check
+[]
+| length == 0
+
+## jq-type
+# task: what kind of value is this
+# also: type kind json typeof
+[1, "two", {"three": 3}]
+| map(type)
+
+## jq-select-equals
+# task: keep only the items where a field equals a value
+# also: filter where matching equals only active
+[{"name": "ada", "status": "active"}, {"name": "bob", "status": "gone"}]
+| map(select(.status == "active"))
+
+## jq-select-not-equals
+# task: keep the items where the field is something else
+# also: except not without exclude filter
+[{"name": "ada", "status": "active"}, {"name": "bob", "status": "gone"}, {"name": "cyd", "status": "idle"}]
+| map(select(.status != "gone"))
+
+## jq-select-above
+# task: keep the items whose number is over a threshold
+# also: greater bigger more than above filter
+[{"name": "ada", "age": 36}, {"name": "bob", "age": 25}, {"name": "cyd", "age": 40}]
+| map(select(.age > 30))
+
+## jq-select-in-set
+# task: keep items whose field is one of several values
+# also: among one of in set members include
+[{"name": "ada", "role": "admin"}, {"name": "bob", "role": "viewer"}, {"name": "cyd", "role": "editor"}]
+| map(select(.role | IN("admin", "editor")))
+
+## jq-select-nonnull
+# task: drop the items where the field is missing
+# also: null missing without drop empties
+[{"name": "ada", "email": "ada@example.com"}, {"name": "bob"}, {"name": "cyd", "email": null}]
+| map(select(.email != null))
+
+## jq-select-type
+# task: keep only the numbers in a mixed list
+# also: type filter only numbers strings objects
+[1, "two", null, {"four": 4}, [5], true]
+| map(select(type == "number"))
+
+## jq-select-regex
+# task: keep the items whose text matches a pattern
+# also: regex matches test filter pattern
+[{"name": "Ada Lovelace"}, {"name": "bob stone"}, {"name": "Cyd Ashe"}]
+| map(select(.name | test("^A")))
+
+## jq-select-contains
+# task: keep the items whose field contains some text
+# also: substring includes contains like filter
+["apple", "banana", "cherry", "pineapple"]
+| map(select(contains("apple")))
+
+## jq-first-match
+# task: the first item that passes the test
+# also: first find one earliest match
+[{"status": "gone"}, {"status": "active"}, {"status": "active"}]
+| first(.[] | select(.status == "active"))
+
+## jq-two-conditions
+# task: items that pass two tests at once
+# also: and both all conditions filter
+[{"plan": "pro", "seats": 12}, {"plan": "pro", "seats": 2}, {"plan": "free", "seats": 1}]
+| map(select(.plan == "pro" and .seats > 5))
+
+## jq-either-condition
+# task: items that pass either test
+# also: or either any one of conditions
+[{"level": "error", "svc": "orders"}, {"level": "warn", "svc": "gateway"}, {"level": "info", "svc": "payments"}]
+| map(select(.level == "error" or .svc == "gateway"))
+
+## jq-add-computed
+# task: add a field computed from the others
+# also: derive calculate enrich add field
+[{"name": "ada", "age": 36}, {"name": "bob", "age": 25}]
+| map(. + {decade: (.age / 10 | floor)})
+
+## jq-update-field
+# task: update a field in every item
+# also: change set modify update increment
+[{"name": "ada", "age": 36}, {"name": "bob", "age": 25}]
+| map(.age |= . + 1)
+
+## jq-update-conditional
+# task: update a field only where a condition holds
+# also: if then conditional change some
+[{"name": "ada", "plan": "free"}, {"name": "bob", "plan": "pro"}]
+| map(if .plan == "free" then .seats = 1 else . end)
+
+## jq-delete-field
+# task: remove a field from every item
+# also: delete drop remove strip field
+[{"name": "ada", "age": 36, "secret": "hunter2"}, {"name": "bob", "age": 25, "secret": "1234"}]
+| map(del(.secret))
+
+## jq-delete-missing-values
+# task: strip the null fields from an object, recursively
+# also: clean nulls remove empty fields recursive
+{"a": 1, "opts": {"keep": "x", "drop": null}, "gone": null}
+| walk(if type == "object" then with_entries(select(.value != null)) else . end)
+
+## jq-rename-fields
+# task: rename a field
+# also: rename key relabel change name
+[{"first_name": "ada", "last_name": "lovelace"}]
+| map({firstName: .first_name, lastName: .last_name})
+
+## jq-pick-fields
+# task: keep only some fields of each item
+# also: select subset columns pick project
+[{"name": "ada", "age": 36, "email": "ada@example.com", "plan": "pro"}]
+| map({name, plan})
+
+## jq-restructure
+# task: build a new object out of old fields
+# also: reshape restructure transform build new
+{"user": {"first": "ada", "last": "lovelace"}, "contact": {"mail": "ada@example.com"}}
+| {fullName: "\(.user.first) \(.user.last)", email: .contact.mail}
+
+## jq-concat-arrays
+# task: join two arrays together
+# also: concat append merge arrays plus
+{"a": [1, 2], "b": [3, 4]}
+| .a + .b
+
+## jq-merge-objects
+# task: overlay one object on another
+# also: merge combine plus shallow overlay
+{"name": "ada", "plan": "free"}
+| . + {plan: "pro", seats: 12}
+
+## jq-deep-merge
+# task: merge nested objects, deep inside too
+# also: deep merge recursive combine config
+{"a": {"x": 1, "y": 2}, "b": 1}
+| deep_merge({a: {y: 9, z: 3}})
+
+## jq-merge-patch
+# task: apply an RFC 7386 merge patch
+# also: json merge patch rfc7386 partial update
+{"name": "ada", "plan": "free", "seats": 1}
+| json_merge_patch({plan: "pro", "seats": null})
+
+## jq-flatten-arrays
+# task: flatten nested arrays into one
+# also: flatten deep nested arrays one level
+[[1, [2, 3]], [4]]
+| flatten
+
+## jq-reverse-array
+# task: the items the other way around
+# also: reverse backwards flip order
+[1, 2, 3, 4]
+| reverse
+
+## jq-sort-array
+# task: sort the items
+# also: sort order arrange
+[3, 1, 4, 1, 5, 9, 2, 6]
+| sort
+
+## jq-sort-by-field
+# task: sort the items by a field
+# also: sortby order field arrange
+[{"name": "bob", "age": 25}, {"name": "ada", "age": 36}, {"name": "cyd", "age": 29}]
+| sort_by(.name)
+
+## jq-sort-descending
+# task: sort by a field, biggest first
+# also: descending reverse biggest highest first
+[{"name": "ada", "age": 36}, {"name": "bob", "age": 25}]
+| sort_by(-.age)
+
+## jq-sort-multi-key
+# task: sort by two fields, one then the other
+# also: multiple keys compound sort primary secondary
+[{"team": "b", "score": 3}, {"team": "a", "score": 9}, {"team": "a", "score": 1}]
+| sort_by(.team, -.score)
+
+## jq-natural-sort
+# task: sort version numbers the way people expect
+# also: natural version sort numeric 1.10 after 1.9
+["1.9", "1.10", "2.0", "1.2.10", "1.2.9"]
+| natural_sort
+
+## jq-unique-items
+# task: the distinct values of a list
+# also: unique distinct dedupe different
+[1, 2, 2, 3, 1, 4]
+| unique
+
+## jq-unique-by
+# task: one item per distinct key value
+# also: first per key dedupe by distinct
+[{"id": 1, "tag": "a"}, {"id": 2, "tag": "a"}, {"id": 1, "tag": "b"}]
+| unique_by(.id)
+
+## jq-group-by-field
+# task: group the items by a field
+# also: group bucket partition by cluster
+[{"svc": "orders", "dur": 84}, {"svc": "pay", "dur": 400}, {"svc": "orders", "dur": 12}]
+| group_by(.svc)
+| map({svc: .[0].svc, items: length, total: (map(.dur) | add)})
+
+## jq-count-per-group
+# task: how many items in each group
+# also: count by group tally each value_counts
+["error", "info", "error", "warn", "error"]
+| value_counts
+
+## jq-min-max-by
+# task: the smallest and largest item by a field
+# also: min max extremes best worst
+[{"score": 4}, {"score": 9}, {"score": 1}]
+| {Min: (min_by(.score) | .score), Max: (max_by(.score) | .score)}
+
+## jq-top-n
+# task: the top few items by a field
+# also: top highest best largest first n
+[{"name": "a", "score": 3}, {"name": "b", "score": 9}, {"name": "c", "score": 5}, {"name": "d", "score": 7}]
+| sort_by(-.score)
+| .[:2]
+| map(.name)
+
+## jq-slice-array
+# task: a slice of the list, items two and three
+# also: subset range slice window items
+[1, 2, 3, 4, 5]
+| .[1:3]
+
+## jq-first-last
+# task: the first and last item of a list
+# also: head tail ends first last
+[1, 2, 3, 4, 5]
+| {First: .[0], Last: .[-1]}
+
+## jq-limit-outputs
+# task: only the first few of a stream
+# also: limit first take n few
+[10, 20, 30, 40, 50]
+| limit(2; .[])
+
+## jq-range-numbers
+# task: the numbers from one to ten
+# also: range sequence count up seq
+[range(1; 11)]
+
+## jq-entries
+# task: an object as key and value pairs
+# also: to_entries pairs keyvalue entries
+{"a": 1, "b": 2}
+| to_entries
+
+## jq-from-entries
+# task: build an object back from key and value pairs
+# also: from_entries reconstruct build object
+[{"key": "a", "value": 1}, {"key": "b", "value": 2}]
+| from_entries
+
+## jq-with-entries
+# task: rewrite each key and value of an object
+# also: with_entries transform each entry rewrite
+{"first_name": "ada", "last_name": "lovelace"}
+| with_entries(.key |= ascii_upcase)
+
+## jq-paths-list
+# task: every path through this nested structure
+# also: paths leaf locations structure
+{"a": {"b": {"c": 1}}, "d": [2, 3]}
+| [paths]
+
+## jq-leaf-values
+# task: the path to every leaf value in the structure
+# also: leaves paths values everywhere leaf
+{"a": {"b": {"c": 1}}, "d": [2, 3]}
+| [paths(scalars)]
+
+## jq-get-at-path
+# task: the value at a known deep path
+# also: getpath lookup path drill
+{"metadata": {"labels": {"team": "orders"}}}
+| getpath(["metadata", "labels", "team"])
+
+## jq-find-key-anywhere
+# task: find every object that has this key, however deep
+# also: search nested anywhere recurse find key
+{"a": {"token": "x", "b": {"token": "y", "c": 1}}, "d": 2}
+| [recurse | objects | select(has("token")) | .token]
+
+## jq-walk-redact
+# task: redact a field everywhere it appears
+# also: scrub mask remove everywhere walk secret
+{"user": "ada", "secret": "hunter2", "nested": {"token": "abc", "keep": 1}}
+| walk(if type == "object" then with_entries(if .key == "secret" or .key == "token" then .value = "***" else . end) else . end)
+
+## jq-try-catch
+# task: try a conversion and carry on when it fails
+# also: try catch error tolerate safe
+[1, "x", 2]
+| map(try tonumber catch null)
+
+## jq-reduce-sum
+# task: add up a list with reduce
+# also: reduce fold accumulate total sum
+[1, 2, 3, 4]
+| reduce .[] as $x (0; . + $x)
+
+## jq-any-all
+# task: whether any item passes, and whether all do
+# also: some every any all at least one
+[1, 2, 3, 4]
+| {AnyOver2: any(. > 2), AllOver2: all(. > 2)}
+
+## jq-bind-variable
+# task: name the data and use the name
+# also: as variables bind store refer
+[{"n": "ada", "v": 3}, {"n": "bob", "v": 9}]
+| (map(.v) | add) as $total
+| map(. + {share: ((.v / $total * 100) | round_to(1))})
+
+## jq-interpolate
+# task: build a sentence out of the fields
+# also: interpolate template format string sentence
+{"name": "ada", "seats": 12}
+| "\(.name) holds \(.seats) seats"
+
+## jq-if-classify
+# task: sort items into buckets with if, elif and else
+# also: classify label grade if elif else bucket
+[12, 85, 67, 40, 91]
+| map(if . >= 80 then "high" elif . >= 50 then "mid" else "low" end)
+
+## jq-index-of
+# task: where in the list this value first appears
+# also: index position find locate indexOf
+["a", "b", "a", "c"]
+| index("b")
+
+## jq-indices-of
+# task: every position where the value appears
+# also: indices positions all occurrences
+["a", "b", "a", "c", "a"]
+| indices("a")
+
+## jq-contains-check
+# task: does the array contain this value
+# also: includes member has contains in
+["apple", "banana", "cherry"]
+| contains(["banana"])
+
+## jq-number-to-string
+# task: the numbers as text, joined with commas
+# also: tostring join text csv line
+[1, 2, 3]
+| map(tostring)
+| join(", ")
+
+## jq-string-to-number
+# task: text that is really a number
+# also: tonumber parse convert cast
+["1", "2.5", "3"]
+| map(tonumber)
+
+## jq-case-convert
+# task: lowercase this text
+# also: downcase lower upper case ascii
+"Hello World"
+| ascii_downcase
+
+## jq-trim-prefix
+# task: strip a prefix and a suffix from text
+# also: ltrimstr rtrimstr trim strip prefix suffix
+"@@wrapped@@"
+| ltrimstr("@") | rtrimstr("@")
+
+## jq-starts-ends
+# task: does the text start or end with that
+# also: startswith endswith begins suffix check
+"report-2026.txt"
+| {StartsWithReport: startswith("report"), IsTextFile: endswith(".txt")}
+
+## jq-split-join
+# task: split a line apart and put it back together differently
+# also: split join separate combine delimiter
+"a,b,c"
+| split(",")
+| join(" | ")
+
+## jq-gsub-all
+# task: replace every occurrence in text
+# also: gsub replace substitute all regex
+"the cat sat on the cat mat"
+| gsub("cat"; "dog")
+
+## jq-sub-first
+# task: replace only the first occurrence
+# also: sub replace one single first
+"one two one three one"
+| sub("one"; "1")
+
+## jq-capture-groups
+# task: pull named pieces out of text
+# also: capture extract groups pattern named
+"error at 2026-08-11 for user 42"
+| capture("(?<date>\\d{4}-\\d{2}-\\d{2}).*user (?<id>\\d+)")
+
+## jq-test-pattern
+# task: does the text match the pattern
+# also: test regex match check pattern
+"file-2026.txt"
+| test("file-\\d+\\.txt")
+
+## jq-splits-stream
+# task: split on a pattern and get the pieces as a stream
+# also: splits regex stream pieces tokens
+"a,b;c,d"
+| [splits("[,;]")]
+
+## jq-scan-all
+# task: every regex match in the text
+# also: scan findall every match extract all
+"invoice 100 on 2026-01-02 and 200 on 2026-02-03"
+| [scan("\\d+")]
+
+## jq-alternative-default
+# task: a value or its default when missing
+# also: alternative fallback // default or else
+{"name": "ada"}
+| .email // "no email"
+
+## jq-error-caught
+# task: raise an error on purpose and catch it
+# also: error throw raise catch deliberate
+"deliberate"
+| try error("boom") catch "caught: \(.)"

@@ -1,0 +1,104 @@
+# The three-and-four-domain showpieces: find then search then ask,
+# fetch then model then aggregate, decode then fetch then save. Each
+# entry is the shape of a real afternoon's work in one query.
+
+## chain-triple-find-search-urgent
+# task: find the log files, search their error lines, and ask the model which are urgent
+# also: find logs errors urgent model three fs search ai
+[find("."; "file") | select(endswith(".log"))]
+| map(. as $log
+     | {Log: ($log | basename),
+        UrgentErrors: [grep_lines($log; "ERROR")
+                       | map({msg: ., urgent: invoke_systemone({q: {type: "noul", instructions: "Is this error urgent?"}}).q.noul})
+                       | map(select(.urgent > 0.5)) | map(.msg)]})
+
+## chain-triple-fetch-word-stats
+# task: fetch the page, split it into words, and get the statistics
+# also: fetch page words statistics net text stats three
+invoke_web_request("https://example.com")
+| .Content
+| [splits("\\W+") | select(length > 3)]
+| {Words: length, Distinct: (unique | length), Top: (value_counts | to_entries | sort_by(-.value) | .[:3] | map(.key))}
+
+## chain-triple-log-hour-trend
+# task: the log bucketed by hour, with the trend between buckets
+# also: log hour bucket trend deltas stats time three
+cat("events.jsonl")
+| jsonl_parse
+| map(.ts | date_to_timestamp / 3600 | floor)
+| value_counts
+| to_entries
+| sort_by(.key)
+| map(.value)
+| {HourlyCounts: ., RisingSteps: (deltas | map(select(. > 0)) | length)}
+
+## chain-triple-db-ai-file
+# task: query the users, ask the model which look like pro accounts, and write them to a file
+# also: db users model pro file write flagged three
+[invoke_sqlite_query("app.db"; "select name, plan from users")]
+| map({name, plan, proish: invoke_systemone({q: {type: "noul", instructions: "Does this look like a pro account holder?"}}).q.noul})
+| map(select(.proish > 0.5) | "\(.name) (\(.plan))")
+| join("\n")
+| out_file("pro-accounts.txt")
+
+## chain-triple-search-fetch-hash
+# task: find the urls in my notes, download each, and checksum what landed
+# also: urls find download hash checksum fetch store three
+[select_string("quotes.txt"; "https?://[^\\s\"<>]+") | .Match]
+| unique
+| map(. as $u | invoke_web_request($u; {OutFile: "triple-\($u | split("/") | last)"})
+     | {Url: $u, Saved: .Path, Sha256: (.Path | sha256(true))})
+
+## chain-triple-decode-fetch-links
+# task: decode the hidden url, fetch the page behind it, and save the links it contains
+# also: decode url fetch links save harvest chain three
+cat("url.b64")
+| base64_decode
+| . as $u
+| invoke_web_request($u)
+| .Content
+| extract_urls
+| unique
+| join("\n")
+| out_file("links-from-decoded.txt")
+
+## chain-triple-ping-db
+# task: ping every host in my hosts file and record the results in a database
+# also: ping hosts record results database health three
+cat("hosts.txt")
+| split("\n")
+| map(select(length > 0))
+| map({host: ., up: test_connection(.; {Count: 1, Quiet: true})})
+| out_sqlite("health.db"; "hosts")
+| .RowCount
+
+## chain-triple-manifest-db
+# task: hash the config folder and land the manifest in a database
+# also: hash configs manifest database sqlite record three
+[get_childitem("configs") | select(.PwrqType == "Pwrq.FileSystem.File")]
+| map({File: .Name, Sha256: (.FullName | sha256(true))})
+| out_sqlite("manifest.db"; "files")
+| .RowCount
+
+## chain-triple-ship-reviews-aggregate
+# task: ship the reviews out, get them back, sentiment each, and tally the verdicts
+# also: post reviews sentiment aggregate tally net model stats four
+["the new build is fast", "support ignored me", "fine i guess"]
+| map({text: .})
+| tojson
+| . as $body
+| invoke_web_request("https://httpbin.org/post"; {Method: "POST", Body: $body, ContentType: "application/json"})
+| (.Content | fromjson | .json)
+| map(.text | {sentiment: invoke_systemone({s: {type: "choice", instructions: "What is the sentiment?", criteria: {positive: null, neutral: null, negative: null}}}).s.choice})
+| group_by(.sentiment)
+| map({(.[0].sentiment): length})
+| add
+
+## chain-triple-logs-errors-db
+# task: every log's error lines, gathered into one database table
+# also: logs errors collect database gather sqlite three
+[find("."; "file") | select(endswith(".log"))]
+| map(. as $log | grep_lines($log; "ERROR") | map({file: ($log | basename), line: .}))
+| add
+| out_sqlite("errors.db"; "errors")
+| .RowCount

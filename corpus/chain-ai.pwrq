@@ -1,0 +1,80 @@
+# Chained interactions anchored on a decision-model verdict: the model's
+# answer is a stage in a pipeline, feeding a move, a database, a report
+# or a second question.
+
+## chain-ai-move-blue-images
+# task: move the images the model says are mostly blue into a folder
+# also: move images blue folder filter model d1 organize
+# slot dir path = img
+mkdir("blue")
+, ([get_childitem("{{dir}}")
+    | select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png"))
+    | {Path: .FullName, Blue: invoke_systemone(null; {q: {type: "noul", instructions: "Is this image mostly blue?"}}; {Media: [.FullName]}).q.noul}
+    | select(.Blue > 0.5)]
+   | map(move_item(.Path; "blue/\(.Path | basename)")))
+
+## chain-ai-videos-motion-list
+# task: the videos that show motion, written to a list
+# also: videos motion moving which save list file
+# slot dir path = vid
+[get_childitem("{{dir}}")
+  | select(.Extension | ascii_downcase | IN(".mp4", ".mov", ".webm", ".mkv"))
+  | {Name: .Name, Motion: invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show motion?"}}; {Media: [.FullName]}).q.noul}]
+| map(select(.Motion > 0.5) | .Name)
+| join("\n")
+| out_file("motion-videos.txt")
+
+## chain-ai-scores-to-sqlite
+# task: refund scores for these messages, stored in a database
+# also: scores sqlite store save db refund classify
+["my card was charged twice", "where is my order", "just saying thanks"]
+| map({text: ., refund: invoke_systemone({q: {type: "noul", instructions: "Does the customer want a refund?"}}).q.noul})
+| out_sqlite("scores.db"; "refund_scores")
+| .RowCount
+
+## chain-ai-two-questions
+# task: filter the complaints out, then sort them by kind
+# also: two questions filter then classify pipeline d1 chain
+["i want my money back now", "loving the product", "the app crashed on checkout"]
+| map(select(invoke_systemone({q: {type: "noul", instructions: "Is this a complaint?"}}).q.noul > 0.5))
+| map({text: ., kind: invoke_systemone({k: {type: "choice", instructions: "What kind of complaint?", criteria: {billing: "Money or charges", technical: "A defect or crash", other: "Anything else"}}}).k.choice})
+
+## chain-ai-sentiment-table
+# task: these reviews with their sentiment, as a table
+# also: sentiment reviews table report classify d1
+["the new build cut latency in half", "support never replied", "works fine i guess"]
+| map({text: ., sentiment: invoke_systemone({s: {type: "choice", instructions: "What is the sentiment?", criteria: {positive: null, neutral: null, negative: null}}}).s.choice})
+| format_table(.)
+
+## chain-ai-confidence-stats
+# task: how confident the model is across these questions
+# also: confidence probabilities summary stats spread model
+["my card was charged twice", "hello there", "when does the sale end", "the login is broken", "thanks"]
+| map(invoke_systemone({q: {type: "noul", instructions: "Does the customer want a refund?"}}).q.noul)
+| summary
+
+## chain-ai-segments-table
+# task: the moments in this video, scored, as a table
+# also: video segments moments scored table d1 report
+# slot file file = vid/clip.mp4
+# slot subject phrase: What should the video show? = motion
+invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: [{Type: "video", Path: "{{file}}", Segment: 1}]}).q.segments
+| map({start, end, noul: (.noul | round_to(2))})
+| format_table(.)
+
+## chain-ai-urgent-logs
+# task: which log files the model finds urgent
+# also: urgent logs which model read content d1 triage
+# slot dir path = .
+[find("{{dir}}"; "file") | select(endswith(".log"))
+  | {Log: basename, Urgent: (cat(.) | invoke_systemone({q: {type: "noul", instructions: "Does this log describe something urgent?"}}).q.noul)}]
+| map(select(.Urgent > 0.5))
+
+## chain-ai-spam-report
+# task: flag the spam in these messages and write a csv report
+# also: spam flag csv report save file classify
+["win a free iphone now", "meeting moved to 3pm", "click here for cash"]
+| map({text: ., spam: invoke_systemone({q: {type: "noul", instructions: "Is this spam?"}}).q.noul})
+| map([.text, (.spam | round_to(3) | tostring)])
+| csv_stringify
+| out_file("spam-report.csv")

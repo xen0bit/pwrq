@@ -1,0 +1,347 @@
+# The system: processes, environment variables, session variables, the
+# shell, dates and locations. Service entries are declared environmental:
+# this container has no service manager, so they are validated by the
+# specific error they are expected to meet.
+
+## sys-process-list
+# task: list the running processes
+# also: ps processes running programs
+[get_process]
+| map({Id, Name, Memory: .WorkingSet})
+| .[:10]
+
+## sys-process-count
+# task: how many processes are running
+# also: count number total processes ps
+[get_process]
+| length
+
+## sys-process-ids
+# task: the process ids, the first few
+# also: pids ids numbers list
+[get_process]
+| map(.Id)
+| .[:10]
+
+## sys-top-memory
+# task: the processes using the most memory
+# also: ps aux top ram memory hogs biggest mem
+# slot n number = 5
+[get_process]
+| sort_by(-.WorkingSet)
+| .[:{{n}}]
+| map({Id, Name, Memory: (.WorkingSet | human_bytes)})
+
+## sys-top-cpu
+# task: the processes using the most CPU
+# also: top cpu busy hogs load ps aux
+# slot n number = 5
+[get_process]
+| sort_by(-.CPU)
+| .[:{{n}}]
+| map({Id, Name, CPU})
+
+## sys-find-process
+# task: find the processes with this name
+# also: pgrep is running which pid by name
+# slot name text: Which program or process name? = pwrq
+get_process
+| select(.Name | test("{{name}}"; "i"))
+| {Id, Name, CPU, Memory: (.WorkingSet | human_bytes), StartTime}
+
+## sys-process-count-by-name
+# task: how many processes each program has running
+# also: count per name grouped instances
+[get_process]
+| count_by("Name")
+| to_entries
+| sort_by(-.value)
+| .[:10]
+
+## sys-oldest-process
+# task: the longest running process, started first
+# also: oldest earliest longest uptime started
+[get_process]
+| sort_by(.StartTime)
+| .[0]
+| {Name, StartTime}
+
+## sys-newest-process
+# task: the most recently started process
+# also: newest latest just started spawned
+[get_process]
+| sort_by(.StartTime)
+| reverse
+| .[0]
+| {Name, StartTime}
+
+## sys-process-threads
+# task: the processes with the most threads
+# also: threads counts busiest parallel
+# slot n number = 5
+[get_process]
+| sort_by(-.Threads)
+| .[:{{n}}]
+| map({Id, Name, Threads})
+
+## sys-kill-process
+# task: kill a process by its id
+# also: stop kill terminate pid sigterm
+# slot name text: What should the throwaway process be called? = pwrq-job
+sh("cp /bin/sleep /tmp/opencode/{{name}}; /tmp/opencode/{{name}} 300 >/dev/null 2>&1 & echo $!")
+| gsub("\\s"; "")
+| tonumber
+| stop_process(.)
+
+## sys-killall-name
+# task: stop every process running under one name
+# also: killall pkill all by name terminate every
+# slot name text: What should the throwaway processes be called? = pwrq-jobs
+sh("cp /bin/sleep /tmp/opencode/{{name}}; /tmp/opencode/{{name}} 300 >/dev/null 2>&1 & /tmp/opencode/{{name}} 300 >/dev/null 2>&1 & echo started")
+| [get_process | select(.Name == "{{name}}")]
+| map(stop_process(.Id))
+
+## sys-start-process
+# task: start a program and get the process back
+# also: launch spawn run background start new
+start_process("echo"; {ArgumentList: ["started by pwrq"], PassThru: true})
+
+## sys-env-list
+# task: list the environment variables
+# also: env printenv environment vars
+$ENV
+| to_entries
+| map("\(.key)=\(.value)")
+
+## sys-env-one
+# task: the value of one environment variable
+# also: get read echo var value
+# slot name text: Which variable? = HOME
+$ENV.{{name}}
+
+## sys-env-home
+# task: where is my home directory
+# also: home tilde user folder
+$ENV.HOME
+
+## sys-env-user
+# task: who am I, the current user
+# also: user whoami login name
+$ENV.USER
+
+## sys-env-has
+# task: is this environment variable set at all
+# also: defined exists check has variable
+# slot name text: Which variable? = PATH
+$ENV
+| has("{{name}}")
+
+## sys-env-path
+# task: the directories on my PATH, one per line
+# also: path dirs entries where binaries
+$ENV.PATH
+| split(":")
+
+## sys-env-path-count
+# task: how many directories are on the PATH
+# also: path length count entries
+$ENV.PATH
+| split(":")
+| length
+
+## sys-var-set-get
+# task: set a session variable and read it back
+# also: variable store save assign session
+set_variable("answer"; 42)
+, get_variable("answer"; {ValueOnly: true})
+
+## sys-var-remove
+# task: remove a session variable
+# also: clear unset delete variable drop
+set_variable("temp"; "about to vanish")
+, remove_variable("temp")
+
+## sys-var-list
+# task: list the session variables
+# also: variables session all stored
+get_variable("*")
+| keys
+
+## sys-run-command
+# task: run a shell command and get its output
+# also: sh exec shell command run system
+# slot command text: Which command should run? = uname -a
+sh("{{command}}")
+
+## sys-command-lines
+# task: run a command and take its output as lines
+# also: lines split shell output rows
+sh("ls /tmp")
+| split("\n")
+| map(select(length > 0))
+
+## sys-command-json
+# task: run a command that prints JSON and parse it
+# also: parse command output json structured
+sh("echo '{\"ok\": true, \"runs\": 3}'")
+| json_parse
+
+## sys-command-count-words
+# task: run a command and count its words
+# also: wc -w words command output
+sh("uname -a")
+| word_count
+
+## sys-which
+# task: where is this program installed
+# also: which where binary executable path
+# slot name text: Which program? = git
+which("{{name}}")
+
+## sys-disk-usage
+# task: how full is the disk
+# also: df space usage filesystem mounted
+sh("df -h / | tail -1")
+| [splits("\\s+")]
+| {Filesystem: .[0], Size: .[1], Used: .[2], Available: .[3], UsePercent: .[4]}
+
+## sys-memory-info
+# task: how much memory the machine has, used and free
+# also: free ram meminfo memory total available
+sh("head -3 /proc/meminfo")
+| split("\n")
+| map(select(length > 0))
+| map(capture("(?<key>\\w+):\\s+(?<kb>\\d+) kB") | {(.key): (.kb | tonumber)})
+| add
+
+## sys-uptime
+# task: how long has the machine been up
+# also: uptime since boot load
+sh("uptime")
+
+## sys-cpu-count
+# task: how many CPUs does this machine have
+# also: nproc cores processors count
+sh("nproc")
+| tonumber
+
+## sys-date-now
+# task: today's date and time
+# also: now clock current date today time
+get_date
+| {Date, Time, DayOfWeek, Timezone}
+
+## sys-date-year
+# task: what year is it
+# also: year current now date
+get_date
+| .Year
+
+## sys-date-iso
+# task: the current moment in ISO format, UTC
+# also: iso utc rfc3339 timestamp now
+now
+| todate
+
+## sys-date-epoch
+# task: the current time as unix epoch seconds
+# also: epoch seconds timestamp unix now
+now
+| round_to(0)
+
+## sys-date-formatted
+# task: the current time in my own format
+# also: format strftime custom layout pattern
+now
+| format_date("Mon, 02 Jan 2006 15:04:05 MST")
+
+## sys-date-human
+# task: how long ago was a timestamp, in human words
+# also: ago relative human readable elapsed since
+1660000000
+| time_ago
+
+## sys-location
+# task: which directory am I in
+# also: pwd current working directory where cwd
+get_location
+| .Path
+
+## sys-resolve-path
+# task: the full absolute path of where I am
+# also: realpath absolute canonical full
+resolve_path(".")
+| .Path
+
+## sys-cd-look
+# task: change into a directory and confirm where I landed
+# also: cd move into set_location chdir
+# slot dir path: Into which directory? = src
+set_location("{{dir}}")
+| get_location
+| .Path
+
+## sys-push-pop
+# task: cd into a directory, remember, and come back
+# also: pushd popd navigate back return
+# slot dir path: Into which directory? = src
+push_location("{{dir}}")
+, (get_location | .Path)
+, pop_location
+
+## sys-timespan
+# task: two hours as a timespan, in minutes
+# also: duration timespan hours minutes convert
+new_timespan({Hours: 2})
+| .TotalMinutes
+
+## sys-service-list
+# task: list the system services
+# also: systemctl services daemons units
+get_service
+| .Name
+
+## sys-service-running
+# task: the services that are running
+# also: active up systemctl list-units running
+get_service
+| select(.Status == "Running")
+| .Name
+
+## sys-service-stopped
+# task: the services that are stopped
+# also: inactive down not running failed
+get_service
+| select(.Status != "Running")
+| .Name
+
+## sys-service-find
+# task: find a service by name
+# also: search service named like matching
+# slot name text: Which service? = cron
+get_service
+| select(.Name | test("{{name}}"; "i"))
+| .Name
+
+## sys-service-count
+# task: how many services are in each state
+# also: count by status grouped services
+[get_service]
+| count_by("Status")
+
+## sys-service-start
+# task: start a service
+# also: systemctl start enable bring up
+# slot name text: Which service should start? = cron
+start_service("{{name}}")
+
+## sys-service-stop
+# task: stop a service
+# also: systemctl stop disable shut down
+# slot name text: Which service should stop? = cron
+stop_service("{{name}}")
+
+## sys-path-separator
+# task: the path separator on this platform
+# also: separator slash backslash platform windows unix
+path_sep

@@ -1,0 +1,288 @@
+# Collections: the cmdlets that reshape arrays and objects, plus the
+# PowerShell-style object pipeline (where-object, select-object,
+# sort-object, measure-object and the formatters). The sort, uniq, cut,
+# comm, join and column stories live here too.
+
+## coll-chunk-list
+# task: split a list into pairs
+# also: chunk pairs groups of two batch split
+[1, 2, 3, 4, 5, 6, 7]
+| chunks(2)
+
+## coll-sliding-windows
+# task: every run of three consecutive items
+# also: window sliding consecutive triples runs
+[1, 2, 3, 4, 5]
+| windows(3)
+
+## coll-zip-two-lists
+# task: pair up two lists, position by position
+# also: zip pair join paste parallel
+["a", "b", "c"]
+| zip_arrays([1, 2, 3])
+
+## coll-transpose-matrix
+# task: flip rows into columns
+# also: transpose flip matrix rows columns
+[[1, 2], [3, 4]]
+| transpose
+
+## coll-column-pick
+# task: the second column of a grid
+# also: column cut -f field nth column
+[[1, 2], [3, 4], [5, 6]]
+| column(1)
+
+## coll-cartesian-product
+# task: every combination of these two lists
+# also: cartesian combinations cross product pairs all
+["a", "b"]
+| cartesian([1, 2])
+
+## coll-interleave-lists
+# task: weave two lists together, one from each
+# also: interleave weave alternate merge
+["a", "c", "e"]
+| interleave(["b", "d", "f"])
+
+## coll-rotate-list
+# task: move the first items to the end
+# also: rotate shift roll cycle
+[1, 2, 3, 4, 5]
+| rotate(2)
+
+## coll-top-values
+# task: the two biggest values
+# also: top largest max best highest
+[9, 1, 7, 3, 5]
+| top_n(2)
+
+## coll-dedupe-keep-order
+# task: remove repeats, keeping the first seen
+# also: dedupe unique remove duplicates order
+[3, 1, 2, 1, 3, 4]
+| dedupe
+
+## coll-has-duplicates
+# task: does this list repeat anything
+# also: duplicates doubles repeated check
+[1, 2, 2, 3]
+| contains_duplicates
+
+## coll-difference-lists
+# task: what is in the first list but not the second
+# also: difference minus except removed comm -23
+[1, 2, 3, 4]
+| difference([2, 4])
+
+## coll-intersection-lists
+# task: what is in both lists
+# also: intersection common shared overlap
+[1, 2, 3, 4]
+| intersection([2, 3, 4, 5])
+
+## coll-union-lists
+# task: everything in either list, without repeats
+# also: union combine merge all together
+[1, 2]
+| union([2, 3])
+
+## coll-symmetric-difference
+# task: what is in exactly one of the two lists
+# also: symmetric xor either not both exclusive
+[1, 2, 3]
+| symmetric_difference([2, 3, 4])
+
+## coll-all-equal
+# task: are all these the same value
+# also: equal identical all same uniform
+[1, 1, 1]
+| all_equal
+
+## coll-compare-lists
+# task: what was added and removed between two lists
+# also: diff changes added removed compare versions
+compare_object(["a", "b", "c"]; ["b", "c", "d"])
+
+## coll-deep-merge-objects
+# task: merge two configs, nested fields included
+# also: deep merge overlay combine recursive config
+{a: {x: 1, y: 2}, b: 1}
+| deep_merge({a: {y: 9, z: 3}})
+
+## coll-index-by-key
+# task: a lookup table keyed by one field
+# also: index dictionary map key by build
+[{"id": 1, "name": "ada"}, {"id": 2, "name": "bob"}]
+| index_by("id")
+
+## coll-lookup-row
+# task: find the row where the field has this value
+# also: lookup find row where match fetch
+[{"id": 1, "name": "ada"}, {"id": 2, "name": "bob"}]
+| lookup("name"; "bob")
+
+## coll-sum-by-group
+# task: the total of a field per group
+# also: sum total per group by subtotal
+[{"dept": "eng", "pay": 100}, {"dept": "ops", "pay": 80}, {"dept": "eng", "pay": 120}]
+| sum_by("dept"; "pay")
+
+## coll-avg-by-group
+# task: the average of a field per group
+# also: average mean per group by
+[{"dept": "eng", "pay": 100}, {"dept": "ops", "pay": 80}, {"dept": "eng", "pay": 120}]
+| avg_by("dept"; "pay")
+
+## coll-summarize-by-group
+# task: full statistics of a field, per group
+# also: summarize stats per group by summarize_by
+[{"dept": "eng", "pay": 100}, {"dept": "ops", "pay": 80}, {"dept": "eng", "pay": 120}]
+| summarize_by("dept"; "pay")
+
+## coll-top-by-field
+# task: the top rows by a field
+# also: top best highest by ranking
+[{"name": "a", "score": 3}, {"name": "b", "score": 9}, {"name": "c", "score": 5}]
+| top_by("score"; 2)
+
+## coll-bottom-by-field
+# task: the worst rows by a field
+# also: bottom worst lowest smallest by
+[{"name": "a", "score": 3}, {"name": "b", "score": 9}, {"name": "c", "score": 5}]
+| bottom_by("score"; 2)
+
+## coll-group-by-key
+# task: group rows by a field, as a map
+# also: group bucket by map dictionary
+[{"svc": "orders", "dur": 84}, {"svc": "pay", "dur": 400}, {"svc": "orders", "dur": 12}]
+| group_by_key("svc")
+
+## coll-value-counts
+# task: how many times each value appears
+# also: tally count each frequency value_counts uniq -c
+["error", "info", "error", "warn", "error"]
+| value_counts
+
+## coll-count-by-field
+# task: count the rows by a field
+# also: count per group tally by
+[{"svc": "orders"}, {"svc": "pay"}, {"svc": "orders"}]
+| count_by("svc")
+
+## coll-rename-keys
+# task: rename the fields of an object
+# also: rename keys relabel columns fields
+{"first_name": "ada", "last_name": "lovelace"}
+| rename_keys({first_name: "firstName", last_name: "lastName"})
+
+## coll-flatten-keys
+# task: flatten nested JSON into dotted keys
+# also: flatten dotted keys paths unwind
+{"a": {"b": {"c": 1}, "d": 2}}
+| flatten_keys
+
+## coll-unflatten-keys
+# task: expand dotted keys back into nested objects
+# also: unflatten expand nested restore dotted
+{"a.b.c": 1, "a.d": 2}
+| unflatten_keys
+
+## coll-pivot-rows
+# task: pivot long rows into a wide table, one column per year
+# also: pivot wide cross tab crosstab spread
+[{"region": "EMEA", "year": "2020", "revenue": 100}, {"region": "AMER", "year": "2020", "revenue": 200}, {"region": "EMEA", "year": "2021", "revenue": 150}]
+| pivot({rows: "region", cols: "year", values: "revenue"})
+
+## coll-unpivot-table
+# task: melt a wide table back into long rows
+# also: unpivot melt long gather tidy
+[{"dept": "eng", "y2020": 10}, {"dept": "ops", "y2020": 20}]
+| unpivot({cols: ["y2020"], id: "dept"})
+
+## coll-prune-empty
+# task: drop the empty and null parts of a structure
+# also: prune clean empty nulls trim
+{a: 1, b: null, c: {d: ""}, e: [], keep: {x: 0}}
+| prune
+
+## coll-natural-sort-versions
+# task: sort these version strings naturally
+# also: natural sort versions semver order
+["1.9", "1.10", "2.0", "1.2.10", "1.2.9"]
+| natural_sort
+
+## coll-where-object-script
+# task: the numbers greater than ten, the PowerShell way
+# also: where-object filter ps pipeline
+[1, 5, 10, 15, 20]
+| where_object({script: ". > 10"})
+
+## coll-where-object-op
+# task: people older than 26, by property and operator
+# also: where-object property operator gt filter age
+[{"name": "ada", "age": 36}, {"name": "bob", "age": 25}]
+| where_object({property: "age", operator: "gt", value: 26})
+
+## coll-select-object-props
+# task: just these properties of each object
+# also: select-object project columns pick fields ps
+[{"Name": "ada", "Age": 36, "Email": "a@x.com"}, {"Name": "bob", "Age": 25}]
+| map(select_object("Name"; "Age"))
+
+## coll-sort-object
+# task: sort objects by a property, the PowerShell way
+# also: sort-object arrange order ps
+[{"Name": "b", "Age": 2}, {"Name": "a", "Age": 1}]
+| sort_object({property: "Name"})
+
+## coll-group-object
+# task: group objects by a property, the PowerShell way
+# also: group-object tally bucket by ps
+[{"Category": "a"}, {"Category": "b"}, {"Category": "a"}]
+| group_object({property: "Category"})
+
+## coll-measure-object
+# task: count, sum and average of a list
+# also: measure-object statistics count sum average
+[1, 2, 3, 4]
+| measure_object({sum: true, average: true})
+
+## coll-measure-property
+# task: statistics of one property across objects
+# also: measure-object property field stats
+[{"v": 10}, {"v": 20}, {"v": 30}]
+| measure_object({property: "v", sum: true, average: true})
+
+## coll-format-table
+# task: show this data as a table
+# also: format-table pretty table column -t display
+[{"Name": "ada", "Age": 36}, {"Name": "bob", "Age": 25}]
+| format_table(.)
+
+## coll-format-table-columns
+# task: a table with just the columns I choose
+# also: format-table columns subset pick table
+[{"Name": "ada", "Age": 36, "Secret": "x"}, {"Name": "bob", "Age": 25, "Secret": "y"}]
+| format_table(.; ["Name", "Age"])
+
+## coll-format-list
+# task: one object's fields, one per line
+# also: format-list listing fields detail
+{"Name": "orders-api", "Status": "Running", "CPU": 12.4}
+| format_list(.)
+
+## coll-join-by-key
+# task: join two lists on a shared field
+# also: join merge relate key foreign lookup
+[{"id": 1, "name": "ada"}, {"id": 2, "name": "bob"}]
+| index_by("id") as $people
+| [{"id": 1, "seats": 12}, {"id": 2, "seats": 1}]
+| map(. + {name: ($people[.id | tostring] | .name)})
+
+## coll-csv-cut-column
+# task: one column of a CSV file, as a list
+# also: cut -d -f column csv field pick
+cat("data.csv")
+| csv_parse
+| map(.[1])

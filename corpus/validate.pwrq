@@ -1,0 +1,143 @@
+# Validation: checking data before trusting it. Emails, urls, ports,
+# credit cards, dates and json; the batch story is validating a whole
+# column and reporting the bad rows.
+
+## validate-email
+# task: is this a valid email address
+# also: email valid check address format
+"ada@example.com"
+| is_email
+
+## validate-emails-batch
+# task: which of these emails are broken
+# also: emails batch column check bad invalid list
+["ada@example.com", "bob@@example.com", "cyd@partner.co.uk", "no-at-sign"]
+| map({email: ., valid: is_email})
+
+## validate-email-clean
+# task: keep only the good email addresses
+# also: filter drop invalid emails keep good
+["ada@example.com", "bob@@example.com", "cyd@partner.co.uk"]
+| map(select(is_email))
+
+## validate-column-report
+# task: validate the email column of this file and report the bad rows
+# also: csv column validate report bad rows audit
+cat("users.json")
+| fromjson
+| map(select(.email | is_email | not))
+| map({id, name, email})
+
+## validate-url
+# task: is this a proper url
+# also: url valid check web address format
+"https://example.com/path?query=1"
+| is_url
+
+## validate-urls-batch
+# task: check this list of links and drop the broken ones
+# also: urls links batch filter broken dead
+["https://example.com", "notaurl", "ftp://files.example.com"]
+| map(select(is_url))
+
+## validate-domain
+# task: is this a real-looking domain name
+# also: domain valid check hostname dns name
+"api.example.com"
+| is_domain
+
+## validate-ip
+# task: is this a valid ip address
+# also: ip valid check address parse
+"192.168.1.24"
+| is_ip
+
+## validate-cidr
+# task: is this a proper cidr block
+# also: cidr valid check subnet range notation
+"10.0.0.0/24"
+| is_cidr
+
+## validate-port
+# task: is this a legal port number
+# also: port valid check number range tcp udp
+8080
+| is_port
+
+## validate-hex
+# task: is this string really hex
+# also: hex valid check bytes hexadecimal
+"deadbeef"
+| is_hex
+
+## validate-hex-colors
+# task: which of these are hex color codes
+# also: colors hex css valid check codes
+["#ff0000", "#123abc", "nothex"]
+| map(is_hex)
+
+## validate-slug
+# task: is this already a clean slug
+# also: slug valid check url-safe kebab clean
+"my-great-post-title"
+| is_slug
+
+## validate-date
+# task: does this text hold a date
+# also: date valid check parse calendar
+"2026-08-11"
+| is_date
+
+## validate-iso
+# task: is this a proper iso 8601 timestamp
+# also: iso8601 valid check timestamp format
+"2026-08-11T12:00:00Z"
+| is_iso8601
+
+## validate-iso-batch
+# task: find the malformed timestamps in this event stream
+# also: timestamps batch malformed broken events audit
+["2026-08-11T09:12:03Z", "11/08/2026", "2026-13-45T99:00:00Z"]
+| map({value: ., iso: is_iso8601})
+
+## validate-json
+# task: is this text valid json at all
+# also: json valid check parse lint
+"{\"a\": 1, \"b\": [2, 3]}"
+| is_json
+
+## validate-json-file
+# task: are all these files parseable json
+# also: json files check parse lint all
+[find("."; "file") | select(endswith(".json"))]
+| map({file: basename, valid: (cat(.) | is_json)})
+
+## validate-numeric
+# task: which of these strings are really numbers
+# also: numeric strings numbers check parse
+["42", "3.14", "abc", "-7"]
+| map(is_numeric)
+
+## validate-credit-card
+# task: is this credit card number well-formed
+# also: credit card luhn valid check pan
+"4111-1111-1111-1111"
+| is_credit_card
+
+## validate-strip-tags
+# task: the plain text out of this html fragment
+# also: strip html tags plain text remove markup
+"<p>Hello <b>bold</b> world &amp; more</p>"
+| strip_tags
+
+## validate-extract-dates
+# task: the dates mentioned in this text
+# also: dates extract find mentions when
+"shipped 2026-08-11, due 11/08/2026, review 2026-09-01"
+| extract_dates
+
+## validate-extract-everything
+# task: every email, url and ip in this text at once
+# also: extract emails urls ips harvest contact all
+"contact ada@example.com via https://example.com from 10.0.0.1"
+| {Emails: extract_emails, Urls: extract_urls, IPs: extract_ips}

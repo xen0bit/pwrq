@@ -1,0 +1,314 @@
+# Reading, writing, moving, deleting and archiving files: the cat, head,
+# tail, tee, cp, mv, rm, mkdir, tar and unzip stories. Destructive entries
+# run against the scratch tree the harness builds.
+
+## io-read-file
+# task: print the contents of a file
+# also: cat show print open display view
+# slot file file = notes.txt
+cat("{{file}}")
+
+## io-read-head
+# task: the first lines of a file
+# also: head first top beginning start
+# slot file file = notes.txt
+# slot n number = 10
+head("{{file}}"; {{n}})
+
+## io-read-tail
+# task: the last lines of a file, the end of a log
+# also: tail last end bottom recent
+# slot file file = app.log
+# slot n number = 5
+tail("{{file}}"; {{n}})
+
+## io-read-tail-option
+# task: read a file from the end, its last few lines
+# also: cat tail option end of file
+# slot file file = app.log
+# slot n number = 2
+cat("{{file}}"; {tail: {{n}}})
+
+## io-read-numbered
+# task: print a file with line numbers
+# also: nl number lines enumerate
+# slot file file = notes.txt
+cat("{{file}}")
+| split("\n")
+| to_entries
+| map("\(.key + 1):\t\(.value)")
+| join("\n")
+
+## io-read-reversed
+# task: print a file's lines bottom to top
+# also: tac reverse backwards flip
+# slot file file = notes.txt
+cat("{{file}}")
+| split("\n")
+| reverse
+| join("\n")
+
+## io-byte-length
+# task: how many bytes long is a file
+# also: size wc -c bytes stat
+# slot file file = notes.txt
+read_bytes("{{file}}")
+| utf8bytelength
+
+## io-line-count
+# task: count the lines in a file
+# also: wc -l lines length
+# slot file file = notes.txt
+wc_lines("{{file}}")
+
+## io-word-count
+# task: count the words in a file
+# also: wc -w words
+# slot file file = notes.txt
+cat("{{file}}")
+| word_count
+
+## io-lines-of-code
+# task: lines of code per source file, and the total
+# also: loc sloc count lines source
+# slot dir path = src
+# slot ext ext = go
+[find("{{dir}}"; "file") | select(endswith(".{{ext}}")) | {File: ., Lines: wc_lines(.)}]
+| {Files: ., Total: (map(.Lines) | add)}
+
+## io-read-all-of-type
+# task: read every go file under src into one array of contents
+# also: slurp concatenate all files contents
+# slot dir path = src
+# slot ext ext = go
+[find("{{dir}}"; "file") | select(endswith(".{{ext}}")) | cat]
+
+## io-write-file
+# task: write text to a file, overwriting it
+# also: create write save set_content echo to redirect
+# slot file file: Which file should be written? = greeting.txt
+# slot content text: What should the file say? = hello world
+set_content("{{file}}"; "{{content}}")
+
+## io-append-file
+# task: append a line to a file
+# also: add write end of file append >> log
+# slot file file = run.log
+# slot content text: What should be appended? = another run done
+add_content("{{file}}"; "{{content}}")
+
+## io-write-new-file
+# task: create a new file with content in one step
+# also: new_item create make touch with content
+# slot file file: Which file should be created? = fresh.txt
+# slot content text: What should it contain? = created by pwrq
+new_item("{{file}}"; "file"; {Value: "{{content}}"})
+
+## io-save-output
+# task: save the pipeline output to a file and pass it on
+# also: out_file write redirect > save result
+# slot file file: Where should it be saved? = report.txt
+"summary line"
+| out_file("{{file}}")
+
+## io-append-output
+# task: append the output to a growing log file
+# also: out_file append >> growing log add
+# slot file file = runs.log
+"one more entry"
+| out_file("{{file}}"; {Append: true})
+
+## io-save-stdin
+# task: save what arrives on stdin to a file
+# also: capture input write stdin pipe through
+# slot file file: Where should it be saved? = from-stdin.txt
+out_file("{{file}}")
+
+## io-tee-file
+# task: keep a copy of the data in a file while passing it on
+# also: tee copy watch save while continuing
+# slot file file = snapshot.json
+{"name": "ada", "seats": 12}
+| tee("{{file}}")
+
+## io-tee-stderr
+# task: show the data on stderr while it keeps flowing
+# also: tee debug trace observe stderr
+{"name": "ada", "seats": 12}
+| tee
+
+## io-write-json
+# task: save data as a JSON file
+# also: dump export write json save
+# slot file file: Where should it be saved? = data-out.json
+{"name": "ada", "seats": 12, "tags": ["admin", "pro"]}
+| tojson
+| out_file("{{file}}")
+
+## io-write-csv
+# task: save rows as a CSV file
+# also: export csv write spreadsheet
+# slot file file: Where should it be saved? = rows-out.csv
+[["name", "age"], ["ada", "36"], ["bob", "25"]]
+| csv_stringify
+| out_file("{{file}}")
+
+## io-write-yaml
+# task: save data as a YAML file
+# also: export yaml write config
+# slot file file: Where should it be saved? = config-out.yaml
+{name: "ada", role: "engineer"}
+| yaml_stringify
+| out_file("{{file}}")
+
+## io-mkdir
+# task: create a directory, including any missing parents
+# also: mkdir make folder directory -p
+# slot dir path = deep/nested/folder
+mkdir("{{dir}}")
+
+## io-new-dir
+# task: create an empty directory
+# also: new_item folder make directory
+# slot dir path = scratch-dir
+new_item("{{dir}}"; "directory")
+
+## io-temp-dir
+# task: make a temporary scratch directory
+# also: mktemp -d tempdir scratch throwaway
+tempdir("corpus-")
+
+## io-delete-file
+# task: delete a file
+# also: rm remove unlink erase
+# slot file file: Which file should be deleted? = doomed.txt
+set_content("{{file}}"; "about to be deleted")
+, rm("{{file}}"; "file")
+
+## io-delete-dir
+# task: delete a folder and everything in it
+# also: rm -r remove recursively rmdir
+# slot dir path: Which folder should be deleted? = scratch-dir
+rm("{{dir}}"; "folder")
+
+## io-rename
+# task: rename a file
+# also: mv move rename
+# slot file file: Which file should be renamed? = draft.txt
+# slot to file: What should it be called? = final.txt
+set_content("{{file}}"; "draft content")
+| move_item("{{file}}"; "{{to}}")
+
+## io-move-into-dir
+# task: move a file into another folder
+# also: mv move into destination folder
+# slot file file: Which file should be moved? = move-me.txt
+# slot dir path: Into which folder? = b
+set_content("{{file}}"; "movable")
+| move_item("{{file}}"; "{{dir}}/{{file}}")
+
+## io-copy-file
+# task: copy a file
+# also: cp copy duplicate
+# slot file file: Which file should be copied? = notes.txt
+# slot to file: What should the copy be called? = notes-copy.txt
+copy_item("{{file}}"; "{{to}}")
+
+## io-copy-tree
+# task: copy a whole folder, with everything inside it
+# also: cp -r recursive copy directory
+# slot dir path: Which folder should be copied? = b
+# slot to file: What should the copy be called? = b-backup
+copy_item("{{dir}}"; "{{to}}"; {Recurse: true})
+
+## io-backup-datestamped
+# task: back up a file with today's date in the name
+# also: backup copy daily date stamp
+# slot file file: Which file should be backed up? = config.yaml
+copy_item("{{file}}"; "{{file}}.\(now | todate | .[0:10])")
+
+## io-copy-verify
+# task: copy a file and prove the copy is identical
+# also: copy verify hash same bytes compare
+# slot file file: Which file should be copied? = notes.txt
+copy_item("{{file}}"; "{{file}}.copy")
+| {Copy: .Destination, SameBytes: ((.Destination | sha256(true)) == ("{{file}}" | sha256(true)))}
+
+## io-archive-list
+# task: list what is inside a zip without extracting it
+# also: unzip -l tar -tf contents listing archive
+# slot file file = archive.zip
+read_archive("{{file}}")
+| map({Name, Size: (.Length | human_bytes)})
+
+## io-archive-extract
+# task: unzip an archive into a directory
+# also: expand extract untar unzip unpack
+# slot file file = archive.zip
+# slot dir path: Into which directory? = unpacked
+expand_archive("{{file}}"; "{{dir}}")
+
+## io-archive-create
+# task: zip a folder into an archive
+# also: compress pack tar czf bundle archive
+# slot dir path: What should be archived? = configs
+# slot file file: What should the archive be called? = configs.zip
+compress_archive("{{dir}}"; "{{file}}")
+
+## io-archive-create-list
+# task: zip a specific list of files
+# also: compress pack selected files bundle
+# slot file file: What should the archive be called? = pair.zip
+compress_archive(["notes.txt", "quotes.txt"]; "{{file}}")
+
+## io-archive-extract-search
+# task: extract an archive and search inside it
+# also: unzip then grep look inside archive unpack
+# slot file file = archive.zip
+# slot pattern pattern: What should be searched for? = fox
+expand_archive("{{file}}"; "unpacked") as $written
+| select_string("unpacked"; "{{pattern}}")
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## io-replace-in-file
+# task: replace text in a file and save it back
+# also: sed -i substitute rewrite in place find replace
+# slot file file: Which file should be edited? = notes.txt
+# slot from text: What text should be replaced? = fox
+# slot to text: What should it become? = cat
+cat("{{file}}")
+| replace("{{from}}"; "{{to}}")
+| set_content("{{file}}")
+
+## io-append-dated
+# task: append a line with today's date to a run log
+# also: log run entry timestamp append record
+# slot file file = runs.log
+"\(now | todate) run finished"
+| add_content("{{file}}"; .)
+
+## io-write-read-back
+# task: write a file and read it back to confirm
+# also: round trip write then read verify
+# slot file file: Which file should be written? = roundtrip.txt
+# slot content text: What should it contain? = round trip content
+set_content("{{file}}"; "{{content}}")
+| cat("{{file}}")
+
+## io-save-hashes
+# task: hash every file under a directory and save the manifest
+# also: manifest checksums record save sha256sum
+# slot dir path = a
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| map({File: .FullName, Sha256: (.FullName | sha256(true))})
+| tojson
+| out_file("manifest.json")
+
+## io-organize-by-type
+# task: move the txt files of a folder into a text subfolder
+# also: organize tidy sort into folders by type
+# slot dir path = a
+# slot ext ext = txt
+mkdir("{{dir}}/text")
+| [get_childitem("{{dir}}") | select(.PwrqType == "Pwrq.FileSystem.File" and .Extension == ".{{ext}}")]
+| map(move_item(.FullName; "{{dir}}/text/\(.Name)"))

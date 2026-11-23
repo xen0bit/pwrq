@@ -1,0 +1,128 @@
+# Censys platform intelligence: host searches, host and certificate
+# detail, aggregates and account context. Every entry needs
+# CENSYS_PLATFORM_TOKEN; on a machine without it they are validated by
+# the credential error they meet.
+
+## censys-search-hosts
+# task: search censys for hosts running ssh
+# also: censys search hosts ssh port internet scan
+# slot query text: Which censys query? = host.services.port=22
+search_censys("{{query}}")
+| .[0:5]
+
+## censys-search-country
+# task: censys hosts located in chile
+# also: censys country location chile filter hosts
+search_censys("host.location.country=\"Chile\"")
+| length
+
+## censys-host-detail
+# task: everything censys knows about this ip
+# also: censys host detail ip address observation report
+# slot ip ip = 1.1.1.1
+get_censys_host("{{ip}}")
+
+## censys-host-at-time
+# task: what censys saw on this ip at the start of the year
+# also: censys host history at time point observation
+# slot ip ip = 1.1.1.1
+"{{ip}}"
+| get_censys_host({AtTime: "2026-01-01T00:00:00Z"})
+
+## censys-host-services
+# task: the services censys saw on this host
+# also: censys services ports host open
+# slot ip ip = 1.1.1.1
+[get_censys_host_service("{{ip}}"; {Port: 443})]
+
+## censys-host-timeline
+# task: how this host changed over time
+# also: censys timeline history host changes events
+# slot ip ip = 1.1.1.1
+[get_censys_host_timeline("{{ip}}")]
+
+## censys-aggregate
+# task: which countries run the most hosts on port 443
+# also: censys aggregate group breakdown stats
+get_censys_aggregate("host.services.port=443"; "host.location.country")
+
+## censys-certificate
+# task: the certificate censys saw for this fingerprint
+# also: censys certificate tls fingerprint detail
+# slot fp text: Which sha256 fingerprint? = 0000000000000000000000000000000000000000000000000000000000000000
+get_censys_certificate("{{fp}}")
+
+## censys-webproperty
+# task: the web property censys built for this site
+# also: censys web property website domain
+get_censys_webproperty("example.com:443")
+
+## censys-webproperty-timeline
+# task: how this web property changed over time
+# also: censys web timeline changes history
+[get_censys_webproperty_timeline("example.com:443")]
+
+## censys-enrichment
+# task: enrich this ip with what censys knows
+# also: censys enrich ip context lookup whois
+# slot ip ip = 1.1.1.1
+"{{ip}}"
+| get_censys_enrichment
+
+## censys-credits
+# task: how many censys credits do I have
+# also: censys credits quota balance budget
+get_censys_credits
+
+## censys-context
+# task: which censys organization am I acting as
+# also: censys context org account whoami identity
+get_censys_context
+
+## censys-tags
+# task: my censys tags and the assets under them
+# also: censys tags list labels assets group
+[get_censys_tag]
+| map(.name)
+
+## censys-collections
+# task: my censys collections
+# also: censys collections list assets groups
+[get_censys_collection]
+| map(.name)
+
+## censys-collection-events
+# task: the events of one collection
+# also: censys collection events history activity
+[get_censys_collection_event("my-collection")]
+| length
+
+## censys-organization
+# task: my censys organization's details
+# also: censys organization account org details
+get_censys_organization
+
+## censys-tag-assets
+# task: the assets tagged with one of my tags
+# also: censys tag assignments assets which hosts
+[get_censys_tag_assignment("production")]
+| map(.asset_id)
+
+## censys-threats
+# task: the threats censys currently tracks
+# also: censys threats list malware tracked
+[get_censys_threat]
+| length
+
+## censys-censeye-job
+# task: start a censeye job on this host
+# also: censeye job host analysis start
+# slot ip ip = 1.1.1.1
+[get_censys_censeye_job({HostId: "{{ip}}"})]
+| map(.status)
+
+## censys-censeye-result
+# task: read the censeye result for this job
+# also: censeye result read fetch analysis job
+get_censys_censeye_result("b0a1d2c3-0000-4000-8000-000000000000")
+| length

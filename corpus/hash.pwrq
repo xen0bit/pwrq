@@ -1,0 +1,254 @@
+# Hashes, checksums, MACs, password hashing and fuzzy hashing: the
+# md5sum, sha256sum, cksum, openssl-mac and ssdeep stories, plus the
+# integrity workflows built on them.
+
+## hash-md5-text
+# task: the md5 of this text
+# also: md5 checksum digest hash text
+"hello"
+| md5
+
+## hash-md5-file
+# task: the md5 of a file, like md5sum
+# also: md5sum file checksum digest
+# slot file file = notes.txt
+"{{file}}"
+| md5(true)
+
+## hash-sha1-text
+# task: the sha1 of this text
+# also: sha1 digest hash legacy
+"hello"
+| sha1
+
+## hash-sha256-text
+# task: the sha256 of this text
+# also: sha256 digest checksum hash
+"hello"
+| sha256
+
+## hash-sha256-file
+# task: the sha256 of a file, like sha256sum
+# also: sha256sum file checksum verify
+# slot file file = notes.txt
+"{{file}}"
+| sha256(true)
+
+## hash-sha384-text
+# task: the sha384 of this text
+# also: sha384 digest hash
+"hello"
+| sha384
+
+## hash-sha512-text
+# task: the sha512 of this text
+# also: sha512 digest hash
+"hello"
+| sha512
+
+## hash-sha224-text
+# task: the sha224 of this text
+# also: sha224 digest truncated hash
+"hello"
+| sha224
+
+## hash-sha512-variants
+# task: the truncated sha512 variants of this text
+# also: sha512_224 sha512_256 variants digest
+"hello"
+| {SHA512_224: sha512_224, SHA512_256: sha512_256}
+
+## hash-sha3
+# task: the sha3-256 of this text
+# also: sha3 keccak modern digest
+"hello"
+| sha3_256
+
+## hash-keccak
+# task: the keccak-256 of this text, the ethereum one
+# also: keccak ethereum digest hash
+"hello"
+| keccak_256
+
+## hash-blake2
+# task: the blake2b-256 of this text
+# also: blake2 fast modern digest hash
+"hello"
+| blake2b_256
+
+## hash-crc
+# task: all the small checksums of this text at once
+# also: crc16 crc32 crc64 adler fnv cksum checksums
+"hello"
+| {CRC16: crc16, CRC32: crc32, CRC32C: crc32c, CRC64: crc64, Adler32: adler32, FNV1a: fnv1a}
+
+## hash-crc32-file
+# task: the crc32 of a file
+# also: cksum file checksum crc quick
+# slot file file = notes.txt
+"{{file}}"
+| crc32(true)
+
+## hash-hmac-sha256
+# task: the hmac-sha256 of a message with my key
+# also: hmac mac signature auth secret
+# slot key text: What is the secret key? = my-secret-key
+# slot message text: What is the message? = the payload to sign
+"{{message}}"
+| hmac_sha256("{{key}}")
+
+## hash-hmac-family
+# task: this message under every hmac flavor
+# also: hmac md5 sha1 sha384 sha512 variants mac
+# slot key text: What is the secret key? = my-secret-key
+"the payload to sign"
+| {MD5: hmac_md5("{{key}}"), SHA1: hmac_sha1("{{key}}"), SHA256: hmac_sha256("{{key}}"), SHA512: hmac_sha512("{{key}}")}
+
+## hash-hmac-file
+# task: sign a file with hmac-sha256
+# also: hmac file signature auth
+# slot key text: What is the secret key? = my-secret-key
+# slot file file = notes.txt
+read_bytes("{{file}}")
+| hmac_sha256("{{key}}")
+
+## hash-bcrypt-new
+# task: hash this password the right way, with bcrypt
+# also: bcrypt password salted slow hash register
+# slot password text: What password should be hashed? = correct horse battery
+"{{password}}"
+| bcrypt_hash
+
+## hash-bcrypt-roundtrip
+# task: hash a password with bcrypt and verify it round trip
+# also: bcrypt verify check login round trip correct
+"hunter2"
+| bcrypt_hash
+| . as $hash
+| {Hash: $hash, Verifies: ("hunter2" | bcrypt_verify($hash))}
+
+## hash-bcrypt-reject
+# task: prove bcrypt rejects the wrong password
+# also: bcrypt wrong fails invalid login negative
+"hunter2"
+| bcrypt_hash
+| . as $hash
+| {Verifies: ("wrong password" | bcrypt_verify($hash))}
+
+## hash-argon2
+# task: hash this password with argon2id
+# also: argon2 memory hard password modern hash
+# slot password text: What password should be hashed? = correct horse battery
+# slot salt text: What salt should be used? = a-fixed-salt
+"{{password}}"
+| argon2id_hash("{{salt}}"; 1; 8)
+
+## hash-pbkdf2
+# task: derive a key from this password with pbkdf2
+# also: pbkdf2 derive kdf key stretching
+# slot password text: What password should be used? = correct horse battery
+# slot salt text: What salt should be used? = a-fixed-salt
+"{{password}}"
+| pbkdf2_sha256("{{salt}}"; 100000; 32)
+
+## hash-salt-generate
+# task: generate a random salt in hex
+# also: salt random hex generate bytes
+random_hex(16)
+
+## hash-file-entropy
+# task: the entropy of this file's bytes
+# also: entropy random packed suspicious encrypted
+# slot file file = notes.txt
+"{{file}}"
+| entropy(true)
+
+## hash-text-entropy
+# task: the entropy of this text
+# also: entropy information random bits
+"the quick brown fox jumps over the lazy dog"
+| entropy
+
+## hash-ssdeep-file
+# task: the fuzzy hash of a file, for near-duplicates
+# also: ssdeep fuzzy spamsum similar digest
+# slot file file = sample1.bin
+"{{file}}"
+| ssdeep(true)
+
+## hash-ssdeep-compare
+# task: how similar are these two files by fuzzy hash
+# also: ssdeep compare similarity near duplicate related
+# slot file file = sample1.bin
+# slot other file: Compared with which other file? = sample2.bin
+ssdeep_compare(ssdeep("{{file}}"; true); ssdeep("{{other}}"; true))
+
+## hash-two-files-same
+# task: are these two files byte for byte identical
+# also: identical same bytes cmp compare check
+# slot file file = a/dup.txt
+# slot other file: Compared with which other file? = b/dup.txt
+{First: ("{{file}}" | sha256(true)), Second: ("{{other}}" | sha256(true))}
+| .First == .Second
+
+## hash-tree-manifest
+# task: the sha256 of every file in this tree
+# also: manifest checksums all files sha256sum *
+# slot dir path = a
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| map({File: .Name, Sha256: (.FullName | sha256(true))})
+
+## hash-manifest-save
+# task: save a checksum manifest of a tree
+# also: manifest save record baseline checksums store
+# slot dir path = a
+# slot file file: Where should the manifest be saved? = checksums.json
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| map({File: .Name, Sha256: (.FullName | sha256(true))})
+| tojson
+| out_file("{{file}}")
+
+## hash-manifest-verify
+# task: verify a saved checksum manifest against the files now
+# also: verify check audit integrity md5sum -c
+# slot dir path = a
+# slot file file: Where is the manifest? = checksums.json
+cat("{{file}}")
+| fromjson
+| map(. + {StillSame: (("{{dir}}/\(.File)" | sha256(true)) == .Sha256)})
+
+## hash-find-changed
+# task: watch which file changes when something writes
+# also: changed modified detect which integrity
+[get_childitem("a"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File") | {Name, Sha256: (.FullName | sha256(true))}] as $before
+| add_content("a/dup.txt"; " and now it is different")
+| [get_childitem("a"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File") | {Name, Sha256: (.FullName | sha256(true))}]
+| map(. as $now
+     | ($before | map(select(.Name == $now.Name)) | .[0].Sha256) as $was
+     | {Name, Changed: (.Sha256 != $was)})
+
+## hash-blob-in-log
+# task: the sha256 of every base64-looking blob in a log line
+# also: blob extract hash log evidence sample
+cat("app.log")
+| split("\n")
+| map(select(length > 0) | capture("(?<msg>\\w+ .*)") | .msg | sha256)
+
+## hash-empty-vs-content
+# task: prove an empty file and a one-character file hash differently
+# also: empty contents different distinct sha256
+{Empty: (read_bytes("empty.txt") | sha256), OneChar: ("x" | sha256)}
+| .Empty != .OneChar
+
+## hash-hmac-rare-flavors
+# task: this message under the less common hmac flavors
+# also: hmac sha224 sha384 sha512 variants mac
+# slot key text: What is the secret key? = my-secret-key
+"the payload to sign"
+| {SHA224: hmac_sha224("{{key}}"), SHA384: hmac_sha384("{{key}}"), SHA512_224: hmac_sha512_224("{{key}}"), SHA512_256: hmac_sha512_256("{{key}}")}
+
+## hash-wide-digests
+# task: the wider digest widths of this text
+# also: sha3_512 blake2b_512 wide large digests
+"hello"
+| {SHA3_512: sha3_512, Blake2b_512: blake2b_512}

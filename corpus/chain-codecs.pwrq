@@ -1,0 +1,67 @@
+# Chained interactions anchored on a decode: base64, gzip and hex blobs
+# coming apart, then crossing into JSON, the filesystem, hashing, the
+# network, time, sqlite and text.
+
+## chain-codecs-b64-to-json
+# task: this base64 file decodes to JSON - read it as data
+# also: base64 json decode parse embedded document
+cat("doc.b64")
+| base64_decode
+| fromjson
+
+## chain-codecs-blob-gunzip-save
+# task: unpack the compressed payload and save what it says
+# also: base64 gzip blob unpack recover save file
+cat("blob-gz.b64")
+| base64_decode
+| gzip_decompress
+| out_file("recovered-secret.txt")
+
+## chain-codecs-recovered-checksum
+# task: the recovered message and its checksum together
+# also: recover message hash checksum sha256 verify record
+cat("blob-gz.b64")
+| base64_decode
+| gzip_decompress
+| . as $msg
+| {Message: $msg, Sha256: ($msg | sha256)}
+
+## chain-codecs-decode-url-fetch
+# task: the decoded text turns out to be a url - go fetch it
+# also: decode url fetch base64 hidden link
+cat("url.b64")
+| base64_decode
+| . as $u
+| invoke_web_request($u)
+| {Url: $u, Status: .StatusCode}
+
+## chain-codecs-decode-date
+# task: the decoded text is a date - what weekday was it
+# also: decode date weekday parse timestamp when
+cat("date.b64")
+| base64_decode
+| {Moment: ., Weekday: weekday}
+
+## chain-codecs-decode-to-db
+# task: store the recovered secret in a database
+# also: secret recovered store sqlite db save record
+cat("blob-gz.b64")
+| base64_decode
+| gzip_decompress
+| {secret: .}
+| out_sqlite("secrets.db"; "secrets")
+| .RowCount
+
+## chain-codecs-hex-to-file
+# task: these hex bytes are really a text file - write it out
+# also: hex bytes unhex save file restore
+"7365616c6564206e6f7465"
+| hex_decode
+| out_file("unhexed.txt")
+
+## chain-codecs-rot13-read
+# task: decode the rot13 and count what it says
+# also: rot13 decode message read words count
+"uryyb jbeyq"
+| rot13
+| {Decoded: ., Words: word_count}

@@ -1,0 +1,116 @@
+# Chained interactions anchored on a log: the access-log capture prefix
+# and the logfmt parse prefix from the single-domain corpus, forking into
+# the network, sqlite, the decision model, time and the filesystem.
+
+## chain-log-whois-top-talkers
+# task: the busiest clients in the log and who they belong to
+# also: top talkers ip whois reverse dns busiest log
+cat("access.log")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<ip>\\S+)").ip)
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:3]
+| map({IP: .key, Requests: .value, Names: (try reverse_dns(.key) catch ["no ptr record"])})
+
+## chain-log-ips-classify
+# task: the log's clients split into internal and external
+# also: ips private public internal external classify log
+cat("access.log")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<ip>\\S+)").ip)
+| unique
+| map({IP: ., Internal: is_private_ip, Loopback: is_loopback})
+
+## chain-log-to-sqlite
+# task: land the structured log in a database for ad-hoc queries
+# also: logfmt sqlite store ingest rows save db query later
+cat("metrics.logfmt")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| out_sqlite("logs.db"; "entries")
+| .RowCount
+
+## chain-log-ai-payment-issue
+# task: the unique error messages, and which are about payments
+# also: errors payment issue model classify d1 unique messages
+cat("metrics.logfmt")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| map(select(.level == "error"))
+| map(.msg)
+| unique
+| map({message: ., aboutPayments: invoke_systemone({q: {type: "noul", instructions: "Is this error about payments?"}}).q.noul})
+
+## chain-log-error-span
+# task: how long the incident lasted, first error to last
+# also: incident duration span first last error window
+cat("metrics.logfmt")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| map(select(.level == "error") | (.ts | date_to_timestamp))
+| {FirstError: (min | todate), LastError: (max | todate), Seconds: (max - min)}
+
+## chain-log-minute-rates
+# task: the request rate per minute, smoothed
+# also: rate per minute moving average trend load traffic
+cat("access.log")
+| split("\n")
+| map(select(length > 0))
+| map(capture("\\[(?<ts>[^\\]]+)\\]").ts | capture("(?<minute>\\d\\d:\\d\\d):").minute)
+| value_counts
+| to_entries
+| sort_by(.key)
+| map(.value)
+| moving_average(3)
+
+## chain-log-rotated-merge
+# task: merge the rotated logs with the current one and count errors in each
+# also: rotated app.log.1 app.log.2 merge combine logs history
+["app.log", "app.log.1", "app.log.2"]
+| map({Log: ., Errors: (grep_lines(.; "ERROR") | length)})
+
+## chain-log-config-port-live
+# task: the port the config says the database is on - is anything listening there
+# also: port config database listening live check probe
+cat("configs/app.ini")
+| [capture(":(?<port>\\d+)")]
+| .[0].port
+| tonumber
+| {Port: ., Listening: test_connection("localhost"; {TcpPort: ., TimeoutSeconds: 2, Quiet: true})}
+
+## chain-log-weekday-rhythm
+# task: on which weekdays do these events land
+# also: weekday rhythm calendar events when grouped
+cat("events.jsonl")
+| jsonl_parse
+| map(.ts | weekday)
+| value_counts
+
+## chain-log-slowest-ai-cause
+# task: the slowest requests, and whether each looks like a timeout
+# also: slowest timeout cause model d1 latency explain
+cat("metrics.logfmt")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| sort_by(-.dur_ms)
+| .[:3]
+| map({msg, dur_ms, LooksLikeTimeout: invoke_systemone({q: {type: "noul", instructions: "Does this error message suggest a timeout?"}}).q.noul})
+
+## chain-log-to-csv
+# task: the parsed access log as a CSV file
+# also: access log export csv save convert file
+cat("access.log")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<ip>\\S+) \\S+ \\S+ \\[(?<ts>[^\\]]+)\\] \"(?<method>\\w+) (?<path>\\S+) [^\"]+\" (?<status>\\d{3})"))
+| map([.ip, .ts, .method, .path, .status])
+| csv_stringify
+| out_file("access-parsed.csv")

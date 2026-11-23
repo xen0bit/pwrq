@@ -1,0 +1,63 @@
+# Chained interactions anchored on a cipher: sealed things crossing into
+# hashes, archives, databases and key rotation.
+
+## chain-cipher-seal-manifest
+# task: seal a message and record both it and the sealed form's checksum
+# also: seal manifest hash record checksum store
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"the launch code"
+| aes_encrypt(.; "{{key}}")
+| . as $sealed
+| {Original: "the launch code", Sealed: $sealed, SealedSha256: ($sealed | sha256)}
+| tojson
+| out_file("sealed-manifest.json")
+
+## chain-cipher-wrong-key-rejected
+# task: prove the sealed message only opens with the right key
+# also: wrong key rejected fail decrypt cannot two keys
+"the password is hunter2"
+| aes_encrypt(.; "0123456789abcdef0123456789abcdef")
+| . as $sealed
+| {RightKey: (try ($sealed | aes_decrypt(.; "0123456789abcdef0123456789abcdef")) catch "rejected"),
+   WrongKey: (try ($sealed | aes_decrypt(.; "ffffffffffffffffffffffffffffffff")) catch "rejected")}
+
+## chain-cipher-vault-db
+# task: store a batch of sealed messages in a database
+# also: sealed vault store sqlite db batch save
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+["alpha", "bravo", "charlie"]
+| map(. as $m | {Plain: $m, Sealed: aes_encrypt($m; "{{key}}")})
+| out_sqlite("vault.db"; "sealed")
+| .RowCount
+
+## chain-cipher-seal-and-archive
+# task: seal the config files and pack the sealed copies into an archive
+# also: seal configs encrypt archive zip pack protect
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+[get_childitem("configs") | select(.PwrqType == "Pwrq.FileSystem.File")]
+| map(. as $f
+     | ($f.FullName | with_extension(".sealed")) as $sealed_path
+     | read_bytes($f.FullName)
+     | aes_encrypt(.; "{{key}}")
+     | out_file($sealed_path)
+     | $sealed_path)
+| compress_archive(.; "sealed-configs.zip")
+
+## chain-cipher-unseal-archive
+# task: unpack the sealed archive and open every file inside
+# also: unseal archive extract open decrypt unpack
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+expand_archive("sealed-configs.zip"; "unsealed-configs") as $written
+| [get_childitem("unsealed-configs"; {Recurse: true}) | select(.Extension == ".sealed")]
+| map(. as $f | cat($f.FullName) | aes_decrypt(.; "{{key}}") | .[0:24])
+
+## chain-cipher-key-rotation
+# task: rotate the key: open the message with the old key and seal it with the new one
+# also: rotate key rekey replace old new migration
+"legacy secret"
+| aes_encrypt(.; "0123456789abcdef0123456789abcdef")
+| aes_decrypt(.; "0123456789abcdef0123456789abcdef")
+| aes_encrypt(.; "ffffffffffffffffffffffffffffffff")
+| . as $rotated
+| {SealedWithNew: ($rotated | is_base64),
+   OpensWithNew: (($rotated | aes_decrypt(.; "ffffffffffffffffffffffffffffffff")) == "legacy secret")}

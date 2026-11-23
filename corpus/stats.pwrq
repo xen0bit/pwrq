@@ -1,0 +1,259 @@
+# Statistics: one series at a time. Every entry carries its own numbers,
+# the way a sample of real measurements would arrive: response times,
+# temperatures, test scores, daily counts.
+
+## stats-mean
+# task: the average of these numbers
+# also: mean average avg central
+[84, 91, 77, 412, 88]
+| mean
+
+## stats-median
+# task: the middle value of these numbers
+# also: median middle typical robust
+[84, 91, 77, 412, 88]
+| median
+
+## stats-mode
+# task: the most frequent value
+# also: mode common frequent popular
+["error", "warn", "error", "info", "error"]
+| mode
+
+## stats-geomean
+# task: the geometric mean, for growth rates
+# also: geometric growth mean multiply
+[1.05, 1.10, 0.98]
+| geomean
+
+## stats-harmonic
+# task: the harmonic mean, for rates and speeds
+# also: harmonic mean rates speed
+[30, 60, 90]
+| harmonic_mean
+
+## stats-variance
+# task: how spread out these numbers are
+# also: variance spread dispersion
+[2, 4, 4, 4, 5, 5, 7, 9]
+| variance
+
+## stats-stdev
+# task: the standard deviation of these numbers
+# also: stdev deviation sigma spread
+[2, 4, 4, 4, 5, 5, 7, 9]
+| stdev
+
+## stats-summary
+# task: the whole picture: count, min, max, mean, median and deviation
+# also: summary describe stats overview everything
+[84, 91, 77, 412, 88, 95, 102]
+| summary
+
+## stats-quartiles
+# task: the quartiles of these numbers
+# also: quartiles q1 q3 box plot spread
+[1, 2, 3, 4, 5, 6, 7, 8]
+| quartiles
+
+## stats-iqr
+# task: the interquartile range, the middle fifty percent
+# also: iqr interquartile middle robust spread
+[1, 2, 3, 4, 5, 6, 7, 8]
+| iqr
+
+## stats-mad
+# task: the median absolute deviation, robust to outliers
+# also: mad median absolute robust deviation
+[1, 1, 2, 2, 4, 6, 9]
+| mad
+
+## stats-percentile
+# task: the 90th percentile of these response times
+# also: percentile p90 latency quantile
+[84, 91, 77, 412, 88, 95, 1902, 102, 88, 980]
+| percentile(90)
+
+## stats-percentile-rank
+# task: where does this value fall among the others
+# also: percentile rank position where standing
+[84, 91, 77, 412, 88]
+| percentile_rank(91)
+
+## stats-trimmed
+# task: the average with the extremes trimmed off
+# also: trimmed mean outliers ignore clamp average
+[1, 2, 3, 4, 100]
+| trimmed_mean(0.25)
+
+## stats-weighted
+# task: the weighted average of scores with weights
+# also: weighted mean grade average weights
+[80, 90, 95]
+| weighted_mean([0.2, 0.5, 0.3])
+
+## stats-rms
+# task: the root mean square of these numbers
+# also: rms quadratic mean signal power
+[3, 4]
+| rms
+
+## stats-product
+# task: all these numbers multiplied together
+# also: product multiply total fold
+[2, 3, 4]
+| product
+
+## stats-cumsum
+# task: the running total of these numbers
+# also: cumulative sum running total so far
+[10, 20, 30, 40]
+| cumsum
+
+## stats-cumulative-max
+# task: the highest value seen so far, step by step
+# also: running max record high watermark
+[3, 1, 5, 2, 7, 3]
+| cumulative_max
+
+## stats-cumulative-min
+# task: the lowest value seen so far, step by step
+# also: running min record low watermark
+[3, 1, 5, 2, 7, 3]
+| cumulative_min
+
+## stats-deltas
+# task: the change from each value to the next
+# also: differences delta step change derivative
+[10, 12, 15, 15, 19]
+| deltas
+
+## stats-lag
+# task: each value paired with the one before it
+# also: lag previous shift compare prior
+[10, 12, 15, 19]
+| lag(1)
+
+## stats-ema
+# task: the smoothed series, an exponential moving average
+# also: ema exponential smoothing trend average
+[10, 12, 15, 19]
+| ema(0.5)
+
+## stats-moving-average
+# task: a three-point moving average
+# also: rolling moving average smooth window
+[1, 2, 3, 4, 5]
+| moving_average(3)
+
+## stats-moving-stdev
+# task: the rolling deviation, how jittery each window is
+# also: rolling stdev window volatility
+[1, 2, 3, 4, 5]
+| moving_stdev(2)
+
+## stats-moving-max
+# task: the peak of each three-value window
+# also: rolling max window peak highest
+[3, 1, 4, 1, 5]
+| moving_max(3)
+
+## stats-moving-min
+# task: the floor of each three-value window
+# also: rolling min window lowest floor
+[3, 1, 4, 1, 5]
+| moving_min(3)
+
+## stats-fill-forward
+# task: carry the last value across the gaps
+# also: fill forward gaps missing impute nulls
+[1, null, 3, null, 5]
+| fill_forward
+
+## stats-correlation
+# task: do these two series move together
+# also: correlation related pearson together r
+[1, 2, 3, 4, 5]
+| correlation([2, 4, 5, 4, 5])
+
+## stats-covariance
+# task: how much these two series vary together
+# also: covariance joint spread together
+[1, 2, 3, 4, 5]
+| covariance([2, 4, 5, 4, 5])
+
+## stats-autocorrelation
+# task: does this series repeat itself, is there a cycle
+# also: autocorrelation seasonality cycle periodic repeat
+[1, 2, 3, 1, 2, 3]
+| autocorrelation
+
+## stats-skewness
+# task: is this distribution lopsided
+# also: skew lopsided asymmetric tail
+[1, 1, 1, 1, 10]
+| skewness
+
+## stats-kurtosis
+# task: how heavy are the tails of this distribution
+# also: kurtosis tails peaked outlier heavy
+[1, 2, 3, 4, 5, 6, 7, 8]
+| kurtosis
+
+## stats-normalize
+# task: rescale these numbers into the zero to one range
+# also: normalize minmax scale rescale unit
+[2, 4, 6]
+| normalize
+
+## stats-standardize
+# task: standardize to z-scores, how far each is from the mean
+# also: standardize zscore z-score center scale
+[2, 4, 4, 4, 5, 5, 7, 9]
+| standardize
+
+## stats-outliers
+# task: which of these values are outliers, more than three deviations out
+# also: outliers anomalies unusual weird suspicious
+[10, 12, 11, 9, 95, 11, 10]
+| standardize
+| . as $z
+| [10, 12, 11, 9, 95, 11, 10]
+| to_entries
+| map({value: .value, z: $z[.key]})
+| map(select(.z | isnan | not))
+| map(select(.z > 3 or .z < -3))
+
+## stats-histogram
+# task: bucket these response times and count each bucket
+# also: histogram buckets bin distribution tally
+[84, 91, 77, 412, 88, 95, 1902, 102, 88, 980]
+| map(. / 100 | floor | . * 100)
+| value_counts
+
+## stats-per-group
+# task: statistics of a field per group, all at once
+# also: per group by stats summarize each
+[{"svc": "orders", "dur": 84}, {"svc": "orders", "dur": 12}, {"svc": "pay", "dur": 400}, {"svc": "pay", "dur": 300}]
+| group_by(.svc)
+| map({svc: .[0].svc, count: length, mean: (map(.dur) | mean), max: (map(.dur) | max)})
+
+## stats-top-and-bottom
+# task: the extremes on both ends of the series
+# also: extremes both ends minmax range low high
+[84, 91, 77, 412, 88, 95, 1902, 102]
+| {Min: min, Max: max, Range: (max - min)}
+
+## stats-normal-check
+# task: how many of these values sit within one deviation
+# also: within one sigma normal share typical
+[10, 12, 11, 9, 8, 11, 10]
+| (standardize | map(select(. >= -1 and . <= 1)) | length) as $within
+| {Total: length, WithinOneSigma: $within}
+
+## stats-latency-grade
+# task: grade these response times: how many are fast, okay or slow
+# also: grade classify buckets fast slow latency sla
+[84, 91, 77, 412, 88, 95, 1902, 102, 88, 980]
+| map(if . < 100 then "fast" elif . < 500 then "okay" else "slow" end)
+| value_counts

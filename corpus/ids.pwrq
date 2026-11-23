@@ -1,0 +1,145 @@
+# IDs, tokens and randomness: uuidgen, passwords, jwt inspection,
+# punycode, base58, dice, sampling and shuffling.
+
+## ids-uuid4
+# task: generate a random uuid
+# also: uuid uuidgen guid random new
+uuid4
+
+## ids-uuid7
+# task: a time-ordered uuid, sortable by creation
+# also: uuid7 time sortable ordered uuidgen
+uuid7
+
+## ids-uuid-version
+# task: which uuid version is this
+# also: version check identify uuid kind
+"0198c123-7def-7000-8000-123456789abc"
+| uuid_version
+
+## ids-is-uuid
+# task: which of these are valid uuids
+# also: valid check parse uuid test
+["0198c123-7def-7000-8000-123456789abc", "not-a-uuid"]
+| map(is_uuid)
+
+## ids-uuid-count
+# task: ten fresh uuids at once
+# also: batch several many generate uuids
+[range(10)] | map(uuid4)
+
+## ids-nanoid
+# task: a short nanoid for a url
+# also: nanoid short id url tiny
+nanoid(21)
+
+## ids-nanoid-short
+# task: an even shorter id, eight characters
+# also: nanoid short tiny eight
+nanoid(8)
+
+## ids-random-string
+# task: a random sixteen-character string
+# also: random string token generate chars
+random_string(16)
+
+## ids-random-binary-string
+# task: a random string of just ones and zeros, thirty two bits
+# also: random binary bits charset ones zeros
+random_string(32; "01")
+
+## ids-random-password
+# task: a twenty character password with symbols
+# also: password generate random strong symbols
+random_string(20)
+
+## ids-random-hex-token
+# task: a random token in hex
+# also: token hex random generate opaque
+random_hex(24)
+
+## ids-random-int
+# task: roll a six-sided die
+# also: dice roll random int six game
+random_int(1; 6)
+
+## ids-random-float
+# task: a random number between ten and twenty
+# also: float random decimal between range
+random_float(10; 20)
+
+## ids-random-choice
+# task: pick one of these at random
+# also: choose pick random one select
+["monday", "tuesday", "wednesday", "thursday", "friday"]
+| random_choice
+
+## ids-sample-without-replacement
+# task: draw three winners from the list, without repeats
+# also: sample draw winners lottery three pick
+["ada", "bob", "cyd", "dee", "eve", "frank"]
+| sample(3)
+
+## ids-shuffle
+# task: shuffle this playlist
+# also: shuffle randomize mix order playlist deck
+["track1", "track2", "track3", "track4", "track5"]
+| shuffle
+
+## ids-random-file
+# task: pick one file from this directory at random
+# also: random pick choose file lucky
+# slot dir path = configs
+[get_childitem("{{dir}}") | select(.PwrqType == "Pwrq.FileSystem.File") | .Name]
+| random_choice
+
+## ids-jwt-decode
+# task: read the claims inside this jwt without verifying it
+# also: jwt token claims decode inspect header
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsImlhdCI6MTcwMDAwMDAwMH0.7dVf5qP_8k2xOq0Z7d2qY2A0-Yb3Q_H4qZq0qU6qOqI"
+| jwt_decode
+
+## ids-jwt-expiry
+# task: has this jwt expired yet
+# also: jwt expired expiry when check time
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsImlhdCI6MTcwMDAwMDAwMH0.7dVf5qP_8k2xOq0Z7d2qY2A0-Yb3Q_H4qZq0qU6qOqI"
+| jwt_decode
+| .payload.exp // 0
+| . < now
+
+## ids-jwt-structure
+# task: the header and payload of this jwt side by side
+# also: jwt header alg parts structure
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsImlhdCI6MTcwMDAwMDAwMH0.7dVf5qP_8k2xOq0Z7d2qY2A0-Yb3Q_H4qZq0qU6qOqI"
+| jwt_decode
+| {Header, Payload: (.payload | {sub, name, iat})}
+
+## ids-is-jwt
+# task: which of these strings look like jwts
+# also: looks like jwt check format bearer
+["eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln", "hello world"]
+| map(is_jwt)
+
+## ids-base58-encode
+# task: this text as base58, the bitcoin alphabet
+# also: base58 bitcoin encode flickr
+"hello world"
+| base58_encode
+
+## ids-base58-decode
+# task: decode this base58
+# also: base58 decode bitcoin flickr
+"StV1DL6CwTryKyV"
+| base58_decode
+
+## ids-punycode-encode
+# task: the punycode form of this international domain
+# also: punycode idn domain international encode
+"bücher.example"
+| punycode_encode
+
+## ids-punycode-decode
+# task: the human-readable form of this punycode domain
+# also: punycode decode idn unicode domain
+"xn--bcher-kva.example"
+| punycode_decode

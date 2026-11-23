@@ -1,0 +1,227 @@
+# Encode, decode and compress: the base64, xxd, url, html and gzip
+# stories, plus the real chains - a gzip blob pulled out of a log as
+# base64, decoded and decompressed in one line.
+
+## codecs-base64-encode
+# task: encode this text as base64
+# also: base64 encode btoa
+"hello world"
+| base64_encode
+
+## codecs-base64-decode
+# task: decode this base64
+# also: base64 decode atob
+"aGVsbG8gd29ybGQ="
+| base64_decode
+
+## codecs-base64-file
+# task: the base64 of a file's contents
+# also: base64 file encode attachment
+# slot file file = notes.txt
+"{{file}}"
+| base64_encode(true)
+
+## codecs-base64url-encode
+# task: url-safe base64, for tokens and filenames
+# also: base64url url safe unpadded jwt
+"hello: world?"
+| base64url_encode
+
+## codecs-base64url-decode
+# task: decode url-safe base64
+# also: base64url decode url safe
+"aGVsbG8gd29ybGQ_"
+| base64url_decode
+
+## codecs-is-base64
+# task: is this string valid base64 at all
+# also: check valid base64 test
+"aGVsbG8="
+| is_base64
+
+## codecs-base32-encode
+# task: encode as base32
+# also: base32 encode
+"hello"
+| base32_encode
+
+## codecs-base32-decode
+# task: decode base32
+# also: base32 decode
+"NBSWY3DP"
+| base32_decode
+
+## codecs-base85-encode
+# task: encode as ascii85
+# also: base85 ascii85 encode
+"hello"
+| base85_encode
+
+## codecs-base85-decode
+# task: decode ascii85
+# also: base85 ascii85 decode
+"BOu!rDZ"
+| base85_decode
+
+## codecs-hex-encode
+# task: this text as hex bytes
+# also: hex encode xxd hexdump
+"hello"
+| hex_encode
+
+## codecs-hex-decode
+# task: decode these hex bytes back to text
+# also: hex decode unhex
+"68656c6c6f"
+| hex_decode
+
+## codecs-hex-file
+# task: a hex dump of this file
+# also: hexdump xxd file bytes hex
+# slot file file = notes.txt
+"{{file}}"
+| hex_encode(true)
+
+## codecs-binary-encode
+# task: this text as ones and zeros
+# also: binary bits encode base2
+"hi"
+| binary_encode
+
+## codecs-binary-decode
+# task: decode these bits back into text
+# also: binary bits decode base2
+"01101000 01101001"
+| binary_decode
+
+## codecs-url-encode
+# task: percent-encode this for a url
+# also: urlencode percent escape encode uri
+"a b&c=d"
+| url_encode
+
+## codecs-url-decode
+# task: decode percent-encoding
+# also: urldecode percent unescape decode uri
+"a%20b%26c%3Dd"
+| url_decode
+
+## codecs-html-encode
+# task: escape this for safe html
+# also: html encode escape entities
+"<b>hi</b> & more"
+| html_encode
+
+## codecs-html-decode
+# task: unescape html entities
+# also: html decode unescape entities
+"&lt;b&gt;hi&lt;/b&gt; &amp; more"
+| html_decode
+
+## codecs-unicode-escape-text
+# task: escape every non-ascii character
+# also: unicode escape javascript nonascii
+"héllo wörld"
+| unicode_escape
+
+## codecs-rot13
+# task: rot13 this text
+# also: rot13 caesar rotate cipher shift13
+"hello world"
+| rot13
+
+## codecs-rot-n
+# task: rotate these letters by three places, a caesar shift
+# also: caesar rot shift rotate cipher
+"hello world"
+| rot(3)
+
+## codecs-gzip-roundtrip
+# task: compress this with gzip and get it back
+# also: gzip compress decompress round trip
+"hello hello hello hello"
+| gzip_compress
+| gzip_decompress
+
+## codecs-gzip-size
+# task: how much gzip saves on this text
+# also: gzip savings ratio compress size
+"hello hello hello hello hello hello hello hello"
+| gzip_compress
+| utf8bytelength
+| . as $packed
+| ("hello hello hello hello hello hello hello hello" | utf8bytelength) as $raw
+| {Raw: $raw, Packed: $packed, SavedPercent: (($raw - $packed) * 100 / $raw | round_to(0))}
+
+## codecs-zlib-roundtrip
+# task: compress with zlib and decompress again
+# also: zlib compress decompress round trip
+"repeat repeat repeat"
+| zlib_compress
+| zlib_decompress
+
+## codecs-deflate-raw
+# task: raw deflate compression, no wrapper
+# also: deflate raw compress http encoding
+"deflate me please"
+| deflate_compress
+| deflate_decompress
+
+## codecs-gzip-then-base64
+# task: compress and encode this for putting in a payload
+# also: gzip base64 transport embed pack blob
+"payload: the quick brown fox jumped over the lazy dog twice"
+| gzip_compress
+| base64_encode
+
+## codecs-base64-then-gunzip
+# task: decode a base64 gzip blob from a log and read it
+# also: decode decompress blob unwrap unzip log
+"H4sIAAAAAAAAAyvJSFUoLM1MzlZIKsovz1NIy69QyCrNLUhNUcgvSy1SKAHK5yRWVSqk5KcrlJRnJqcCANlkAiAyAAAA"
+| base64_decode
+| gzip_decompress
+
+## codecs-gzip-file-verify
+# task: decompress this file and hash it to be sure what is inside
+# also: verify checksum gunzip file sha256
+# slot file file = notes.txt
+read_bytes("{{file}}")
+| gzip_compress
+| gzip_decompress
+| sha256
+
+## codecs-encode-cycle
+# task: take this through base64 and hex and back again
+# also: round trip chain multi encode decode
+"round the world"
+| base64_encode
+| hex_encode
+| hex_decode
+| base64_decode
+
+## codecs-which-are-base64
+# task: which of these strings are valid base64 and which are not
+# also: valid check which base64 several
+["aGVsbG8=", "not base64 !!", "Y2F0"]
+| map(is_base64)
+
+## codecs-bytes-length-encoded
+# task: how big is this text once base64 encoded
+# also: size length after encode base64 overhead
+"a short note that will be encoded"
+| base64_encode
+| utf8bytelength
+
+## codecs-two-way-print
+# task: this text side by side with its base64
+# also: both show compare original encoded
+"the quick brown fox"
+| . as $plain
+| base64_encode
+| {Plain: $plain, Base64: .}
+
+## codecs-is-base64url
+# task: is this valid url-safe base64
+# also: base64url valid check unpadded
+"aGVsbG8_"
+| is_base64url

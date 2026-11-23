@@ -1,0 +1,473 @@
+# Filesystem inventory: the ls, find, du, stat and file stories. Entries
+# use the typed .PwrqType discriminator rather than Mode strings, which
+# keeps them working wherever the platform spells permissions differently.
+
+## fs-list-files
+# task: list the files in a directory
+# also: ls dir contents what is here show me
+# slot dir path = .
+get_childitem("{{dir}}")
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| .Name
+
+## fs-list-dirs
+# task: list the subdirectories (folders) in a directory
+# also: subdirs subdirectories folders dirs ls -d
+# slot dir path = .
+get_childitem("{{dir}}")
+| select(.PwrqType == "Pwrq.FileSystem.Directory")
+| .Name
+
+## fs-list-names-only
+# task: just the names of everything in a directory, one per line
+# also: ls -1 names only plain
+# slot dir path = .
+get_childitem("{{dir}}")
+| .Name
+
+## fs-list-everything-recursive
+# task: every file under a directory, including subfolders
+# also: walk tree all paths find deep recursive ls -R
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| .FullName
+
+## fs-list-hidden
+# task: list hidden files and dotfiles
+# also: dotfiles dot hidden ls -a force
+# slot dir path = .
+get_childitem("{{dir}}"; {Force: true})
+| select(.IsHidden)
+| .Name
+
+## fs-list-long
+# task: a long listing of a directory, like ls -l as a table
+# also: ls -l long listing permissions details table
+# slot dir path = .
+[get_childitem("{{dir}}") | {Mode, LastWriteTime, Length, Name}]
+| format_table(.)
+
+## fs-list-by-extension
+# task: list the files of one type, such as the txt files
+# also: extension type kind suffix ls *.txt filter glob
+# slot dir path = .
+# slot ext ext = txt
+get_childitem("{{dir}}"; {Recurse: true, Filter: "*.{{ext}}"})
+| .FullName
+
+## fs-list-multiple-types
+# task: list the files of several types at once, like txt and csv together
+# also: include several extensions multiple types
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true, Include: ["*.txt", "*.csv", "*.json"]})
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| .FullName
+
+## fs-list-excluding
+# task: list files but skip the logs and videos
+# also: exclude ignore skip not these
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true, Exclude: ["*.log", "*.mp4"]})
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| .FullName
+
+## fs-list-depth-limited
+# task: list files to a limited depth, two levels deep
+# also: maxdepth levels shallow depth find -maxdepth
+# slot dir path = .
+# slot depth number = 2
+[find("{{dir}}"; "file"; {{depth}})]
+| sort
+
+## fs-list-dirs-depth
+# task: the directories under a path, only one level deep
+# also: subdirs depth shallow find -type d
+# slot dir path = .
+[find("{{dir}}"; "dir"; 1)]
+| sort
+
+## fs-count-files
+# task: how many files are under a directory
+# also: count number total files ls | wc -l
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| length
+
+## fs-count-dirs
+# task: how many folders are under a directory
+# also: count subdirectories folders number
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.Directory")]
+| length
+
+## fs-count-by-extension
+# task: count the files by extension, how many of each kind
+# also: histogram breakdown types per extension tally
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| count_by("Extension")
+
+## fs-total-size
+# task: the total size of a directory, its disk usage
+# also: du -sh disk usage total how big sum
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | .Length]
+| add
+| human_bytes
+
+## fs-size-by-type
+# task: which file types use the most space in a tree
+# also: du by extension breakdown size per type
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| group_by(.Extension)
+| map({Extension: (.[0].Extension // "(none)"), Files: length, Bytes: (map(.Length) | add)})
+| sort_by(-.Bytes)
+| map(.Bytes |= human_bytes)
+
+## fs-subdir-sizes
+# task: the size of each subfolder, biggest first
+# also: du -sh * per folder subdirectory sizes
+# slot dir path = .
+[get_childitem("{{dir}}") | select(.PwrqType == "Pwrq.FileSystem.Directory")]
+| map({Folder: .Name, Bytes: ([get_childitem(.FullName; {Recurse: true}) | .Length] | add // 0)})
+| sort_by(-.Bytes)
+| map(.Bytes |= human_bytes)
+
+## fs-subdir-file-count
+# task: how many files each subfolder holds
+# also: files per folder count per directory
+# slot dir path = .
+[get_childitem("{{dir}}") | select(.PwrqType == "Pwrq.FileSystem.Directory")]
+| map({Folder: .Name, Files: ([get_childitem(.FullName; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")] | length)})
+| sort_by(-.Files)
+
+## fs-largest-files
+# task: the largest files in a tree, biggest first
+# also: biggest ls -S sort by size space hogs head
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| sort_by(-.Length)
+| .[:{{n}}]
+| map({Path: .FullName, Size: (.Length | human_bytes)})
+
+## fs-smallest-files
+# task: the smallest non-empty files in a tree
+# also: tiniest least size small
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)]
+| sort_by(.Length)
+| .[:{{n}}]
+| map({Path: .FullName, Size: (.Length | human_bytes)})
+
+## fs-newest-files
+# task: the most recently modified files, newest first
+# also: latest recently changed ls -t touched
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| sort_by(.LastWriteTime | date_to_timestamp)
+| reverse
+| .[:{{n}}]
+| map({Path: .FullName, Modified: .LastWriteTime})
+
+## fs-oldest-files
+# task: the oldest files, least recently modified first
+# also: stale ancient oldest ls -tr
+# slot dir path = .
+# slot n number = 10
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| sort_by(.LastWriteTime | date_to_timestamp)
+| .[:{{n}}]
+| map({Path: .FullName, Modified: .LastWriteTime})
+
+## fs-recent-files
+# task: files modified in the last few days
+# also: changed updated new find -mtime recent week
+# slot dir path = .
+# slot days days = 7
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| select((.LastWriteTime | date_to_timestamp) > now - {{days}} * 86400)
+| {Path: .FullName, Modified: .LastWriteTime}
+
+## fs-older-than
+# task: files not touched in more than a month
+# also: stale old find -mtime +30 aging cleanup candidates
+# slot dir path = .
+# slot days days = 30
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| select((.LastWriteTime | date_to_timestamp) < now - {{days}} * 86400)
+| {Path: .FullName, Modified: .LastWriteTime}
+
+## fs-modified-today
+# task: files changed since midnight today
+# also: today since start of day fresh
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| select((.LastWriteTime | date_to_timestamp) > (now | start_of_day))
+| .FullName
+
+## fs-bigger-than
+# task: find files larger than a size such as 500B
+# also: bigger over above find -size exceeding
+# slot dir path = .
+# slot size size = 500B
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Length > {{size}})
+| {Path: .FullName, Size: (.Length | human_bytes)}
+
+## fs-smaller-than
+# task: find files smaller than a size
+# also: under below tiny find -size -
+# slot dir path = .
+# slot size size = 100B
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+| select(.Length < {{size}})
+| {Path: .FullName, Size: (.Length | human_bytes)}
+
+## fs-empty-files
+# task: find the empty files, zero bytes long
+# also: zero byte blank size 0
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length == 0)
+| .FullName
+
+## fs-file-exists
+# task: check whether a file exists
+# also: exists present test -e is there
+# slot file file = notes.txt
+test_path("{{file}}")
+
+## fs-dir-exists
+# task: check whether a path is a directory that exists
+# also: is it a folder test -d directory check
+# slot file file = configs
+test_path("{{file}}"; "Container")
+
+## fs-file-details
+# task: the details of one file, its size, times and permissions
+# also: stat one file details metadata
+# slot file file: Which file? = notes.txt
+get_childitem(".")
+| select(.Name == "{{file}}")
+| {Name, Size: (.Length | human_bytes), Created: .CreationTime, Modified: .LastWriteTime, Mode}
+
+## fs-find-named
+# task: find files whose name contains some text
+# also: called named like matching filename
+# slot dir path = .
+# slot pattern pattern: What text should the file name contain? = dup
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| select(.Name | test("{{pattern}}"; "i"))
+| .FullName
+
+## fs-dupes-content
+# task: find duplicate files by their content, by hash
+# also: dupes identical copies same md5sum dedupe find
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true})
+  | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+  | {Path: .FullName, Hash: (.FullName | sha256(true))}]
+| group_by(.Hash)
+| map(select(length > 1) | map(.Path))
+
+## fs-dupes-name
+# task: find files that share the same name in different folders
+# also: same name twice conflicts
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| group_by(.Name)
+| map(select(length > 1) | {Name: .[0].Name, Copies: map(.FullName)})
+
+## fs-dupes-report
+# task: how much space duplicate files waste
+# also: wasted reclaim dupes space
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true})
+  | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+  | {Path: .FullName, Length, Hash: (.FullName | sha256(true))}]
+| group_by(.Hash)
+| map(select(length > 1))
+| map({Files: map(.Path), Wasted: ((length - 1) * .[0].Length | human_bytes)})
+
+## fs-binary-files
+# task: list the binary, non-text files in a tree
+# also: binary non-text executable media
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+| select(read_bytes(.FullName) | is_binary)
+| .FullName
+
+## fs-text-files
+# task: list the plain text files in a tree
+# also: utf8 readable text non-binary
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+| select(read_bytes(.FullName) | is_utf8)
+| .FullName
+
+## fs-file-types
+# task: what kind of file each of these is, by its magic bytes
+# also: file command detect identify magic sniff
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)]
+| map({Path: .FullName, Type: (.FullName | read_bytes | file_type)})
+| .[:10]
+
+## fs-entropy-rank
+# task: rank the files by entropy, the most random first
+# also: entropy random packed compressed suspicious
+# slot dir path = .
+# slot n number = 5
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)]
+| map({Path: .FullName, Entropy: (.FullName | entropy(true))})
+| sort_by(-.Entropy)
+| .[:{{n}}]
+
+## fs-entropy-high
+# task: find high-entropy files that may be encrypted or packed
+# also: packed encrypted high entropy suspicious malware
+# slot dir path = .
+# slot threshold number: Above what entropy? = 7
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+| {Path: .FullName, Entropy: (.FullName | entropy(true))}
+| select(.Entropy > {{threshold}})
+
+## fs-readonly-files
+# task: list the read-only files
+# also: locked immutable readonly permissions
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.IsReadOnly)
+| .FullName
+
+## fs-archives-in-tree
+# task: find the archive files, zips and tars, in a tree
+# also: zip tar gz archives backups compressed bundles
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Extension | ascii_downcase | IN(".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz"))
+| {Path: .FullName, Size: (.Length | human_bytes)}
+
+## fs-media-files
+# task: list the pictures and video files in a tree
+# also: images photos videos jpg png mp4 media clips
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".mp4", ".mov", ".mkv", ".webm"))
+| .FullName
+
+## fs-path-basename
+# task: the file name part of a path
+# also: basename name part last component
+# slot file file = /tmp/data/file.txt
+"{{file}}"
+| basename
+
+## fs-path-dirname
+# task: the directory part of a path
+# also: dirname folder part parent directory
+# slot file file = /tmp/data/file.txt
+"{{file}}"
+| dirname
+
+## fs-path-stem
+# task: a file name without its extension
+# also: stem name minus extension prefix
+# slot file file = /tmp/data/file.txt
+"{{file}}"
+| stem
+
+## fs-path-extension
+# task: a path's file extension, the part after the final dot
+# also: extension suffix type
+# slot file file = /tmp/data/file.txt
+"{{file}}"
+| file_extension
+
+## fs-path-absolute
+# task: which of these paths are absolute
+# also: absolute relative full check
+["/tmp/x", "corpus/y", "/home/user/z"]
+| map(is_absolute)
+
+## fs-path-is-dir
+# task: which of these paths are directories
+# also: is it a folder dir check test -d
+["configs", "notes.txt", "src"]
+| map(is_dir_path)
+
+## fs-path-normalize
+# task: clean up a messy path with doubled slashes and dot segments
+# also: normalize canonical clean realpath-ish
+# slot file file = /a//b/../c
+"{{file}}"
+| normalize_path
+
+## fs-path-relative
+# task: a path as relative to some base directory
+# also: relative to against base
+# slot file file = /home/user/notes/x.txt
+# slot base file: Relative to which directory? = /home/user
+"{{file}}"
+| relative_path("{{base}}")
+
+## fs-path-expand-home
+# task: expand the tilde in a path to the home directory
+# also: tilde home expand ~
+# slot file file = ~/notes/x.txt
+"{{file}}"
+| expand_home
+
+## fs-home-dir
+# task: where is my home directory
+# also: home tilde user folder
+home_dir
+
+## fs-path-join
+# task: join a directory and a file name into one path
+# also: combine concatenate path join
+# slot dir path = configs
+# slot name file = app.ini
+join_path("{{dir}}"; "{{name}}")
+
+## fs-path-split
+# task: split a path into its directory, name and extension
+# also: break apart pieces components split_path
+# slot file file = /tmp/data/file.txt
+split_path("{{file}}")
+
+## fs-path-with-extension
+# task: the same file name with a different extension
+# also: rename change extension swap suffix
+# slot file file = report.txt
+# slot ext ext = md
+"{{file}}"
+| with_extension(".{{ext}}")
+
+## fs-path-has-extension
+# task: which of these file names have an extension at all
+# also: has extension dot suffix check
+["a.txt", "Makefile", "b.json"]
+| map(has_extension)
+
+## fs-rename-extension
+# task: rename every file of one type in a folder to another extension
+# also: batch rename change convert extension move
+# slot dir path = a
+# slot ext ext = txt
+# slot to ext: Rename to which extension? = md
+[get_childitem("{{dir}}"; {Recurse: true, Filter: "*.{{ext}}"}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| map(move_item(.FullName; .FullName | with_extension(".{{to}}")))

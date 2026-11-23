@@ -1,0 +1,312 @@
+# Numbers, units, money and geography: the seq, factor, numfmt, bc and
+# unit-conversion stories, plus the loan and interest arithmetic and the
+# great-circle geometry.
+
+## num-to-base
+# task: 42 in hexadecimal
+# also: base radix hex convert render
+42
+| to_base(16)
+
+## num-to-binary
+# task: 255 as ones and zeros
+# also: binary base2 bits convert
+255
+| to_base(2)
+
+## num-from-base
+# task: what number is the hex 2a
+# also: from base parse hex radix read
+"2a"
+| from_base(16)
+
+## num-hex-number
+# task: this number as 0x-style hex
+# also: hex 0x hexnumber format
+255
+| to_hex_number
+
+## num-hex-parse
+# task: the ff hex string back into a number
+# also: hex parse from read number
+"ff"
+| from_hex_number
+
+## num-seq
+# task: the numbers one through ten
+# also: seq range sequence count list
+[range(1; 11)]
+
+## num-seq-step
+# task: count by fives to fifty
+# also: step skip stride fives sequence
+[range(0; 51; 5)]
+
+## num-is-even
+# task: which of these are even
+# also: even parity check odd numbers
+[2, 3, 4, 5]
+| map(is_even)
+
+## num-is-prime
+# task: is 97 a prime number
+# also: prime check divisible factors
+97
+| is_prime
+
+## num-primes-in-range
+# task: the primes under fifty
+# also: primes list sieve below range
+[range(2; 50)]
+| map(select(is_prime))
+
+## num-next-prime
+# task: the first prime after 1000
+# also: next prime following after bigger
+1000
+| next_prime
+
+## num-prime-factors
+# task: factor 360 into primes
+# also: factor prime factors decomposition divide
+360
+| prime_factors
+
+## num-gcd
+# task: the greatest common divisor of 12 and 18
+# also: gcd greatest common divisor euclid
+12
+| gcd(18)
+
+## num-lcm
+# task: the least common multiple of 4 and 6
+# also: lcm least common multiple
+4
+| lcm(6)
+
+## num-factorial
+# task: 10 factorial
+# also: factorial bang product sequence
+10
+| factorial
+
+## num-fibonacci
+# task: the first ten fibonacci numbers
+# also: fibonacci sequence golden series
+[range(1; 11)]
+| map(fibonacci)
+
+## num-digit-sum
+# task: the sum of the digits of 9875
+# also: digit sum digits add number
+9875
+| digit_sum
+
+## num-hamming-weight
+# task: how many one bits in 255
+# also: ones bits popcount binary hamming
+255
+| hamming_weight
+
+## num-combinations
+# task: how many ways to choose 3 of 10
+# also: combinations choose ncr binomial pick
+10
+| combinations_count(3)
+
+## num-permutations
+# task: how many ways to arrange 3 of 10 in order
+# also: permutations arrange ordered npr
+10
+| permutations_count(3)
+
+## num-round-places
+# task: pi to four decimal places
+# also: round decimals places precision pi
+3.14159265
+| round_to(4)
+
+## num-round-thousands
+# task: round this to the nearest thousand
+# also: round thousands negative places group
+1234567
+| round_to(-3)
+
+## num-fixed
+# task: always show two decimals, like money
+# also: fixed decimals format money trailing to_fixed
+3.1
+| to_fixed(2)
+
+## num-clamp
+# task: keep this value between 0 and 10
+# also: clamp bound limit range cap constrain
+99
+| clamp(0; 10)
+
+## num-lerp
+# task: the point a third of the way from 0 to 30
+# also: lerp interpolate between blend mix
+0
+| lerp(30; 0.33)
+
+## num-rescale
+# task: rescale 5 from the 0 to 10 range into 0 to 100
+# also: rescale remap proportion map range convert
+5
+| rescale(0; 10; 0; 100)
+
+## num-sign
+# task: is this positive, negative or zero
+# also: sign direction positive negative zero
+-42
+| sign
+
+## num-percentage
+# task: what percent is 40 of 200
+# also: percent share portion of percentage
+40
+| percentage(200)
+
+## num-pct-change
+# task: the percent change from 80 to 100
+# also: growth change delta percent increase
+80
+| pct_change(100)
+
+## num-human-bytes
+# task: 1048576 bytes in readable units
+# also: human bytes readable kiB MiB size
+1048576
+| human_bytes
+
+## num-human-number
+# task: 1500 as 1.5k
+# also: human number compact k m short
+1500
+| human_number
+
+## num-parse-size
+# task: how many bytes is 1.5 MiB
+# also: parse size units convert MiB bytes
+"1.5 MiB"
+| parse_size
+
+## num-group-digits
+# task: put thousand separators in this number
+# also: group thousands commas separate format
+1234567
+| group_digits
+
+## num-currency
+# task: this amount as US dollars
+# also: currency dollars money format usd
+1234.5
+| format_currency("USD")
+
+## num-ordinal
+# task: 21 as a position, like twenty-first
+# also: ordinal position rank st nd rd th
+21
+| ordinal
+
+## num-unit-temperature
+# task: 20 celsius in fahrenheit
+# also: convert celsius fahrenheit temperature units weather
+20
+| convert_unit("C"; "F")
+
+## num-unit-distance
+# task: 5 miles in kilometers
+# also: convert miles km distance units metric
+convert_unit(5; "mi"; "km")
+
+## num-unit-time
+# task: 90 minutes in hours
+# also: convert minutes hours time units duration
+90
+| convert_unit("min"; "h")
+
+## num-simple-interest
+# task: simple interest on 100 at 10 percent for 3 years
+# also: interest simple loan rate annual
+simple_interest(100; 0.1; 3)
+
+## num-compound-interest
+# task: compound interest on 100 at 10 percent over 10 years
+# also: compound interest growth annually
+compound_interest(100; 0.1; 10)
+
+## num-future-value
+# task: what 100 invested at 10 percent is worth in 10 years
+# also: future value invest worth growth fv
+future_value(100; 0.1; 10)
+
+## num-present-value
+# task: what 259.37 promised in 10 years is worth today at 10 percent
+# also: present value discount pv today worth
+present_value(259.37; 0.1; 10)
+
+## num-monthly-payment
+# task: the monthly payment on a 10000 loan at 6 percent over 36 months
+# also: loan mortgage monthly payment amortize installment
+monthly_payment(10000; 0.06; 36)
+
+## num-npv
+# task: the net present value of these cash flows at 10 percent
+# also: npv cash flows discount evaluate project
+net_present_value([-100, 50, 60]; 0.1)
+
+## num-cagr
+# task: the yearly growth rate from 100 to 200 in one year
+# also: cagr growth rate annual compound yearly
+cagr(100; 200; 1)
+
+## num-haversine
+# task: the distance from london to new york
+# also: distance great circle haversine km miles geo
+haversine_distance(51.5007; -0.1246; 40.7128; -74.0060)
+
+## num-bearing
+# task: which way is san francisco from los angeles
+# also: bearing direction compass heading angle
+bearing(37.7749; -122.4194; 34.0522; -118.2437)
+
+## num-geohash-encode
+# task: the geohash of this point, six characters
+# also: geohash encode location point grid
+geohash_encode(42.6; -5.6; 6)
+
+## num-geohash-decode
+# task: where is the geohash ezs42
+# also: geohash decode location cell area
+"ezs42"
+| geohash_decode
+
+## num-parse-coords
+# task: read this coordinate pair text into numbers
+# also: coordinates parse lat lon point
+"51.5007, -0.1246"
+| parse_coords
+
+## num-geo-midpoint
+# task: the point halfway between these two places
+# also: midpoint middle between average geo
+geo_midpoint(0; 0; 0; 10)
+
+## num-within-radius
+# task: is this point within a kilometer of that one
+# also: nearby close radius within distance check
+within_radius(51.5; -0.12; 51.5007; -0.1246; 1)
+
+## num-parity
+# task: which of these numbers are odd
+# also: odd parity even check numbers
+[2, 3, 4, 5]
+| map(is_odd)
+
+## num-power-of-two
+# task: which of these are powers of two
+# also: power of two pow2 binary round check
+[1, 2, 3, 8, 16, 20]
+| map(is_power_of_two)

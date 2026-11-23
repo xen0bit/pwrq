@@ -1,0 +1,70 @@
+# Finding your way around pwrq itself: what cmdlets exist, what a
+# cmdlet does, and what its options are. The apropos, help and
+# Get-Command stories.
+
+## meta-count-cmdlets
+# task: how many cmdlets does pwrq have
+# also: count total functions available vocabulary
+[get_command]
+| length
+
+## meta-list-names
+# task: the names of the first cmdlets
+# also: list names functions vocabulary all
+[get_command]
+| map(.Name)
+| .[:10]
+
+## meta-by-category
+# task: how many cmdlets are in each category
+# also: categories groups count per types kinds
+[get_command]
+| count_by("Category")
+| to_entries
+| sort_by(-.value)
+
+## meta-categories
+# task: the category names, all of them
+# also: list categories families groups
+[get_command]
+| map(.Category)
+| unique
+
+## meta-find-by-keyword
+# task: find the cmdlets about archives
+# also: search find cmdlets keyword topic apropos what can
+[get_command]
+| map(select(.Category == "Archives"))
+| map({Name, Description})
+
+## meta-search-descriptions
+# task: which cmdlets mention entropy in their help
+# also: search descriptions help text find grep cmdlets
+[get_command]
+| map(select(.Description | test("entropy"; "i")))
+| map(.Name)
+
+## meta-help-one
+# task: what does the find cmdlet do
+# also: help describe explain man one cmdlet
+get_help("find")
+
+## meta-command-detail
+# task: everything about select_string, its arity and options
+# also: detail options arity signature one command
+get_command("select_string")
+| {Name, Description, MinArgs, MaxArgs, Options}
+
+## meta-command-examples
+# task: the examples for the get_childitem cmdlet
+# also: examples usage howto one cmdlet
+get_command("get_childitem")
+| .Examples
+
+## meta-streaming-cmdlets
+# task: which cmdlets stream their output
+# also: streaming emits one by one which functions
+[get_command]
+| map(select(.Streaming))
+| map(.Name)
+| .[:10]

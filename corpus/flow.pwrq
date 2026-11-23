@@ -1,0 +1,248 @@
+# End-to-end workflows: the multi-stage reports and cleanups that make
+# the tool worth reaching for, each composing cmdlets from several
+# domains at once. Entries that move or rewrite files run last.
+
+## flow-first-look
+# task: a first look at this directory: how many files, what kinds, the biggest and the newest
+# also: overview report summary snapshot what is here quick
+# slot dir path = .
+([get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]) as $files
+| {Files: ($files | length),
+   ByExtension: ($files | count_by("Extension") | to_entries | sort_by(-.value) | from_entries),
+   Biggest: ($files | sort_by(-.Length) | .[0] | {Name, Size: (.Length | human_bytes)}),
+   Newest: ($files | sort_by(.LastWriteTime) | last | {Name, Modified: .LastWriteTime})}
+
+## flow-disk-report
+# task: what is using the disk: size per file type, saved as a CSV report
+# also: disk usage report csv save export du by type
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| group_by(.Extension)
+| map({Extension: (.[0].Extension // "(none)"), Files: length, TotalBytes: (map(.Length) | add)})
+| sort_by(-.TotalBytes)
+| map(.TotalBytes |= human_bytes)
+| tojson
+| out_file("disk-report.json")
+
+## flow-cleanup-candidates
+# task: cleanup candidates: files that are big and have not been touched in a month
+# also: cleanup stale old big candidates reclaim delete
+# slot dir path = .
+# slot days days = 30
+# slot size size = 1KB
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > {{size}})
+| select((.LastWriteTime | date_to_timestamp) < now - {{days}} * 86400)
+| {Path: .FullName, Size: (.Length | human_bytes), LastSeen: .LastWriteTime}
+
+## flow-log-triage
+# task: a triage table of errors per service from the structured log
+# also: errors per service triage table grouped report
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+| group_by(.svc)
+| map({Service: .[0].svc, Errors: (map(select(.level == "error")) | length), SlowestMs: (map(.dur_ms) | max)})
+| sort_by(-.Errors)
+| format_table(.)
+
+## flow-log-to-csv
+# task: the access log parsed and exported as CSV
+# also: access log export csv convert save
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<ip>\\S+) \\S+ \\S+ \\[(?<ts>[^\\]]+)\\] \"(?<method>\\w+) (?<path>\\S+) [^\"]+\" (?<status>\\d{3}) (?<bytes>\\d+)"))
+| map([.ip, .ts, .method, .path, .status, .bytes])
+| csv_stringify
+| out_file("access-export.csv")
+
+## flow-security-audit
+# task: a code audit: findings per rule, saved as a report
+# also: security audit findings report save rules count
+# slot dir path = src
+[invoke_pwrgrep("{{dir}}"; ["go", "python"])]
+| count_by("RuleId")
+| to_entries
+| sort_by(-.value)
+| map({Rule: .key, Findings: .value})
+| tojson
+| out_file("audit-report.json")
+
+## flow-api-harvest
+# task: pull items from an API, keep the good ones, and save them
+# also: api fetch harvest filter save export etl
+# slot url url = https://api.github.com
+invoke_rest_method("{{url}}")
+| to_entries
+| map(select(.key | endswith("_url") | not))
+| from_entries
+| tojson
+| out_file("api-harvest.json")
+
+## flow-dedupe-move-aside
+# task: find duplicate files and move the extras into a dupes folder
+# also: dupes duplicates move aside dedupe reclaim cleanup
+# slot dir path = b
+[get_childitem("{{dir}}"; {Recurse: true})
+  | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+  | {Path: .FullName, Hash: (.FullName | sha256(true))}] as $files
+| ($files | group_by(.Hash) | map(select(length > 1)) | flatten | map(.Path)) as $dupes
+| ($dupes | length) as $n
+| mkdir("dupes")
+| {DuplicatesFound: $n, Paths: $dupes}
+| (if $n > 0 then ($dupes[1:] | map(move_item(.; "dupes/\(. | basename)"))) else . end)
+
+## flow-organize-downloads
+# task: sort this folder's files into subfolders by extension
+# also: organize tidy sort downloads by type folders
+# slot dir path = a
+mkdir("{{dir}}/text")
+| [get_childitem("{{dir}}") | select(.PwrqType == "Pwrq.FileSystem.File" and .Extension == ".txt")]
+| map(move_item(.FullName; "{{dir}}/text/\(.Name)"))
+
+## flow-config-backup
+# task: back up the config folder with today's date in the name, and hash what went in
+# also: backup config archive tar date stamp manifest
+# slot dir path = configs
+compress_archive("{{dir}}"; "configs-\(now | todate | .[0:10]).zip")
+| . as $packed
+| {Archive: $packed.FullName,
+   FilesInside: (read_archive($packed.FullName) | length),
+   PackedBytes: ($packed.Length | human_bytes)}
+
+## flow-contact-list
+# task: every email address in this tree, deduplicated, as a CSV
+# also: contacts emails harvest extract dedupe save
+# slot dir path = .
+[select_string("{{dir}}"; "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}") | .Line]
+| map(extract_emails)
+| flatten
+| unique
+| map([.])
+| csv_stringify
+| out_file("contacts.csv")
+
+## flow-word-frequency-tree
+# task: word counts across every text file in this tree
+# also: words frequency tree corpus all texts
+# slot dir path = .
+[find("{{dir}}"; "file") | select(endswith(".txt")) | cat]
+| join(" ")
+| [splits("\\W+") | ascii_downcase | select(length > 2)]
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:5]
+
+## flow-encoding-sweep
+# task: which files here are not utf-8 text
+# also: encoding utf8 sweep binary non-text find
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+| select(read_bytes(.FullName) | is_utf8 | not)
+| {Path: .FullName, Type: (.FullName | read_bytes | file_type)}
+
+## flow-extend-users
+# task: read the users file, check the emails, and save an annotated copy
+# also: users validate annotate enrich save transform
+# slot file file = users.json
+cat("{{file}}")
+| fromjson
+| map(. + {emailValid: (.email | is_email), ageYears: (.signup | age_in_years)})
+| tojson
+| out_file("users-annotated.json")
+
+## flow-health-snapshot
+# task: a health snapshot of this machine: processes, memory hogs and the time
+# also: health snapshot status report machine system
+{When: (now | todate),
+ TopMemory: ([get_process] | sort_by(-.WorkingSet) | .[:3] | map({Name, Memory: (.WorkingSet | human_bytes)})),
+ ProcessCount: ([get_process] | length)}
+
+## flow-durations-report
+# task: response time statistics per service, as a table
+# also: durations latency per service stats table report
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| summarize_by("svc"; "dur_ms")
+
+## flow-download-verify
+# task: download a page and record its checksum for later comparison
+# also: download verify checksum save hash record
+# slot url url = https://example.com
+invoke_web_request("{{url}}"; {OutFile: "downloaded.html"})
+| {StatusCode, Sha256: ("downloaded.html" | sha256(true))}
+
+## flow-verify-download
+# task: check the downloaded copy against the checksum it should have
+# also: verify download checksum compare integrity
+("downloaded.html" | sha256(true)) as $now
+| {File: "downloaded.html", StillSame: ($now == ("downloaded.html" | sha256(true)))}
+
+## flow-rename-dated
+# task: rename these files to start with their modified date
+# also: rename date stamp prefix files organize photos
+# slot dir path = a
+[get_childitem("{{dir}}") | select(.PwrqType == "Pwrq.FileSystem.File")]
+| map(.LastWriteTime | .[0:10]) as $dates
+| [get_childitem("{{dir}}") | select(.PwrqType == "Pwrq.FileSystem.File")]
+| to_entries
+| map(. as $e | move_item($e.value.FullName; "{{dir}}/\($dates[$e.key])-\($e.value.Name)"))
+
+## flow-release-diff
+# task: what changed between the shipped versions and the current ones
+# also: releases versions diff compare shipped current
+["1.9.0", "1.10.0", "2.0.0"]
+| compare_object(.; ["1.9.0", "1.10.0", "2.1.0"])
+
+## flow-archive-sweep
+# task: extract every archive here and search inside all of them
+# also: archives extract sweep search inside unpack all
+# slot pattern pattern: What should be searched for? = fox
+mkdir("sweeped")
+| [find("."; "file") | select(test("\\.(zip|tar|gz)$"))]
+| map(expand_archive(.; "sweeped"))
+| select_string("sweeped"; "{{pattern}}")
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## flow-photo-rank
+# task: rank the photos in this folder by how likely they show something
+# also: photos rank images rate likely model vision d1
+# slot dir path = img
+# slot subject phrase: What should the photos show? = a landscape
+[get_childitem("{{dir}}")
+  | select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png"))
+  | {Name, Score: invoke_systemone(null; {q: {type: "noul", instructions: "Does the image show {{subject}}?"}}; {Media: [.FullName]}).q.noul}]
+| sort_by(-.Score)
+
+## flow-log-weekly-summary
+# task: log entries per day of the week, a weekly rhythm report
+# also: weekly summary rhythm per weekday days grouped
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+| map(.ts | weekday)
+| value_counts
+
+## flow-tree-inventory-sqlite
+# task: inventory this folder into a sqlite table for later queries
+# also: inventory sqlite save store table files record
+# slot file file: Which database should hold it? = inventory.db
+[get_childitem(".") | select(.PwrqType == "Pwrq.FileSystem.File") | {Name, Extension, Bytes: .Length, Modified: .LastWriteTime}]
+| out_sqlite("{{file}}"; "inventory")
+| .RowCount
+
+## flow-annotated-media-list
+# task: a media inventory with types and sizes, sorted biggest first
+# also: media inventory types sizes sorted list report
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true})
+  | select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png", ".mp4", ".mkv", ".webm"))
+  | {Name, Type: (.FullName | read_bytes | file_type), Size: (.Length | human_bytes)}]
+| sort_by(-(.Size | parse_size))

@@ -1,0 +1,72 @@
+# Chained interactions anchored on the system: the process table and the
+# shell, crossing into the filesystem, sqlite, statistics, thresholds and
+# the network.
+
+## chain-sys-binary-exists
+# task: the busiest processes, and whether their binaries are on disk
+# also: processes binary exists path check files top
+[get_process]
+| sort_by(-.WorkingSet)
+| .[:5]
+| map({Name, Path, BinaryPresent: ((.Path // "") | if length > 0 then test_path(.) else false end)})
+
+## chain-sys-snapshot-db
+# task: land a process snapshot in a database
+# also: process snapshot sqlite store save inventory db
+[get_process]
+| map({Id, Name, CPU, WorkingSet})
+| out_sqlite("processes.db"; "snapshot")
+| .RowCount
+
+## chain-sys-cpu-stats
+# task: statistics of cpu usage across all processes
+# also: cpu usage summary stats spread processes
+[get_process]
+| map(.CPU)
+| summary
+
+## chain-sys-memory-percentiles
+# task: how memory use is distributed across processes
+# also: memory workingset percentile distribution processes
+[get_process]
+| map(.WorkingSet)
+| {P50: percentile(50), P90: percentile(90), P99: percentile(99)}
+| with_entries(.value |= human_bytes)
+
+## chain-sys-loadavg
+# task: the machine's load averages, parsed from proc
+# also: loadavg load parse proc health uptime
+sh("cat /proc/loadavg")
+| split(" ")
+| .[0:3]
+| map(tonumber)
+| {Load1: .[0], Load5: .[1], Load15: .[2]}
+
+## chain-sys-disk-threshold
+# task: how full is the disk, and is that over my threshold
+# also: df disk full threshold alert percent use
+sh("df / | tail -1")
+| [splits("\\s+")]
+| .[4]
+| rtrimstr("%")
+| tonumber
+| . as $pct
+| {UsePercent: $pct, NearlyFull: ($pct > 80)}
+
+## chain-sys-hosts-health
+# task: a health check on every host in my hosts file
+# also: hosts ping health reachable each batch
+cat("hosts.txt")
+| split("\n")
+| map(select(length > 0))
+| map({Host: ., Reachable: test_connection(.; {Count: 1, Quiet: true})})
+
+## chain-sys-env-snapshot
+# task: a snapshot of the interesting environment variables, saved
+# also: env snapshot save json record file filtered
+$ENV
+| to_entries
+| map(select(.key | test("PWRQ|HOME|USER|SHELL")))
+| from_entries
+| tojson
+| out_file("env-snapshot.json")

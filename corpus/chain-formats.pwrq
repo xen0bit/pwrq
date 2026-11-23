@@ -1,0 +1,90 @@
+# Chained interactions anchored on a parse or conversion: csv into
+# databases and statistics, xml into arithmetic, yaml into ini, query
+# strings into fetches.
+
+## chain-formats-csv-to-sqlite
+# task: import a whole csv file into a sqlite table
+# also: csv import sqlite table ingest rows load db
+cat("data.csv")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| out_sqlite("import.db"; "people")
+| .RowCount
+
+## chain-formats-csv-column-stats
+# task: statistics of the age column of this csv
+# also: csv column stats summary age statistics
+cat("data.csv")
+| csv_parse
+| (.[0] | index("age")) as $i
+| .[1:]
+| map(.[$i] | tonumber)
+| summary
+
+## chain-formats-csv-ai-cities
+# task: which rows of this csv look like london users to the model
+# also: csv rows classify model london d1 which
+cat("data.csv")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| map([$header, .] | transpose | map({key: .[0], value: .[1]}) | from_entries)
+| map({name: .name, city: .city, londonish: invoke_systemone({q: {type: "noul", instructions: "Does this row describe a london user?"}}).q.noul})
+
+## chain-formats-xml-prices-sum
+# task: the total of the prices inside this xml catalog
+# also: xml prices total sum catalog add extract
+cat("doc.xml")
+| xml_parse
+| ._content
+| [scan("<price[^>]*>(\\d+)</price>")]
+| map(.[0] | tonumber)
+| {Books: length, TotalPrice: add}
+
+## chain-formats-yaml-to-ini
+# task: this yaml config re-saved as an ini file
+# also: yaml convert ini rewrite config save
+cat("config.yaml")
+| yaml_parse
+| ini_stringify
+| out_file("config.ini")
+
+## chain-formats-properties-to-yaml
+# task: this properties file re-saved as yaml
+# also: properties convert yaml rewrite java save
+cat("configs/app.properties")
+| properties_parse
+| yaml_stringify
+| out_file("app.yaml")
+
+## chain-formats-jsonl-flatten
+# task: the jsonl rows flattened into dotted keys and saved
+# also: jsonl flatten dotted save export wide
+cat("events.jsonl")
+| jsonl_parse
+| map(flatten_keys)
+| tojson
+| out_file("events-flat.json")
+
+## chain-formats-query-to-fetch
+# task: build the query string and fetch the url that carries it
+# also: querystring build fetch url parameters request
+{q: "pwrq corpus", page: 2}
+| query_string_build
+| . as $qs
+| invoke_web_request("https://example.com/?\($qs)")
+| {Status: .StatusCode, QuerySent: $qs}
+
+## chain-formats-csv-dedupe
+# task: drop the duplicate rows from this csv and save it
+# also: csv dedupe unique rows remove duplicates save
+cat("data.csv")
+| csv_parse
+| .[0] as $header
+| .[1:]
+| unique
+| [$header] + .
+| csv_stringify
+| out_file("dedup.csv")

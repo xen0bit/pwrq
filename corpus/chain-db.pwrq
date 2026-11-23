@@ -1,0 +1,60 @@
+# Chained interactions anchored on a sqlite query: rows cross into the
+# filesystem, the network, the decision model, validation, time and the
+# formatters.
+
+## chain-db-rows-to-files
+# task: one JSON file per row of the users table
+# also: rows each file export per record save split
+[invoke_sqlite_query("app.db"; "select * from users")]
+| map(. as $u | ($u | tojson) | out_file("user-\($u.id).json"))
+
+## chain-db-sites-resolve
+# task: the hosts in my sites table, resolved
+# also: table hosts resolve dns each db network
+invoke_sqlite_command("app.db"; "create table if not exists sites (host text)")
+, invoke_sqlite_command("app.db"; "insert or replace into sites values ('example.com'), ('api.github.com')")
+, ([invoke_sqlite_query("app.db"; "select host from sites")]
+   | map(.host)
+   | map({Host: ., Addresses: resolve_host(.)}))
+
+## chain-db-rows-ai
+# task: which users look like team accounts to the model
+# also: rows classify model d1 team accounts db
+[invoke_sqlite_query("app.db"; "select name, seats from users")]
+| map({name, seats, teamish: invoke_systemone({q: {type: "noul", instructions: "Does this name and seat count look like a team account?"}}).q.noul})
+
+## chain-db-validate-plans
+# task: check every plan value in the table is one we know
+# also: column validate values known check audit db
+[invoke_sqlite_query("app.db"; "select plan from users")]
+| map(.plan)
+| map({plan: ., known: IN("pro", "free", "team")})
+
+## chain-db-events-per-month
+# task: events per month, straight out of the database
+# also: events month per bucket time grouped db column
+invoke_sqlite_command("app.db"; "create table if not exists events (at text)")
+, invoke_sqlite_command("app.db"; "insert or replace into events values ('2026-08-11'), ('2026-08-12'), ('2026-09-01')")
+, ([invoke_sqlite_query("app.db"; "select at from events")]
+   | map(.at | .[0:7])
+   | value_counts)
+
+## chain-db-export-yaml
+# task: the table out as a YAML file
+# also: export yaml dump save db table file
+[invoke_sqlite_query("app.db"; "select name, plan, seats from users")]
+| yaml_stringify
+| out_file("users.yaml")
+
+## chain-db-seats-stats
+# task: statistics of the seats column across the table
+# also: seats column summary stats average db
+[invoke_sqlite_query("app.db"; "select seats from users")]
+| map(.seats)
+| summary
+
+## chain-db-table-report
+# task: the table rendered as a report
+# also: table report display pretty format db
+[invoke_sqlite_query("app.db"; "select name, plan, seats from users")]
+| format_table(.)

@@ -1,0 +1,119 @@
+# Chained interactions anchored on a network call: resolve then probe,
+# fetch then store, fetch then ask the model, POST a sealed payload
+# through a real echo service and open it at the far end.
+
+## chain-net-resolve-then-portcheck
+# task: resolve the host and check the port on every address it has
+# also: dns then port resolve probe sweep each ip open
+# slot host host = example.com
+# slot port number: Which port? = 443
+resolve_host("{{host}}")
+| map(. as $ip | {IP: $ip, Open: test_connection($ip; {TcpPort: {{port}}, TimeoutSeconds: 5, Quiet: true})})
+
+## chain-net-port-then-fetch
+# task: if the port is open, fetch the page behind it
+# also: port check then http fetch conditional probe
+# slot host host = example.com
+# slot port number: Which port? = 80
+test_connection("{{host}}"; {TcpPort: {{port}}, Quiet: true})
+| if . then (invoke_web_request("http://{{host}}") | {StatusCode, Bytes: (.Content | utf8bytelength)}) else "port closed" end
+
+## chain-net-json-to-sqlite
+# task: fetch the api and land its fields in a database
+# also: api fetch store sqlite ingest rows save
+invoke_rest_method("https://api.github.com")
+| to_entries
+| out_sqlite("api.db"; "endpoints")
+| .RowCount
+
+## chain-net-headers-to-sqlite
+# task: save this response's headers as a database table
+# also: headers response store sqlite rows record
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Headers
+| to_entries
+| out_sqlite("headers.db"; "headers")
+| .RowCount
+
+## chain-net-page-d1
+# task: fetch the page and ask the model what it is about
+# also: fetch page model read about subject d1 web
+# slot url url = https://example.com
+# slot subject phrase: What should the page mention? = internet standards and the IANA
+invoke_web_request("{{url}}")
+| .Content
+| {MentionsSubject: invoke_systemone({q: {type: "noul", instructions: "Does this page mention {{subject}}?"}}).q.noul}
+
+## chain-net-api-validate-fields
+# task: fetch the api and check that its url fields are real urls
+# also: api validate fields urls check response audit
+invoke_rest_method("https://api.github.com")
+| to_entries
+| map(select(.key | endswith("_url")))
+| map({Endpoint: .key, ValidUrl: (.value | is_url)})
+
+## chain-net-status-stats
+# task: check a few sites and summarize their status codes
+# also: monitor sites statuses summary stats average up
+["https://example.com", "https://api.github.com", "https://httpbin.org/status/404"]
+| map(invoke_web_request(.; {TimeoutSec: 10}) | .StatusCode)
+| summary
+
+## chain-net-dns-counts
+# task: how many addresses each of these hosts resolves to
+# also: dns addresses count per host resolve summary
+["example.com", "api.github.com", "one.one.one.one"]
+| map(resolve_host(.) | length)
+| summary
+
+## chain-net-download-age
+# task: download a file and see how fresh the copy on disk is
+# also: download file age fresh when saved time
+# slot url url = https://example.com
+invoke_web_request("{{url}}"; {OutFile: "fresh-download.html"})
+| [get_childitem(".") | select(.Name == "fresh-download.html")]
+| .[0]
+| {File: .Name, Downloaded: .LastWriteTime, Age: ((.LastWriteTime | date_to_timestamp) | time_ago)}
+
+## chain-net-sealed-post
+# task: seal a message, post it to the echo service, and read it back at the far end
+# also: encrypt post send transport receive decrypt round trip
+# slot key text: What is the key? = 0123456789abcdef0123456789abcdef
+"attack at dawn"
+| aes_encrypt(.; "{{key}}")
+| . as $sealed
+| invoke_web_request("https://httpbin.org/post"; {Method: "POST", Body: $sealed, ContentType: "text/plain"})
+| (.Content | fromjson | .data)
+| aes_decrypt(.; "{{key}}")
+
+## chain-net-gzip-post
+# task: compress a message, ship it as base64, and unpack it on the other side
+# also: gzip base64 post transport decode decompress
+"net says hello through a gzip"
+| gzip_compress
+| base64_encode
+| . as $packed
+| invoke_web_request("https://httpbin.org/post"; {Method: "POST", Body: $packed, ContentType: "text/plain"})
+| (.Content | fromjson | .data)
+| base64_decode
+| gzip_decompress
+
+## chain-net-page-stats
+# task: fetch the page and get its word statistics
+# also: page words count fetch stats text
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+| {Words: word_count, Lines: line_count}
+
+## chain-net-links-secure
+# task: fetch the page and see which of its links are https
+# also: links https secure which urls check page
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+| extract_urls
+| unique
+| map({Url: ., Secure: startswith("https")})
+| .[:10]

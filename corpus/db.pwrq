@@ -1,0 +1,124 @@
+# SQLite: the local-database stories. The fixture database app.db holds
+# a users table; every entry runs against it, and the writes are the
+# kinds a script does on its own scratch copy.
+
+## db-list-tables
+# task: the tables in this sqlite database
+# also: sqlite tables list schema db database
+# slot file file = app.db
+get_sqlite_table("{{file}}")
+| .Name
+
+## db-table-schema
+# task: the columns of the users table
+# also: schema columns table fields sqlite describe
+# slot file file = app.db
+# slot table text: Which table? = users
+get_sqlite_schema("{{file}}"; "{{table}}")
+
+## db-primary-key
+# task: which column is the primary key of users
+# also: primary key pk column sqlite identify
+[get_sqlite_schema("app.db"; "users") | select(.IsPrimaryKey)]
+| map(.Name)
+
+## db-select-rows
+# task: read the rows of a table
+# also: select rows query sql sqlite fetch
+# slot file file = app.db
+# slot table text: Which table? = users
+invoke_sqlite_query("{{file}}"; "select * from {{table}}")
+
+## db-query-limited
+# task: the first few rows of a table
+# also: limit head first rows few top
+invoke_sqlite_query("app.db"; "select * from users limit 2")
+
+## db-where-clause
+# task: the rows where plan is pro
+# also: where filter rows condition sql match
+invoke_sqlite_query("app.db"; "select * from users where plan = 'pro'")
+
+## db-where-parameter
+# task: a query with a parameter, no string building
+# also: parameterized prepared bind safe sql
+invoke_sqlite_query("app.db"; "select * from users where id = ?"; [2])
+
+## db-count-rows
+# task: how many rows are in the table
+# also: count rows total sqlite length
+invoke_sqlite_query("app.db"; "select count(*) as n from users")
+| .n
+
+## db-count-per-table
+# task: the row count of every table in the database
+# also: counts per table each all tables
+get_sqlite_table("app.db")
+| .Name
+| {Table: ., Rows: (invoke_sqlite_query("app.db"; "select count(*) as n from \"\(.)\"") | .n)}
+
+## db-max-value
+# task: the largest seats value in the table
+# also: max largest top aggregate sql
+invoke_sqlite_query("app.db"; "select max(seats) as m from users")
+| .m
+
+## db-rows-to-objects
+# task: the rows reshaped into just name and seats
+# also: reshape select fields rows objects columns
+invoke_sqlite_query("app.db"; "select name, seats from users")
+| {name, seats}
+
+## db-group-in-sql
+# task: count the rows by plan, straight in SQL
+# also: group by sql aggregate count group
+invoke_sqlite_query("app.db"; "select plan, count(*) as n from users group by plan")
+
+## db-create-and-insert
+# task: make a table, insert a row, and read it back
+# also: create table insert write new scratch
+invoke_sqlite_command("app.db"; "create table if not exists audit (id integer primary key, at text, what text)")
+, invoke_sqlite_command("app.db"; "insert into audit (at, what) values ('now', 'corpus run')")
+, invoke_sqlite_query("app.db"; "select * from audit")
+
+## db-update-rows
+# task: update the rows that match a condition
+# also: update set change modify rows
+invoke_sqlite_command("app.db"; "update users set plan = 'team' where plan = 'free'")
+, invoke_sqlite_query("app.db"; "select name, plan from users")
+
+## db-delete-rows
+# task: delete the rows that match a condition
+# also: delete remove rows purge drop
+invoke_sqlite_command("app.db"; "delete from users where id = ?"; [2])
+| .RowsAffected
+
+## db-save-pipeline
+# task: save a file listing into a sqlite table
+# also: out_sqlite store save table insert rows
+# slot file file: Which database should hold it? = files.db
+[get_childitem(".") | select(.PwrqType == "Pwrq.FileSystem.File") | {Name, Bytes: .Length}]
+| out_sqlite("{{file}}"; "files")
+| .RowCount
+
+## db-join-two-tables
+# task: join two tables by a shared column, without SQL
+# also: join relate merge tables key index
+invoke_sqlite_command("app.db"; "create table if not exists quotas (plan text primary key, max_seats integer)")
+, invoke_sqlite_command("app.db"; "insert or replace into quotas values ('pro', 50), ('free', 1), ('team', 25)")
+, ([invoke_sqlite_query("app.db"; "select * from quotas")] | index_by("plan")) as $q
+| invoke_sqlite_query("app.db"; "select name, plan, seats from users")
+| . + {MaxSeats: ($q[.plan] | .max_seats)}
+
+## db-export-json
+# task: a whole table as one JSON array
+# also: export dump table json backup
+invoke_sqlite_query("app.db"; "select * from users")
+| tojson
+
+## db-export-csv
+# task: a table as CSV text
+# also: export csv table dump backup
+[invoke_sqlite_query("app.db"; "select name, plan, seats from users")]
+| map([.name, .plan, (.seats | tostring)])
+| csv_stringify

@@ -1,0 +1,124 @@
+# Similarity and difference: edit distance, phonetics, set and vector
+# overlap, fuzzy file comparison, and the diff and cmp stories.
+
+## sim-levenshtein
+# task: how many edits apart are kitten and sitting
+# also: edit distance levenshtein changes apart
+levenshtein("kitten"; "sitting")
+
+## sim-percent-alike
+# task: how similar are these two strings, as a percentage
+# also: similarity percent alike close fuzzy match
+similarity_percent("kitten"; "sitting")
+
+## sim-jaro-winkler
+# task: how close are these names, jaro-winkler style
+# also: jaro winkler typo names fuzzy similar score
+jaro_winkler("MARTHA"; "MARHTA")
+
+## sim-closest-match
+# task: which of these words is closest to the one I meant
+# also: closest nearest did you mean suggest fuzzy pick
+["kitten", "sitting", "smitten", "kitchen"]
+| map({word: ., distance: levenshtein("sitten"; .)})
+| sort_by(.distance)
+| .[0]
+
+## sim-soundex
+# task: do these names sound the same
+# also: soundex phonetic sounds like names homophone
+"Robert"
+| {Robert: soundex, Rupert: ("Rupert" | soundex)}
+
+## sim-group-by-sound
+# task: group these names by how they sound
+# also: group names phonetic soundex hearing buckets
+["Robert", "Rupert", "Ashcraft", "Ashcroft", "Smith", "Smyth"]
+| group_by(soundex)
+| map({Sound: (.[0] | soundex), Names: map(.)})
+
+## sim-hamming
+# task: how many positions differ between these two strings
+# also: hamming positions differ bits characters
+hamming_distance("karolin"; "kathrin")
+
+## sim-jaccard
+# task: how much do these two lists have in common
+# also: jaccard overlap shared common sets
+jaccard([1, 2, 3]; [2, 3, 4])
+
+## sim-cosine-vectors
+# task: how aligned are these two vectors
+# also: cosine alignment vectors angle correlation
+cosine_similarity([1, 2, 3]; [2, 4, 6])
+
+## sim-cosine-docs
+# task: which document matches the query best
+# also: rank documents relevance search scores cosine
+[{text: "the cat sat", v: [1, 1, 1, 0]},
+ {text: "the dog ran", v: [0, 1, 0, 1]},
+ {text: "a cat ran", v: [1, 1, 0, 1]}]
+| map(.text) as $texts
+| map(cosine_similarity(.v; [1, 1, 0, 0]))
+| [$texts, .]
+| transpose
+| map({text: .[0], score: .[1]})
+| sort_by(-.score)
+
+## sim-n-grams
+# task: the bigrams of this text
+# also: ngrams bigrams pairs shingles tokens
+"the quick brown fox"
+| n_grams(2)
+
+## sim-n-gram-overlap
+# task: how many bigrams these two texts share
+# also: shared ngram overlap bigrams common
+("the quick brown fox" | n_grams(2)) as $a
+| ("the quick red fox" | n_grams(2)) as $b
+| [$a[] | select(. as $g | ($b | index($g)))]
+| unique
+| length
+
+## sim-shared-chunks
+# task: what text do these two strings have in common
+# also: shared chunks common pieces overlap substring
+shared_chunks("the quick brown fox"; "the quick red fox")
+
+## sim-shared-coverage
+# task: how much of the suspect file is inside the known one
+# also: coverage known contains suspect compare bytes
+read_bytes("sample1.bin")
+| shared_chunks(read_bytes("sample2.bin"))
+| .Coverage
+
+## sim-rncd
+# task: rank these files by how alike their bytes are
+# also: rncd rank similarity bytes near duplicate compare files
+[find("."; "file") | select(test("sample"))]
+| map({Name: basename, Content: read_bytes(.)})
+| [rncd_compare]
+| sort_by(-.Hybrid)
+
+## sim-deep-diff-objects
+# task: exactly what changed between these two objects
+# also: deep diff changed added removed objects recursive
+deep_diff({name: "ada", plan: "free", seats: 1}; {name: "ada", plan: "pro", seats: 1, tags: []})
+
+## sim-diff-lines
+# task: a line-by-line diff of these two texts
+# also: diff lines changed compare texts patch
+"alpha\nbravo\ncharlie"
+| diff_lines("alpha\nbravo 2\ncharlie\ndelta")
+
+## sim-files-identical
+# task: are these two files byte-for-byte identical
+# also: cmp identical same files compare bytes
+read_bytes("a/dup.txt")
+| . == read_bytes("b/dup.txt")
+
+## sim-which-file-changed
+# task: which of these copies no longer matches the original
+# also: which differs copies changed mismatch
+["a/dup.txt", "b/dup.txt", "b/other.txt"]
+| map({File: ., SameAsOriginal: (read_bytes(.) == read_bytes("a/dup.txt"))})

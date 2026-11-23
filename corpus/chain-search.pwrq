@@ -1,0 +1,134 @@
+# Chained interactions anchored on a content search: every entry starts
+# with the canonical select_string stage, then crosses into statistics,
+# the decision model, the network, JSON, sqlite, codecs, time or text.
+
+## chain-search-matches-per-file-stats
+# task: search the tree and summarize how many hits each file got
+# also: matches per file average spread stats summarize
+# slot dir path = .
+# slot pattern pattern: What should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}")]
+| count_by("Path")
+| to_entries
+| map(.value)
+| summary
+
+## chain-search-ai-urgency
+# task: find the TODO comments and ask the model which are urgent
+# also: todos urgency model classify important d1 debt
+# slot dir path = src
+# slot question phrase: What should be asked of each line? = Is this an urgent task?
+[select_string("{{dir}}"; "TODO") | .Line | select(length > 0)]
+| map({line: ., urgency: invoke_systemone({q: {type: "noul", instructions: "{{question}}"}}).q.noul})
+| map(select(.urgency > 0.5))
+| map(.line)
+
+## chain-search-fetch-found-urls
+# task: find every url mentioned in my files and check each is up
+# also: urls found fetch status check up harvest links
+# slot dir path = quotes.txt
+[select_string("{{dir}}"; "https?://[^\\s\"<>]+") | .Match]
+| unique
+| map(. as $u | invoke_web_request($u; {TimeoutSec: 10}) | {Url: $u, Status: .StatusCode})
+
+## chain-search-resolve-hosts-file
+# task: resolve every host my hosts file names
+# also: hosts file resolve dns each lookup batch
+cat("hosts.txt")
+| split("\n")
+| map(select(length > 0))
+| map({Host: ., Addresses: resolve_host(.)})
+
+## chain-search-whois-log-ips
+# task: the client IPs in the access log and who they belong to
+# also: ips log reverse dns who ptr clients talkers
+[select_string("access.log"; "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}") | .Match]
+| unique
+| map({IP: ., Names: (try reverse_dns(.) catch ["no ptr record"])})
+
+## chain-search-json-lines
+# task: find the lines that look like JSON and parse them
+# also: json lines find parse structured embedded
+# slot dir path = .
+[select_string("{{dir}}"; "^\\{.*\\}$") | .Line]
+| map(fromjson)
+
+## chain-search-matches-to-sqlite
+# task: save every match as a row in a database for later queries
+# also: matches sqlite rows store save db record
+# slot file file: Which database should hold them? = matches.db
+# slot pattern pattern: What should be searched for? = TODO
+[select_string("."; "{{pattern}}") | {Path, LineNumber, Line}]
+| out_sqlite("{{file}}"; "matches")
+| .RowCount
+
+## chain-search-gzip-blob-recover
+# task: find the compressed payload in my files and read it
+# also: gzip base64 blob decompress recover decode hidden
+first(select_string("."; "[A-Za-z0-9+/]{40,}={0,2}"; {Include: "*.b64"}))
+| .Match
+| base64_decode
+| gzip_decompress
+
+## chain-search-dates-timeline
+# task: search out the dates in this text and lay them on a line
+# also: dates timeline extract search order chronology
+# slot dir path = quotes.txt
+[select_string("{{dir}}"; "\\d{4}-\\d{2}-\\d{2}") | .Match]
+| unique
+| map(date_to_timestamp)
+| sort
+| map(todate)
+
+## chain-search-matches-report
+# task: search results as one tidy text report
+# also: report matches formatted tidy clean text
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}") | "\(.Path):\(.LineNumber): \(.Line | ltrimstr(" /#"))"]
+| join("\n")
+| prefix_lines("- ")
+
+## chain-search-matches-json-file
+# task: the matches written out as a JSON file
+# also: matches save json export file results
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}") | {Path, LineNumber, Line}]
+| tojson
+| out_file("search-results.json")
+
+## chain-search-matches-csv
+# task: the matches as a CSV file
+# also: matches csv export save spreadsheet results
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}") | {Path, LineNumber, Line}]
+| map([.Path, (.LineNumber | tostring), .Line])
+| csv_stringify
+| out_file("search-results.csv")
+
+## chain-search-panics-by-file
+# task: which files panic, and how many times
+# also: panics go count per file crash risky
+# slot dir path = src
+[select_string("{{dir}}"; "panic\\(")]
+| count_by("Path")
+
+## chain-search-errors-ai-triage
+# task: the distinct error messages, triaged by how severe the model finds them
+# also: errors severity triage model classify urgent d1 unique
+# slot file file = app.log
+[select_string("{{file}}"; "ERROR") | (.Line | ltrimstr("ERROR "))]
+| unique
+| map({message: ., severity: invoke_systemone({sev: {type: "choice", instructions: "How severe is this error?", criteria: {urgent: "Drop everything", soon: "Handle today", noise: "Background noise"}}}).sev.choice})
+| sort_by(.severity)
+
+## chain-search-longest-match
+# task: the longest line my search found
+# also: longest line match biggest maximum search
+# slot dir path = web
+# slot pattern pattern: What should be searched for? = .
+[select_string("{{dir}}"; "{{pattern}}") | {Path, LineNumber, Length: (.Line | length)}]
+| sort_by(-.Length)
+| .[0]

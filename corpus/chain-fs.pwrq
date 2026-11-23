@@ -1,0 +1,195 @@
+# Chained interactions anchored on a filesystem listing: every entry
+# starts with the canonical get_childitem or find stage the single-domain
+# corpus teaches, then crosses into another domain - search, hashing,
+# the decision model, the network, statistics, formats, codecs, ciphers,
+# time and archives. Destructive chains run last so earlier getters see
+# the pristine tree.
+
+## chain-fs-find-todos
+# task: find the go files and count the TODOs in each
+# also: files then search inside todos per file go
+# slot dir path = src
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Extension == ".go")
+| {File: .Name, Todos: (grep_lines(.FullName; "TODO") | length)}
+
+## chain-fs-configs-with-secrets
+# task: which config files mention a password or token
+# also: configs secrets password token which files mention
+# slot dir path = configs
+get_childitem("{{dir}}")
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| {File: .Name, MentionsSecret: ((grep_lines(.FullName; "(?i)password|secret|token") | length) > 0)}
+
+## chain-fs-biggest-log-errors
+# task: the biggest log file and how many errors are in it
+# also: biggest log largest errors count inside
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File" and .Extension == ".log")]
+| sort_by(-.Length)
+| .[0]
+| {Log: .Name, Errors: (grep_lines(.FullName; "ERROR") | length)}
+
+## chain-fs-errors-per-log
+# task: error counts across every log file in the tree
+# also: per log errors each count compare logs
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Extension == ".log")]
+| map({Log: .Name, Errors: (grep_lines(.FullName; "ERROR") | length)})
+| sort_by(-.Errors)
+
+## chain-fs-hash-biggest
+# task: checksums for just the biggest files
+# also: manifest biggest top hash only large
+# slot dir path = .
+# slot n number = 3
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")]
+| sort_by(-.Length)
+| .[:{{n}}]
+| map({File: .Name, Sha256: (.FullName | sha256(true))})
+
+## chain-fs-images-blue-move
+# task: find the images that are mostly blue and list them
+# also: images blue which pictures color model vision d1 filter
+# slot dir path = img
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png"))
+| {Path: .FullName, MostlyBlue: invoke_systemone(null; {q: {type: "noul", instructions: "Is this image mostly blue?"}}; {Media: [.FullName]}).q.noul}
+| select(.MostlyBlue > 0.5)
+| .Path
+
+## chain-fs-videos-motion-when
+# task: for each video, the moments something moves
+# also: videos motion when segments each model d1 time
+# slot dir path = vid
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".mp4", ".mov", ".webm", ".mkv"))
+| {Video: .Name,
+   MovingSegments: (invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show motion?"}}; {Media: [{Type: "video", Path: .FullName, Segment: 1}]}).q.segments | map(select(.noul > 0.5)) | map({start, end}))}
+
+## chain-fs-images-region-count
+# task: how many distinct color regions each image has
+# also: count regions areas objects images model boxes d1
+# slot dir path = img
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".jpg", ".jpeg", ".png"))
+| {Name, Regions: invoke_systemone(null; {n: {type: "boxes", instructions: "Every distinct region of color.", max: 8}}; {Media: [.FullName]}).n.count}
+
+## chain-fetch-url-list-hashes
+# task: download every url in my list and checksum each one
+# also: urls file download all fetch save hash verify batch
+cat("urls.txt")
+| split("\n")
+| map(select(length > 0))
+| map(. as $u | invoke_web_request($u; {OutFile: "fetched-\($u | split("/") | last)"}))
+| map({Saved: .Path, Sha256: (.Path | sha256(true))})
+
+## chain-fs-size-zscore
+# task: which files are unusually large for this tree
+# also: unusual outlier z-score big relative statistics
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File")] as $files
+| ($files | map(.Length) | mean) as $mu
+| ($files | map(.Length) | stdev) as $sigma
+| $files
+| map({Name, Bytes: .Length, Z: ((.Length - $mu) / $sigma | round_to(2))})
+| sort_by(-.Z)
+| .[:5]
+
+## chain-fs-size-quantiles
+# task: how file sizes are distributed across this tree
+# also: sizes distribution quartiles percentile spread
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0) | .Length]
+| {P25: percentile(25), Median: percentile(50), P75: percentile(75), P95: percentile(95)}
+
+## chain-fs-words-per-file
+# task: a word-count table for every text file
+# also: words per file table count each texts
+# slot dir path = .
+[find("{{dir}}"; "file") | select(endswith(".txt")) | {File: basename, Words: (cat(.) | word_count)}]
+| sort_by(-.Words)
+| format_table(.)
+
+## chain-fs-merge-yamls
+# task: every yaml in this tree, parsed and merged into one config
+# also: yaml configs combine merge one unified
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Extension == ".yaml")]
+| map(cat(.FullName) | yaml_parse)
+| reduce .[] as $config ({}; deep_merge($config))
+
+## chain-fs-merge-inis
+# task: join all the ini files in this folder into one
+# also: ini configs combine union single save merge
+# slot dir path = configs
+[get_childitem("{{dir}}") | select(.Extension == ".ini")]
+| map(cat(.FullName) | ini_parse)
+| add
+| ini_stringify
+| out_file("merged.ini")
+
+## chain-fs-csv-row-counts
+# task: how many rows each csv file in this tree has
+# also: csv rows per file count spreadsheets each
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.Extension == ".csv")
+| {File: .Name, Rows: ((cat(.FullName) | csv_parse | length) - 1)}
+
+## chain-fs-csv-age-valid
+# task: check every csv in the tree for rows whose age column is not a number
+# also: csv validate column ages bad rows audit
+# slot dir path = .
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Extension == ".csv")]
+| map({File: .Name, BadAges: (cat(.FullName) | csv_parse | .[1:] | map(select(.[1] | is_numeric | not)) | length)})
+
+## chain-fs-decode-blobs
+# task: find the base64 payloads hidden in these text files and decode them
+# also: base64 blobs hidden decode payload find texts
+# slot dir path = .
+get_childitem("{{dir}}"; {Recurse: true})
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+| {File: .Name, Payloads: [cat(.FullName) | splits("\\s+") | select(is_base64) | try base64_decode catch empty | select(is_utf8 and length > 0)]}
+
+## chain-fs-decode-and-save
+# task: pull the hidden payload out of the files and save what it says
+# also: recover extract decode save payload hidden
+# slot dir path = .
+first(select_string("{{dir}}"; "[A-Za-z0-9+/]{20,}={0,2}"))
+| .Match
+| base64_decode
+| out_file("recovered.txt")
+
+## chain-fs-archive-biggest-entries
+# task: the biggest files inside each archive here
+# also: archive zip entries biggest contents inside
+# slot dir path = .
+get_childitem("{{dir}}")
+| select(.Extension | ascii_downcase | IN(".zip", ".tar", ".gz"))
+| {Archive: .Name, BiggestEntries: (read_archive(.FullName) | sort_by(-.Length) | .[:3] | map(.Name))}
+
+## chain-fs-seal-tree
+# task: encrypt every text file in this folder
+# also: seal encrypt all protect aes tree folder
+# slot dir path = a
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Extension == ".txt")]
+| map(. as $f | read_bytes($f.FullName)
+     | aes_encrypt(.; "0123456789abcdef0123456789abcdef")
+     | out_file($f.FullName | with_extension(".sealed")))
+
+## chain-fs-unseal-tree
+# task: open every sealed file in this folder back into text
+# also: decrypt unseal all open sealed folder
+# slot dir path = a
+[get_childitem("{{dir}}"; {Recurse: true}) | select(.Extension == ".sealed")]
+| map(. as $f | cat($f.FullName) | aes_decrypt(.; "0123456789abcdef0123456789abcdef") | .[0:30])
+
+## chain-fs-date-rename-recent
+# task: give today's files a date-stamped name
+# also: rename date prefix today fresh files organize
+# slot dir path = a
+get_childitem("{{dir}}")
+| select(.PwrqType == "Pwrq.FileSystem.File")
+| select((.LastWriteTime | date_to_timestamp) > (now | start_of_day))
+| move_item(.FullName; "\(.FullName | dirname)/\(.LastWriteTime | .[0:10])-\(.Name)")

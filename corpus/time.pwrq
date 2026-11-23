@@ -1,0 +1,254 @@
+# Dates, durations and the calendar: the date command's stories plus the
+# age, countdown, calendar and business-time arithmetic on top.
+
+## time-now-iso
+# task: the current moment in ISO format
+# also: now iso rfc3339 utc moment today
+now
+| todate
+
+## time-now-epoch
+# task: the current time as epoch seconds
+# also: epoch unix seconds now timestamp
+now
+| round_to(0)
+
+## time-epoch-to-date
+# task: turn this unix timestamp into a readable date
+# also: epoch convert date readable todate
+1700000000
+| todate
+
+## time-date-to-epoch
+# task: the epoch seconds for this date
+# also: epoch unix timestamp convert date
+"2021-01-01T00:00:00Z"
+| date_to_timestamp
+
+## time-format-named
+# task: this timestamp as an rfc1123 date
+# also: rfc1123 format http date readable
+1770000000
+| format_date("rfc1123"; "UTC")
+
+## time-format-plain
+# task: this date in the iso date style
+# also: format iso date plain style
+"2026-08-11T12:00:00Z"
+| format_date("date")
+
+## time-parse-datetime
+# task: parse this date and time text into a real timestamp
+# also: parse datetime text string convert
+parse_date("2026-08-11 09:30:00"; "datetime"; "Europe/Berlin")
+
+## time-parse-day-first
+# task: parse a day-month-year date like 11/08/2026
+# also: parse dmy european slash day first
+"11/08/2026"
+| parse_date("02/01/2006")
+
+## time-parse-iso
+# task: is this a valid iso date
+# also: iso8601 valid check date
+"2026-08-11T12:00:00Z"
+| is_iso8601
+
+## time-to-timezone
+# task: what time is it in Tokyo right now
+# also: timezone convert local tokyo japan
+to_timezone(now; "Asia/Tokyo")
+
+## time-shift-timezone
+# task: show this meeting time in london time
+# also: convert meeting timezone london uk
+"2026-08-11T12:00:00Z"
+| to_timezone("Europe/London")
+
+## time-list-timezones
+# task: the timezone names for europe
+# also: timezones list zones europe names
+list_timezones("Europe")
+
+## time-find-timezone
+# task: what is the exact name of the Tokyo zone
+# also: tokyo japan timezone name exact
+"Tokyo"
+| list_timezones
+
+## time-weekday
+# task: what day of the week is this date
+# also: weekday day name which dow
+"2026-08-10"
+| weekday
+
+## time-is-weekend
+# task: is this date a weekend
+# also: weekend saturday sunday offday
+"2026-08-08"
+| is_weekend
+
+## time-day-of-year
+# task: the day number of this date within its year
+# also: day of year progress ordinal number
+"2026-08-10"
+| day_of_year
+
+## time-week-of-year
+# task: which week of the year is this
+# also: week number iso week count
+"2026-08-10"
+| week_of_year
+
+## time-month-name
+# task: the name of this month number
+# also: month name february label
+2
+| month_name
+
+## time-days-in-month
+# task: how many days in february 2024
+# also: days in month february leap calendar
+2024
+| days_in_month(2)
+
+## time-leap-year
+# task: is 2024 a leap year
+# also: leap year check calendar
+2024
+| is_leap_year
+
+## time-add-days
+# task: the date two weeks from this one
+# also: add days weeks later future date plus
+"2026-01-15"
+| add_days(14)
+
+## time-add-months
+# task: one month from this date
+# also: add month later next billing
+"2026-01-15"
+| add_months(1)
+
+## time-add-years
+# task: this date two years on
+# also: add years later anniversary
+"2026-01-15"
+| add_years(2)
+
+## time-add-seconds
+# task: an hour from this epoch time
+# also: add seconds hour plus epoch
+0
+| add_seconds(3600)
+| todate
+
+## time-days-between
+# task: days between these two dates
+# also: difference days count span between
+"2026-01-01"
+| days_between("2026-01-10")
+
+## time-duration-between
+# task: how long from this date to that one
+# also: duration elapsed span between period
+"2026-01-01"
+| duration_between("2026-01-03")
+
+## time-age-in-years
+# task: how old is someone born on this date
+# also: age years born birthday old
+"2000-06-15"
+| age_in_years
+
+## time-start-of-day
+# task: midnight at the start of this day
+# also: start of day midnight beginning today
+now
+| start_of_day
+| todate
+
+## time-end-of-day
+# task: the last moment of this day
+# also: end of day tonight deadline
+1700000000
+| end_of_day
+| todate
+
+## time-start-of-week
+# task: the monday this week started on
+# also: start of week monday beginning
+"2026-08-13T12:00:00Z"
+| start_of_week
+
+## time-human-duration
+# task: how do you say 93784 seconds
+# also: human readable duration pretty seconds elapsed
+93784
+| human_duration
+
+## time-parse-duration
+# task: how many seconds is two and a half hours
+# also: parse 2h30m duration go string seconds
+"2h30m"
+| parse_duration
+
+## time-parse-iso-duration
+# task: the seconds in the iso duration P1DT2H3M4S
+# also: iso duration parse 8601 seconds
+"P1DT2H3M4S"
+| parse_duration
+
+## time-duration-roundtrip
+# task: a duration in words, parsed back to seconds
+# also: round trip human duration parse back
+93784
+| human_duration
+| parse_duration
+
+## time-iso-duration
+# task: this many seconds as an iso 8601 duration
+# also: iso duration 8601 write render
+3661
+| iso_duration
+
+## time-ago
+# task: how long ago was this timestamp
+# also: ago relative since human past
+1700000000
+| time_ago
+
+## time-ago-days
+# task: how long ago in days was this timestamp
+# also: ago days since elapsed count
+1700000000
+| (now - .) / 86400
+| round_to(0)
+
+## time-countdown
+# task: how many days until new year
+# also: countdown until days remaining till
+"2027-01-01"
+| ((. | date_to_timestamp) - now) / 86400
+| round_to(0)
+
+## time-log-bucket-hour
+# task: bucket these log timestamps by hour of day
+# also: histogram hour timeline bucket group
+["2026-08-11T09:12:03Z", "2026-08-11T09:15:44Z", "2026-08-11T10:18:30Z"]
+| map(. | date_to_timestamp / 3600 | floor)
+| value_counts
+
+## time-calendar-week
+# task: the dates of each day this week
+# also: week days calendar monday through sunday
+"2026-08-13T12:00:00Z"
+| start_of_week
+| . as $monday
+| [range(7) | ($monday + . * 86400) | todate | .[0:10]]
+
+## time-epoch-to-date-cmdlet
+# task: this unix timestamp as a date, the cmdlet way
+# also: timestamp_to_date epoch convert readable
+1609459200
+| timestamp_to_date

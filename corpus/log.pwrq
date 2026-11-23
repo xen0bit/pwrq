@@ -1,0 +1,373 @@
+# Log analysis: level counts, logfmt and JSON-lines parsing, access-log
+# mining with capture, time bucketing and first/last occurrence. The
+# capture patterns double their backslashes, as jq string literals require.
+
+## log-line-count
+# task: how many lines are in the log
+# also: wc -l count lines size log
+# slot file file = app.log
+wc_lines("{{file}}")
+
+## log-level-counts
+# task: count the log lines by level, how many errors and warnings
+# also: severity breakdown levels errors warnings info
+# slot file file = app.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<level>[A-Z]+)").level)
+| value_counts
+
+## log-error-rate
+# task: what share of the log is errors, as a percentage
+# also: percent rate error ratio fraction
+# slot file file = app.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| {Total: length, Errors: (map(select(startswith("ERROR"))) | length)}
+| . + {ErrorRate: (.Errors * 100 / .Total | round_to(1))}
+
+## log-errors-only
+# task: just the error lines of the log
+# also: errors only failures filter
+# slot file file = app.log
+cat("{{file}}")
+| split("\n")
+| map(select(startswith("ERROR")))
+
+## log-last-errors
+# task: the most recent error lines, the last few
+# also: latest tail end recent errors
+# slot file file = app.log
+# slot n number = 2
+cat("{{file}}")
+| split("\n")
+| map(select(startswith("ERROR")))
+| .[-{{n}}:]
+
+## log-first-error
+# task: the first error in the log
+# also: earliest first initial error occurred
+# slot file file = app.log
+cat("{{file}}")
+| split("\n")
+| map(select(startswith("ERROR")))
+| .[0]
+
+## log-dedup-errors
+# task: the distinct error messages and how often each repeats
+# also: unique dedupe recurring repeated messages
+# slot file file = app.log
+cat("{{file}}")
+| split("\n")
+| map(select(startswith("ERROR")))
+| value_counts
+
+## log-errors-with-context
+# task: the error lines with the line before and after
+# also: context around neighbors surrounding errors
+# slot file file = app.log
+select_string("."; "ERROR")
+| select(.Path == "{{file}}")
+| {LineNumber, Before: .Before, Line, After: .After}
+
+## log-fmt-parse
+# task: read a logfmt log as objects, one per line
+# also: logfmt parse structured key=value fields
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+
+## log-fmt-by-level
+# task: the logfmt lines that are errors or warnings
+# also: filter level error warn logfmt
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| map(select(.level == "error" or .level == "warn"))
+
+## log-fmt-slowest
+# task: the slowest requests in a logfmt log
+# also: duration latency slow top dur_ms
+# slot file file = metrics.logfmt
+# slot n number = 3
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| sort_by(-.dur_ms)
+| .[:{{n}}]
+
+## log-fmt-by-service
+# task: log entries per service
+# also: group by service component svc count
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| count_by("svc")
+
+## log-fmt-msg-counts
+# task: which messages repeat most in the log
+# also: message repeat recurring top messages
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| count_by("msg")
+
+## log-fmt-duration-stats
+# task: statistics of the request durations in a logfmt log
+# also: summary stats mean median duration latency
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| map(.dur_ms)
+| summary
+
+## log-fmt-timeline
+# task: when the log starts and ends, first and last entry times
+# also: first last span period coverage window
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| {First: (map(.ts) | min), Last: (map(.ts) | max)}
+
+## log-fmt-to-json
+# task: convert a logfmt log to a JSON array
+# also: export json structured convert logfmt
+# slot file file = metrics.logfmt
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(logfmt_parse)
+| tojson
+
+## log-jsonl-read
+# task: read a JSON-lines log into an array
+# also: ndjson jsonl structured events parse
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+
+## log-jsonl-errors
+# task: the error events from a JSON-lines log
+# also: filter level error events jsonl
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+| map(select(.level == "error"))
+
+## log-jsonl-error-rate-by-service
+# task: error rate per service in a JSON-lines log
+# also: ratio grouped per service failures rate
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+| group_by(.svc)
+| map({Service: .[0].svc, Events: length, Errors: (map(select(.level == "error")) | length)})
+
+## log-jsonl-slowest
+# task: the slowest events in a JSON-lines log, with their messages
+# also: top latency dur_ms slowest events
+# slot file file = events.jsonl
+# slot n number = 3
+cat("{{file}}")
+| jsonl_parse
+| sort_by(-.dur_ms)
+| .[:{{n}}]
+| map({ts, svc, msg, dur_ms})
+
+## log-jsonl-bucket-hour
+# task: events per hour of the day
+# also: histogram timeline bucket hour grouped by time
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+| map(.ts | date_to_timestamp / 3600 | floor)
+| value_counts
+
+## log-jsonl-bucket-day
+# task: events per day
+# also: daily grouped by day timeline count
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+| map(.ts | .[0:10])
+| value_counts
+
+## log-jsonl-window
+# task: the log entries between two times
+# also: window period between range slice time
+# slot file file = events.jsonl
+# slot from text: Starting when? = 2026-08-11T09:15:00Z
+# slot to text: Ending when? = 2026-08-11T09:17:00Z
+cat("{{file}}")
+| jsonl_parse
+| map(select(.ts >= "{{from}}" and .ts <= "{{to}}"))
+
+## log-jsonl-annotate
+# task: rewrite a JSON-lines log with a computed ok field per event
+# also: transform add field enrich annotate rewrite
+# slot file file = events.jsonl
+cat("{{file}}")
+| jsonl_parse
+| map(. + {ok: (.level != "error")})
+| map(tojson)
+| join("\n")
+
+## log-access-parse
+# task: parse an access log into structured requests
+# also: apache nginx web server log combined parse
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<ip>\\S+) \\S+ \\S+ \\[(?<ts>[^\\]]+)\\] \"(?<method>\\w+) (?<path>\\S+) [^\"]+\" (?<status>\\d{3}) (?<bytes>\\d+) (?<secs>[\\d.]+)"))
+
+## log-access-status-counts
+# task: how many requests each status code got
+# also: status codes http grouped responses
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("HTTP/1.1\" (?<status>\\d{3})").status)
+| value_counts
+
+## log-access-status-class
+# task: requests grouped by status class: success, client error, server error
+# also: 2xx 4xx 5xx class kind status group
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("HTTP/1.1\" (?<status>\\d{3})").status | tonumber)
+| map(if . < 300 then "success" elif . < 400 then "redirect" elif . < 500 then "client error" else "server error" end)
+| value_counts
+
+## log-access-top-ips
+# task: the clients sending the most requests
+# also: top talkers ips visitors clients busiest
+# slot file file = access.log
+# slot n number = 5
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<ip>\\S+)").ip)
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:{{n}}]
+
+## log-access-unique-visitors
+# task: how many distinct clients visited
+# also: unique visitors distinct ips count clients
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("^(?<ip>\\S+)").ip)
+| unique
+| length
+
+## log-access-top-paths
+# task: the most requested paths
+# also: popular endpoints routes urls busiest pages
+# slot file file = access.log
+# slot n number = 5
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("\"(?<method>\\w+) (?<path>\\S+)").path)
+| value_counts
+| to_entries
+| sort_by(-.value)
+| .[:{{n}}]
+
+## log-access-errors
+# task: the failed requests, the 4xx and 5xx lines
+# also: failures errors status bad requests
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(select(test("HTTP/1.1\" [45]\\d\\d")))
+
+## log-access-bytes-total
+# task: how many bytes the server sent out in total
+# also: bandwidth transferred bytes total traffic
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("HTTP/1.1\" \\d{3} (?<bytes>\\d+)").bytes | tonumber)
+| add
+| human_bytes
+
+## log-access-slowest
+# task: the slowest requests in the access log
+# also: latency seconds duration slowest requests time
+# slot file file = access.log
+# slot n number = 3
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("(?<secs>[\\d.]+)$").secs | tonumber)
+| sort_by(-.)
+| .[:{{n}}]
+
+## log-access-per-minute
+# task: requests per minute, to spot the busiest moment
+# also: rate minute busiest peak bucket time
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("\\[(?<ts>[^\\]]+)\\]").ts)
+| map(capture("(?<minute>\\d\\d:\\d\\d):").minute)
+| value_counts
+
+## log-access-method-counts
+# task: how many GET and POST requests
+# also: methods verbs get post counts
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("\"(?<method>\\w+)").method)
+| value_counts
+
+## log-access-avg-bytes-by-status
+# task: the average response size per status code
+# also: mean average bytes per status grouped
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| map(capture("HTTP/1.1\" (?<status>\\d{3}) (?<bytes>\\d+)") | {status, bytes: (.bytes | tonumber)})
+| group_by(.status)
+| map({Status: .[0].status, Requests: length, AvgBytes: (map(.bytes) | mean | round_to(0))})
+
+## log-access-report
+# task: a summary report of the access log: requests, errors and bytes
+# also: summary report overview totals stats
+# slot file file = access.log
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0))
+| {Requests: length,
+   Errors: (map(select(test("HTTP/1.1\" [45]\\d\\d"))) | length),
+   BytesSent: (map(capture("HTTP/1.1\" \\d{3} (?<bytes>\\d+)").bytes | tonumber) | add | human_bytes),
+   TopClient: (map(capture("^(?<ip>\\S+)").ip) | value_counts | to_entries | sort_by(-.value) | .[0])}

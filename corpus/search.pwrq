@@ -1,0 +1,287 @@
+# Content search: the grep family, plus the awk and sed line-addressing
+# stories. In a jq string literal a regex backslash is doubled: "\\bfox\\b".
+
+## search-file-lines
+# task: the lines of a file that match some text
+# also: grep find matching mention filter file
+# slot file file = app.log
+# slot pattern pattern: What text or pattern should be matched? = ERROR
+grep_lines("{{file}}"; "{{pattern}}")
+
+## search-file-count
+# task: count the matching lines in a file
+# also: grep -c how many occurrences matches
+# slot file file = app.log
+# slot pattern pattern: What text or pattern should be matched? = ERROR
+grep_lines("{{file}}"; "{{pattern}}")
+| length
+
+## search-file-first
+# task: the first line of a file that mentions something
+# also: grep head first occurrence find one
+# slot file file = app.log
+# slot pattern pattern: What text or pattern should be matched? = ERROR
+grep_lines("{{file}}"; "{{pattern}}")
+| .[0]
+
+## search-file-any
+# task: does the file mention this at all
+# also: contains exists any mention yes no
+# slot file file = app.log
+# slot pattern pattern: What text or pattern should be matched? = WARN
+grep_lines("{{file}}"; "{{pattern}}")
+| length > 0
+
+## search-file-ignore-case
+# task: the lines that match, ignoring case
+# also: grep -i insensitive upper lower
+# slot file file = app.log
+# slot pattern pattern: What text should be matched, in any case? = warn
+grep_lines("{{file}}"; "(?i){{pattern}}")
+
+## search-file-invert
+# task: the lines of a file that do not match
+# also: grep -v invert without except skip
+# slot file file = app.log
+# slot pattern pattern: What should be left out? = ERROR
+cat("{{file}}")
+| split("\n")
+| map(select(length > 0 and (test("{{pattern}}") | not)))
+
+## search-file-word
+# task: the lines where a whole word appears, not inside another word
+# also: grep -w word boundary exact word
+# slot file file = notes.txt
+grep_lines("{{file}}"; "\\bfox\\b")
+
+## search-tree-grep
+# task: search a whole tree for text, showing file, line number and line
+# also: grep -rn recursive everywhere across project
+# slot dir path = .
+# slot pattern pattern: What text or pattern should be searched for? = TODO
+select_string("{{dir}}"; "{{pattern}}")
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-tree-files-with-matches
+# task: the files that contain the text
+# also: grep -l which files mention list files
+# slot dir path = .
+# slot pattern pattern: What text or pattern should be searched for? = TODO
+select_string("{{dir}}"; "{{pattern}}"; {List: true})
+| .Path
+
+## search-tree-count-per-file
+# task: how many matches are in each file
+# also: grep -c per file count each
+# slot dir path = .
+# slot pattern pattern: What text or pattern should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}")]
+| count_by("Path")
+
+## search-tree-total
+# task: how many matches across the whole tree
+# also: total count everywhere occurrences
+# slot dir path = .
+# slot pattern pattern: What text or pattern should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}")]
+| length
+
+## search-tree-context
+# task: matches with the lines around them, like grep -C
+# also: context around before after surrounding
+# slot dir path = src
+# slot pattern pattern: What text should be searched for? = TODO
+select_string("{{dir}}"; "{{pattern}}"; {Include: "*.go", Context: 1})
+| {Path, LineNumber, Before: .Before, Line, After: .After}
+
+## search-tree-include
+# task: search only the go files for a pattern
+# also: include only type extension restrict go
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = TODO
+select_string("{{dir}}"; "{{pattern}}"; {Include: "*.go"})
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-tree-ignore-case
+# task: search a tree case-insensitively
+# also: insensitive grep -i any case
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = todo
+select_string("{{dir}}"; "{{pattern}}"; {CaseSensitive: false})
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-tree-alternation
+# task: search for either of two words, TODO or FIXME
+# also: alternation either or multiple patterns regex
+# slot dir path = src
+select_string("{{dir}}"; "TODO|FIXME")
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-tree-literal-dot
+# task: find lines mentioning example.com, matching the dot literally
+# also: fixed string literal escape grep -F dot com
+# slot dir path = web
+select_string("{{dir}}"; "example\\.com")
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-tree-first-match
+# task: the first place in a tree where something appears
+# also: first occurrence earliest one
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = TODO
+first(select_string("{{dir}}"; "{{pattern}}"))
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-tree-last-match
+# task: the last place in a tree where something appears
+# also: last occurrence final
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}")]
+| last
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-tree-nth
+# task: the third match in a tree
+# also: nth specific position indexed
+# slot dir path = src
+[select_string("{{dir}}"; "TODO")]
+| .[2]
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-skip-vendor
+# task: search a tree but skip results under vendor folders
+# also: exclude ignore vendor thirdparty filter out
+# slot dir path = .
+# slot pattern pattern: What should be searched for? = TODO
+select_string("{{dir}}"; "{{pattern}}")
+| select(.Path | test("vendor") | not)
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-multiple-files
+# task: search several named files and count each
+# also: files list batch count each
+# slot pattern pattern: What should be searched for? = TODO
+["app.log", "notes.txt", "quotes.txt"]
+| map({File: ., Matches: (grep_lines(.; "{{pattern}}") | length)})
+
+## search-match-shape
+# task: show what a search match looks like, all its fields
+# also: shape fields object debug inspect
+# slot dir path = src
+[select_string("{{dir}}"; "TODO")]
+| .[0]
+
+## search-todo-comments
+# task: find the TODO and FIXME comments in the source tree
+# also: todo fixme hack xxx notes debt
+# slot dir path = .
+select_string("{{dir}}"; "TODO|FIXME")
+| {Path, LineNumber, Line: (.Line | ltrimstr(" "))}
+
+## search-todo-by-file
+# task: count TODOs per file
+# also: todo count per file grouped
+# slot dir path = .
+[select_string("{{dir}}"; "TODO")]
+| count_by("Path")
+
+## search-errors-in-logs
+# task: find the error lines across all the log files
+# also: errors logs include type failures
+# slot dir path = .
+select_string("{{dir}}"; "ERROR"; {Include: "*.log"})
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-keys-in-config
+# task: which config files set a timeout
+# also: config ini properties settings key
+# slot dir path = configs
+select_string("{{dir}}"; "timeout")
+| {Path, Line}
+
+## search-in-yaml
+# task: search only the yaml files
+# also: yaml yml config include
+# slot dir path = .
+select_string("{{dir}}"; "ada"; {Include: "*.yaml"})
+| "\(.Path):\(.LineNumber): \(.Line)"
+
+## search-urls-in-tree
+# task: find every web address mentioned in a tree
+# also: urls links http https grep
+# slot dir path = .
+select_string("{{dir}}"; "https?://")
+| .Line
+
+## search-ips-in-tree
+# task: find the IP addresses mentioned in files
+# also: ips addresses hosts network
+# slot dir path = .
+select_string("{{dir}}"; "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b")
+| {Path, Line}
+
+## search-emails-in-tree
+# task: find email addresses in a tree
+# also: emails addresses contact
+# slot dir path = .
+select_string("{{dir}}"; "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")
+| {Path, Line}
+
+## search-long-lines
+# task: find the unusually long lines in a tree
+# also: long lines over width wrapping lint
+# slot dir path = web
+select_string("{{dir}}"; ".")
+| select(.Line | length > 80)
+| {Path, LineNumber, Length: (.Line | length)}
+
+## search-blank-lines
+# task: how many blank lines each file has
+# also: empty blank whitespace count
+# slot dir path = src
+[select_string("{{dir}}"; "^$")]
+| count_by("Path")
+
+## search-secrets
+# task: find password and api key assignments in config files
+# also: secrets credentials keys password api
+# slot dir path = configs
+select_string("{{dir}}"; "(?i)(password|api_key|secret)\\s*=")
+| {Path, LineNumber, Line}
+
+## search-results-as-json
+# task: search a tree and save the matches as a JSON file
+# also: save export results matches report
+# slot dir path = src
+# slot pattern pattern: What should be searched for? = TODO
+# slot file file: Where should the matches be saved? = matches.json
+[select_string("{{dir}}"; "{{pattern}}") | {Path, LineNumber, Line}]
+| tojson
+| out_file("{{file}}")
+
+## search-paths-only
+# task: just the file paths with matches, deduplicated
+# also: unique paths list files containing
+# slot dir path = .
+# slot pattern pattern: What should be searched for? = TODO
+[select_string("{{dir}}"; "{{pattern}}") | .Path]
+| unique
+
+## search-sed-address
+# task: print one particular line of a file by its number
+# also: sed -n Np line number nth
+# slot file file = notes.txt
+# slot n number = 2
+cat("{{file}}")
+| split("\n")
+| .[{{n}} - 1]
+
+## search-awk-field
+# task: the second field of every matching line, like awk
+# also: awk fields columns split extract
+# slot file file = configs/creds.properties
+# slot pattern pattern: Which lines? = =
+cat("{{file}}")
+| split("\n")
+| map(select(test("{{pattern}}")) | split("=") | .[0])

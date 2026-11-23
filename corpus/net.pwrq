@@ -1,0 +1,342 @@
+# The network: HTTP requests, DNS, pings and port checks, IP and CIDR
+# arithmetic. All entries run against the live network; the one server
+# entry is expected to block until its timeout, which is its pass.
+
+## net-http-status
+# task: check that a website is up, its status code
+# also: curl status code up online http health
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| {StatusCode, Status, ContentType}
+
+## net-http-headers
+# task: the response headers of a URL
+# also: curl -I head headers server what it runs
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Headers
+
+## net-http-body
+# task: fetch a page and get its raw text
+# also: curl body content html download text
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+
+## net-http-request
+# task: the whole response object, every field
+# also: inspect debug full response shape
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| del(.Content)
+
+## net-page-title
+# task: the title of a web page
+# also: title tab name heading page
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+| capture("(?<title><title>[^<]*</title>)")
+
+## net-page-links
+# task: the links on a web page
+# also: urls hrefs scrape extract links
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+| extract_urls
+| unique
+
+## net-page-emails
+# task: the email addresses on a page
+# also: scrape contacts addresses harvest
+# slot url url = https://example.com
+invoke_web_request("{{url}}")
+| .Content
+| extract_emails
+
+## net-fetch-json
+# task: fetch JSON from an API endpoint
+# also: api rest get json curl endpoint
+# slot url url = https://api.github.com
+invoke_rest_method("{{url}}")
+
+## net-fetch-field
+# task: one field out of a JSON API response
+# also: endpoint field pick pluck extract api
+# slot url url = https://api.github.com
+invoke_rest_method("{{url}}")
+| .current_user_url
+
+## net-fetch-reshape
+# task: fetch an API response and reshape it into what I need
+# also: transform api response clean up select fields
+# slot url url = https://api.github.com
+invoke_rest_method("{{url}}")
+| to_entries
+| map(select(.key | endswith("_url") | not))
+| from_entries
+
+## net-method-get
+# task: make an explicit GET request
+# also: verb method http request get
+# slot url url = https://example.com
+http("GET"; "{{url}}")
+| .StatusCode
+
+## net-post-json
+# task: POST JSON to a URL and see the response
+# also: send submit post rest body json webhook
+# slot url url = https://httpbin.org/post
+invoke_web_request("{{url}}"; {Method: "POST", Body: "{\"a\": 1}", ContentType: "application/json"})
+| {StatusCode, Echoed: (.Content | fromjson | .json)}
+
+## net-post-custom-header
+# task: send a request with my own header
+# also: auth headers custom bearer token
+# slot url url = https://httpbin.org/headers
+# slot name text: Which header should be sent? = X-Custom
+# slot value text: What should it say? = from-pwrq
+invoke_web_request("{{url}}"; {Headers: {"{{name}}": "{{value}}"}})
+| .Content
+| fromjson
+
+## net-download
+# task: download a file from the web
+# also: wget curl -O save fetch OutFile
+# slot url url = https://example.com
+# slot file file: Where should it be saved? = page-download.html
+invoke_web_request("{{url}}"; {OutFile: "{{file}}"})
+| {StatusCode, Saved: "{{file}}"}
+
+## net-check-sites
+# task: are these sites up, check them all
+# also: monitor uptime several urls batch status
+["https://example.com", "https://api.github.com"]
+| map(. as $url | invoke_web_request($url; {TimeoutSec: 10}) | {Url: $url, Status: .StatusCode})
+
+## net-fetch-save-json
+# task: fetch JSON and save it to a file
+# also: download api response save json store
+# slot url url = https://api.github.com
+# slot file file: Where should it be saved? = api-response.json
+invoke_rest_method("{{url}}")
+| tojson
+| out_file("{{file}}")
+
+## net-resolve
+# task: resolve a host name to its IP addresses
+# also: dns lookup dig nslookup resolve ip
+# slot host host = example.com
+resolve_host("{{host}}")
+
+## net-resolve-first
+# task: the first IP a host resolves to
+# also: one address primary ip
+# slot host host = example.com
+resolve_host("{{host}}")
+| .[0]
+
+## net-resolve-many
+# task: resolve several host names at once
+# also: batch hosts multiple dns lookups
+["example.com", "api.github.com", "one.one.one.one"]
+| map({Host: ., Addresses: resolve_host(.)})
+
+## net-reverse-dns
+# task: the host name behind an IP address
+# also: ptr reverse lookup whois behind dig -x
+# slot ip ip = 8.8.8.8
+reverse_dns("{{ip}}")
+
+## net-ping
+# task: ping a host and see the round trips
+# also: reachable alive latency rtt icmp
+# slot host host = example.com
+test_connection("{{host}}")
+| .[]
+| {Target, Success, Time, TTL}
+
+## net-ping-summary
+# task: the average and spread of ping times
+# also: latency stats summary average ping ms
+# slot host host = example.com
+[test_connection("{{host}}") | .[] | .Time | capture("(?<ms>[\\d.]+)ms").ms | tonumber]
+| {Samples: length, MinMs: min, AvgMs: (mean | round_to(1)), MaxMs: max}
+
+## net-ping-reachable
+# task: is this host reachable at all
+# also: alive up online check boolean
+# slot host host = example.com
+test_connection("{{host}}"; {Count: 1, Quiet: true})
+
+## net-ping-count
+# task: ping once, not four times
+# also: single count one ping quick
+# slot host host = example.com
+test_connection("{{host}}"; {Count: 1})
+| .[0]
+| {Success, Time}
+
+## net-port-open
+# task: is this TCP port open on that host
+# also: nc -z port check listening connect
+# slot host host = example.com
+# slot port number: Which port? = 443
+test_connection("{{host}}"; {TcpPort: {{port}}, Quiet: true})
+
+## net-ports-sweep
+# task: which of these ports are open on the host
+# also: scan sweep several ports probe
+# slot host host = example.com
+[80, 443, 8080, 8443]
+| map({Port: ., Open: test_connection("{{host}}"; {TcpPort: ., TimeoutSeconds: 3, Quiet: true})})
+
+## net-hosts-port-check
+# task: is this port open on each of these hosts
+# also: several hosts one port check batch
+# slot port number: Which port? = 443
+["example.com", "api.github.com"]
+| map({Host: ., Open: test_connection(.; {TcpPort: {{port}}, TimeoutSeconds: 5, Quiet: true})})
+
+## net-ip-classify
+# task: is this IP private, public or loopback
+# also: rfc1918 local internal external address kind
+# slot ip ip = 192.168.1.10
+"{{ip}}"
+| {IP: ., Version: ip_version, Private: is_private_ip, Loopback: is_loopback}
+
+## net-ips-classify
+# task: sort these addresses into private and public
+# also: group classify which are local ips
+["10.0.0.5", "8.8.8.8", "127.0.0.1", "203.0.113.9"]
+| map({IP: ., Private: is_private_ip, Loopback: is_loopback})
+
+## net-ip-version
+# task: is this an ipv4 or ipv6 address
+# also: version v4 v6 family which
+# slot ip ip = 2001:db8::1
+"{{ip}}"
+| ip_version
+
+## net-ipv6-expand
+# task: expand a shortened ipv6 address to its full form
+# also: ipv6 long form expand full
+# slot ip ip = 2001:db8::1
+"{{ip}}"
+| ipv6_expand
+
+## net-ip-to-int
+# task: an IP address as a plain number
+# also: integer convert number ip to int
+# slot ip ip = 192.168.1.1
+"{{ip}}"
+| ip_to_int
+
+## net-int-to-ip
+# task: a number back into an IP address
+# also: convert from integer ip from int
+3232235777
+| int_to_ip
+
+## net-ip-next
+# task: the next address after this one
+# also: increment next neighbor following
+# slot ip ip = 10.0.0.1
+# slot n number: How far ahead? = 5
+"{{ip}}"
+| ip_add({{n}})
+
+## net-ip-valid
+# task: which of these are valid IP addresses at all
+# also: valid check parse is_ip
+["10.0.0.1", "not-an-ip", "8.8.8.8", "999.1.1.1"]
+| map(is_ip)
+
+## net-mac-normalize
+# task: write a MAC address in its canonical form
+# also: mac address normalize colon format clean
+# slot mac text = 00-11-22-33-44-55
+"{{mac}}"
+| mac_normalize
+
+## net-mac-valid
+# task: which of these are valid MAC addresses
+# also: check is_mac hardware address
+["3C:97:0E:1A:2B:3C", "not-a-mac"]
+| map(is_mac)
+
+## net-port-name
+# task: which service usually runs on this port
+# also: port well known name service identify
+# slot port number: Which port? = 443
+{{port}}
+| port_name
+
+## net-cidr-info
+# task: the details of a CIDR block: network, broadcast, first and last host, size
+# also: subnet cidr range mask details net
+# slot cidr cidr = 10.0.0.0/24
+"{{cidr}}"
+| {Network: cidr_network, Broadcast: cidr_broadcast, FirstHost: cidr_first_host, LastHost: cidr_last_host, Addresses: cidr_size}
+
+## net-cidr-size
+# task: how many addresses are in this subnet
+# also: size count block hosts cidr
+# slot cidr cidr = 10.0.0.0/22
+"{{cidr}}"
+| cidr_size
+
+## net-ip-in-cidr
+# task: is this address inside that subnet
+# also: belongs contains within member cidr
+# slot ip ip = 10.1.2.3
+# slot cidr cidr = 10.0.0.0/8
+"{{ip}}"
+| in_cidr("{{cidr}}")
+
+## net-ips-in-cidr
+# task: which of these addresses belong to the subnet
+# also: members inside list filter cidr
+# slot cidr cidr = 10.0.0.0/8
+["10.1.2.3", "8.8.8.8", "10.9.9.9"]
+| map(select(in_cidr("{{cidr}}")))
+
+## net-subnet-of
+# task: is this subnet inside that one
+# also: contained within bigger cidr child
+# slot inner cidr = 10.0.0.0/24
+# slot outer cidr: Inside which bigger block? = 10.0.0.0/8
+"{{inner}}"
+| subnet_of("{{outer}}")
+
+## net-cidr-classify
+# task: label each of these CIDRs as private, public or loopback
+# also: group blocks ranges classify cidr
+["10.0.0.0/8", "0.0.0.0/0", "127.0.0.0/8"]
+| map({CIDR: ., Private: (. | cidr_network | is_private_ip), Loopback: (. | cidr_network | is_loopback)})
+
+## net-serve
+# task: serve a value over HTTP so I can fetch it from elsewhere
+# also: http server share host simple serve web endpoint
+{"message": "hello from pwrq"}
+| http_serve("127.0.0.1"; 8123)
+
+## net-ipv4-or-ipv6
+# task: which of these addresses are ipv4 and which are ipv6
+# also: version v4 v6 family classify addresses
+["192.168.1.1", "2001:db8::1", "10.0.0.5"]
+| map({IP: ., IPv4: is_ipv4, IPv6: is_ipv6})
+
+## net-is-public
+# task: is this a public, internet-routable address
+# also: public routable external internet ip
+# slot ip ip = 8.8.8.8
+"{{ip}}"
+| is_public_ip
+
+## net-reverse-ip
+# task: the reversed form of this address, as dns ptr records use it
+# also: reverse ptr in-addr arpa flip octets
+"192.168.1.1"
+| reverse_ip

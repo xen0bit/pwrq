@@ -1,0 +1,68 @@
+# Chained interactions anchored on a date or duration: age filters
+# feeding file actions, calendars feeding databases, deadlines counted,
+# meeting times in three zones at once.
+
+## chain-time-todays-changes-bundle
+# task: everything changed today, packed into one dated archive
+# also: today changes archive bundle backup daily zip
+[get_childitem(".") | select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0) | select((.LastWriteTime | date_to_timestamp) > (now | start_of_day)) | .FullName]
+| .[0:10]
+| compress_archive(.; "todays-changes-\(now | todate | .[0:10]).zip")
+
+## chain-time-touched-this-week
+# task: files touched this week and how many days old they are
+# also: week recent files age days touched fresh
+get_childitem(".")
+| select(.PwrqType == "Pwrq.FileSystem.File" and .Length > 0)
+| select((.LastWriteTime | date_to_timestamp) > now - 7 * 86400)
+| {File: .Name, AgeDays: (((now - (.LastWriteTime | date_to_timestamp)) / 86400) | round_to(0))}
+
+## chain-time-days-to-db
+# task: these dates with their weekdays, stored in a database
+# also: dates weekday store sqlite calendar days db
+["2026-08-11", "2026-08-12", "2026-09-01"]
+| map({day: ., weekday: weekday})
+| out_sqlite("calendar.db"; "days")
+| .RowCount
+
+## chain-time-durations-summary
+# task: these durations, summarized in plain units
+# also: durations summary stats readable average parse
+["2h30m", "1h15m", "45m"]
+| map(parse_duration)
+| . as $secs
+| {Count: ($secs | length),
+   MeanSeconds: ($secs | mean | round_to(0)),
+   MeanReadable: ($secs | mean | round_to(0) | human_duration)}
+
+## chain-time-ages-table
+# task: these birth dates as an age table
+# also: ages years born table report birthday
+["2000-06-15", "1990-01-01", "2020-05-05"]
+| map({born: ., age: age_in_years})
+| format_table(.)
+
+## chain-time-meeting-zones
+# task: one meeting time shown in london, tokyo and new york at once
+# also: meeting time zones convert three cities world clock
+"2026-08-11T12:00:00Z"
+| {London: to_timezone(.; "Europe/London"), Tokyo: to_timezone(.; "Asia/Tokyo"), NewYork: to_timezone(.; "America/New_York")}
+
+## chain-time-deadlines
+# task: how many days until each deadline
+# also: countdown deadline days remaining due until
+["2026-12-01", "2027-01-15", "2026-11-30"]
+| map({deadline: ., daysLeft: (((. | date_to_timestamp) - now) / 86400 | round_to(0))})
+| sort_by(.daysLeft)
+
+## chain-time-daily-counts-csv
+# task: events per day, written out as a CSV
+# also: daily counts per day csv export save bucket
+cat("events.jsonl")
+| jsonl_parse
+| map(.ts | .[0:10])
+| value_counts
+| to_entries
+| map([.key, (.value | tostring)])
+| csv_stringify
+| out_file("daily-counts.csv")

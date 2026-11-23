@@ -1,0 +1,213 @@
+# The model-assisted workflows: the d1-2B decision model, which runs
+# locally on CPU, answers typed questions about text and media; the LLM
+# cmdlets need a provider key and are validated by the credential error
+# they meet here. Every d1 entry below runs against the real model.
+
+## ai-yes-no
+# task: ask a yes or no question about this text
+# also: does this want refund decision model noul yes no d1
+# slot question phrase: What should be asked? = Does the customer want a refund?
+"my card was charged twice and I want my money back"
+| invoke_systemone({refund: {type: "noul", instructions: "{{question}}"}})
+| .refund.noul
+
+## ai-classify-choice
+# task: which team should handle this ticket
+# also: classify route team choice decision model triage
+"the payment webhook returns 500 and charges are failing"
+| invoke_systemone({team: {type: "choice", instructions: "Which team handles it?", criteria: {billing: "Payments", tech: "Technical", legal: "Legal"}}})
+| .team.choice
+
+## ai-urgency-score
+# task: how urgent is this message, on a scale
+# also: urgency score scale priority rank decision model
+"production is down for all customers since 09:00"
+| invoke_systemone({urgency: {type: "score", instructions: "How urgent?", criteria: ["Can wait", "Today", "Now"]}})
+| .urgency
+
+## ai-read-number
+# task: read the total out of this invoice text
+# also: extract number read invoice total amount
+"invoice from acme corp, total 1240.50 EUR, due in 30 days"
+| invoke_systemone({total: {type: "number", instructions: "What is the invoice total?", unit: "EUR"}})
+| .total
+
+## ai-read-date
+# task: read the date out of this text
+# also: extract date read when issued due
+"the contract was signed on 15 March 2024 and runs for a year"
+| invoke_systemone({signed: {type: "date", instructions: "When was it signed?"}})
+| .signed
+
+## ai-multi-question
+# task: ask two questions about this message at once
+# also: several questions both once multi decision
+"refund requested for order 88, paid by card ending 4421"
+| invoke_systemone({refund: {type: "noul", instructions: "Is a refund wanted?"},
+                    order: {type: "choice", instructions: "Which order?", criteria: {n88: "Order 88", n89: "Order 89", unknown: "Not stated"}}})
+| {refund: .refund.noul, order: .order.choice}
+
+## ai-sentiment
+# task: is this review positive, neutral or negative
+# also: sentiment tone mood review classify opinion
+"the new build cut our latency in half, the team is thrilled"
+| invoke_systemone({sentiment: {type: "choice", instructions: "What is the sentiment?", criteria: {positive: null, neutral: null, negative: null}}})
+| .sentiment.choice
+
+## ai-flag-lines
+# task: flag the lines of a log that are about a failure
+# also: classify flag lines failure filter decision model
+cat("app.log")
+| split("\n")
+| map(select(length > 0))
+| map({line: ., failure: invoke_systemone({q: {type: "noul", instructions: "Is this line about a failure?"}}).q.noul})
+| map(select(.failure > 0.5) | .line)
+
+## ai-batch-questions
+# task: ask one question about each of several items
+# also: batch each many items decision model systemone batch
+["delivery arrived broken", "delivery arrived on time", "still waiting, two weeks late"]
+| map({State: ., Questions: {late: {type: "noul", instructions: "Was this delivery late or broken?"}}})
+| invoke_systemone_batch
+| map(.late.noul)
+
+## ai-image-contains
+# task: does this image contain what I am looking for
+# also: picture photo image vision contains cat d1
+# slot file file = img/cat.png
+# slot subject phrase: What should the image contain? = a cat
+invoke_systemone(null; {q: {type: "noul", instructions: "Does the image contain {{subject}}?"}}; {Media: ["{{file}}"]})
+| .q.noul
+
+## ai-image-rate
+# task: how likely is it that this image shows something
+# also: rate score probability image vision likelihood
+# slot file file = img/cat.png
+# slot subject phrase: What should the image show? = a cat
+invoke_systemone(null; {q: {type: "noul", instructions: "Does the image show {{subject}}?"}}; {Media: ["{{file}}"]})
+| {File: "{{file}}", Probability: .q.noul}
+
+## ai-image-kind
+# task: what kind of image is this, photo, screenshot, drawing or document
+# also: categorize kind type image classify photo screenshot
+# slot file file = img/cat.png
+invoke_systemone({k: {type: "choice", instructions: "What kind of image is this?", criteria: {photo: "A photograph", screenshot: "A screenshot", drawing: "A drawing", document: "A document"}}}; {Media: ["{{file}}"]})
+| .k.choice
+
+## ai-image-count
+# task: count the objects of one kind in this image
+# also: count how many objects boxes vision number
+# slot file file = img/cat.png
+# slot subject phrase: What should be counted? = cups
+invoke_systemone(null; {n: {type: "boxes", instructions: "Every one of: {{subject}}.", max: 8}}; {Media: ["{{file}}"]})
+| .n.count
+
+## ai-video-shows
+# task: does this video show what I expect
+# also: video clip watch contains shows d1 vision
+# slot file file = vid/clip.mp4
+# slot subject phrase: What should the video show? = a person walking
+invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: ["{{file}}"]})
+| .q.noul
+
+## ai-video-when
+# task: find the moments in this video when something happens
+# also: when timestamps segments video moments time
+# slot file file = vid/clip.mp4
+# slot subject phrase: What should the video show? = movement
+invoke_systemone(null; {q: {type: "noul", instructions: "Does the video show {{subject}}?"}}; {Media: [{Type: "video", Path: "{{file}}", Segment: 1}]})
+| .q.segments[]
+| {start, end, noul}
+
+## ai-agent-count-files
+# task: have an agent answer a question about this directory
+# also: agent decide steps autonomous do task
+invoke_agent("how many files are in this directory?")
+
+## ai-agent-outlier
+# task: which row is the outlier, let the agent decide
+# also: agent outlier row which anomaly decide
+[{v: 10}, {v: 12}, {v: 11}, {v: 95}, {v: 10}]
+| invoke_agent("which row is the outlier?"; {MaxSteps: 4})
+
+## ai-llm-ask
+# task: ask a language model a question
+# also: llm gpt claude language model chat ask
+invoke_llm("one word for blue")
+
+## ai-llm-summarize
+# task: summarize this text with a language model
+# also: summarize summary tldr llm condense
+cat("notes.txt")
+| invoke_llm("Summarize this in one sentence:\n\n\(.)")
+
+## ai-llm-structured
+# task: get structured JSON back from a language model
+# also: structured json schema llm extract classify
+invoke_llm("classify this: refund request"; {Schema: {type: "object"}})
+
+## ai-llm-request
+# task: a full llm call with its token usage
+# also: llm request usage tokens full api
+invoke_llm_request("hello")
+| {Content, TotalTokens}
+
+## ai-llm-batch
+# task: run a language model over each item in a list
+# also: llm batch each item summarize list parallel
+["alpha released today", "beta delayed a week"]
+| map("one word sentiment: \(.)")
+| [invoke_llm_batch({ContinueOnError: true})]
+
+## ai-llm-models
+# task: what models can I call
+# also: models list llm providers available which
+get_llm_model
+
+## ai-llm-context
+# task: how many tokens of context does this model have
+# also: context window tokens limit llm how much
+get_llm_context({Model: "anthropic"})
+
+## ai-llm-usage
+# task: how many tokens have I used so far
+# also: usage tokens spent total llm count
+get_llm_usage
+
+## ai-embedding
+# task: turn this sentence into a vector
+# also: embedding vector sentence similarity semantic
+"a sentence about the seaside"
+| invoke_embedding
+
+## ai-embedding-similar
+# task: which of these sentences is closest to the query one
+# also: embedding nearest closest similarity semantic search
+["the cat slept on the mat", "stocks rallied on friday", "a nap in the sun"]
+| map({text: ., vector: invoke_embedding})
+| . as $docs
+| "sleeping in a warm place"
+| invoke_embedding
+| . as $q
+| $docs
+| map(. + {similarity: cosine_similarity(.vector; $q)})
+| sort_by(-.similarity)
+| map({text, similarity})
+| .[0]
+
+## ai-systemone-status
+# task: where will the decision model run and how fast did it load
+# also: systemone status device gpu fallback load info model
+get_systemone
+| {Device, Fallback, Gpu, LoadSeconds}
+
+## ai-systemone-request
+# task: one raw systemone request, with the response shape spelled out
+# also: systemone request raw direct api decision
+"the payment failed and I want a refund"
+| invoke_systemone_request({refund: {type: "noul", instructions: "Does the customer want a refund?"}})
+
+## ai-agent-request
+# task: an agent run with the full response, steps and all
+# also: agent request raw steps response trace full
+invoke_agent_request("how many files are in this directory?")
